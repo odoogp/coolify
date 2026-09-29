@@ -2,7 +2,7 @@
     @php
         $databasePageItems = [
             [
-                'label' => 'Settings',
+                'label' => __('Settings'),
                 'route' => 'project.database.configuration',
                 'active' => request()->routeIs('project.database.configuration')
                     || request()->routeIs('project.database.environment-variables')
@@ -18,19 +18,19 @@
                     || request()->routeIs('project.database.danger'),
             ],
             [
-                'label' => 'Backups',
+                'label' => __('Backups'),
                 'route' => 'project.database.backup.index',
                 'active' => request()->routeIs('project.database.backup.*'),
                 'visible' => $database->isBackupSolutionAvailable(),
             ],
             [
-                'label' => 'Runtime Logs',
+                'label' => __('Runtime Logs'),
                 'route' => 'project.database.logs',
                 'active' => request()->routeIs('project.database.logs'),
                 'navigate' => false,
             ],
             [
-                'label' => 'Terminal',
+                'label' => __('Terminal'),
                 'route' => 'project.database.command',
                 'active' => request()->routeIs('project.database.command'),
                 'navigate' => false,
@@ -63,7 +63,7 @@
                 <h1 class="min-w-0 max-w-full truncate text-[24px]! leading-7! font-semibold! tracking-tight! text-black dark:text-fg">
                     {{ $database->name }}
                 </h1>
-                <x-status-summary :status="$database->status" title="Database status" />
+                <x-status-summary :status="$database->status" title="{{ __('Database status') }}" />
             </div>
         </div>
 
@@ -76,7 +76,7 @@
                     <button type="button" class="button w-full justify-between" @click="open = !open"
                         :aria-expanded="open" aria-haspopup="menu">
                         <span class="inline-flex items-center gap-2">
-                            Actions
+                            {{ __('Actions') }}
                         </span>
                         <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
                             <x-reicon name="chevron-down" class="size-3 opacity-55" />
@@ -91,24 +91,24 @@
                                     @click="open = false; document.getElementById('database-restart-trigger')?.click()"
                                     role="menuitem">
                                     <x-reicon name="restart" class="size-3.5 opacity-70" />
-                                    Restart
+                                    {{ __('Restart') }}
                                 </button>
                                 <button type="button" class="listbox-option justify-start! gap-2.5!"
                                     @click="open = false; document.getElementById('database-stop-trigger')?.click()"
                                     role="menuitem">
                                     <x-reicon name="stop" class="size-3.5 text-error" />
-                                    Stop
+                                    {{ __('Stop') }}
                                 </button>
                             @else
                                 <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
                                     role="menuitem">
                                     <x-reicon name="restart" class="size-3.5 opacity-70" />
-                                    Restart
+                                    {{ __('Restart') }}
                                 </button>
                                 <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
                                     role="menuitem">
                                     <x-reicon name="stop" class="size-3.5 opacity-70" />
-                                    Stop
+                                    {{ __('Stop') }}
                                 </button>
                             @endcan
                         @else
@@ -116,13 +116,13 @@
                                 <button type="button" class="listbox-option justify-start! gap-2.5!"
                                     @click="open = false; $wire.dispatch('startEvent')" role="menuitem">
                                     <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                                    Start
+                                    {{ __('Start') }}
                                 </button>
                             @else
                                 <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
                                     role="menuitem">
                                     <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                                    Start
+                                    {{ __('Start') }}
                                 </button>
                             @endcan
                         @endif
@@ -145,17 +145,17 @@
                                 <button type="button" class="button button-highlighted"
                                     @disabled(!auth()->user()->can('manage', $database))
                                     @click="document.getElementById('database-restart-trigger')?.click()">
-                                    Restart
+                                    {{ __('Restart') }}
                                 </button>
                                 <button type="button" class="button"
                                     @disabled(!auth()->user()->can('manage', $database))
                                     @click="document.getElementById('database-stop-trigger')?.click()">
-                                    Stop
+                                    {{ __('Stop') }}
                                 </button>
                             @else
                                 <x-forms.button class="button-highlighted" canGate="manage" :canResource="$database"
                                     @click="$wire.dispatch('startEvent')">
-                                    Start
+                                    {{ __('Start') }}
                                 </x-forms.button>
                             @endif
                         </div>
@@ -172,17 +172,17 @@
 
     @if ($database->destination->server->isFunctional())
         <div class="hidden" aria-hidden="true">
-            <x-modal-confirmation title="Confirm Database Restart?" buttonTitle="Restart"
+            <x-modal-confirmation title="{{ __('Confirm Database Restart?') }}" buttonTitle="Restart"
                 submitAction="restartEvent" :actions="[
                     'This database will be unavailable during the restart.',
                     'If the database is currently in use, data could be lost.',
                 ]" :confirmWithText="false" :confirmWithPassword="false" step2ButtonText="Restart Database"
                 :dispatchAction="true">
                 <x-slot:trigger>
-                    <button id="database-restart-trigger" type="button">Restart</button>
+                    <button id="database-restart-trigger" type="button">{{ __('Restart') }}</button>
                 </x-slot:trigger>
             </x-modal-confirmation>
-            <x-modal-confirmation title="Confirm Database Stopping?" buttonTitle="Stop" submitAction="stop"
+            <x-modal-confirmation title="{{ __('Confirm Database Stopping?') }}" buttonTitle="Stop" submitAction="stop"
                 :checkboxes="$checkboxes" :actions="[
                     'This database will be stopped.',
                     'If the database is currently in use, data could be lost.',
@@ -190,7 +190,7 @@
                 ]" :confirmWithText="false" :confirmWithPassword="false"
                 step1ButtonText="Continue" step2ButtonText="Confirm">
                 <x-slot:trigger>
-                    <button id="database-stop-trigger" type="button">Stop</button>
+                    <button id="database-stop-trigger" type="button">{{ __('Stop') }}</button>
                 </x-slot:trigger>
             </x-modal-confirmation>
         </div>

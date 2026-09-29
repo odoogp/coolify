@@ -23,5 +23,8 @@
                 </footer>
             @endisset
         </div>
+        <div class="mt-4">
+            <x-locale-switcher variant="compact" />
+        </div>
     </div>
 </section>

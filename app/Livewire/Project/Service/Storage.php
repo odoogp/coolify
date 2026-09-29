@@ -82,7 +82,7 @@ class Storage extends Component
     public function refreshStoragesFromEvent()
     {
         $this->refreshStorages();
-        $this->dispatch('warning', 'File storage changed. Usually it means that the file / directory is already defined on the server, so Coolify set it up for you properly on the UI.');
+        $this->dispatch('warning', __('File storage changed. Usually it means that the file / directory is already defined on the server, so Coolify set it up for you properly on the UI.'));
     }
 
     public function refreshStorages()
@@ -221,7 +221,7 @@ class Storage extends Component
             $this->activeTab = 'volumes';
             $this->refreshStorages();
             $this->dispatch('configurationChanged');
-            $this->dispatch('success', 'Volume added successfully');
+            $this->dispatch('success', __('Volume added successfully'));
             $this->dispatch('closeStorageModal', 'volume');
             $this->dispatch('refreshStorages');
         } catch (\Throwable $e) {
@@ -256,7 +256,7 @@ class Storage extends Component
             $this->activeTab = 'files';
             $this->refreshStorages();
             $this->dispatch('configurationChanged');
-            $this->dispatch('success', 'File mount added successfully');
+            $this->dispatch('success', __('File mount added successfully'));
             $this->dispatch('closeStorageModal', 'file');
             $this->dispatch('refreshStorages');
         } catch (\Throwable $e) {
@@ -291,7 +291,7 @@ class Storage extends Component
             $this->activeTab = 'files';
             $this->refreshStorages();
             $this->dispatch('configurationChanged');
-            $this->dispatch('success', 'Host file mount added successfully');
+            $this->dispatch('success', __('Host file mount added successfully'));
             $this->dispatch('closeStorageModal', 'host-file');
             $this->dispatch('refreshStorages');
         } catch (\Throwable $e) {
@@ -330,7 +330,7 @@ class Storage extends Component
             $this->activeTab = 'directories';
             $this->refreshStorages();
             $this->dispatch('configurationChanged');
-            $this->dispatch('success', 'Directory mount added successfully');
+            $this->dispatch('success', __('Directory mount added successfully'));
             $this->dispatch('closeStorageModal', 'directory');
             $this->dispatch('refreshStorages');
         } catch (\Throwable $e) {

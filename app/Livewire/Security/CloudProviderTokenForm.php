@@ -99,7 +99,7 @@ class CloudProviderTokenForm extends Component
         try {
             // Validate the token with the provider's API
             if (! $this->validateToken($this->provider, $this->token)) {
-                return $this->dispatch('error', 'Invalid API token. Please check your token and try again.');
+                return $this->dispatch('error', __('Invalid API token. Please check your token and try again.'));
             }
 
             $description = trim($this->description ?? '');
@@ -138,7 +138,7 @@ class CloudProviderTokenForm extends Component
                 $this->dispatch('close-modal');
             }
 
-            $this->dispatch('success', 'Cloud provider token added successfully.');
+            $this->dispatch('success', __('Cloud provider token added successfully.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

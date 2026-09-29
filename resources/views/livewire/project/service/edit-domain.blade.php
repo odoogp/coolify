@@ -4,25 +4,25 @@
             <x-callout type="info" title="Required Port: {{ $requiredPort }}" class="mb-2">
                 This service requires port <strong>{{ $requiredPort }}</strong> to function correctly. All domains must include this port number (or any other port if you know what you're doing).
                 <br><br>
-                <strong>Example:</strong> https://app.coolify.io:{{ $requiredPort }},https://www.app.coolify.io:{{ $requiredPort }}
+                <strong>{{ __('Example:') }}</strong> https://app.coolify.io:{{ $requiredPort }},https://www.app.coolify.io:{{ $requiredPort }}
             </x-callout>
         @endif
 
-        <x-forms.domain-chips model="fqdn" label="Domains"
+        <x-forms.domain-chips model="fqdn" label="{{ __('Domains') }}"
             :can-update="auth()->user()->can('update', $application)"
             :disabled="! auth()->user()->can('update', $application)" />
         <div class="flex justify-end border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-            <x-forms.button canGate="update" :canResource="$application" type="submit">Save domain</x-forms.button>
+            <x-forms.button canGate="update" :canResource="$application" type="submit">{{ __('Save domain') }}</x-forms.button>
         </div>
     </form>
 
     <x-domain-conflict-modal :conflicts="$domainConflicts" :showModal="$showDomainConflictModal" confirmAction="confirmDomainUsage">
         <x-slot:consequences>
             <ul class="mt-2 ml-4 list-disc">
-                <li>Only one service will be accessible at this domain</li>
-                <li>The routing behavior will be unpredictable</li>
-                <li>You may experience service disruptions</li>
-                <li>SSL certificates might not work correctly</li>
+                <li>{{ __('Only one service will be accessible at this domain') }}</li>
+                <li>{{ __('The routing behavior will be unpredictable') }}</li>
+                <li>{{ __('You may experience service disruptions') }}</li>
+                <li>{{ __('SSL certificates might not work correctly') }}</li>
             </ul>
         </x-slot:consequences>
     </x-domain-conflict-modal>
@@ -44,35 +44,35 @@
                         class="application-settings-form application-settings-section relative w-full lg:min-w-[36rem] lg:max-w-2xl"
                         style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
                         <header>
-                            <h3>Remove required port?</h3>
+                            <h3>{{ __('Remove required port?') }}</h3>
                             <button @click="modalOpen = false; $wire.call('cancelRemovePort')"
                                 class="flex size-7 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg">
                                 <x-reicon name="x" class="size-4" />
                             </button>
                         </header>
                         <div class="application-settings-section-body">
-                            <x-callout type="warning" title="Port requirement" class="mb-4">
+                            <x-callout type="warning" title="{{ __('Port requirement') }}" class="mb-4">
                                 This service requires port <strong>{{ $requiredPort }}</strong> to function correctly.
-                                One or more of your domains are missing a port number.
+                                {{ __('One or more of your domains are missing a port number.') }}
                             </x-callout>
 
-                            <x-callout type="danger" title="What will happen if you continue?" class="mb-4">
+                            <x-callout type="danger" title="{{ __('What will happen if you continue?') }}" class="mb-4">
                                 <ul class="mt-2 ml-4 list-disc">
-                                    <li>The service may become unreachable</li>
-                                    <li>The proxy may not be able to route traffic correctly</li>
-                                    <li>Environment variables may not be generated properly</li>
-                                    <li>The service may fail to start or function</li>
+                                    <li>{{ __('The service may become unreachable') }}</li>
+                                    <li>{{ __('The proxy may not be able to route traffic correctly') }}</li>
+                                    <li>{{ __('Environment variables may not be generated properly') }}</li>
+                                    <li>{{ __('The service may fail to start or function') }}</li>
                                 </ul>
                             </x-callout>
 
                             <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                 <x-forms.button @click="modalOpen = false; $wire.call('cancelRemovePort')"
                                     class="w-auto">
-                                    Keep port
+                                    {{ __('Keep port') }}
                                 </x-forms.button>
                                 <x-forms.button wire:click="confirmRemovePort" @click="modalOpen = false" class="w-auto"
                                     isError>
-                                    Remove port anyway
+                                    {{ __('Remove port anyway') }}
                                 </x-forms.button>
                             </div>
                         </div>

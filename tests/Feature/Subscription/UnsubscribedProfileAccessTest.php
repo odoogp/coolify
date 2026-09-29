@@ -65,7 +65,7 @@ test('unsubscribed cloud sidebar shows subscription link at the top of the list'
     $html = $response->getContent();
 
     expect($html)
-        ->toContain('title="Subscription"')
+        ->toContain('title="{{ __(\'Subscription\') }}"')
         ->toContain(route('subscription.index'))
         ->toContain('>Subscription</span>')
         ->toContain('Account')

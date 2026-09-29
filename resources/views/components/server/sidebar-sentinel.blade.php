@@ -1,13 +1,13 @@
 @php
     $sentinelMenuItems = [
         [
-            'label' => 'Configuration',
+            'label' => __('Configuration'),
             'route' => 'server.sentinel',
             'active' => request()->routeIs('server.sentinel'),
             'icon' => 'settings',
         ],
         [
-            'label' => 'Logs',
+            'label' => __('Logs'),
             'route' => 'server.sentinel.logs',
             'active' => request()->routeIs('server.sentinel.logs'),
             'icon' => 'file-content',
@@ -17,9 +17,9 @@
 
 <aside class="application-settings-navigation min-w-0 xl:self-start">
     @can('viewSentinel', $server)
-        <nav aria-label="Sentinel sections"
+        <nav aria-label="{{ __('Sentinel sections') }}"
             class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
-            <div class="nav-section hidden xl:block">Sentinel</div>
+            <div class="nav-section hidden xl:block">{{ __('Sentinel') }}</div>
             @foreach ($sentinelMenuItems as $menuItem)
                 <a wire:key="server-sentinel-link-{{ str($menuItem['label'])->slug() }}"
                     @class([

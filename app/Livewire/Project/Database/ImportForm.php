@@ -391,13 +391,13 @@ EOD;
         if (filled($this->customLocation)) {
             // Validate the custom location to prevent command injection
             if (! $this->validateServerPath($this->customLocation)) {
-                $this->dispatch('error', 'Invalid file path. Path must be absolute and contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).');
+                $this->dispatch('error', __('Invalid file path. Path must be absolute and contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).'));
 
                 return;
             }
 
             if (! $this->server) {
-                $this->dispatch('error', 'Server not found. Please refresh the page.');
+                $this->dispatch('error', __('Server not found. Please refresh the page.'));
 
                 return;
             }
@@ -406,12 +406,12 @@ EOD;
                 $escapedPath = escapeshellarg($this->customLocation);
                 $result = instant_remote_process(["ls -l {$escapedPath}"], $this->server, throwError: false);
                 if (blank($result)) {
-                    $this->dispatch('error', 'The file does not exist or has been deleted.');
+                    $this->dispatch('error', __('The file does not exist or has been deleted.'));
 
                     return;
                 }
                 $this->filename = $this->customLocation;
-                $this->dispatch('success', 'The file exists.');
+                $this->dispatch('success', __('The file exists.'));
             } catch (\Throwable $e) {
                 return handleError($e, $this);
             }
@@ -427,19 +427,19 @@ EOD;
         $this->authorize('update', $this->resource);
 
         if (! ValidationPatterns::isValidContainerName($this->container)) {
-            $this->dispatch('error', 'Invalid container name.');
+            $this->dispatch('error', __('Invalid container name.'));
 
             return true;
         }
 
         if ($this->filename === '') {
-            $this->dispatch('error', 'Please select a file to import.');
+            $this->dispatch('error', __('Please select a file to import.'));
 
             return true;
         }
 
         if (! $this->server) {
-            $this->dispatch('error', 'Server not found. Please refresh the page.');
+            $this->dispatch('error', __('Server not found. Please refresh the page.'));
 
             return true;
         }
@@ -456,7 +456,7 @@ EOD;
                 // Reject malicious PostgreSQL payloads before transferring the file anywhere.
                 if ($this->isPostgresqlRestore() && DatabaseBackupFileValidator::fileContainsPostgresqlProgramExecution($path)) {
                     Storage::delete($backupFileName);
-                    $this->dispatch('error', 'The uploaded backup contains disallowed PostgreSQL restore directives (COPY ... PROGRAM or psql shell commands) and was rejected.');
+                    $this->dispatch('error', __('The uploaded backup contains disallowed PostgreSQL restore directives (COPY ... PROGRAM or psql shell commands) and was rejected.'));
 
                     return true;
                 }
@@ -469,7 +469,7 @@ EOD;
             } elseif (filled($this->customLocation)) {
                 // Validate the custom location to prevent command injection
                 if (! $this->validateServerPath($this->customLocation)) {
-                    $this->dispatch('error', 'Invalid file path. Path must be absolute and contain only safe characters.');
+                    $this->dispatch('error', __('Invalid file path. Path must be absolute and contain only safe characters.'));
 
                     return true;
                 }
@@ -478,7 +478,7 @@ EOD;
                 $this->importCommands[] = "docker cp {$escapedCustomLocation} {$this->container}:{$tmpPath}";
                 $this->addRestoreSafetyCheckCommand($this->importCommands, $tmpPath);
             } else {
-                $this->dispatch('error', 'The file does not exist or has been deleted.');
+                $this->dispatch('error', __('The file does not exist or has been deleted.'));
 
                 return true;
             }
@@ -556,13 +556,13 @@ EOD;
     public function checkS3File()
     {
         if (! $this->s3StorageId) {
-            $this->dispatch('error', 'Please select an S3 storage.');
+            $this->dispatch('error', __('Please select an S3 storage.'));
 
             return;
         }
 
         if (blank($this->s3Path)) {
-            $this->dispatch('error', 'Please provide an S3 path.');
+            $this->dispatch('error', __('Please provide an S3 path.'));
 
             return;
         }
@@ -572,7 +572,7 @@ EOD;
 
         // Validate the S3 path early to prevent command injection in subsequent operations
         if (! $this->validateS3Path($cleanPath)) {
-            $this->dispatch('error', 'Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).');
+            $this->dispatch('error', __('Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).'));
 
             return;
         }
@@ -582,7 +582,7 @@ EOD;
 
             // Validate bucket name early
             if (! $this->validateBucketName($s3Storage->bucket)) {
-                $this->dispatch('error', 'Invalid S3 bucket name. Bucket name must contain only lowercase letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.');
+                $this->dispatch('error', __('Invalid S3 bucket name. Bucket name must contain only lowercase letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.'));
 
                 return;
             }
@@ -604,7 +604,7 @@ EOD;
 
             // Check if file exists
             if (! $disk->exists($cleanPath)) {
-                $this->dispatch('error', 'File not found in S3. Please check the path.');
+                $this->dispatch('error', __('File not found in S3. Please check the path.'));
 
                 return;
             }
@@ -629,25 +629,25 @@ EOD;
         $this->authorize('update', $this->resource);
 
         if (! ValidationPatterns::isValidContainerName($this->container)) {
-            $this->dispatch('error', 'Invalid container name.');
+            $this->dispatch('error', __('Invalid container name.'));
 
             return true;
         }
 
         if (! $this->s3StorageId || blank($this->s3Path)) {
-            $this->dispatch('error', 'Please select S3 storage and provide a path first.');
+            $this->dispatch('error', __('Please select S3 storage and provide a path first.'));
 
             return true;
         }
 
         if (is_null($this->s3FileSize)) {
-            $this->dispatch('error', 'Please check the file first by clicking "Check File".');
+            $this->dispatch('error', __('Please check the file first by clicking "Check File".'));
 
             return true;
         }
 
         if (! $this->server) {
-            $this->dispatch('error', 'Server not found. Please refresh the page.');
+            $this->dispatch('error', __('Server not found. Please refresh the page.'));
 
             return true;
         }
@@ -664,7 +664,7 @@ EOD;
 
             // Validate bucket name to prevent command injection
             if (! $this->validateBucketName($bucket)) {
-                $this->dispatch('error', 'Invalid S3 bucket name. Bucket name must contain only lowercase letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.');
+                $this->dispatch('error', __('Invalid S3 bucket name. Bucket name must contain only lowercase letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.'));
 
                 return true;
             }
@@ -674,7 +674,7 @@ EOD;
 
             // Validate the S3 path to prevent command injection
             if (! $this->validateS3Path($cleanPath)) {
-                $this->dispatch('error', 'Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).');
+                $this->dispatch('error', __('Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).'));
 
                 return true;
             }
@@ -768,7 +768,7 @@ EOD;
             // Dispatch activity to the monitor and open slide-over
             $this->dispatch('activityMonitor', $activity->id);
             $this->dispatch('databaserestore');
-            $this->dispatch('info', 'Restoring database from S3. Progress will be shown in the activity monitor...');
+            $this->dispatch('info', __('Restoring database from S3. Progress will be shown in the activity monitor...'));
         } catch (\Throwable $e) {
             $this->importRunning = false;
             handleError($e, $this);

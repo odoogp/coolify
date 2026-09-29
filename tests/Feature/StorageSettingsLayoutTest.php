@@ -54,7 +54,7 @@ it('places the storage name and connection status in breadcrumbs and delete in t
         ->toContain('{{ $title }}')
         ->not->toContain('name="check-circle"');
     expect(file_get_contents(resource_path('views/livewire/storage/index.blade.php')))
-        ->toContain('label="Connected"')
+        ->toContain('label="{{ __(\'Connected\') }}"')
         ->not->toContain('label="Ready"');
 
     expect($navbar)

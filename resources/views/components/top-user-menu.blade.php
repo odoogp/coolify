@@ -4,7 +4,7 @@
 
 @php
     $user = auth()->user();
-    $userName = $user?->name ?? 'Account';
+    $userName = $user?->name ?? __('Account');
     $userEmail = $user?->email ?? '';
     $userInitial = strtoupper(mb_substr($user?->name ?: ($user?->email ?: 'A'), 0, 1));
 @endphp
@@ -71,7 +71,7 @@
 }" @avatar-updated.window="avatarUrl = $event.detail.url" @keydown.escape.window="closePanel()"
     @click.outside="closePanel()">
     <button type="button" @click="open ? closePanel() : openPanel()"
-        title="{{ $userName }}" aria-label="Account menu for {{ $userName }}"
+        title="{{ $userName }}" aria-label="{{ __('Account menu for :name', ['name' => $userName]) }}"
         @if ($sidebar) :class="collapsed && 'w-8 justify-center px-0'" @endif
         @class([
             'flex h-8 items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-100 px-2 shadow-sm transition-colors hover:bg-neutral-200 dark:border-white/[0.08] dark:bg-white/[0.06] dark:hover:bg-white/[0.1]',
@@ -109,14 +109,14 @@
         <a href="{{ route('profile') }}" {{ wireNavigate() }} class="listbox-option">
             <span class="flex items-center gap-2">
                 <x-reicon name="profile" class="size-4 opacity-80" />
-                Profile
+                {{ __('Profile') }}
             </span>
         </a>
         <button type="button" class="listbox-option w-full" @click="appearanceOpen = !appearanceOpen"
             :aria-expanded="appearanceOpen">
             <span class="flex items-center gap-2">
                 <x-reicon name="settings" class="size-4 opacity-80" />
-                Appearance
+                {{ __('Appearance') }}
             </span>
             <svg class="size-3.5 text-neutral-400 transition-transform dark:text-fg-faint"
                 :class="appearanceOpen && 'rotate-180'" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -126,10 +126,10 @@
         </button>
         <div x-show="appearanceOpen" x-collapse class="mx-1 grid gap-0.5 pb-1 pl-6">
             @foreach ([
-                ['value' => 'light', 'label' => 'Light'],
-                ['value' => 'system', 'label' => 'System'],
-                ['value' => 'dark', 'label' => 'Dark'],
-                ['value' => 'custom', 'label' => 'Custom'],
+                ['value' => 'light', 'label' => __('Light')],
+                ['value' => 'system', 'label' => __('System')],
+                ['value' => 'dark', 'label' => __('Dark')],
+                ['value' => 'custom', 'label' => __('Custom')],
             ] as $option)
                 @if ($option['value'] === 'custom')
                     <div
@@ -137,7 +137,7 @@
                         <span class="flex items-center gap-2">
                             <span class="size-3.5 rounded-full border border-white/20"
                                 :style="`background: ${themeColor}`"></span>
-                            Custom
+                            {{ __('Custom') }}
                         </span>
                         <svg x-show="theme === 'custom'" class="size-3.5 text-coollabs dark:text-warning"
                             viewBox="0 0 12 12" fill="none" aria-hidden="true">
@@ -146,7 +146,7 @@
                         </svg>
                         <input type="color" :value="themeColor" @input="previewThemeColor($event.target.value)"
                             @change="saveThemeColor($event.target.value)"
-                            aria-label="Custom theme color"
+                            aria-label="{{ __('Custom theme color') }}"
                             class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
                     </div>
                 @else
@@ -164,11 +164,11 @@
             @endforeach
             <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
             <div class="px-2 pt-1 pb-0.5 text-[10px] font-medium tracking-wide text-neutral-400 uppercase dark:text-fg-faint">
-                Page width
+                {{ __('Page width') }}
             </div>
             @foreach ([
-                ['value' => 'full', 'label' => 'Full width'],
-                ['value' => 'centered', 'label' => 'Centered'],
+                ['value' => 'full', 'label' => __('Full width')],
+                ['value' => 'centered', 'label' => __('Centered')],
             ] as $option)
                 <button type="button" @click="setWidth('{{ $option['value'] }}')"
                     class="flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
@@ -184,20 +184,25 @@
         </div>
 
         <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
+        <div class="mx-1 grid gap-0.5 pb-1">
+            <x-locale-switcher />
+        </div>
+
+        <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
 
         <livewire:settings-dropdown trigger="account-menu" />
         <a href="https://coolify.io/docs" target="_blank" rel="noopener noreferrer" class="listbox-option">
             <span class="flex items-center gap-2">
                 <x-reicon name="documentation" class="size-4 opacity-80" />
-                Documentation
+                {{ __('Documentation') }}
             </span>
         </a>
-        <x-modal-input title="How can we help?">
+        <x-modal-input title="{{ __('How can we help?') }}">
             <x-slot:content>
                 <div class="listbox-option cursor-pointer" @click="closePanel()">
                     <span class="flex items-center gap-2">
                         <x-reicon name="feedback" class="size-4 opacity-80" />
-                        Feedback
+                        {{ __('Feedback') }}
                     </span>
                 </div>
             </x-slot:content>
@@ -208,7 +213,7 @@
                 class="listbox-option">
                 <span class="flex items-center gap-2">
                     <x-reicon name="sponsor" class="size-4 text-pink-500" />
-                    Sponsor us
+                    {{ __('Sponsor us') }}
                 </span>
             </a>
         @endif
@@ -220,7 +225,7 @@
             <button type="submit" class="listbox-option w-full text-left text-error dark:text-error">
                 <span class="flex items-center gap-2">
                     <x-reicon name="logout" class="size-4 opacity-90" />
-                    Log out
+                    {{ __('Log out') }}
                 </span>
             </button>
         </form>

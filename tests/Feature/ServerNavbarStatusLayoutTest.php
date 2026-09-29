@@ -13,7 +13,7 @@ it('collapses server subsystem badges into one status summary', function () {
         ->toContain("['Attention required', 'warning']")
         ->toContain("['Ready', 'success']")
         ->toContain('System status')
-        ->toContain('aria-label="Refresh status"')
+        ->toContain('aria-label="{{ __(\'Refresh status\') }}"')
         ->toContain('<x-reicon name="chevron-down"')
         ->toContain(":class=\"open && 'rotate-180'\"")
         ->toContain('wire:click="checkProxyStatus"')
@@ -36,7 +36,7 @@ it('uses the branded input focus state for the server filter', function () {
     $navbarView = file_get_contents(resource_path('views/livewire/server/navbar.blade.php'));
 
     expect($navbarView)
-        ->toContain('placeholder="Filter servers…"')
+        ->toContain('placeholder="{{ __(\'Filter servers…\') }}"')
         ->toContain('class="input h-7!')
         ->toContain('<x-reicon name="check-circle"')
         ->not->toContain('<x-reicon name="check"');

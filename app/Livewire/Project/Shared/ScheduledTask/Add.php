@@ -86,7 +86,7 @@ class Add extends Component
             $this->validate();
             $isValid = validate_cron_expression($this->frequency);
             if (! $isValid) {
-                $this->dispatch('error', 'Invalid Cron / Human expression.');
+                $this->dispatch('error', __('Invalid Cron / Human expression.'));
 
                 return;
             }
@@ -126,7 +126,7 @@ class Add extends Component
             }
             $task->save();
             $this->dispatch('refreshTasks');
-            $this->dispatch('success', 'Scheduled task added.');
+            $this->dispatch('success', __('Scheduled task added.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

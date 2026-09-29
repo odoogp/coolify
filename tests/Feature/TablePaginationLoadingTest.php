@@ -6,7 +6,7 @@ it('renders the shared page size selector', function () {
     $html = Blade::render('<x-page-size-select model="perPage" livewire storage-key="tests.page-size" />');
 
     expect($html)
-        ->toContain('aria-label="Items per page"')
+        ->toContain('aria-label="{{ __(\'Items per page\') }}"')
         ->toContain('aria-haspopup="listbox"')
         ->toContain('role="listbox"')
         ->toContain("\$wire.set('perPage'")
@@ -52,8 +52,8 @@ it('renders compact client-side pagination', function () {
         ->toContain('1-10 of 20')
         ->toContain('pageSize = pageSizeValue')
         ->toContain("localStorage.getItem('tests.page-size')")
-        ->toContain('aria-label="Previous page"')
-        ->toContain('aria-label="Next page"')
+        ->toContain('aria-label="{{ __(\'Previous page\') }}"')
+        ->toContain('aria-label="{{ __(\'Next page\') }}"')
         ->not->toContain('aria-label="First page"')
         ->not->toContain('aria-label="Last page"');
 });
@@ -85,7 +85,7 @@ it('renders loading indicators for livewire page navigation', function () {
         ->toContain('Loading page…')
         ->toContain('wire:click="previousPage"')
         ->toContain('wire:click="nextPage"')
-        ->toContain('aria-label="Next page"')
+        ->toContain('aria-label="{{ __(\'Next page\') }}"')
         ->not->toContain('aria-label="First page"')
         ->not->toContain('aria-label="Last page"');
 

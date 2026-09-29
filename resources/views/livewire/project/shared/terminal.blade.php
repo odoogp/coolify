@@ -15,8 +15,8 @@
     @if (!$hasShell)
         @if ($isApplicationConsole)
             <div class="flex h-full min-h-[32rem] items-center justify-center">
-                <x-empty size="lg" title="Shell unavailable"
-                    description="This container does not include Bash or sh. Install a supported shell to use the terminal."
+                <x-empty size="lg" title="{{ __('Shell unavailable') }}"
+                    description="{{ __('This container does not include Bash or sh. Install a supported shell to use the terminal.') }}"
                     icon-name="browser-terminal" />
             </div>
         @else
@@ -28,7 +28,7 @@
                                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                         <div class="text-center">
-                            <h3 class="text-lg font-medium">Terminal Not Available</h3>
+                            <h3 class="text-lg font-medium">{{ __('Terminal Not Available') }}</h3>
                             <p class="mt-2 text-sm text-neutral-300">No shell (bash/sh) is available in this container.
                                 Please ensure either bash or sh is installed to use the terminal.</p>
                         </div>
@@ -83,7 +83,7 @@
             <div class="terminal-key-row mx-auto flex max-w-3xl gap-1.5 overflow-x-auto whitespace-nowrap rounded-lg px-2 py-1.5 text-white [scrollbar-width:thin]">
                 <button type="button" class="terminal-mobile-key" x-on:click="pasteFromClipboard()">paste</button>
                 <button type="button" class="terminal-mobile-key" x-on:click="copyTerminalSelection()">copy</button>
-                <button type="button" class="terminal-mobile-key" x-on:click="sendTerminalControl('escape')">ESC</button>
+                <button type="button" class="terminal-mobile-key" x-on:click="sendTerminalControl('escape')">{{ __('ESC') }}</button>
                 <button type="button" class="terminal-mobile-key" x-on:click="sendTerminalControl('tab')">tab</button>
                 <button type="button" class="terminal-mobile-key"
                     :class="terminalModifier === 'ctrl' ? 'border-white/35 bg-white/20 text-white' : ''"
@@ -104,7 +104,7 @@
         </div>
 
         {{-- Enter/exit use identical chrome so toggle does not jump size or gain/lose a box. --}}
-        <button type="button" title="Exit fullscreen" x-cloak x-show="fullscreen"
+        <button type="button" title="{{ __('Exit fullscreen') }}" x-cloak x-show="fullscreen"
             class="terminal-fullscreen-btn fixed top-3 right-3 z-[100001]"
             x-on:click="makeFullscreen">
             <svg class="size-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -112,7 +112,7 @@
                     stroke-linecap="round" stroke-linejoin="round" />
             </svg>
         </button>
-        <button type="button" title="Fullscreen" x-cloak x-show="!fullscreen && terminalActive"
+        <button type="button" title="{{ __('Fullscreen') }}" x-cloak x-show="!fullscreen && terminalActive"
             @class([
                 'terminal-fullscreen-btn absolute z-20',
                 'right-2 top-2 opacity-100 sm:opacity-0 sm:group-hover/terminal:opacity-100 sm:focus-visible:opacity-100' => $isApplicationConsole,

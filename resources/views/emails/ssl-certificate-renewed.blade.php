@@ -1,7 +1,7 @@
 <x-emails.layout>
-<h2>SSL Certificates Renewed</h2>
+<h2>{{ __('SSL Certificates Renewed') }}</h2>
 
-<p>SSL certificates have been renewed for the following resources:</p>
+<p>{{ __('SSL certificates have been renewed for the following resources:') }}</p>
 
 <ul>
 @foreach($resources as $resource)
@@ -13,11 +13,11 @@
     <strong>⚠️ Action Required:</strong> These resources need to be redeployed manually for the new SSL certificates to take effect. Please do this in the next few days to ensure your database connections remain accessible.
 </div>
 
-<p>The old SSL certificates will remain valid for approximately 14 more days, as we renew certificates 14 days before their expiration.</p>
+<p>{{ __('The old SSL certificates will remain valid for approximately 14 more days, as we renew certificates 14 days before their expiration.') }}</p>
 
 @if(isset($urls) && count($urls) > 0)
 <div style="margin-top: 20px;">
-    <p>You can redeploy these resources here:</p>
+    <p>{{ __('You can redeploy these resources here:') }}</p>
     <ul>
     @foreach($urls as $name => $url)
         <li><a href="{{ $url }}">{{ $name }}</a></li>

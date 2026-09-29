@@ -69,7 +69,7 @@ class StartMongodb
             }
 
             if (! $caCert) {
-                $this->dispatch('error', 'No CA certificate found for this database. Please generate a CA certificate for this server in the server/advanced page.');
+                $this->dispatch('error', __('No CA certificate found for this database. Please generate a CA certificate for this server in the server/advanced page.'));
 
                 return;
             }

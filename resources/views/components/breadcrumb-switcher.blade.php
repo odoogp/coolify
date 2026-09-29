@@ -6,7 +6,7 @@
     <div class="flex h-8 min-w-0 items-center gap-1">
         <button type="button"
             @click="open = !open; if (open) { search = ''; $nextTick(() => $refs.search.focus()) }"
-            title="Switch resource"
+            title="{{ __('Switch resource') }}"
             class="flex h-8 min-w-0 items-center gap-1.5 rounded-md px-2 opacity-70 transition-[background-color,opacity] hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-white/[0.05]">
             <span class="min-w-0 truncate font-semibold text-black dark:text-fg">{{ $label }}</span>
             <svg class="size-4 shrink-0 text-neutral-400 dark:text-fg-faint" viewBox="0 0 24 24" fill="none">

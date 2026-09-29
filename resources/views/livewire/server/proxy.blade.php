@@ -9,15 +9,15 @@
                 <fieldset class="contents" wire:loading.attr="disabled"
                     wire:target="submit,resetProxyConfiguration">
 
-                <x-application.settings-section id="server-proxy-overview-section" title="Proxy configuration"
-                    helper="Configure the reverse proxy and request handling for this server.">
+                <x-application.settings-section id="server-proxy-overview-section" title="{{ __('Proxy configuration') }}"
+                    helper="{{ __('Configure the reverse proxy and request handling for this server.') }}">
                     <x-slot:actions>
                         <div class="flex items-center gap-2">
                             <x-status-badge :status="str($server->proxy->status)->headline()"
                                 :type="str($server->proxy->status)->contains('running') ? 'success' : 'neutral'" />
                             @if ($server->proxy->status === 'exited' || $server->proxy->status === 'removing')
                                 @can('update', $server)
-                                    <x-modal-confirmation title="Confirm Proxy Switching?"
+                                    <x-modal-confirmation title="{{ __('Confirm Proxy Switching?') }}"
                                         buttonTitle="Switch proxy" submitAction="changeProxy"
                                         :actions="['Custom proxy configurations may be reset to their default settings.']"
                                         warningMessage="Review the proxy switching guide before continuing."
@@ -27,7 +27,7 @@
                             @else
                                 <x-forms.button canGate="update" :canResource="$server"
                                     wire:click="$dispatch('error', 'The running proxy must be stopped before switching.')">
-                                    Switch proxy
+                                    {{ __('Switch proxy') }}
                                 </x-forms.button>
                             @endif
                         </div>
@@ -36,8 +36,8 @@
                     @if (
                         $server->proxy->last_applied_settings &&
                             $server->proxy->last_saved_settings !== $server->proxy->last_applied_settings)
-                        <x-callout type="warning" title="Configuration out of sync">
-                            Restart the proxy to apply the saved configuration.
+                        <x-callout type="warning" title="{{ __('Configuration out of sync') }}">
+                            {{ __('Restart the proxy to apply the saved configuration.') }}
                         </x-callout>
                     @else
                         <div class="flex items-start gap-3">
@@ -50,33 +50,33 @@
                                     {{ str($server->proxyType())->title() }}
                                 </p>
                                 <p class="mt-1 text-xs text-neutral-500 dark:text-fg-dim">
-                                    Saved and running configuration are synchronized.
+                                    {{ __('Saved and running configuration are synchronized.') }}
                                 </p>
                             </div>
                         </div>
                     @endif
                 </x-application.settings-section>
 
-                <x-application.settings-section id="server-proxy-routing-section" title="Routing behavior"
-                    helper="Control generated labels and requests that do not match a running resource.">
+                <x-application.settings-section id="server-proxy-routing-section" title="{{ __('Routing behavior') }}"
+                    helper="{{ __('Control generated labels and requests that do not match a running resource.') }}">
                     <div class="grid gap-4 lg:grid-cols-2">
-                        <x-forms.listbox id="generateExactLabels" label="Generated labels"
-                            helper="<ul class='list-disc space-y-1 pl-4'><li><span class='font-semibold'>All supported proxies:</span> Traefik and Caddy labels are both generated, so switching the proxy keeps routing working.</li><li><span class='font-semibold'>Active proxy only:</span> generates fewer labels, but all resources must be redeployed to become accessible again after each proxy switch.</li></ul>"
+                        <x-forms.listbox id="generateExactLabels" label="{{ __('Generated labels') }}"
+                            helper="<ul class='list-disc space-y-1 pl-4'><li><span class='font-semibold'>{{ __('All supported proxies:') }}</span> Traefik and Caddy labels are both generated, so switching the proxy keeps routing working.</li><li><span class='font-semibold'>{{ __('Active proxy only:') }}</span> generates fewer labels, but all resources must be redeployed to become accessible again after each proxy switch.</li></ul>"
                             onChange="instantSave" :options="[
-                                ['value' => false, 'label' => 'Labels for all supported proxies'],
-                                ['value' => true, 'label' => 'Labels for the active proxy only'],
+                                ['value' => false, 'label' => __('Labels for all supported proxies')],
+                                ['value' => true, 'label' => __('Labels for the active proxy only')],
                             ]" />
-                        <x-forms.listbox id="redirectEnabled" label="Unknown requests"
-                            helper="Override the default 503 response for unknown hosts and stopped services."
+                        <x-forms.listbox id="redirectEnabled" label="{{ __('Unknown requests') }}"
+                            helper="{{ __('Override the default 503 response for unknown hosts and stopped services.') }}"
                             onChange="instantSaveRedirect" :options="[
-                                ['value' => false, 'label' => 'Return the default 503 response'],
-                                ['value' => true, 'label' => 'Use custom request handling'],
+                                ['value' => false, 'label' => __('Return the default 503 response')],
+                                ['value' => true, 'label' => __('Use custom request handling')],
                             ]" />
                         @if ($redirectEnabled)
                             <x-forms.input canGate="update" :canResource="$server"
                                 placeholder="https://app.coolify.io" id="redirectUrl"
-                                label="Redirect URL"
-                                helper="Leave empty to keep a custom 503 response without redirecting." />
+                                label="{{ __('Redirect URL') }}"
+                                helper="{{ __('Leave empty to keep a custom 503 response without redirecting.') }}" />
                         @endif
                     </div>
                 </x-application.settings-section>
@@ -90,18 +90,18 @@
 
                 @if ($server->proxyType() === ProxyTypes::TRAEFIK->value || $server->proxyType() === 'CADDY')
                     <x-application.settings-section id="server-proxy-file-section" :title="$proxyTitle"
-                        helper="Edit the generated proxy compose configuration used on this server.">
+                        helper="{{ __('Edit the generated proxy compose configuration used on this server.') }}">
                         <x-slot:actions>
                             @can('update', $server)
                                 @if ($proxySettings)
-                                    <x-modal-confirmation title="Reset Proxy Configuration?"
+                                    <x-modal-confirmation title="{{ __('Reset Proxy Configuration?') }}"
                                         buttonTitle="Reset configuration"
                                         submitAction="resetProxyConfiguration" :actions="[
                                             'Reset the proxy configuration to Coolify defaults.',
                                             'Remove custom ports, entrypoints, and other manual changes.',
                                         ]" confirmationText="{{ $server->name }}"
-                                        confirmationLabel="Confirm by entering the server name"
-                                        shortConfirmationLabel="Server Name"
+                                        confirmationLabel="{{ __('Confirm by entering the server name') }}"
+                                        shortConfirmationLabel="{{ __('Server Name') }}"
                                         step2ButtonText="Reset Configuration"
                                         :confirmWithPassword="false" :confirmWithText="true" />
                                 @endif
@@ -110,18 +110,18 @@
 
                         @if ($server->proxyType() === ProxyTypes::TRAEFIK->value)
                             @if ($server->detected_traefik_version === 'latest')
-                                <x-callout type="warning" title="Unpinned Traefik version">
+                                <x-callout type="warning" title="{{ __('Unpinned Traefik version') }}">
                                     The proxy uses the <span class="font-mono">latest</span> tag. Pin
                                     <span class="font-mono">traefik:{{ $this->latestTraefikVersion }}</span>
                                     for predictable updates.
                                 </x-callout>
                             @elseif($this->isTraefikOutdated)
-                                <x-callout type="warning" title="Traefik patch update available">
+                                <x-callout type="warning" title="{{ __('Traefik patch update available') }}">
                                     Version {{ $this->latestTraefikVersion }} is available. Test the update before
                                     applying it to production servers.
                                 </x-callout>
                             @elseif($this->newerTraefikBranchAvailable)
-                                <x-callout type="info" title="New Traefik minor version available">
+                                <x-callout type="info" title="{{ __('New Traefik minor version available') }}">
                                     {{ $this->newerTraefikBranchAvailable }} is available. Review the Traefik
                                     changelog for breaking changes before upgrading.
                                 </x-callout>
@@ -136,7 +136,7 @@
                                     <div
                                         class="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-xs font-medium text-neutral-700 shadow-sm ring-1 ring-neutral-200 dark:bg-coolgray-100 dark:text-fg dark:ring-white/10">
                                         <x-loading />
-                                        Updating proxy configuration…
+                                        {{ __('Updating proxy configuration…') }}
                                     </div>
                                 </div>
                                 <x-forms.textarea canGate="update" :canResource="$server" useMonacoEditor
@@ -150,26 +150,26 @@
                 </fieldset>
             </form>
         @elseif($selectedProxy === 'NONE')
-            <x-application.settings-section title="Custom proxy"
-                helper="Coolify will not manage a reverse proxy for this server.">
+            <x-application.settings-section title="{{ __('Custom proxy') }}"
+                helper="{{ __('Coolify will not manage a reverse proxy for this server.') }}">
                 <x-slot:actions>
                     @can('update', $server)
-                        <x-forms.button wire:click.prevent="changeProxy">Switch proxy</x-forms.button>
+                        <x-forms.button wire:click.prevent="changeProxy">{{ __('Switch proxy') }}</x-forms.button>
                     @endcan
                 </x-slot:actions>
-                <x-callout type="info" title="Custom proxy selected">
-                    Configure and operate the proxy outside Coolify.
+                <x-callout type="info" title="{{ __('Custom proxy selected') }}">
+                    {{ __('Configure and operate the proxy outside Coolify.') }}
                 </x-callout>
             </x-application.settings-section>
         @else
-            <x-application.settings-section title="Proxy configuration"
-                helper="Choose the reverse proxy implementation for this server.">
+            <x-application.settings-section title="{{ __('Proxy configuration') }}"
+                helper="{{ __('Choose the reverse proxy implementation for this server.') }}">
                 @can('update', $server)
                     <div class="grid gap-3 lg:grid-cols-3">
                         @foreach ([
-                            ['value' => 'NONE', 'title' => 'Custom', 'description' => 'Manage the proxy outside Coolify.'],
-                            ['value' => 'TRAEFIK', 'title' => 'Traefik', 'description' => 'Use the default Coolify proxy.'],
-                            ['value' => 'CADDY', 'title' => 'Caddy', 'description' => 'Use the Coolify Caddy integration.'],
+                            ['value' => 'NONE', 'title' => __('Custom'), 'description' => __('Manage the proxy outside Coolify.')],
+                            ['value' => 'TRAEFIK', 'title' => __('Traefik'), 'description' => __('Use the default Coolify proxy.')],
+                            ['value' => 'CADDY', 'title' => __('Caddy'), 'description' => __('Use the Coolify Caddy integration.')],
                         ] as $proxyOption)
                             <button type="button" wire:click="selectProxy('{{ $proxyOption['value'] }}')"
                                 class="rounded-lg p-4 text-left ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 dark:ring-white/[0.08] dark:hover:bg-white/[0.04]">
@@ -183,21 +183,21 @@
                         @endforeach
                     </div>
                 @else
-                    <x-callout type="danger" title="Insufficient permissions">
-                        You do not have permission to select a proxy for this server.
+                    <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
+                        {{ __('You do not have permission to select a proxy for this server.') }}
                     </x-callout>
                 @endcan
             </x-application.settings-section>
         @endif
     @else
-        <x-application.settings-section title="Proxy configuration"
-            helper="Choose the reverse proxy implementation for this server.">
+        <x-application.settings-section title="{{ __('Proxy configuration') }}"
+            helper="{{ __('Choose the reverse proxy implementation for this server.') }}">
             @can('update', $server)
                 <div class="grid gap-3 lg:grid-cols-3">
                     @foreach ([
-                        ['value' => 'NONE', 'title' => 'Custom', 'description' => 'Manage the proxy outside Coolify.'],
-                        ['value' => 'TRAEFIK', 'title' => 'Traefik', 'description' => 'Use the default Coolify proxy.'],
-                        ['value' => 'CADDY', 'title' => 'Caddy', 'description' => 'Use the Coolify Caddy integration.'],
+                        ['value' => 'NONE', 'title' => __('Custom'), 'description' => __('Manage the proxy outside Coolify.')],
+                        ['value' => 'TRAEFIK', 'title' => __('Traefik'), 'description' => __('Use the default Coolify proxy.')],
+                        ['value' => 'CADDY', 'title' => __('Caddy'), 'description' => __('Use the Coolify Caddy integration.')],
                     ] as $proxyOption)
                         <button type="button" wire:click="selectProxy('{{ $proxyOption['value'] }}')"
                             class="rounded-lg p-4 text-left ring-1 ring-neutral-200 transition-colors hover:bg-neutral-50 dark:ring-white/[0.08] dark:hover:bg-white/[0.04]">

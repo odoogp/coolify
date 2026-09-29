@@ -45,7 +45,7 @@ test('send test is available in the sender section and not in the settings navba
 
     expect($view)
         ->toContain('<x-settings.layout>')
-        ->toContain('settings-section title="Sender"')
+        ->toContain('settings-section title="{{ __(\'Sender\') }}"')
         ->toContain('settings-email-send-test')
         ->not->toContain('<x-settings.navbar');
 });

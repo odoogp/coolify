@@ -19,7 +19,7 @@
     'w-full' => $fullWidth,
 ]) x-data="{ open: false }"
     x-effect="$dispatch('resource-actions-toggled', { open })" @keydown.escape.window="open = false">
-    <button type="button" @click="open = !open" @click.outside="open = false" title="Open application links"
+    <button type="button" @click="open = !open" @click.outside="open = false" title="{{ __('Open application links') }}"
         @class([
             'app-tab shrink-0 gap-1' => !$fullWidth && !$compact,
             'button w-full justify-between' => $fullWidth,
@@ -29,7 +29,7 @@
             @unless ($compact)
                 <x-reicon name="external-link" class="size-3.5 shrink-0 opacity-70" />
             @endunless
-            Links
+            {{ __('Links') }}
         </span>
         <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
             <x-reicon name="chevron-down" class="size-3 opacity-55" />
@@ -46,7 +46,7 @@
             @if (data_get($application, 'gitBrancLocation'))
                 <a target="_blank" class="{{ $linkItemClasses }}" href="{{ $application->gitBranchLocation }}">
                     <x-git-icon git="{{ $application->source?->getMorphClass() }}" />
-                    <span class="min-w-0 truncate">Git Repository</span>
+                    <span class="min-w-0 truncate">{{ __('Git Repository') }}</span>
                 </a>
             @endif
             @if (data_get($application, 'build_pack') === 'dockercompose')
@@ -56,7 +56,7 @@
                             <a class="{{ $linkItemClasses }}" target="_blank" href="{{ getFqdnWithoutPort($domain) }}">
                                 <span
                                     class="shrink-0 rounded-md bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success ring-1 ring-success/20">
-                                    Production
+                                    {{ __('Production') }}
                                 </span>
                                 <span class="min-w-0 truncate">{{ getFqdnWithoutPort($domain) }}</span>
                             </a>
@@ -69,7 +69,7 @@
                     <a class="{{ $linkItemClasses }}" target="_blank" href="{{ getFqdnWithoutPort($fqdn) }}">
                         <span
                             class="shrink-0 rounded-md bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success ring-1 ring-success/20">
-                            Production
+                            {{ __('Production') }}
                         </span>
                         <span class="min-w-0 truncate">{{ getFqdnWithoutPort($fqdn) }}</span>
                     </a>
@@ -132,7 +132,7 @@
                 @endforeach
             @endif
         @else
-            <div class="listbox-option justify-start! cursor-default!">No links available</div>
+            <div class="listbox-option justify-start! cursor-default!">{{ __('No links available') }}</div>
         @endif
     </div>
 </div>

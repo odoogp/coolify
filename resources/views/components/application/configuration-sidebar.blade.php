@@ -9,119 +9,119 @@
 
         $configurationMenuItems = [
             [
-                'label' => 'General',
+                'label' => __('General'),
                 'route' => 'project.application.configuration',
                 'active' => $currentRoute === 'project.application.configuration',
             ],
             [
-                'label' => 'Domains',
+                'label' => __('Domains'),
                 'route' => 'project.application.domains',
                 'active' => $currentRoute === 'project.application.domains',
             ],
             [
-                'label' => 'Advanced',
+                'label' => __('Advanced'),
                 'route' => 'project.application.advanced',
                 'active' => $currentRoute === 'project.application.advanced',
             ],
             [
-                'label' => 'Swarm',
+                'label' => __('Swarm'),
                 'route' => 'project.application.swarm',
                 'active' => $currentRoute === 'project.application.swarm',
                 'visible' => $application->destination->server->isSwarm(),
             ],
             [
-                'label' => 'Environment Variables',
+                'label' => __('Environment Variables'),
                 'route' => 'project.application.environment-variables',
                 'active' => $currentRoute === 'project.application.environment-variables',
             ],
             [
-                'label' => 'Persistent Storage',
+                'label' => __('Persistent Storage'),
                 'route' => 'project.application.persistent-storage',
                 'active' => $currentRoute === 'project.application.persistent-storage',
             ],
             [
-                'label' => 'Backups',
+                'label' => __('Backups'),
                 'route' => 'project.application.backup.index',
                 'active' => str($currentRoute)->startsWith('project.application.backup'),
             ],
             [
-                'label' => 'Terminal',
+                'label' => __('Terminal'),
                 'route' => 'project.application.command',
                 'active' => $currentRoute === 'project.application.command',
                 'navigate' => false,
                 'visible' => ! $application->destination->server->isSwarm() && auth()->user()?->can('canAccessTerminal'),
             ],
             [
-                'label' => 'Deployment Logs',
+                'label' => __('Deployment Logs'),
                 'route' => 'project.application.deployment.index',
                 'active' => str($currentRoute)->startsWith('project.application.deployment'),
             ],
             [
-                'label' => 'Runtime Logs',
+                'label' => __('Runtime Logs'),
                 'route' => 'project.application.logs',
                 'active' => $currentRoute === 'project.application.logs',
             ],
             [
-                'label' => 'Git Source',
+                'label' => __('Git Source'),
                 'route' => 'project.application.source',
                 'active' => $currentRoute === 'project.application.source',
                 'visible' => $application->git_based(),
             ],
             [
-                'label' => 'Servers',
+                'label' => __('Servers'),
                 'route' => 'project.application.servers',
                 'active' => $currentRoute === 'project.application.servers',
                 'badge' => true,
             ],
             [
-                'label' => 'Scheduled Tasks',
+                'label' => __('Scheduled Tasks'),
                 'route' => 'project.application.scheduled-tasks.show',
                 'active' => str($currentRoute)->startsWith('project.application.scheduled-tasks'),
             ],
             [
-                'label' => 'Webhooks',
+                'label' => __('Webhooks'),
                 'route' => 'project.application.webhooks',
                 'active' => $currentRoute === 'project.application.webhooks',
             ],
             [
-                'label' => 'Preview Deployments',
+                'label' => __('Preview Deployments'),
                 'route' => 'project.application.preview-deployments',
                 'active' => $currentRoute === 'project.application.preview-deployments',
                 'visible' => $application->git_based() || $application->build_pack === 'dockerimage',
             ],
             [
-                'label' => 'Healthcheck',
+                'label' => __('Healthcheck'),
                 'route' => 'project.application.healthcheck',
                 'active' => $currentRoute === 'project.application.healthcheck',
                 'visible' => $application->build_pack !== 'dockercompose',
             ],
             [
-                'label' => 'Rollback',
+                'label' => __('Rollback'),
                 'route' => 'project.application.rollback',
                 'active' => $currentRoute === 'project.application.rollback',
             ],
             [
-                'label' => 'Resource Limits',
+                'label' => __('Resource Limits'),
                 'route' => 'project.application.resource-limits',
                 'active' => $currentRoute === 'project.application.resource-limits',
             ],
             [
-                'label' => 'Resource Operations',
+                'label' => __('Resource Operations'),
                 'route' => 'project.application.resource-operations',
                 'active' => $currentRoute === 'project.application.resource-operations',
             ],
             [
-                'label' => 'Metrics',
+                'label' => __('Metrics'),
                 'route' => 'project.application.metrics',
                 'active' => $currentRoute === 'project.application.metrics',
             ],
             [
-                'label' => 'Tags',
+                'label' => __('Tags'),
                 'route' => 'project.application.tags',
                 'active' => $currentRoute === 'project.application.tags',
             ],
             [
-                'label' => 'Danger Zone',
+                'label' => __('Danger Zone'),
                 'route' => 'project.application.danger',
                 'active' => $currentRoute === 'project.application.danger',
             ],
@@ -177,63 +177,63 @@
         $isComposeApp = $application->build_pack === 'dockercompose';
         $pageSections = [
             'project.application.configuration' => array_values(array_filter([
-                ['id' => 'application-details-section', 'label' => 'Application details'],
-                ['id' => 'access-section', 'label' => 'Access'],
-                ['id' => 'build-pipeline-section', 'label' => 'Build pipeline'],
-                $isComposeApp ? null : ['id' => 'container-image-section', 'label' => 'Container image'],
-                $isComposeApp ? null : ['id' => 'networking-section', 'label' => 'Networking'],
-                $isComposeApp ? null : ['id' => 'runtime-section', 'label' => 'Runtime'],
-                $isComposeApp ? null : ['id' => 'security-section', 'label' => 'Security'],
-                ['id' => 'deployment-lifecycle-section', 'label' => 'Deployment lifecycle'],
-                $isComposeApp ? null : ['id' => 'container-labels-section', 'label' => 'Container labels'],
+                ['id' => 'application-details-section', 'label' => __('Application details')],
+                ['id' => 'access-section', 'label' => __('Access')],
+                ['id' => 'build-pipeline-section', 'label' => __('Build pipeline')],
+                $isComposeApp ? null : ['id' => 'container-image-section', 'label' => __('Container image')],
+                $isComposeApp ? null : ['id' => 'networking-section', 'label' => __('Networking')],
+                $isComposeApp ? null : ['id' => 'runtime-section', 'label' => __('Runtime')],
+                $isComposeApp ? null : ['id' => 'security-section', 'label' => __('Security')],
+                ['id' => 'deployment-lifecycle-section', 'label' => __('Deployment lifecycle')],
+                $isComposeApp ? null : ['id' => 'container-labels-section', 'label' => __('Container labels')],
             ])),
             'project.application.advanced' => array_values(array_filter([
-                ['id' => 'advanced-build-section', 'label' => 'Build'],
-                ['id' => 'advanced-container-section', 'label' => 'Container'],
-                $application->git_based() ? ['id' => 'advanced-deployment-section', 'label' => 'Deployment'] : null,
-                $application->git_based() ? ['id' => 'advanced-git-section', 'label' => 'Git'] : null,
-                $isComposeApp ? ['id' => 'advanced-compose-section', 'label' => 'Docker compose'] : null,
-                ['id' => 'advanced-proxy-section', 'label' => 'Proxy'],
-                ['id' => 'advanced-operations-section', 'label' => 'Operations'],
-                ['id' => 'advanced-logs-section', 'label' => 'Logs'],
-                $isComposeApp ? null : ['id' => 'advanced-gpu-section', 'label' => 'GPU'],
+                ['id' => 'advanced-build-section', 'label' => __('Build')],
+                ['id' => 'advanced-container-section', 'label' => __('Container')],
+                $application->git_based() ? ['id' => 'advanced-deployment-section', 'label' => __('Deployment')] : null,
+                $application->git_based() ? ['id' => 'advanced-git-section', 'label' => __('Git')] : null,
+                $isComposeApp ? ['id' => 'advanced-compose-section', 'label' => __('Docker compose')] : null,
+                ['id' => 'advanced-proxy-section', 'label' => __('Proxy')],
+                ['id' => 'advanced-operations-section', 'label' => __('Operations')],
+                ['id' => 'advanced-logs-section', 'label' => __('Logs')],
+                $isComposeApp ? null : ['id' => 'advanced-gpu-section', 'label' => __('GPU')],
             ])),
             'project.application.webhooks' => [
-                ['id' => 'deploy-webhook-section', 'label' => 'Deploy webhook'],
-                ['id' => 'manual-git-webhooks-section', 'label' => 'Manual Git webhooks'],
+                ['id' => 'deploy-webhook-section', 'label' => __('Deploy webhook')],
+                ['id' => 'manual-git-webhooks-section', 'label' => __('Manual Git webhooks')],
             ],
             'project.application.preview-deployments' => array_values(array_filter([
-                ['id' => 'preview-template-section', 'label' => 'URL template'],
+                ['id' => 'preview-template-section', 'label' => __('URL template')],
                 $application->is_github_based()
-                    ? ['id' => 'preview-pull-requests-section', 'label' => 'Pull requests']
+                    ? ['id' => 'preview-pull-requests-section', 'label' => __('Pull requests')]
                     : null,
                 $application->build_pack === 'dockerimage'
-                    ? ['id' => 'manual-preview-section', 'label' => 'Manual preview']
+                    ? ['id' => 'manual-preview-section', 'label' => __('Manual preview')]
                     : null,
-                ['id' => 'preview-deployments-section', 'label' => 'Deployments'],
+                ['id' => 'preview-deployments-section', 'label' => __('Deployments')],
             ])),
             'project.application.healthcheck' => [
-                ['id' => 'healthcheck-configuration-section', 'label' => 'Configuration'],
+                ['id' => 'healthcheck-configuration-section', 'label' => __('Configuration')],
                 [
                     'id' => $application->health_check_type === 'cmd'
                         ? 'healthcheck-command-section'
                         : 'healthcheck-request-section',
                     'label' => $application->health_check_type === 'cmd' ? 'Command' : 'HTTP request',
                 ],
-                ['id' => 'healthcheck-timing-section', 'label' => 'Timing and retries'],
+                ['id' => 'healthcheck-timing-section', 'label' => __('Timing and retries')],
             ],
             'project.application.rollback' => [
-                ['id' => 'rollback-retention-section', 'label' => 'Image retention'],
-                ['id' => 'rollback-images-section', 'label' => 'Available images'],
+                ['id' => 'rollback-retention-section', 'label' => __('Image retention')],
+                ['id' => 'rollback-images-section', 'label' => __('Available images')],
             ],
             'project.application.resource-limits' => [
-                ['id' => 'cpu-limits-section', 'label' => 'CPU'],
-                ['id' => 'memory-limits-section', 'label' => 'Memory'],
+                ['id' => 'cpu-limits-section', 'label' => __('CPU')],
+                ['id' => 'memory-limits-section', 'label' => __('Memory')],
             ],
             'project.application.resource-operations' => [
-                ['id' => 'clone-destination-section', 'label' => 'Clone destination'],
-                ['id' => 'clone-environment-section', 'label' => 'Clone environment'],
-                ['id' => 'move-resource-section', 'label' => 'Move resource'],
+                ['id' => 'clone-destination-section', 'label' => __('Clone destination')],
+                ['id' => 'clone-environment-section', 'label' => __('Clone environment')],
+                ['id' => 'move-resource-section', 'label' => __('Move resource')],
             ],
         ];
     @endphp
@@ -242,7 +242,7 @@
     'application-settings-navigation min-w-0 xl:self-start',
     'is-flush' => $flush,
 ])>
-                <nav aria-label="Configuration sections"
+                <nav aria-label="{{ __('Configuration sections') }}"
                     class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
                     @foreach ($groupedMenuItems as $groupLabel => $groupItems)
                         @unless ($loop->first)

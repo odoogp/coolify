@@ -4,7 +4,7 @@
     'helper' => null,
     'required' => false,
     'options' => [], // list of ['value' => ..., 'label' => ..., 'disabled' => bool]
-    'placeholder' => 'Select…',
+    'placeholder' => __('Select…'),
     'searchPlaceholder' => 'Search…',
     'emptyText' => 'No matching options',
     'live' => false,

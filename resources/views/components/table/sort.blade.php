@@ -3,7 +3,7 @@
         <x-slot:trigger>
             <button type="button" class="button" aria-haspopup="listbox" :aria-expanded="open">
                 <x-reicon name="sort-direction" class="size-3.5" />
-                Sort
+                {{ __('Sort') }}
             </button>
         </x-slot:trigger>
         {{ $slot }}

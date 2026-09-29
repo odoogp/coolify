@@ -1,6 +1,6 @@
 <div class="application-settings-form w-full">
     <x-slot:title>
-        Dashboard | Coolify
+        {{ __('Dashboard | Coolify') }}
     </x-slot>
 
     @if (session('error'))
@@ -20,22 +20,22 @@
             <div class="mb-3 flex items-end justify-between gap-4">
                 <div>
                     <h2 class="text-[14px]! leading-5! font-semibold! text-black dark:text-fg">
-                        Projects
+                        {{ __('Projects') }}
                     </h2>
                     <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                        Your deployment workspaces
+                        {{ __('Your deployment workspaces') }}
                     </p>
                 </div>
                 <a href="{{ route('project.index') }}" {{ wireNavigate() }}
                     class="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-neutral-500 transition-colors hover:text-black dark:text-fg-dim dark:hover:text-fg">
-                    View all
+                    {{ __('View all') }}
                     <x-reicon name="arrow-right" class="size-3" />
                 </a>
             </div>
 
             @if ($dashboardProjects->isEmpty())
-                <x-empty title="No projects yet"
-                    description="Use New to create your first deployment workspace."
+                <x-empty title="{{ __('No projects yet') }}"
+                    description="{{ __('Use New to create your first deployment workspace.') }}"
                     icon-name="projects" size="sm" />
             @else
                 <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -101,7 +101,7 @@
                                             ]) }}"
                                                 {{ wireNavigate() }}
                                                 class="flex size-6.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                                title="Add resource"
+                                                title="{{ __('Add resource') }}"
                                                 aria-label="Add resource to {{ $project->name }}">
                                                 <x-reicon name="plus" class="size-3" />
                                             </a>
@@ -111,7 +111,7 @@
                                         <a href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}"
                                             {{ wireNavigate() }}
                                             class="flex size-6.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                            title="Project settings"
+                                            title="{{ __('Project settings') }}"
                                             aria-label="Open settings for {{ $project->name }}">
                                             <x-reicon name="settings" class="size-3" />
                                         </a>
@@ -128,44 +128,44 @@
             <div class="mb-3 flex items-end justify-between gap-4">
                 <div>
                     <h2 class="text-[14px]! leading-5! font-semibold! text-black dark:text-fg">
-                        Servers
+                        {{ __('Servers') }}
                     </h2>
                     <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                        Infrastructure available for deployments
+                        {{ __('Infrastructure available for deployments') }}
                     </p>
                 </div>
                 <a href="{{ route('server.index') }}" {{ wireNavigate() }}
                     class="inline-flex shrink-0 items-center gap-1 text-[12px] font-medium text-neutral-500 transition-colors hover:text-black dark:text-fg-dim dark:hover:text-fg">
-                    View all
+                    {{ __('View all') }}
                     <x-reicon name="arrow-right" class="size-3" />
                 </a>
             </div>
 
             @if ($dashboardServers->isEmpty())
                 @if ($privateKeys->isEmpty())
-                    <x-empty title="A private key is required"
-                        description="Add an SSH private key before connecting your first server."
+                    <x-empty title="{{ __('A private key is required') }}"
+                        description="{{ __('Add an SSH private key before connecting your first server.') }}"
                         icon-name="keys" size="sm">
                         @can('create', App\Models\PrivateKey::class)
                             <x-slot:contents>
                                 <a href="{{ route('security.private-key.index') }}" {{ wireNavigate() }}
                                     class="button button-highlighted">
                                     <x-reicon name="plus" class="size-3.5" />
-                                    Add private key
+                                    {{ __('Add private key') }}
                                 </a>
                             </x-slot:contents>
                         @endcan
                     </x-empty>
                 @else
-                    <x-empty title="No servers yet"
-                        description="Connect infrastructure for your deployments."
+                    <x-empty title="{{ __('No servers yet') }}"
+                        description="{{ __('Connect infrastructure for your deployments.') }}"
                         icon-name="servers" size="sm">
                         @can('createAnyResource')
                             <x-slot:contents>
                                 <a href="{{ route('server.create') }}" {{ wireNavigate() }}
                                     class="button button-highlighted">
                                     <x-reicon name="plus" class="size-3.5" />
-                                    New server
+                                    {{ __('New server') }}
                                 </a>
                             </x-slot:contents>
                         @endcan

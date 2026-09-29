@@ -1,6 +1,14 @@
 services:
   coolify:
-    image: "${REGISTRY_URL:-docker.io}/coollabsio/coolify:${LATEST_IMAGE:-latest}"
+    # Local fork image. Official installs keep using the CDN compose file.
+    # COOLIFY_IMAGE=docker.io/coollabsio/coolify:latest and COOLIFY_PULL_POLICY=always restore the upstream image.
+    image: "${COOLIFY_IMAGE:-coolify-custom:local}"
+    pull_policy: "${COOLIFY_PULL_POLICY:-never}"
+    build:
+      context: .
+      dockerfile: docker/production/Dockerfile
+      args:
+        COOLIFY_VERSION: ${COOLIFY_VERSION:-local}
     volumes:
       - type: bind
         source: /data/coolify/source/.env

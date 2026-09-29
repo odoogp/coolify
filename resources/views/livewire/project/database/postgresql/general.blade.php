@@ -2,69 +2,69 @@
     <form wire:submit="submit" class="flex flex-col gap-6">
         <x-unsaved-bar action="submit" />
 
-        <x-application.settings-section id="database-details-section" title="Database details"
-            description="Manage the identity and container image for this PostgreSQL database.">
+        <x-application.settings-section id="database-details-section" title="{{ __('Database details') }}"
+            description="{{ __('Manage the identity and container image for this PostgreSQL database.') }}">
             <x-slot:actions>
-                <x-modal-input title="Resource details" buttonTitle="Details">
+                <x-modal-input title="{{ __('Resource details') }}" buttonTitle="Details">
                     <livewire:project.shared.resource-details :resource="$database" />
                 </x-modal-input>
             </x-slot:actions>
             <div class="grid gap-4 lg:grid-cols-2">
-                <x-forms.input label="Name" id="name" canGate="update" :canResource="$database" />
-                <x-forms.input label="Description" id="description" canGate="update" :canResource="$database" />
+                <x-forms.input label="{{ __('Name') }}" id="name" canGate="update" :canResource="$database" />
+                <x-forms.input label="{{ __('Description') }}" id="description" canGate="update" :canResource="$database" />
                 <div class="lg:col-span-2">
-                    <x-forms.input label="Image" id="image" required canGate="update" :canResource="$database"
-                        helper="Use a published PostgreSQL image from Docker Hub." />
+                    <x-forms.input label="{{ __('Image') }}" id="image" required canGate="update" :canResource="$database"
+                        helper="{{ __('Use a published PostgreSQL image from Docker Hub.') }}" />
                 </div>
             </div>
         </x-application.settings-section>
 
-        <x-application.settings-section id="credentials-section" title="Credentials"
-            description="Keep these values aligned with the credentials configured inside PostgreSQL.">
+        <x-application.settings-section id="credentials-section" title="{{ __('Credentials') }}"
+            description="{{ __('Keep these values aligned with the credentials configured inside PostgreSQL.') }}">
             @if ($database->started_at)
-                <x-callout type="warning" title="Keep credentials synchronized">
-                    Changing values here does not update PostgreSQL. Update PostgreSQL first, then synchronize the
+                <x-callout type="warning" title="{{ __('Keep credentials synchronized') }}">
+                    {{ __('Changing values here does not update PostgreSQL. Update PostgreSQL first, then synchronize the') }}
                     values here so backups and other automations continue working.
                 </x-callout>
             @endif
             <div class="{{ $database->started_at ? 'mt-4 ' : '' }}grid gap-4 lg:grid-cols-2">
-                <x-forms.input label="Username" id="postgresUser" placeholder="If empty: postgres"
+                <x-forms.input label="{{ __('Username') }}" id="postgresUser" placeholder="{{ __('If empty: postgres') }}"
                     canGate="update" :canResource="$database" />
                 @if ($isPasswordHiddenForMember)
-                    <x-forms.input label="Password" disabled value="Hidden (only admins can view)" />
+                    <x-forms.input label="{{ __('Password') }}" disabled value="Hidden (only admins can view)" />
                 @else
-                    <x-forms.input label="Password" id="postgresPassword" type="password" required
+                    <x-forms.input label="{{ __('Password') }}" id="postgresPassword" type="password" required
                         canGate="update" :canResource="$database" />
                 @endif
-                <x-forms.input label="Initial database" id="postgresDb"
-                    placeholder="If empty, it will match the username."
+                <x-forms.input label="{{ __('Initial database') }}" id="postgresDb"
+                    placeholder="{{ __('If empty, it will match the username.') }}"
                     :readonly="(bool) $database->started_at" canGate="update" :canResource="$database"
-                    helper="{{ $database->started_at ? 'You can only change this in the database.' : null }}" />
+                    helper="{{ $database->started_at ? __('You can only change this in the database.') : null }}" />
             </div>
         </x-application.settings-section>
 
-        <x-application.settings-section id="initialization-section" title="Initialization"
-            description="Configure the options used when PostgreSQL creates its initial data directory.">
+        <x-application.settings-section id="initialization-section" title="{{ __('Initialization') }}"
+            description="{{ __('Configure the options used when PostgreSQL creates its initial data directory.') }}">
             <div class="grid gap-4 lg:grid-cols-2">
-                <x-forms.input label="Initial database arguments" id="postgresInitdbArgs"
-                    placeholder="Leave empty to use the image default." canGate="update" :canResource="$database" />
-                <x-forms.input label="Host authentication method" id="postgresHostAuthMethod"
-                    placeholder="Leave empty to use the image default." canGate="update" :canResource="$database" />
+                <x-forms.input label="{{ __('Initial database arguments') }}" id="postgresInitdbArgs"
+                    placeholder="{{ __('Leave empty to use the image default.') }}" canGate="update" :canResource="$database" />
+                <x-forms.input label="{{ __('Host authentication method') }}" id="postgresHostAuthMethod"
+                    placeholder="{{ __('Leave empty to use the image default.') }}" canGate="update" :canResource="$database" />
             </div>
         </x-application.settings-section>
 
-        <x-application.settings-section id="runtime-network-section" title="Runtime and network"
-            description="Configure Docker runtime options and host port mappings.">
+        <x-application.settings-section id="runtime-network-section" title="{{ __('Runtime and network') }}"
+            description="{{ __('Configure Docker runtime options and host port mappings.') }}">
             <div class="grid gap-4 lg:grid-cols-2">
                 <div class="lg:col-span-2">
                     <x-forms.input
-                        helper="Add supported docker run options used when the container starts. Unsupported options can interfere with Coolify automation."
+                        helper="{{ __('Add supported docker run options used when the container starts. Unsupported options can interfere with Coolify automation.') }}"
                         placeholder="--cap-add SYS_ADMIN --device=/dev/fuse"
-                        id="customDockerRunOptions" label="Custom Docker options" canGate="update"
+                        id="customDockerRunOptions" label="{{ __('Custom Docker options') }}" canGate="update"
                         :canResource="$database" />
                 </div>
-                <x-forms.input placeholder="3000:5432" id="portsMappings" label="Port mappings"
-                    helper="Comma-separated host-to-container mappings, for example 3000:5432."
+                <x-forms.input placeholder="3000:5432" id="portsMappings" label="{{ __('Port mappings') }}"
+                    helper="{{ __('Comma-separated host-to-container mappings, for example 3000:5432.') }}"
                     canGate="update" :canResource="$database" />
             </div>
             <div class="mt-4">
@@ -72,8 +72,8 @@
             </div>
         </x-application.settings-section>
 
-        <x-application.settings-section id="public-access-section" title="Public access" class="relative"
-            description="Expose this database through the managed TCP proxy.">
+        <x-application.settings-section id="public-access-section" title="{{ __('Public access') }}" class="relative"
+            description="{{ __('Expose this database through the managed TCP proxy.') }}">
             <x-slot:actions>
                 @if ($isPublic)
                     <x-process-dialog closeWithX size="xl">
@@ -89,47 +89,47 @@
             <x-table.loading target="instantSave" text="Updating public access..." />
             <div class="grid gap-4 lg:grid-cols-2">
                 <div wire:key="public-access-{{ $publicPort ?: 'unset' }}">
-                    <x-forms.listbox id="isPublic" label="Access" live onChange="instantSave" :onChangeArgs="[]"
+                    <x-forms.listbox id="isPublic" label="{{ __('Access') }}" live onChange="instantSave" :onChangeArgs="[]"
                         :disabled="! auth()->user()->can('update', $database)" canGate="update" :canResource="$database" :options="[
-                            ['value' => false, 'label' => 'Private'],
+                            ['value' => false, 'label' => __('Private')],
                             ['value' => true, 'label' => blank($publicPort) ? 'Public through TCP proxy (set public port first)' : 'Public through TCP proxy', 'disabled' => blank($publicPort)],
                         ]" />
                 </div>
                 <x-forms.input type="number" placeholder="5432" disabled="{{ $isPublic }}" id="publicPort"
-                    label="Public port" canGate="update" :canResource="$database" />
+                    label="{{ __('Public port') }}" canGate="update" :canResource="$database" />
                 <x-forms.input type="number" placeholder="3600" disabled="{{ $isPublic }}" id="publicPortTimeout"
-                    label="Proxy timeout" helper="Timeout in seconds. The default is 3600."
+                    label="{{ __('Proxy timeout') }}" helper="{{ __('Timeout in seconds. The default is 3600.') }}"
                     canGate="update" :canResource="$database" />
             </div>
         </x-application.settings-section>
 
-        <x-application.settings-section id="configuration-section" title="Configuration"
-            description="Override the PostgreSQL configuration used by this container.">
-            <x-forms.textarea label="Custom PostgreSQL configuration" rows="10" id="postgresConf"
+        <x-application.settings-section id="configuration-section" title="{{ __('Configuration') }}"
+            description="{{ __('Override the PostgreSQL configuration used by this container.') }}">
+            <x-forms.textarea label="{{ __('Custom PostgreSQL configuration') }}" rows="10" id="postgresConf"
                 canGate="update" :canResource="$database" />
         </x-application.settings-section>
 
-        <x-application.settings-section id="log-delivery-section" title="Log delivery"
-            description="Forward container logs to the drain configured on the server.">
-            <x-forms.listbox canGate="update" :canResource="$database" id="isLogDrainEnabled" label="Log drain" live onChange="instantSaveAdvanced"
+        <x-application.settings-section id="log-delivery-section" title="{{ __('Log delivery') }}"
+            description="{{ __('Forward container logs to the drain configured on the server.') }}">
+            <x-forms.listbox canGate="update" :canResource="$database" id="isLogDrainEnabled" label="{{ __('Log drain') }}" live onChange="instantSaveAdvanced"
                 :disabled="! auth()->user()->can('update', $database)" :options="[
-                    ['value' => false, 'label' => 'Do not forward logs'],
-                    ['value' => true, 'label' => 'Forward logs to the server drain'],
+                    ['value' => false, 'label' => __('Do not forward logs')],
+                    ['value' => true, 'label' => __('Forward logs to the server drain')],
                 ]" />
         </x-application.settings-section>
     </form>
 
-    <x-application.settings-section id="initialization-scripts-section" title="Initialization scripts"
-        description="Run SQL files in order when PostgreSQL initializes for the first time." flush>
+    <x-application.settings-section id="initialization-scripts-section" title="{{ __('Initialization scripts') }}"
+        description="{{ __('Run SQL files in order when PostgreSQL initializes for the first time.') }}" flush>
         <x-slot:actions>
             @can('update', $database)
-                <x-modal-input buttonTitle="+ Add" title="New initialization script">
+                <x-modal-input buttonTitle="+ Add" title="{{ __('New initialization script') }}">
                     <form class="flex w-full flex-col gap-4" wire:submit="save_new_init_script">
-                        <x-forms.input placeholder="create_test_db.sql" id="new_filename" label="Filename" required />
-                        <x-forms.textarea rows="16" placeholder="CREATE DATABASE test;" id="new_content"
-                            label="Content" required />
+                        <x-forms.input placeholder="{{ __('create_test_db.sql') }}" id="new_filename" label="{{ __('Filename') }}" required />
+                        <x-forms.textarea rows="16" placeholder="{{ __('CREATE DATABASE test;') }}" id="new_content"
+                            label="{{ __('Content') }}" required />
                         <div class="flex justify-end border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-                            <x-forms.button type="submit">Add script</x-forms.button>
+                            <x-forms.button type="submit">{{ __('Add script') }}</x-forms.button>
                         </div>
                     </form>
                 </x-modal-input>
@@ -140,8 +140,8 @@
                 <livewire:project.database.init-script :database="$database" :script="$script"
                     :wire:key="$script['index']" />
             @empty
-                <x-empty title="No initialization scripts"
-                    description="Add a SQL file to run during the first PostgreSQL initialization." />
+                <x-empty title="{{ __('No initialization scripts') }}"
+                    description="{{ __('Add a SQL file to run during the first PostgreSQL initialization.') }}" />
             @endforelse
         </div>
     </x-application.settings-section>

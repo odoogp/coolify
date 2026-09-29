@@ -10,7 +10,7 @@ it('uses per-provider enable buttons with browser validation', function () {
         ->toContain('x-data="{ enabled: @js((bool) $oauth_setting[\'enabled\']), provider: @js($provider) }"')
         ->toContain('invalidField.reportValidity()')
         ->toContain('$wire.toggleProvider(provider)')
-        ->toContain('label="Client ID" required')
+        ->toContain('label="{{ __(\'Client ID\') }}" required')
         ->toContain('autocomplete="new-password" required')
         ->not->toContain('label="Provider status"');
 });

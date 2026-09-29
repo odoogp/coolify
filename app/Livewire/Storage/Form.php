@@ -199,7 +199,7 @@ class Form extends Component
                 $this->isUsable = true;
             });
 
-            $this->dispatch('success', 'Storage settings updated and connection verified.');
+            $this->dispatch('success', __('Storage settings updated and connection verified.'));
         } catch (\Throwable $e) {
             // Refresh the model to revert UI to database values after rollback
             $this->storage->refresh();

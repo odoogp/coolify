@@ -33,7 +33,7 @@ it('uses sidebar navigation and breadcrumbs for destination details', function (
         ->not->toContain('M5 12l5 5 9-11');
     expect($show)
         ->toContain('destination-danger-section')
-        ->toContain('title="Danger zone"')
+        ->toContain('title="{{ __(\'Danger zone\') }}"')
         ->not->toContain("actions=['This will delete the selected destination/network.']");
     expect(file_get_contents(base_path('routes/web.php')))
         ->toContain("->name('destination.danger')");

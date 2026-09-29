@@ -127,7 +127,7 @@ class Transfer extends Component
                 throw new \RuntimeException('Failed to encode transfer bundle.');
             }
 
-            $this->dispatch('success', 'Transfer bundle ready for download.');
+            $this->dispatch('success', __('Transfer bundle ready for download.'));
 
             return response()->streamDownload(function () use ($json) {
                 echo $json;

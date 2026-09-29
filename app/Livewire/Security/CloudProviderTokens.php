@@ -45,26 +45,26 @@ class CloudProviderTokens extends Component
             if ($token->provider === 'hetzner') {
                 $isValid = $this->validateHetznerToken($token->token);
                 if ($isValid) {
-                    $this->dispatch('success', 'Hetzner token is valid.');
+                    $this->dispatch('success', __('Hetzner token is valid.'));
                 } else {
-                    $this->dispatch('error', 'Hetzner token validation failed. Please check the token.');
+                    $this->dispatch('error', __('Hetzner token validation failed. Please check the token.'));
                 }
             } elseif ($token->provider === 'digitalocean') {
                 $isValid = $this->validateDigitalOceanToken($token->token);
                 if ($isValid) {
-                    $this->dispatch('success', 'DigitalOcean token is valid.');
+                    $this->dispatch('success', __('DigitalOcean token is valid.'));
                 } else {
-                    $this->dispatch('error', 'DigitalOcean token validation failed. Please check the token.');
+                    $this->dispatch('error', __('DigitalOcean token validation failed. Please check the token.'));
                 }
             } elseif ($token->provider === 'vultr') {
                 $isValid = $this->validateVultrToken($token->token);
                 if ($isValid) {
-                    $this->dispatch('success', 'Vultr token is valid.');
+                    $this->dispatch('success', __('Vultr token is valid.'));
                 } else {
-                    $this->dispatch('error', 'Vultr token validation failed. Please check the token.');
+                    $this->dispatch('error', __('Vultr token validation failed. Please check the token.'));
                 }
             } else {
-                $this->dispatch('error', 'Unknown provider.');
+                $this->dispatch('error', __('Unknown provider.'));
             }
 
             auditLog('ui.cloud_token.validated', [
@@ -145,7 +145,7 @@ class CloudProviderTokens extends Component
                 'provider' => $tokenProvider,
             ]);
 
-            $this->dispatch('success', 'Cloud provider token deleted successfully.');
+            $this->dispatch('success', __('Cloud provider token deleted successfully.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

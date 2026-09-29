@@ -1,10 +1,10 @@
 <div class="application-settings-form w-full max-w-none">
     <x-slot:title>
-        Subscribe | Coolify
+        {{ __('Subscribe | Coolify') }}
     </x-slot>
 
-    <x-dashboard.navbar section="subscription" title="Subscription"
-        subtitle="Choose a plan for Coolify Cloud" />
+    <x-dashboard.navbar section="subscription" title="{{ __('Subscription') }}"
+        subtitle="{{ __('Choose a plan for Coolify Cloud') }}" />
 
     @if (auth()->user()->isAdminFromSession())
         @if ($loading)
@@ -13,10 +13,10 @@
             </div>
         @else
             @if ($isUnpaid)
-                <x-application.settings-section title="Payment failed"
-                    description="Your latest Coolify Cloud payment could not be processed.">
-                    <x-callout type="danger" title="Subscription payment is past due">
-                        Update the payment method or settle the outstanding invoice in the billing portal.
+                <x-application.settings-section title="{{ __('Payment failed') }}"
+                    description="{{ __('Your latest Coolify Cloud payment could not be processed.') }}">
+                    <x-callout type="danger" title="{{ __('Subscription payment is past due') }}">
+                        {{ __('Update the payment method or settle the outstanding invoice in the billing portal.') }}
                     </x-callout>
                     <div class="mt-4">
                         <x-forms.button wire:click="stripeCustomerPortal" isHighlighted>Open billing
@@ -25,8 +25,8 @@
                 </x-application.settings-section>
             @else
                 @if ($isCancelled || ! data_get(currentTeam(), 'subscription'))
-                    <x-callout type="warning" title="No active subscription" class="mb-6">
-                        Choose a plan to continue using Coolify Cloud.
+                    <x-callout type="warning" title="{{ __('No active subscription') }}" class="mb-6">
+                        {{ __('Choose a plan to continue using Coolify Cloud.') }}
                     </x-callout>
                 @endif
                 {{-- Stripe is the only cloud provider; always render pricing so the page is never blank. --}}
@@ -34,10 +34,10 @@
             @endif
         @endif
     @else
-        <x-application.settings-section title="Subscription"
-            description="Only team administrators can manage billing and plan limits.">
-            <x-callout type="danger" title="Insufficient Permissions">
-                You are not an admin so you cannot manage your Team's subscription. If this does not make sense, please
+        <x-application.settings-section title="{{ __('Subscription') }}"
+            description="{{ __('Only team administrators can manage billing and plan limits.') }}">
+            <x-callout type="danger" title="{{ __('Insufficient Permissions') }}">
+                {{ __('You are not an admin so you cannot manage your Team\'s subscription. If this does not make sense, please') }}
                 <span class="underline cursor-pointer dark:text-white" wire:click="help">contact us</span>.
             </x-callout>
         </x-application.settings-section>

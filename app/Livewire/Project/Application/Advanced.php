@@ -179,7 +179,7 @@ class Advanced extends Component
                 if (! $this->application->destination->server->isLogDrainEnabled()) {
                     $this->isLogDrainEnabled = false;
                     $this->syncData(true);
-                    $this->dispatch('error', 'Log drain is not enabled on this server.');
+                    $this->dispatch('error', __('Log drain is not enabled on this server.'));
 
                     return;
                 }
@@ -202,7 +202,7 @@ class Advanced extends Component
                 $this->resetDefaultLabels();
             }
 
-            $this->dispatch('success', 'Settings saved.');
+            $this->dispatch('success', __('Settings saved.'));
             $this->dispatch('configurationChanged');
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -214,7 +214,7 @@ class Advanced extends Component
         try {
             $this->authorize('update', $this->application);
             if ($this->gpuCount && $this->gpuDeviceIds) {
-                $this->dispatch('error', 'You cannot set both GPU count and GPU device IDs.');
+                $this->dispatch('error', __('You cannot set both GPU count and GPU device IDs.'));
                 $this->gpuCount = null;
                 $this->gpuDeviceIds = null;
                 $this->syncData(true);
@@ -222,7 +222,7 @@ class Advanced extends Component
                 return;
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Settings saved.');
+            $this->dispatch('success', __('Settings saved.'));
             $this->dispatch('configurationChanged');
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -241,7 +241,7 @@ class Advanced extends Component
             }
             if (is_null($this->customInternalName)) {
                 $this->syncData(true);
-                $this->dispatch('success', 'Custom name saved.');
+                $this->dispatch('success', __('Custom name saved.'));
                 $this->dispatch('configurationChanged');
 
                 return;
@@ -254,14 +254,14 @@ class Advanced extends Component
                 return $application->id !== $this->application->id && $application->settings->custom_internal_name === $this->customInternalName;
             });
             if ($foundSameInternalName->isNotEmpty()) {
-                $this->dispatch('error', 'This custom container name is already in use by another application on this server.');
+                $this->dispatch('error', __('This custom container name is already in use by another application on this server.'));
                 $this->customInternalName = $customInternalName;
                 $this->syncData(true);
 
                 return;
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Custom name saved.');
+            $this->dispatch('success', __('Custom name saved.'));
             $this->dispatch('configurationChanged');
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -285,7 +285,7 @@ class Advanced extends Component
                 : (int) $validated['stopGracePeriod'];
             $this->application->settings->save();
 
-            $this->dispatch('success', 'Stop grace period updated.');
+            $this->dispatch('success', __('Stop grace period updated.'));
             $this->dispatch('configurationChanged');
         } catch (ValidationException $e) {
             throw $e;
@@ -303,7 +303,7 @@ class Advanced extends Component
             ]);
             $this->application->max_restart_count = $this->maxRestartCount;
             $this->application->save();
-            $this->dispatch('success', 'Max restart count saved.');
+            $this->dispatch('success', __('Max restart count saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

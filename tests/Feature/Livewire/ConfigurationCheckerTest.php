@@ -127,10 +127,10 @@ it('marks the service environment variables menu when required values are missin
 
     expect($configuration)
         ->toContain("'hasWarning' => ! \$service->isDeployable")
-        ->toContain('title="Required environment variables missing"')
+        ->toContain('title="{{ __(\'Required environment variables missing\') }}"')
         ->and($sidebar)
         ->toContain("'hasWarning' => ! \$service->isDeployable")
-        ->toContain('title="Required environment variables missing"');
+        ->toContain('title="{{ __(\'Required environment variables missing\') }}"');
 });
 
 it('refreshes configuration changes when the event is received', function () {

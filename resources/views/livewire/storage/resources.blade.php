@@ -1,16 +1,16 @@
 <div x-data="{ search: '' }" class="application-settings-form">
-    <x-application.settings-section title="Backup schedules"
-        description="Schedules currently writing backup data to this storage." flush>
+    <x-application.settings-section title="{{ __('Backup schedules') }}"
+        description="{{ __('Schedules currently writing backup data to this storage.') }}" flush>
         @if ($groupedBackups->count() === 0 && $volumeBackups->count() === 0)
-            <x-empty title="No backup schedules use this storage"
-                description="Select this storage from a database or volume backup schedule to see it here."
+            <x-empty title="{{ __('No backup schedules use this storage') }}"
+                description="{{ __('Select this storage from a database or volume backup schedule to see it here.') }}"
                 icon-name="storages" size="sm" />
         @else
             <div class="border-b border-neutral-200 p-3 dark:border-white/[0.08]">
                 <div class="relative w-full max-w-sm">
                     <x-reicon name="search"
                         class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
-                    <input x-model.debounce.150ms="search" type="search" placeholder="Search backup schedules"
+                    <input x-model.debounce.150ms="search" type="search" placeholder="{{ __('Search backup schedules') }}"
                         class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-3! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                 </div>
             </div>
@@ -18,10 +18,10 @@
             <div class="overflow-x-auto">
                 <div
                     class="grid min-w-[780px] grid-cols-[minmax(12rem,1fr)_9rem_7rem_minmax(15rem,1.2fr)] border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                    <div>Backup target</div>
-                    <div>Frequency</div>
-                    <div>Status</div>
-                    <div>Storage</div>
+                    <div>{{ __('Backup target') }}</div>
+                    <div>{{ __('Frequency') }}</div>
+                    <div>{{ __('Status') }}</div>
+                    <div>{{ __('Storage') }}</div>
                 </div>
                 @foreach ($groupedBackups as $backups)
                     @php
@@ -101,11 +101,11 @@
                                 <x-forms.listbox id="selectedStorages.{{ $backup->id }}" :options="$storageOptions"
                                     portal />
                                 <button type="button" class="button shrink-0"
-                                    wire:click="moveBackup({{ $backup->id }})">Move</button>
+                                    wire:click="moveBackup({{ $backup->id }})">{{ __('Move') }}</button>
                                 <button type="button" class="button shrink-0 text-error"
                                     wire:click="disableS3({{ $backup->id }})"
                                     wire:confirm="Are you sure you want to disable S3 for this backup schedule?">
-                                    Disable
+                                    {{ __('Disable') }}
                                 </button>
                             </div>
                         </div>
@@ -141,11 +141,11 @@
                             <x-forms.listbox id="selectedVolumeStorages.{{ $backup->id }}" :options="$storageOptions"
                                 portal />
                             <button type="button" class="button shrink-0"
-                                wire:click="moveVolumeBackup({{ $backup->id }})">Move</button>
+                                wire:click="moveVolumeBackup({{ $backup->id }})">{{ __('Move') }}</button>
                             <button type="button" class="button shrink-0 text-error"
                                 wire:click="disableVolumeS3({{ $backup->id }})"
                                 wire:confirm="Are you sure you want to disable S3 for this backup schedule?">
-                                Disable
+                                {{ __('Disable') }}
                             </button>
                         </div>
                     </div>

@@ -210,7 +210,7 @@ class Index extends Component
             }
 
             $this->serviceDatabase->delete();
-            $this->dispatch('success', 'Database deleted.');
+            $this->dispatch('success', __('Database deleted.'));
 
             return redirectRoute($this, 'project.service.configuration', $this->parameters);
         } catch (\Throwable $e) {
@@ -234,12 +234,12 @@ class Index extends Component
             $this->authorize('update', $this->serviceDatabase);
             if (! $this->serviceDatabase->service->destination->server->isLogDrainEnabled()) {
                 $this->isLogDrainEnabled = false;
-                $this->dispatch('error', 'Log drain is not enabled on the server. Please enable it first.');
+                $this->dispatch('error', __('Log drain is not enabled on the server. Please enable it first.'));
 
                 return;
             }
             $this->submitDatabase();
-            $this->dispatch('success', 'You need to restart the service for the changes to take effect.');
+            $this->dispatch('success', __('You need to restart the service for the changes to take effect.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -299,7 +299,7 @@ class Index extends Component
         try {
             $this->authorize('update', $this->serviceDatabase);
             if ($this->isPublic && ! $this->publicPort) {
-                $this->dispatch('error', 'Public port is required.');
+                $this->dispatch('error', __('Public port is required.'));
                 $this->isPublic = false;
 
                 return;
@@ -307,7 +307,7 @@ class Index extends Component
             $this->syncDatabaseData(true);
             if ($this->serviceDatabase->is_public) {
                 if (! str($this->serviceDatabase->status)->startsWith('running')) {
-                    $this->dispatch('error', 'Database must be started to be publicly accessible.');
+                    $this->dispatch('error', __('Database must be started to be publicly accessible.'));
                     $this->isPublic = false;
                     $this->serviceDatabase->is_public = false;
 
@@ -315,11 +315,11 @@ class Index extends Component
                 }
                 StartDatabaseProxy::run($this->serviceDatabase);
                 $this->db_url_public = $this->serviceDatabase->getServiceDatabaseUrl();
-                $this->dispatch('success', 'Database is now publicly accessible.');
+                $this->dispatch('success', __('Database is now publicly accessible.'));
             } else {
                 StopDatabaseProxy::run($this->serviceDatabase);
                 $this->db_url_public = null;
-                $this->dispatch('success', 'Database is no longer publicly accessible.');
+                $this->dispatch('success', __('Database is no longer publicly accessible.'));
             }
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -336,7 +336,7 @@ class Index extends Component
             $this->serviceDatabase->refresh();
             $this->syncDatabaseData(false);
             updateCompose($this->serviceDatabase);
-            $this->dispatch('success', 'Database saved.');
+            $this->dispatch('success', __('Database saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         } finally {
@@ -392,7 +392,7 @@ class Index extends Component
             $this->serviceApplication->is_stripprefix_enabled = $this->isStripprefixEnabled;
             $this->serviceApplication->exclude_from_status = $this->excludeFromStatus;
             $this->serviceApplication->save();
-            $this->dispatch('success', 'Settings saved.');
+            $this->dispatch('success', __('Settings saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -404,13 +404,13 @@ class Index extends Component
             $this->authorize('update', $this->serviceApplication);
             if (! $this->serviceApplication->service->destination->server->isLogDrainEnabled()) {
                 $this->isLogDrainEnabled = false;
-                $this->dispatch('error', 'Log drain is not enabled on the server. Please enable it first.');
+                $this->dispatch('error', __('Log drain is not enabled on the server. Please enable it first.'));
 
                 return;
             }
             $this->syncApplicationData(true);
             $this->serviceApplication->save();
-            $this->dispatch('success', 'You need to restart the service for the changes to take effect.');
+            $this->dispatch('success', __('You need to restart the service for the changes to take effect.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -426,7 +426,7 @@ class Index extends Component
             }
 
             $this->serviceApplication->delete();
-            $this->dispatch('success', 'Application deleted.');
+            $this->dispatch('success', __('Application deleted.'));
 
             return redirect()->route('project.service.configuration', $this->parameters);
         } catch (\Throwable $e) {
@@ -553,9 +553,9 @@ class Index extends Component
             $this->syncApplicationData(false);
             updateCompose($this->serviceApplication);
             if (str($this->serviceApplication->fqdn)->contains(',')) {
-                $this->dispatch('warning', 'Some services do not support multiple domains, which can lead to problems and is NOT RECOMMENDED.<br><br>Only use multiple domains if you know what you are doing.');
+                $this->dispatch('warning', __('Some services do not support multiple domains, which can lead to problems and is NOT RECOMMENDED.<br><br>Only use multiple domains if you know what you are doing.'));
             } else {
-                ! $warning && $this->dispatch('success', 'Service saved.');
+                ! $warning && $this->dispatch('success', __('Service saved.'));
             }
             $this->dispatch('generateDockerCompose');
         } catch (\Throwable $e) {

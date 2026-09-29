@@ -51,8 +51,8 @@ it('keeps telegram forum topics separate from event multiselects', function () {
         ->toContain('channel="telegram" threaded');
 
     expect($grid)
-        ->toContain('title="Notification events"')
-        ->toContain('title="Forum topics"')
+        ->toContain('title="{{ __(\'Notification events\') }}"')
+        ->toContain('title="{{ __(\'Forum topics\') }}"')
         ->toContain('Enable one or more events above to assign forum topic IDs.')
         ->toContain('$enabledThreadEvents')
         ->not->toContain('label="{{ $event[\'label\'] }} thread ID"')

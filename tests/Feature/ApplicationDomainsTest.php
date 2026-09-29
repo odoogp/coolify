@@ -1403,9 +1403,9 @@ it('provides client-side search for compose service domains', function () {
         ->toContain('x-model="domainSearch"')
         ->toContain('class="ml-auto flex flex-wrap items-center gap-2"')
         ->toContain('<div class="relative shrink-0">')
-        ->toContain('placeholder="Search services or domains"')
+        ->toContain('placeholder="{{ __(\'Search services or domains\') }}"')
         ->toContain('x-show="matchesDomainSearch(')
-        ->toContain('title="No domains found"')
+        ->toContain('title="{{ __(\'No domains found\') }}"')
         ->toContain('hasDomainSearchResults(');
 });
 

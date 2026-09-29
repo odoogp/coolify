@@ -73,7 +73,7 @@
             <button type="button" @click="expanded = !expanded"
                 class="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50 dark:border-coolgray-300 dark:bg-surface dark:text-fg dark:hover:bg-raised"
                 style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal);"
-                :aria-expanded="expanded.toString()" aria-label="Active deployments">
+                :aria-expanded="expanded.toString()" aria-label="{{ __('Active deployments') }}">
                 <svg class="loading-indicator size-3.5 shrink-0 animate-spin"
                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"

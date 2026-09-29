@@ -1,6 +1,6 @@
 <div class="pt-4">
     @if (isset($link))
-        Create a new one
+        {{ __('Create a new one') }}
         <a href="{{ $link }}" class="underline dark:text-warning">
             here.
         </a>

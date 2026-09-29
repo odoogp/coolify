@@ -103,7 +103,7 @@ class Show extends Component
     {
         $this->public_key = $this->private_key->getPublicKey();
         if ($this->public_key === 'Error loading private key') {
-            $this->dispatch('error', 'Failed to load public key. The private key may be invalid.');
+            $this->dispatch('error', __('Failed to load public key. The private key may be invalid.'));
         }
     }
 
@@ -149,7 +149,7 @@ class Show extends Component
                 'private_key' => formatPrivateKey($this->private_key->private_key),
             ]);
             refresh_server_connection($this->private_key);
-            $this->dispatch('success', 'Private key updated.');
+            $this->dispatch('success', __('Private key updated.'));
             $this->dispatch('securityResourceChanged');
             if ($this->modalMode) {
                 $this->dispatch('close-modal');

@@ -176,7 +176,7 @@ class Slack extends Component
     {
         $this->syncData(true);
         refreshSession();
-        $this->dispatch('success', 'Settings saved.');
+        $this->dispatch('success', __('Settings saved.'));
     }
 
     public function sendTestNotification()
@@ -184,7 +184,7 @@ class Slack extends Component
         try {
             $this->authorize('sendTest', $this->settings);
             $this->team->notify(new Test(channel: 'slack'));
-            $this->dispatch('success', 'Test notification sent.');
+            $this->dispatch('success', __('Test notification sent.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

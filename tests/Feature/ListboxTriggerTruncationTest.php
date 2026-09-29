@@ -44,7 +44,7 @@ test('listbox component uses shared trigger label truncation', function () {
         ->toContain('relative min-w-0')
         ->toContain('listbox-trigger')
         ->toContain('listbox-trigger-label')
-        ->toContain(':title="current"')
+        ->toContain(':title="{{ __(\'current\') }}"')
         ->not->toContain('class="truncate" x-text="current"');
 });
 
@@ -88,7 +88,7 @@ test('searchable listbox component uses shared trigger label truncation', functi
         ->toContain('class="w-full min-w-0"')
         ->toContain('relative min-w-0')
         ->toContain('listbox-trigger-label')
-        ->toContain(':title="current"');
+        ->toContain(':title="{{ __(\'current\') }}"');
 });
 
 test('listbox shows an empty state when it has no options', function () {
@@ -117,7 +117,7 @@ test('listbox forwards dynamic disabled state to its trigger', function () {
         ->toContain("server.id == this.currentServerId ? ' (current)' : ''")
         ->toContain("destination.uuid == this.currentDestinationUuid ? ' (current)' : ''")
         ->toContain('selectedCloneServer = null;')
-        ->toContain('placeholder="Choose a server…"')
+        ->toContain('placeholder="{{ __(\'Choose a server…\') }}"')
         ->toContain("this.selectedCloneServer === null || this.selectedCloneServer === ''")
         ->toContain("x-bind:disabled=\"selectedCloneServer === null || selectedCloneServer === ''\"")
         ->toContain('x-model="selectedCloneProject"')

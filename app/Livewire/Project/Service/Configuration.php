@@ -78,7 +78,7 @@ class Configuration extends Component
             $application = $this->service->applications->find($id);
             if ($application) {
                 $application->restart();
-                $this->dispatch('success', 'Service application restarted successfully.');
+                $this->dispatch('success', __('Service application restarted successfully.'));
             }
         } catch (\Exception $e) {
             return handleError($e, $this);
@@ -92,7 +92,7 @@ class Configuration extends Component
             $database = $this->service->databases->find($id);
             if ($database) {
                 $database->restart();
-                $this->dispatch('success', 'Service database restarted successfully.');
+                $this->dispatch('success', __('Service database restarted successfully.'));
             }
         } catch (\Exception $e) {
             return handleError($e, $this);

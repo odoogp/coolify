@@ -133,7 +133,7 @@ class All extends Component
             if ($this->readyToLoad && $this->view === 'dev') {
                 $this->getDevView();
             }
-            $this->dispatch('success', 'Environment variable settings updated.');
+            $this->dispatch('success', __('Environment variable settings updated.'));
             $this->dispatch('configurationChanged');
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -940,7 +940,7 @@ class All extends Component
 
         // Only show success message if changes were actually made and no errors occurred
         if ($changesMade && ! $errorOccurred) {
-            $this->dispatch('success', 'Environment variables updated.');
+            $this->dispatch('success', __('Environment variables updated.'));
         }
     }
 
@@ -949,7 +949,7 @@ class All extends Component
         $data['key'] = ValidationPatterns::validatedEnvironmentVariableKey($data['key']);
         $found = $this->resource->environment_variables()->where('key', $data['key'])->first();
         if ($found) {
-            $this->dispatch('error', 'Environment variable already exists.');
+            $this->dispatch('error', __('Environment variable already exists.'));
 
             return;
         }
@@ -961,7 +961,7 @@ class All extends Component
 
         $this->clearEnvironmentVariableCaches();
 
-        $this->dispatch('success', 'Environment variable added.');
+        $this->dispatch('success', __('Environment variable added.'));
     }
 
     private function createEnvironmentVariable($data)

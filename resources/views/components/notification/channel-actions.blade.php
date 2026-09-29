@@ -18,11 +18,11 @@
             if (!enabled && !$el.closest('form').reportValidity()) return;
             $wire.$set(enabledProperty, !enabled).then(() => $wire.$call(toggleMethod));
         ">
-        {{ $enabled ? 'Disable' : 'Enable' }}
+        {{ $enabled ? __('Disable') : __('Enable') }}
     </x-forms.button>
     <x-forms.button type="button" :disabled="!$enabled"
         x-on:click="if ($el.closest('form').reportValidity()) $wire.$call(testMethod)">
         <x-reicon name="notifications" class="size-3.5" />
-        Send test
+        {{ __('Send test') }}
     </x-forms.button>
 </div>

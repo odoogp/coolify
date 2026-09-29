@@ -30,12 +30,12 @@
                     <section class="application-settings-section">
                         <div class="application-settings-section-header">
                             <div>
-                                <h2>Scheduled backups</h2>
+                                <h2>{{ __('Scheduled backups') }}</h2>
                                 <p>Automate backups for {{ $serviceDatabase->human_name ?: $serviceDatabase->name }}.</p>
                             </div>
                             @if (filled($serviceDatabase->custom_type) || ! $serviceDatabase->is_migrated)
                                 @can('update', $serviceDatabase)
-                                    <x-modal-input buttonTitle="+ Add" title="New Scheduled Backup">
+                                    <x-modal-input buttonTitle="+ Add" title="{{ __('New Scheduled Backup') }}">
                                         <livewire:project.database.create-scheduled-backup
                                             :database="$serviceDatabase" />
                                     </x-modal-input>

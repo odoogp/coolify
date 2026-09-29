@@ -251,7 +251,7 @@ class ValidateAndInstall extends Component
         if ($this->server->isSwarm()) {
             $swarmInstalled = $this->server->validateDockerSwarm();
             if ($swarmInstalled) {
-                $this->dispatch('success', 'Docker Swarm is initiated.');
+                $this->dispatch('success', __('Docker Swarm is initiated.'));
             }
         } else {
             $this->docker_version = $this->server->validateDockerEngineVersion();
@@ -265,7 +265,7 @@ class ValidateAndInstall extends Component
                 $this->dispatch('refreshServerShow');
                 $this->dispatch('refreshBoardingIndex');
                 ServerValidated::dispatch($this->server->team_id, $this->server->uuid);
-                $this->dispatch('success', 'Server validated, proxy is starting in a moment.');
+                $this->dispatch('success', __('Server validated, proxy is starting in a moment.'));
                 $proxyShouldRun = CheckProxy::run($this->server, true);
                 if (! $proxyShouldRun) {
                     return;

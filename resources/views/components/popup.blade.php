@@ -1,4 +1,4 @@
-@props(['title' => 'Default title', 'description' => 'Default Description', 'buttonText' => 'Default Button Text'])
+@props(['title' => __('Default title'), 'description' => __('Default Description'), 'buttonText' => __('Default Button Text')])
 <div x-data="{
     bannerVisible: false,
     bannerVisibleAfter: 300

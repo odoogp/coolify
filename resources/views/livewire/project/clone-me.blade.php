@@ -13,13 +13,13 @@
         <section class="application-settings-section">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Clone environment</h2>
+                    <h2>{{ __('Clone environment') }}</h2>
                     <p>Copy every resource from {{ $environment->name }} to a new project or environment.</p>
                 </div>
             </div>
             <div class="application-settings-section-body">
                 <div class="max-w-md">
-                    <x-forms.input required id="newName" label="New name" />
+                    <x-forms.input required id="newName" label="{{ __('New name') }}" />
                 </div>
             </div>
         </section>
@@ -27,8 +27,8 @@
         <section class="application-settings-section">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Destination</h2>
-                    <p>Choose the server and Docker network that will receive the cloned resources.</p>
+                    <h2>{{ __('Destination') }}</h2>
+                    <p>{{ __('Choose the server and Docker network that will receive the cloned resources.') }}</p>
                 </div>
             </div>
             <div class="application-settings-section-body p-0!">
@@ -39,9 +39,9 @@
                 @endphp
                 <div class="data-table">
                     <div class="data-table-header clone-destinations-table-grid">
-                        <span><span class="sr-only">Selected</span></span>
-                        <span>Server</span>
-                        <span>Network</span>
+                        <span><span class="sr-only">{{ __('Selected') }}</span></span>
+                        <span>{{ __('Server') }}</span>
+                        <span>{{ __('Network') }}</span>
                     </div>
                     @foreach ($servers->sortBy('id') as $server)
                         @foreach ($server->destinations() as $destination)
@@ -85,16 +85,16 @@
             @endphp
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Resources</h2>
+                    <h2>{{ __('Resources') }}</h2>
                     <p>{{ $resourceCount }} {{ Str::plural('resource', $resourceCount) }} will be cloned.</p>
                 </div>
             </div>
             <div class="application-settings-section-body p-0!">
                 <div class="data-table">
                     <div class="data-table-header clone-resources-table-grid">
-                        <span>Name</span>
-                        <span>Type</span>
-                        <span>Description</span>
+                        <span>{{ __('Name') }}</span>
+                        <span>{{ __('Type') }}</span>
+                        <span>{{ __('Description') }}</span>
                     </div>
                     @foreach ($environment->applications->sortBy('name') as $application)
                         <div
@@ -141,11 +141,11 @@
                     class="flex flex-col gap-2 border-t border-neutral-200 p-4 sm:flex-row sm:justify-end dark:border-white/[0.06]">
                     <x-forms.button isHighlighted wire:click="clone('environment')"
                         :disabled="! filled($selectedDestination)">
-                        Clone to environment
+                        {{ __('Clone to environment') }}
                     </x-forms.button>
                     <x-forms.button isHighlighted wire:click="clone('project')"
                         :disabled="! filled($selectedDestination)">
-                        Clone to project
+                        {{ __('Clone to project') }}
                     </x-forms.button>
                 </div>
             </div>

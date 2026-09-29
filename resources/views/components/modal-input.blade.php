@@ -1,5 +1,5 @@
 @props([
-    'title' => 'Are you sure?',
+    'title' => __('Are you sure?'),
     'buttonTitle' => 'Open Modal',
     'isErrorButton' => false,
     'isHighlightedButton' => false,

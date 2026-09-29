@@ -32,7 +32,7 @@ class Edit extends Component
             $iconStorage->storeProject($this->project, $this->icon);
             $this->reset('icon');
             $this->project->refresh();
-            $this->dispatch('success', 'Project icon updated.');
+            $this->dispatch('success', __('Project icon updated.'));
 
             return true;
         } catch (\Throwable $e) {
@@ -48,7 +48,7 @@ class Edit extends Component
             $this->authorize('update', $this->project);
             $iconStorage->deleteProject($this->project);
             $this->project->refresh();
-            $this->dispatch('success', 'Project icon removed.');
+            $this->dispatch('success', __('Project icon removed.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -96,7 +96,7 @@ class Edit extends Component
         try {
             $this->authorize('update', $this->project);
             $this->syncData(true);
-            $this->dispatch('success', 'Project updated.');
+            $this->dispatch('success', __('Project updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

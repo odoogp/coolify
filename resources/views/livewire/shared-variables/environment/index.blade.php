@@ -11,9 +11,9 @@
             }
         }">
             @if ($projects->isEmpty())
-                <x-empty title="No environments yet" description="Create a project environment before adding environment-wide variables." icon-name="layers" />
+                <x-empty title="{{ __('No environments yet') }}" description="{{ __('Create a project environment before adding environment-wide variables.') }}" icon-name="layers" />
             @else
-                <x-shared-variables.view-controls label="environments" storage-key="shared-variables-environments-view" />
+                <x-shared-variables.view-controls label="{{ __('environments') }}" storage-key="shared-variables-environments-view" />
 
                 <div x-cloak x-show="viewMode === 'grid'" class="flex flex-col gap-6">
                     @foreach ($projects as $project)
@@ -27,7 +27,7 @@
                                 <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">{{ $project->description ?: 'Project environments' }}</p>
                             </div>
                             @if ($project->environments->isEmpty())
-                                <x-empty title="No environments in this project." size="sm" />
+                                <x-empty title="{{ __('No environments in this project.') }}" size="sm" />
                             @else
                                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                                     @foreach ($project->environments as $environment)

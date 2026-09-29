@@ -52,7 +52,7 @@ test('top breadcrumb lets users switch between resources in the current environm
         ->toContain('$currentEnvironment->applications')
         ->toContain('$currentEnvironment->databases()')
         ->toContain('$currentEnvironment->services')
-        ->toContain('<x-breadcrumb-switcher title="Resources"')
+        ->toContain('<x-breadcrumb-switcher title="{{ __(\'Resources\') }}"')
         ->toContain("'application' => route('project.application.configuration'")
         ->toContain("'database' => route('project.database.configuration'")
         ->toContain("'service' => route('project.service.configuration'");

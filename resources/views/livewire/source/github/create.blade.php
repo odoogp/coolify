@@ -5,21 +5,21 @@
         </p>
 
         <div class="grid gap-4 sm:grid-cols-2">
-            <x-forms.input id="name" label="Name" required />
-            <x-forms.input id="organization" label="Organization"
-                helper="If empty, your GitHub user will be used."
-                placeholder="Personal account when empty" />
+            <x-forms.input id="name" label="{{ __('Name') }}" required />
+            <x-forms.input id="organization" label="{{ __('Organization') }}"
+                helper="{{ __('If empty, your GitHub user will be used.') }}"
+                placeholder="{{ __('Personal account when empty') }}" />
         </div>
 
         @if (! isCloud())
             <div x-data="{ showWarning: @entangle('is_system_wide') }">
                 <div class="max-w-xs">
-                    <x-forms.checkbox id="is_system_wide" label="System wide"
-                        helper="If checked, this GitHub App will be available for everyone in this Coolify instance." />
+                    <x-forms.checkbox id="is_system_wide" label="{{ __('System wide') }}"
+                        helper="{{ __('If checked, this GitHub App will be available for everyone in this Coolify instance.') }}" />
                 </div>
                 <div x-cloak x-show="showWarning" x-transition class="mt-3">
-                    <x-callout type="warning" title="Shared with every team">
-                        System-wide GitHub Apps are available to every team on this instance. Prefer team-specific apps when you need repository isolation.
+                    <x-callout type="warning" title="{{ __('Shared with every team') }}">
+                        {{ __('System-wide GitHub Apps are available to every team on this instance. Prefer team-specific apps when you need repository isolation.') }}
                     </x-callout>
                 </div>
             </div>
@@ -38,22 +38,22 @@
             </button>
             <div x-cloak x-show="open" x-collapse class="border-t border-neutral-200 px-3 py-3 dark:border-white/[0.08]">
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <x-forms.input id="html_url" label="HTML URL" required
+                    <x-forms.input id="html_url" label="{{ __('HTML URL') }}" required
                         helper="For GitHub Enterprise, enter your instance URL (e.g. https://github.example.com)." />
-                    <x-forms.input id="api_url" label="API URL" required
+                    <x-forms.input id="api_url" label="{{ __('API URL') }}" required
                         helper="Usually https://api.github.com or your Enterprise API base URL." />
-                    <x-forms.input id="custom_user" label="Custom Git user" required />
-                    <x-forms.input id="custom_port" type="number" label="Custom Git port" required />
+                    <x-forms.input id="custom_user" label="{{ __('Custom Git user') }}" required />
+                    <x-forms.input id="custom_port" type="number" label="{{ __('Custom Git port') }}" required />
                 </div>
             </div>
         </div>
 
         <x-forms.button class="mt-1 w-full justify-center" type="submit">
-            Continue
+            {{ __('Continue') }}
         </x-forms.button>
     </form>
 @else
-    <x-callout type="danger" title="Insufficient permissions">
-        You don't have permission to create new GitHub Apps. Contact your team administrator.
+    <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
+        {{ __('You don\'t have permission to create new GitHub Apps. Contact your team administrator.') }}
     </x-callout>
 @endcan

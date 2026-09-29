@@ -1,6 +1,6 @@
 @props([
-    'title' => 'Settings',
-    'subtitle' => 'Instance configuration and maintenance',
+    'title' => __('Settings'),
+    'subtitle' => __('Instance configuration and maintenance'),
 ])
 
 {{-- Same 1180px shell as the workspace. Title hidden only at xl+ (full desktop). --}}

@@ -166,7 +166,7 @@ class Destination extends Component
             }
 
             if ($this->resource->destination->server->id == $server_id && $this->resource->destination->id == $network_id) {
-                $this->dispatch('error', 'You are trying to remove the main server.');
+                $this->dispatch('error', __('You are trying to remove the main server.'));
 
                 return;
             }

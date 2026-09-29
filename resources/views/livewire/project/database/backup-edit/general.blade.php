@@ -4,23 +4,23 @@
     <section class="application-settings-section">
         <div class="application-settings-section-header">
             <div>
-                <h2>Backup schedule</h2>
-                <p>Choose what to back up, when it runs, and how long it may run.</p>
+                <h2>{{ __('Backup schedule') }}</h2>
+                <p>{{ __('Choose what to back up, when it runs, and how long it may run.') }}</p>
             </div>
             <div class="flex items-center gap-2">
                 @if (! $backupEnabled)
                     <x-forms.button type="button" wire:click="toggleEnabled" wire:loading.attr="disabled"
                         wire:target="toggleEnabled" isHighlighted>
-                        Enable backup
+                        {{ __('Enable backup') }}
                     </x-forms.button>
                 @else
                     <x-forms.button type="button" wire:click="toggleEnabled" wire:loading.attr="disabled"
                         wire:target="toggleEnabled">
-                        Disable backup
+                        {{ __('Disable backup') }}
                     </x-forms.button>
                 @endif
                 @if (str($status)->startsWith('running'))
-                    <x-forms.button type="button" wire:click="backupNow">Back up now</x-forms.button>
+                    <x-forms.button type="button" wire:click="backupNow">{{ __('Back up now') }}</x-forms.button>
                 @endif
             </div>
         </div>
@@ -30,9 +30,9 @@
                     || $backup->database_type === 'App\Models\StandaloneMysql'
                     || $backup->database_type === 'App\Models\StandaloneMariadb')
                 <div class="grid w-full gap-4">
-                    <x-forms.listbox id="dumpAll" label="Database selection" onChange="instantSave" :options="[
-                        ['value' => true, 'label' => 'All databases'],
-                        ['value' => false, 'label' => 'Specific databases'],
+                    <x-forms.listbox id="dumpAll" label="{{ __('Database selection') }}" onChange="instantSave" :options="[
+                        ['value' => true, 'label' => __('All databases')],
+                        ['value' => false, 'label' => __('Specific databases')],
                     ]" />
                     @if (! $backup->dump_all)
                         <div class="w-full" x-data="{
@@ -51,7 +51,7 @@
                                 this.value = this.databases.filter((_, itemIndex) => itemIndex !== index).join(',');
                             },
                         }">
-                            <label class="mb-1.5 block text-sm font-medium">Databases to back up</label>
+                            <label class="mb-1.5 block text-sm font-medium">{{ __('Databases to back up') }}</label>
                             <div class="chip-input">
                                 <template x-for="(database, index) in databases" :key="database">
                                     <span class="chip font-mono">
@@ -66,31 +66,31 @@
                                 <input x-model="draft" @keydown.enter.prevent="addDatabase()"
                                     @keydown="if ($event.key === ',') { $event.preventDefault(); addDatabase(); }"
                                     @blur="addDatabase()" type="text"
-                                    placeholder="Type a database and press Enter" />
+                                    placeholder="{{ __('Type a database and press Enter') }}" />
                             </div>
                             <p class="mt-1.5 text-xs text-neutral-500 dark:text-fg-dim">
-                                Add one or more database names. Leave empty to include the default database.
+                                {{ __('Add one or more database names. Leave empty to include the default database.') }}
                             </p>
                         </div>
                     @endif
                 </div>
             @elseif ($backup->database_type === 'App\Models\StandaloneMongodb')
-                <x-forms.input label="Databases to include"
-                    helper="Use database:collection1,collection2|database2 to exclude selected collections. Leave empty to include all databases and collections."
+                <x-forms.input label="{{ __('Databases to include') }}"
+                    helper="{{ __('Use database:collection1,collection2|database2 to exclude selected collections. Leave empty to include all databases and collections.') }}"
                     id="databasesToBackup" />
             @elseif ($backup->database_type === 'App\Models\StandaloneClickhouse')
-                <x-forms.input label="Databases to back up"
-                    helper="Comma-separated database names. Leave empty to include the default database."
+                <x-forms.input label="{{ __('Databases to back up') }}"
+                    helper="{{ __('Comma-separated database names. Leave empty to include the default database.') }}"
                     id="databasesToBackup" />
             @endif
 
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <x-forms.input label="Frequency" id="frequency" required />
-                <x-forms.input label="Timezone" id="timezone" disabled
-                    helper="Uses the deployment server timezone, or the instance timezone when none is configured."
+                <x-forms.input label="{{ __('Frequency') }}" id="frequency" required />
+                <x-forms.input label="{{ __('Timezone') }}" id="timezone" disabled
+                    helper="{{ __('Uses the deployment server timezone, or the instance timezone when none is configured.') }}"
                     required />
-                <x-forms.input label="Timeout" id="timeout" type="number" min="60"
-                    helper="Maximum backup runtime in seconds." required />
+                <x-forms.input label="{{ __('Timeout') }}" id="timeout" type="number" min="60"
+                    helper="{{ __('Maximum backup runtime in seconds.') }}" required />
             </div>
         </div>
     </section>

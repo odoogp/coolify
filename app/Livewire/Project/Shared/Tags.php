@@ -79,7 +79,7 @@ class Tags extends Component
             }
             $this->resource->tags()->attach($id);
             $this->refresh();
-            $this->dispatch('success', 'Tag added.');
+            $this->dispatch('success', __('Tag added.'));
         } catch (\Exception $e) {
             return handleError($e, $this);
         }
@@ -93,7 +93,7 @@ class Tags extends Component
             $found_more_tags = Tag::ownedByCurrentTeam()->find($id);
             $found_more_tags?->deleteIfOrphaned();
             $this->refresh();
-            $this->dispatch('success', 'Tag deleted.');
+            $this->dispatch('success', __('Tag deleted.'));
         } catch (\Exception $e) {
             return handleError($e, $this);
         }

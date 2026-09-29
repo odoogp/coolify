@@ -86,7 +86,7 @@ class Index extends Component
         if ($this->pull_request_id !== null && $this->pull_request_id !== '') {
             if (! is_numeric($this->pull_request_id) || (float) $this->pull_request_id <= 0 || (float) $this->pull_request_id != (int) $this->pull_request_id) {
                 $this->pull_request_id = null;
-                $this->dispatch('error', 'Invalid Pull Request ID in URL. Filter cleared.');
+                $this->dispatch('error', __('Invalid Pull Request ID in URL. Filter cleared.'));
             } else {
                 // Ensure it's stored as a string representation of a positive integer
                 $this->pull_request_id = (string) (int) $this->pull_request_id;
@@ -229,7 +229,7 @@ class Index extends Component
             // Check if it's numeric and positive
             if (! is_numeric($value) || (float) $value <= 0 || (float) $value != (int) $value) {
                 $this->pull_request_id = null;
-                $this->dispatch('error', 'Invalid Pull Request ID. Please enter a valid positive number.');
+                $this->dispatch('error', __('Invalid Pull Request ID. Please enter a valid positive number.'));
 
                 return;
             }

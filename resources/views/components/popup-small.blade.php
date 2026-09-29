@@ -1,6 +1,6 @@
 @props([
-    'title' => 'Default title',
-    'description' => 'Default description',
+    'title' => __('Default title'),
+    'description' => __('Default description'),
     'compactAfter' => null,
     'compactStorageKey' => null,
     'compactStoragePrefix' => null,
@@ -53,7 +53,7 @@
     x-transition:leave-end="translate-y-3 opacity-0"
     class="fixed right-4 z-999 {{ $position === 'top-right' ? 'top-16' : 'bottom-4' }}">
     <template x-if="iconOnly">
-        <button type="button" @click="restore()" aria-label="Restore warning" class="flex rounded-lg p-2"
+        <button type="button" @click="restore()" aria-label="{{ __('Restore warning') }}" class="flex rounded-lg p-2"
             style="background: var(--coollabs-elevated); box-shadow: 0 0 0 1px var(--coollabs-line), var(--shadow-modal);">
             @isset($icon)
                 <span
@@ -88,7 +88,7 @@
             </div>
         </div>
 
-        <button type="button" @click.stop="minimizeToIcon()" aria-label="Minimize warning"
+        <button type="button" @click.stop="minimizeToIcon()" aria-label="{{ __('Minimize warning') }}"
             class="absolute right-2 top-2 flex size-6 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-700 dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg">
             <x-reicon name="x" class="size-3.5" />
         </button>

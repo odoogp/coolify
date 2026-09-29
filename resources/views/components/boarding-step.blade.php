@@ -21,7 +21,7 @@
             <div
                 class="border-t border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/[0.08] dark:bg-white/[0.02]">
                 <p class="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-fg-faint">
-                    Technical details
+                    {{ __('Technical details') }}
                 </p>
                 <div class="space-y-2 text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
                     {{ $explanation }}

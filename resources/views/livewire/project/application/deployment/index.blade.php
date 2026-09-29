@@ -28,18 +28,18 @@
 
             <div class="application-settings-form min-w-0"
         @if (!$skip) wire:poll.5000ms="reloadDeployments" @endif>
-        <x-application.settings-section title="Deployment history"
-            helper="Search, filter, and open a deployment to inspect its build logs." flush>
+        <x-application.settings-section title="{{ __('Deployment history') }}"
+            helper="{{ __('Search, filter, and open a deployment to inspect its build logs.') }}" flush>
             <x-table.toolbar class="border-b border-neutral-200 p-3 dark:border-white/[0.08]">
                 <x-slot:search>
-                    <x-table.search placeholder="Search deployments" loading-target="search"
+                    <x-table.search placeholder="{{ __('Search deployments') }}" loading-target="search"
                         wire:model.live.debounce.300ms="search" />
                 </x-slot:search>
                 <x-table.filter :active-count="count($deploymentFilters) + (filled($pull_request_id) ? 1 : 0)"
                     reset-action="clearFilter">
                             @if (count($statusFilterOptions) > 0)
                                 <span
-                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">Status</span>
+                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Status') }}</span>
                                 @foreach ($statusFilterOptions as $option)
                                     <button type="button" class="listbox-option" role="option"
                                         aria-selected="{{ in_array($option['value'], $deploymentFilters, true) ? 'true' : 'false' }}"
@@ -66,7 +66,7 @@
 
                             @if (count($sourceFilterOptions) > 0)
                                 <span
-                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">Source</span>
+                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Source') }}</span>
                                 @foreach ($sourceFilterOptions as $option)
                                     <button type="button" class="listbox-option" role="option"
                                         aria-selected="{{ in_array($option['value'], $deploymentFilters, true) ? 'true' : 'false' }}"
@@ -93,7 +93,7 @@
 
                             @if (count($serverFilterOptions) > 0)
                                 <span
-                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">Server</span>
+                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Server') }}</span>
                                 @foreach ($serverFilterOptions as $option)
                                     <button type="button" class="listbox-option" role="option"
                                         aria-selected="{{ in_array($option['value'], $deploymentFilters, true) ? 'true' : 'false' }}"
@@ -120,7 +120,7 @@
 
                             @if (count($pullRequestOptions) > 1)
                                 <span
-                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">Pull request</span>
+                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Pull request') }}</span>
                                 @foreach (array_slice($pullRequestOptions, 1) as $option)
                                     <button type="button" class="listbox-option" role="option"
                                         aria-selected="{{ $pull_request_id === $option['value'] ? 'true' : 'false' }}"
@@ -170,12 +170,12 @@
                         text="Filtering deployments..." class="rounded-lg" />
                     <div class="deployment-table-scroll">
                         <div class="data-table-header deployment-table-grid rounded-none!">
-                            <span>Status</span>
-                            <span>Source</span>
-                            <span>Commit</span>
-                            <span>Started</span>
-                            <span>Duration</span>
-                            <span>Server</span>
+                            <span>{{ __('Status') }}</span>
+                            <span>{{ __('Source') }}</span>
+                            <span>{{ __('Commit') }}</span>
+                            <span>{{ __('Started') }}</span>
+                            <span>{{ __('Duration') }}</span>
+                            <span>{{ __('Server') }}</span>
                         </div>
 
                         @foreach ($deployments as $deployment)
@@ -262,7 +262,7 @@
                     </x-table-pagination>
                 </div>
             @else
-                <x-empty size="sm" title="No deployments found"
+                <x-empty size="sm" title="{{ __('No deployments found') }}"
                     :description="$hasActiveQuery
                         ? 'No deployments match the current search and filters.'
                         : 'Deploy the application to create its first deployment record.'"

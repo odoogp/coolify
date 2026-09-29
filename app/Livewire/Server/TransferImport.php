@@ -57,7 +57,7 @@ class TransferImport extends Component
                 throw new \RuntimeException('Uploaded file is empty.');
             }
             $this->bundleJson = $contents;
-            $this->dispatch('success', 'Bundle file loaded into the form.');
+            $this->dispatch('success', __('Bundle file loaded into the form.'));
         } catch (Throwable $e) {
             handleError($e, $this);
         }
@@ -124,11 +124,11 @@ class TransferImport extends Component
             $this->importedServerUuid = $dryRun ? null : data_get($result, 'server_uuid');
 
             if ($dryRun) {
-                $this->dispatch('success', 'Dry run completed — nothing was written.');
+                $this->dispatch('success', __('Dry run completed — nothing was written.'));
             } elseif (data_get($result, 'claimed')) {
-                $this->dispatch('success', 'Server imported and claimed for this instance.');
+                $this->dispatch('success', __('Server imported and claimed for this instance.'));
             } else {
-                $this->dispatch('success', 'Server imported. Claim did not complete — check warnings or re-claim from the server Transfer page.');
+                $this->dispatch('success', __('Server imported. Claim did not complete — check warnings or re-claim from the server Transfer page.'));
             }
         } catch (Throwable $e) {
             handleError($e, $this);

@@ -5,8 +5,8 @@
         <x-toast />
         <x-error-page
             code="500"
-            title="Wait, this is not cool..."
-            description="There has been an error with the following error message:"
+            title="{{ __('Wait, this is not cool...') }}"
+            description="{{ __('There has been an error with the following error message:') }}"
             tone="danger">
             @if ($exception->getMessage() !== '')
                 <div class="error-message">

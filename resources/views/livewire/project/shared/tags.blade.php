@@ -1,27 +1,27 @@
 <div class="flex flex-col gap-6">
-    <x-application.settings-section id="tag-assignment-section" title="Tags"
-        helper="Organize this resource with reusable team tags. Separate multiple tag names with spaces.">
+    <x-application.settings-section id="tag-assignment-section" title="{{ __('Tags') }}"
+        helper="{{ __('Organize this resource with reusable team tags. Separate multiple tag names with spaces.') }}">
         @can('update', $resource)
             <form wire:submit="submit"
                 class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                <x-forms.input id="newTags" label="Tag names"
-                    helper="Existing tags are assigned automatically. New names create team tags."
-                    placeholder="production api customer-a" />
+                <x-forms.input id="newTags" label="{{ __('Tag names') }}"
+                    helper="{{ __('Existing tags are assigned automatically. New names create team tags.') }}"
+                    placeholder="{{ __('production api customer-a') }}" />
                 <x-forms.button type="submit"
                     class="button-highlighted">
                     <x-reicon name="plus" class="size-3.5" />
-                    Add tags
+                    {{ __('Add tags') }}
                 </x-forms.button>
             </form>
         @else
-            <x-callout type="danger" title="Insufficient permissions">
-                You do not have permission to manage tags for this resource.
+            <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
+                {{ __('You do not have permission to manage tags for this resource.') }}
             </x-callout>
         @endcan
     </x-application.settings-section>
 
-    <x-application.settings-section id="assigned-tags-section" title="Assigned tags"
-        helper="Tags currently attached to this resource." flush>
+    <x-application.settings-section id="assigned-tags-section" title="{{ __('Assigned tags') }}"
+        helper="{{ __('Tags currently attached to this resource.') }}" flush>
         @forelse (data_get($this->resource, 'tags', []) as $tag)
             <div wire:key="assigned-tag-{{ $tag->id }}"
                 class="flex min-h-12 items-center gap-3 border-b border-neutral-200 px-4 py-2.5 last:border-b-0 dark:border-white/[0.07]">
@@ -35,21 +35,21 @@
                 @can('update', $resource)
                     <x-forms.button wire:click="deleteTag('{{ $tag->id }}')"
                         class="h-7! text-neutral-500 dark:text-fg-dim">
-                        Remove
+                        {{ __('Remove') }}
                     </x-forms.button>
                 @endcan
             </div>
         @empty
-            <x-empty size="sm" title="No tags assigned"
-                description="Add a tag above or select one from your team's available tags."
+            <x-empty size="sm" title="{{ __('No tags assigned') }}"
+                description="{{ __('Add a tag above or select one from your team\'s available tags.') }}"
                 icon-name="tags" />
         @endforelse
     </x-application.settings-section>
 
     @can('update', $resource)
         @if (count($filteredTags) > 0)
-            <x-application.settings-section id="available-tags-section" title="Available tags"
-                helper="Assign an existing team tag with one click.">
+            <x-application.settings-section id="available-tags-section" title="{{ __('Available tags') }}"
+                helper="{{ __('Assign an existing team tag with one click.') }}">
                 <div class="flex flex-wrap gap-2">
                     @foreach ($filteredTags as $tag)
                         <x-forms.button wire:key="available-tag-{{ $tag->id }}"

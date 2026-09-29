@@ -17,11 +17,11 @@
         'frequency' => strtolower($backup->frequency),
         'createdAt' => $backup->created_at?->timestamp ?? 0,
     ]))->values()),
-    filterOptions: @js(collect([['value' => 'all', 'label' => 'All targets']])->merge(
+    filterOptions: @js(collect([['value' => 'all', 'label' => __('All targets')]])->merge(
         $backups->map(fn ($backup) => [
             'value' => strtolower($backup->targetType()),
             'label' => $backup->targetType(),
-        ])->push(['value' => 'database', 'label' => 'Database'])->unique('value')->values()
+        ])->push(['value' => 'database', 'label' => __('Database')])->unique('value')->values()
     )->values()),
     sortOptions: [
         { value: 'target_asc', label: 'Target A–Z' },
@@ -62,8 +62,8 @@
                 current-route="project.service.volume-backups.index" />
 
             <div class="application-settings-form min-w-0 flex flex-col gap-6">
-        <x-application.settings-section title="Backups"
-            helper="Manage database, persistent volume, and directory backup schedules for this service.">
+        <x-application.settings-section title="{{ __('Backups') }}"
+            helper="{{ __('Manage database, persistent volume, and directory backup schedules for this service.') }}">
             @can('update', $service)
                 <x-slot:actions>
                     <div x-data="{ dropdownOpen: false }">
@@ -71,30 +71,30 @@
                             <x-forms.button class="button-highlighted" @click="dropdownOpen = !dropdownOpen"
                                 aria-haspopup="menu" x-bind:aria-expanded="dropdownOpen">
                                 <x-reicon name="plus" class="size-3.5" />
-                                Add backup
+                                {{ __('Add backup') }}
                                 <x-reicon name="chevron-down" class="size-3 opacity-55" />
                             </x-forms.button>
 
                             <div x-show="dropdownOpen" x-cloak role="menu" x-transition.origin.top.left
                                 class="listbox-panel left-0! right-auto! z-[90]! w-52! min-w-52! sm:left-auto! sm:right-0!">
-                            <x-modal-input title="New storage backup" :wireIgnore="false">
+                            <x-modal-input title="{{ __('New storage backup') }}" :wireIgnore="false">
                                 <x-slot:content>
                                     <button type="button" role="menuitem" @click="dropdownOpen = false"
                                         class="listbox-option justify-start! gap-2.5!">
                                         <x-reicon name="storages" class="size-3.5" />
-                                        Storage backup
+                                        {{ __('Storage backup') }}
                                     </button>
                                 </x-slot:content>
                                 <livewire:project.service.volume-backup.create :service="$service"
                                     wire:key="create-volume-backup-{{ $service->id }}" />
                             </x-modal-input>
                             @if ($databaseTargets->isNotEmpty())
-                                <x-modal-input title="New database backup" :wireIgnore="false">
+                                <x-modal-input title="{{ __('New database backup') }}" :wireIgnore="false">
                                     <x-slot:content>
                                         <button type="button" role="menuitem" @click="dropdownOpen = false"
                                             class="listbox-option justify-start! gap-2.5!">
                                             <x-reicon name="database" class="size-3.5" />
-                                            Database backup
+                                            {{ __('Database backup') }}
                                         </button>
                                     </x-slot:content>
                                     <livewire:project.database.create-scheduled-backup :service="$service"
@@ -109,19 +109,19 @@
 
             <div class="grid gap-4 sm:grid-cols-3">
                 <div>
-                    <p class="text-xs font-medium text-neutral-500 dark:text-fg-dim">Schedules</p>
+                    <p class="text-xs font-medium text-neutral-500 dark:text-fg-dim">{{ __('Schedules') }}</p>
                     <p class="mt-1 text-xl font-semibold tabular-nums text-neutral-950 dark:text-fg">
                         {{ $backups->count() + $databaseBackups->count() }}
                     </p>
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-neutral-500 dark:text-fg-dim">Enabled</p>
+                    <p class="text-xs font-medium text-neutral-500 dark:text-fg-dim">{{ __('Enabled') }}</p>
                     <p class="mt-1 text-xl font-semibold tabular-nums text-neutral-950 dark:text-fg">
                         {{ $backups->where('enabled', true)->count() + $databaseBackups->where('enabled', true)->count() }}
                     </p>
                 </div>
                 <div>
-                    <p class="text-xs font-medium text-neutral-500 dark:text-fg-dim">Total executions</p>
+                    <p class="text-xs font-medium text-neutral-500 dark:text-fg-dim">{{ __('Total executions') }}</p>
                     <p class="mt-1 text-xl font-semibold tabular-nums text-neutral-950 dark:text-fg">
                         {{ $backups->sum('executions_count') + $databaseBackups->sum('executions_count') }}
                     </p>
@@ -133,11 +133,11 @@
             <div class="relative w-full sm:max-w-sm">
                 <x-reicon name="search"
                     class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
-                <input type="search" x-model="search" placeholder="Search backups" aria-label="Search backups"
+                <input type="search" x-model="search" placeholder="{{ __('Search backups') }}" aria-label="{{ __('Search backups') }}"
                     class="input h-8! w-full py-0! pr-8! pl-8!" />
                 <button x-cloak x-show="search" x-on:click="search = ''" type="button"
                     class="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                    aria-label="Clear search">
+                    aria-label="{{ __('Clear search') }}">
                     <span class="text-sm leading-none">×</span>
                 </button>
             </div>
@@ -149,7 +149,7 @@
                             <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.7"
                                 stroke-linecap="round" />
                         </svg>
-                        Filter
+                        {{ __('Filter') }}
                     </button></x-slot:trigger>
                         <template x-for="option in filterOptions" :key="option.value">
                             <button type="button"
@@ -171,7 +171,7 @@
                             <path d="M8 5v14m0 0-3-3m3 3 3-3M16 19V5m0 0-3 3m3-3 3 3" stroke="currentColor"
                                 stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
-                        Sort
+                        {{ __('Sort') }}
                     </button></x-slot:trigger>
                         <template x-for="option in sortOptions" :key="option.value">
                             <button type="button"
@@ -194,19 +194,19 @@
             'is-flush' => $backups->isNotEmpty() || $databaseBackups->isNotEmpty(),
         ])>
             <div x-cloak x-show="backups.length > 0 && filteredBackups.length === 0">
-                <x-empty size="sm" title="No backups found"
-                    description="No scheduled backups match your search." />
+                <x-empty size="sm" title="{{ __('No backups found') }}"
+                    description="{{ __('No scheduled backups match your search.') }}" />
             </div>
 
             @if ($backups->isNotEmpty() || $databaseBackups->isNotEmpty())
                 <div class="data-table w-full overflow-x-auto" x-show="filteredBackups.length > 0">
                     <div class="data-table-header backup-table-grid service-backup-table-grid">
-                        <span>Target</span>
-                        <span>Type</span>
-                        <span>Schedule</span>
-                        <span>Status</span>
-                        <span>S3</span>
-                        <span>Last run</span>
+                        <span>{{ __('Target') }}</span>
+                        <span>{{ __('Type') }}</span>
+                        <span>{{ __('Schedule') }}</span>
+                        <span>{{ __('Status') }}</span>
+                        <span>{{ __('S3') }}</span>
+                        <span>{{ __('Last run') }}</span>
                     </div>
 
                     @foreach ($databaseBackups as $databaseBackup)
@@ -240,14 +240,14 @@
                             <span class="min-w-0 truncate font-medium text-neutral-950 dark:text-fg">
                                 {{ $databaseBackup->database->human_name ?: $databaseBackup->database->name }}
                             </span>
-                            <span>Database</span>
+                            <span>{{ __('Database') }}</span>
                             <span>{{ $databaseBackup->frequency }}</span>
                             <span><x-status-badge :status="$statusLabel" :type="$statusType" /></span>
                             <span>
                                 <x-status-badge :status="$databaseBackup->save_s3 ? ($databaseBackup->s3 ? 'Configured' : 'Unavailable') : 'Not set'"
                                     :type="$databaseBackup->save_s3 ? ($databaseBackup->s3 ? 'success' : 'error') : 'neutral'" />
                             </span>
-                            <span>{{ $latestExecution?->finished_at?->diffForHumans() ?? ($status === 'running' ? 'Running now' : 'Never') }}</span>
+                            <span>{{ $latestExecution?->finished_at?->diffForHumans() ?? ($status === 'running' ? __('Running now') : __('Never')) }}</span>
                         </a>
                     @endforeach
 
@@ -286,14 +286,14 @@
                                     :type="$backup->save_s3 ? ($backup->s3 ? 'success' : 'error') : 'neutral'" />
                             </span>
                             <span>
-                                {{ $latestExecution?->finished_at?->diffForHumans() ?? ($status === 'running' ? 'Running now' : 'Never') }}
+                                {{ $latestExecution?->finished_at?->diffForHumans() ?? ($status === 'running' ? __('Running now') : __('Never')) }}
                             </span>
                         </a>
                     @endforeach
                 </div>
             @else
-                <x-empty size="sm" title="No scheduled backups"
-                    description="Add a database, persistent volume, or directory backup schedule to protect service data."
+                <x-empty size="sm" title="{{ __('No scheduled backups') }}"
+                    description="{{ __('Add a database, persistent volume, or directory backup schedule to protect service data.') }}"
                     icon-name="storages" />
             @endif
         </div>

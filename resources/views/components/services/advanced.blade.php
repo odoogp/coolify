@@ -12,7 +12,7 @@
     <button type="button" class="button" @click="open = !open" :aria-expanded="open"
         aria-haspopup="menu">
         <x-reicon name="grid" class="size-3.5 opacity-70" />
-        Advanced
+        {{ __('Advanced') }}
         <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
             <x-reicon name="chevron-down" class="size-3 opacity-55" />
         </span>
@@ -26,7 +26,7 @@
                 @click="$wire.dispatch('forceDeployEvent'); open = false"
                 role="menuitem">
                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                Force Restart
+                {{ __('Force Restart') }}
             </button>
         @else
             <button type="button" class="listbox-option justify-start! gap-2.5!"
@@ -34,14 +34,14 @@
                 @click="$wire.dispatch('forceDeployEvent'); open = false"
                 role="menuitem">
                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                Force Deploy
+                {{ __('Force Deploy') }}
             </button>
             <button type="button" class="listbox-option justify-start! gap-2.5!"
                 @disabled(! $canStop)
                 @click="$wire.dispatch('cleanupEvent'); open = false"
                 role="menuitem">
                 <x-reicon name="trash" class="size-3.5 opacity-70" />
-                Force Cleanup Containers
+                {{ __('Force Cleanup Containers') }}
             </button>
         @endif
     </div>

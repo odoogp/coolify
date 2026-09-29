@@ -169,7 +169,7 @@ test('root user sees the admin link in the navbar', function () {
 
     expect($navbar)
         ->toContain('href="'.route('admin.index').'"')
-        ->toContain('title="Admin"')
+        ->toContain('title="{{ __(\'Admin\') }}"')
         ->toContain('text-pink-500');
 });
 

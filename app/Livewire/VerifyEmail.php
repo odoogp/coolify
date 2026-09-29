@@ -14,7 +14,7 @@ class VerifyEmail extends Component
         try {
             $this->rateLimit(1, 300);
             auth()->user()->sendVerificationEmail();
-            $this->dispatch('success', 'Email verification link sent!');
+            $this->dispatch('success', __('Email verification link sent!'));
         } catch (\Exception $e) {
             return handleError($e, $this);
         }

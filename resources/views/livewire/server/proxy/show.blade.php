@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Proxy Configuration | Coolify
+        {{ __('Proxy Configuration | Coolify') }}
     </x-slot>
     <livewire:server.navbar :server="$server" />
     <div
@@ -12,10 +12,10 @@
             </div>
         @else
             <div class="application-settings-form w-full">
-                <x-application.settings-section title="Proxy"
-                    helper="Configure the reverse proxy for this server.">
-                    <x-empty size="sm" title="Server validation required"
-                        description="Validate this server before configuring its proxy."
+                <x-application.settings-section title="{{ __('Proxy') }}"
+                    helper="{{ __('Configure the reverse proxy for this server.') }}">
+                    <x-empty size="sm" title="{{ __('Server validation required') }}"
+                        description="{{ __('Validate this server before configuring its proxy.') }}"
                         icon-name="servers" />
                 </x-application.settings-section>
             </div>

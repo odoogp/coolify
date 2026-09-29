@@ -4,27 +4,27 @@
         <section class="application-settings-section">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Docker image</h2>
-                    <p>Deploy an existing image from Docker Hub or another OCI registry.</p>
+                    <h2>{{ __('Docker image') }}</h2>
+                    <p>{{ __('Deploy an existing image from Docker Hub or another OCI registry.') }}</p>
                 </div>
-                <x-forms.button type="submit" isHighlighted>Create application</x-forms.button>
+                <x-forms.button type="submit" isHighlighted>{{ __('Create application') }}</x-forms.button>
             </div>
             <div class="application-settings-section-body space-y-4">
-                <x-forms.input id="imageName" label="Image name"
-                    placeholder="nginx, ghcr.io/user/app:v1.2.3, or nginx:stable@sha256:…"
-                    helper="Paste a complete image reference, or enter a name and use one of the optional fields below."
+                <x-forms.input id="imageName" label="{{ __('Image name') }}"
+                    placeholder="{{ __('nginx, ghcr.io/user/app:v1.2.3, or nginx:stable@sha256:…') }}"
+                    helper="{{ __('Paste a complete image reference, or enter a name and use one of the optional fields below.') }}"
                     required autofocus />
                 <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end"
-                    aria-label="Tag and SHA256 digest are mutually exclusive">
-                    <x-forms.input id="imageTag" label="Tag" placeholder="latest"
-                        helper="Use a mutable tag such as latest or v1.2.3." />
+                    aria-label="{{ __('Tag and SHA256 digest are mutually exclusive') }}">
+                    <x-forms.input id="imageTag" label="{{ __('Tag') }}" placeholder="{{ __('latest') }}"
+                        helper="{{ __('Use a mutable tag such as latest or v1.2.3.') }}" />
                     <div
                         class="flex items-center justify-center text-xs font-semibold text-neutral-400 sm:h-9 dark:text-fg-faint">
-                        <span>OR</span>
+                        <span>{{ __('OR') }}</span>
                     </div>
-                    <x-forms.input id="imageSha256" label="SHA256 digest"
+                    <x-forms.input id="imageSha256" label="{{ __('SHA256 digest') }}"
                         placeholder="59e02939b1bf39f16c93138a28727aec…"
-                        helper="Use the 64-character digest without the sha256: prefix." />
+                        helper="{{ __('Use the 64-character digest without the sha256: prefix.') }}" />
                 </div>
             </div>
         </section>

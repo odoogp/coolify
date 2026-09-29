@@ -17,7 +17,7 @@ Package: {{ $update['package'] }} ({{ $update['architecture'] }}), from version 
 
 ## Security Considerations
 
-Some of these updates may include important security patches. We recommend reviewing and applying these updates promptly.
+{{ __('Some of these updates may include important security patches. We recommend reviewing and applying these updates promptly.') }}
 
 ### Critical packages that may require container/server/service restarts:
 @php
@@ -34,7 +34,7 @@ $criticalPackages = collect($updates)->filter(function ($update) {
 - {{ $package['package'] }}: {{ $package['current_version'] }} → {{ $package['new_version'] }}
 @endforeach
 @else
-No critical packages requiring container restarts detected.
+{{ __('No critical packages requiring container restarts detected.') }}
 @endif
 
 ## Next Steps
@@ -44,7 +44,7 @@ No critical packages requiring container restarts detected.
 3. Apply updates through the Coolify dashboard
 4. Monitor services after updates are applied
 @else
-Your server is up to date! No packages require updating at this time.
+{{ __('Your server is up to date! No packages require updating at this time.') }}
 @endif
 
 ---

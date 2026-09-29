@@ -1,20 +1,20 @@
 @php
     $proxyMenuItems = [
         [
-            'label' => 'Configuration',
+            'label' => __('Configuration'),
             'route' => 'server.proxy',
             'active' => request()->routeIs('server.proxy'),
             'icon' => 'settings',
         ],
         [
-            'label' => 'Dynamic Configurations',
+            'label' => __('Dynamic Configurations'),
             'route' => 'server.proxy.dynamic-confs',
             'active' => request()->routeIs('server.proxy.dynamic-confs'),
             'icon' => 'sliders',
             'visible' => $server->proxySet(),
         ],
         [
-            'label' => 'Logs',
+            'label' => __('Logs'),
             'route' => 'server.proxy.logs',
             'active' => request()->routeIs('server.proxy.logs'),
             'icon' => 'file-content',
@@ -30,9 +30,9 @@
 @endphp
 
 <aside class="application-settings-navigation min-w-0 xl:self-start">
-    <nav aria-label="Proxy sections"
+    <nav aria-label="{{ __('Proxy sections') }}"
         class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
-        <div class="nav-section hidden xl:block">Proxy</div>
+        <div class="nav-section hidden xl:block">{{ __('Proxy') }}</div>
         @foreach ($proxyMenuItems as $menuItem)
             <a wire:key="server-proxy-link-{{ str($menuItem['label'])->slug() }}"
                 @class([

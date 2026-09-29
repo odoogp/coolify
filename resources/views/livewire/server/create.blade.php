@@ -1,14 +1,14 @@
 <div class="w-full">
     <x-slot:title>
-        New Server | Coolify
+        {{ __('New Server | Coolify') }}
     </x-slot>
 
     <div class="mb-5 flex min-h-9 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 class="min-w-0 text-[24px]! leading-7! font-semibold! tracking-tight!">New server</h1>
+        <h1 class="min-w-0 text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('New server') }}</h1>
         <div class="flex flex-wrap items-center gap-2">
             @if ($selectedType)
                 <a href="{{ route('server.create') }}" class="button" {{ wireNavigate() }}>
-                    Change method
+                    {{ __('Change method') }}
                 </a>
             @endif
         </div>
@@ -18,8 +18,8 @@
         <div class="application-settings-form flex flex-col gap-6">
             <section class="application-settings-section">
                 <div class="application-settings-section-header">
-                    <h2 class="application-settings-section-title">Add a server</h2>
-                    <p class="application-settings-section-description">Connect a server you already manage.</p>
+                    <h2 class="application-settings-section-title">{{ __('Add a server') }}</h2>
+                    <p class="application-settings-section-description">{{ __('Connect a server you already manage.') }}</p>
                 </div>
                 <div class="application-settings-section-body is-flush">
                     <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -33,9 +33,9 @@
                                 </span>
                             </div>
                             <div class="mt-auto pt-5">
-                                <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">IP address or domain</h3>
+                                <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('IP address or domain') }}</h3>
                                 <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                    Connect an existing server over SSH.
+                                    {{ __('Connect an existing server over SSH.') }}
                                 </p>
                             </div>
                         </a>
@@ -46,8 +46,8 @@
             @can('viewAny', App\Models\CloudProviderToken::class)
                 <section class="application-settings-section">
                     <div class="application-settings-section-header">
-                        <h2 class="application-settings-section-title">Provision a server</h2>
-                        <p class="application-settings-section-description">Create a server with a cloud provider.</p>
+                        <h2 class="application-settings-section-title">{{ __('Provision a server') }}</h2>
+                        <p class="application-settings-section-description">{{ __('Create a server with a cloud provider.') }}</p>
                     </div>
                     <div class="application-settings-section-body is-flush">
                         <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -55,12 +55,12 @@
                                 class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]"
                                 {{ wireNavigate() }}>
                                 <div class="flex items-start">
-                                    <img src="{{ asset('svgs/hetzner.svg') }}" alt="Hetzner" class="size-8">
+                                    <img src="{{ asset('svgs/hetzner.svg') }}" alt="{{ __('Hetzner') }}" class="size-8">
                                 </div>
                                 <div class="mt-auto pt-5">
-                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">Hetzner</h3>
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('Hetzner') }}</h3>
                                     <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                        Provision from Hetzner Cloud.
+                                        {{ __('Provision from Hetzner Cloud.') }}
                                     </p>
                                 </div>
                             </a>
@@ -69,13 +69,13 @@
                                 class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]"
                                 {{ wireNavigate() }}>
                                 <div class="flex items-start">
-                                    <img src="https://www.vultr.com/media/logo_ondark.svg" alt="Vultr"
+                                    <img src="https://www.vultr.com/media/logo_ondark.svg" alt="{{ __('Vultr') }}"
                                         class="h-8 w-20 object-contain object-left">
                                 </div>
                                 <div class="mt-auto pt-5">
-                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">Vultr</h3>
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('Vultr') }}</h3>
                                     <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                        Provision from Vultr Cloud.
+                                        {{ __('Provision from Vultr Cloud.') }}
                                     </p>
                                 </div>
                             </a>
@@ -87,9 +87,9 @@
                                     <x-digital-ocean-icon class="size-8" />
                                 </div>
                                 <div class="mt-auto pt-5">
-                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">DigitalOcean</h3>
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('DigitalOcean') }}</h3>
                                     <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                        Provision a new Droplet.
+                                        {{ __('Provision a new Droplet.') }}
                                     </p>
                                 </div>
                             </a>

@@ -17,12 +17,12 @@
     <div class="flex items-center gap-1">
         <button type="button" x-on:click="{{ $previousAction }}" x-bind:disabled="{{ $previousDisabled }}"
             class="flex size-7 items-center justify-center rounded-md border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black disabled:pointer-events-none disabled:opacity-35 dark:border-white/[0.08] dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg"
-            aria-label="Previous page">
+            aria-label="{{ __('Previous page') }}">
             <x-reicon name="arrow-right" class="size-3.5 rotate-180" />
         </button>
         <button type="button" x-on:click="{{ $nextAction }}" x-bind:disabled="{{ $nextDisabled }}"
             class="flex size-7 items-center justify-center rounded-md border border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black disabled:pointer-events-none disabled:opacity-35 dark:border-white/[0.08] dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg"
-            aria-label="Next page">
+            aria-label="{{ __('Next page') }}">
             <x-reicon name="arrow-right" class="size-3.5" />
         </button>
     </div>

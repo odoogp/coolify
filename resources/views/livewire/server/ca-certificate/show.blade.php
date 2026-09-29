@@ -10,8 +10,8 @@
         <x-server.sidebar :server="$server" activeMenu="ca-certificate" />
 
         <div class="application-settings-form flex w-full flex-col gap-6">
-            <x-application.settings-section id="server-ca-overview-section" title="CA certificate"
-                helper="Manage the certificate authority used to sign database certificates on this server.">
+            <x-application.settings-section id="server-ca-overview-section" title="{{ __('CA certificate') }}"
+                helper="{{ __('Manage the certificate authority used to sign database certificates on this server.') }}">
                 <x-slot:actions>
                     @if ($certificateValidUntil)
                         <x-status-badge
@@ -24,46 +24,46 @@
                     @endif
                 </x-slot:actions>
 
-                <x-callout type="info" title="Using this certificate">
-                    Mount the CA certificate into containers that connect to databases over SSL. Re-deploy affected
+                <x-callout type="info" title="{{ __('Using this certificate') }}">
+                    {{ __('Mount the CA certificate into containers that connect to databases over SSL. Re-deploy affected') }}
                     databases and resources after replacing or regenerating it.
                     <a class="font-medium underline" href="https://coolify.io/docs/databases/ssl" target="_blank">
-                        Read the SSL guide.
+                        {{ __('Read the SSL guide.') }}
                     </a>
                 </x-callout>
 
                 <div class="mt-4">
-                    <p class="mb-1.5 text-xs font-medium text-neutral-500 dark:text-fg-dim">Read-only bind mount</p>
+                    <p class="mb-1.5 text-xs font-medium text-neutral-500 dark:text-fg-dim">{{ __('Read-only bind mount') }}</p>
                     <x-forms.copy-button
                         text="- /data/coolify/ssl/coolify-ca.crt:/etc/ssl/certs/coolify-ca.crt:ro" />
                 </div>
             </x-application.settings-section>
 
-            <x-application.settings-section id="server-ca-content-section" title="Certificate content"
-                helper="Review or replace the PEM certificate stored on this server.">
+            <x-application.settings-section id="server-ca-content-section" title="{{ __('Certificate content') }}"
+                helper="{{ __('Review or replace the PEM certificate stored on this server.') }}">
                 <x-slot:actions>
                     <div class="flex items-center gap-2">
                         @can('view', $server)
                             <x-forms.button wire:click="toggleCertificate" type="button">
-                                {{ $showCertificate ? 'Hide certificate' : 'Show certificate' }}
+                                {{ $showCertificate ? __('Hide certificate') : __('Show certificate') }}
                             </x-forms.button>
                         @endcan
                         @can('update', $server)
-                            <x-modal-confirmation title="Confirm changing of CA Certificate?"
+                            <x-modal-confirmation title="{{ __('Confirm changing of CA Certificate?') }}"
                                 buttonTitle="Save certificate" submitAction="saveCaCertificate" :actions="[
                                     'This overwrites /data/coolify/ssl/coolify-ca.crt with your custom certificate.',
                                     'Database certificates on this server will be regenerated and signed with the custom CA.',
                                     'You must redeploy affected databases and resources.',
                                 ]" confirmationText="/data/coolify/ssl/coolify-ca.crt"
-                                shortConfirmationLabel="CA Certificate Path"
+                                shortConfirmationLabel="{{ __('CA Certificate Path') }}"
                                 step3ButtonText="Save Certificate" />
-                            <x-modal-confirmation title="Confirm Regenerate Certificate?"
+                            <x-modal-confirmation title="{{ __('Confirm Regenerate Certificate?') }}"
                                 buttonTitle="Regenerate" submitAction="regenerateCaCertificate" :actions="[
                                     'This replaces the current CA certificate with a newly generated certificate.',
                                     'Database certificates on this server will be regenerated and signed with the new CA.',
                                     'You must redeploy affected databases and resources.',
                                 ]" confirmationText="/data/coolify/ssl/coolify-ca.crt"
-                                shortConfirmationLabel="CA Certificate Path"
+                                shortConfirmationLabel="{{ __('CA Certificate Path') }}"
                                 step3ButtonText="Regenerate Certificate" />
                         @endcan
                     </div>
@@ -71,15 +71,15 @@
 
                 @if ($showCertificate)
                     <x-forms.textarea canGate="update" :canResource="$server" id="certificateContent"
-                        rows="15" label="PEM certificate"
-                        placeholder="Paste or edit CA certificate content here…" />
+                        rows="15" label="{{ __('PEM certificate') }}"
+                        placeholder="{{ __('Paste or edit CA certificate content here…') }}" />
                 @else
                     <div
                         class="flex min-h-72 flex-col items-center justify-center rounded-lg bg-neutral-100/70 px-6 text-center ring-1 ring-neutral-200 dark:bg-black/20 dark:ring-white/[0.08]">
                         <x-reicon name="keys" class="size-8 text-neutral-300 dark:text-fg-faint" />
-                        <p class="mt-3 text-sm font-medium text-neutral-950 dark:text-fg">Certificate hidden</p>
+                        <p class="mt-3 text-sm font-medium text-neutral-950 dark:text-fg">{{ __('Certificate hidden') }}</p>
                         <p class="mt-1 text-xs text-neutral-500 dark:text-fg-dim">
-                            Show the certificate to review or edit its contents.
+                            {{ __('Show the certificate to review or edit its contents.') }}
                         </p>
                     </div>
                 @endif

@@ -12,7 +12,7 @@
     @if ($isSwarm)
         <button type="button" class="button" @disabled(! $canDeploy) wire:click="deploy">
             <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-            Deploy
+            {{ __('Deploy') }}
         </button>
     @else
         <div class="relative" x-data="{ open: false }"
@@ -21,7 +21,7 @@
             <button type="button" class="button" @click="open = !open" :aria-expanded="open"
                 aria-haspopup="menu" @disabled(! $canDeploy)>
                 <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                Deploy
+                {{ __('Deploy') }}
                 <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
                     <x-reicon name="chevron-down" class="size-3 opacity-55" />
                 </span>
@@ -32,13 +32,13 @@
                 <button type="button" class="listbox-option justify-start! gap-2.5!"
                     @disabled(! $canDeploy) wire:click="deploy" @click="open = false" role="menuitem">
                     <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                    Deploy
+                    {{ __('Deploy') }}
                 </button>
                 <button type="button" class="listbox-option justify-start! gap-2.5!"
                     @disabled(! $canDeploy) wire:click="{{ $withoutCacheAction }}"
                     @click="open = false" role="menuitem">
                     <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                    Deploy (without cache)
+                    {{ __('Deploy (without cache)') }}
                 </button>
             </div>
         </div>
@@ -50,7 +50,7 @@
         <button type="button" class="button" @click="open = !open" :aria-expanded="open"
             aria-haspopup="menu" @disabled(! $canDeploy)>
             <x-reicon name="refresh" class="size-3.5 opacity-70" />
-            Redeploy
+            {{ __('Redeploy') }}
             <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
                 <x-reicon name="chevron-down" class="size-3 opacity-55" />
             </span>
@@ -61,19 +61,19 @@
             <button type="button" class="listbox-option justify-start! gap-2.5!"
                 @disabled(! $canDeploy) wire:click="deploy" @click="open = false" role="menuitem">
                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                Deploy
+                {{ __('Deploy') }}
             </button>
             <button type="button" class="listbox-option justify-start! gap-2.5!"
                 @disabled(! $canDeploy) wire:click="{{ $withoutCacheAction }}"
                 @click="open = false" role="menuitem">
                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                Deploy (without cache)
+                {{ __('Deploy (without cache)') }}
             </button>
         </div>
     </div>
 @elseif (! $isCompose)
     <button type="button" class="button" @disabled(! $canDeploy) wire:click="deploy">
         <x-reicon name="refresh" class="size-3.5 opacity-70" />
-        Update Service
+        {{ __('Update Service') }}
     </button>
 @endif

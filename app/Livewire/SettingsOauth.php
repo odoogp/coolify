@@ -188,7 +188,7 @@ class SettingsOauth extends Component
         try {
             $this->authorize('update', instanceSettings());
             $this->updateOauthSettings();
-            $this->dispatch('success', 'Instance settings updated successfully!');
+            $this->dispatch('success', __('Instance settings updated successfully!'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

@@ -72,7 +72,7 @@ class Index extends Component
     public function connectToContainer()
     {
         if ($this->selected_uuid === 'default') {
-            $this->dispatch('error', 'Please select a server or a container.');
+            $this->dispatch('error', __('Please select a server or a container.'));
 
             return;
         }

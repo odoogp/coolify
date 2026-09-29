@@ -1,22 +1,22 @@
 @php
     $sharedVariablesMenuItems = [
-        ['label' => 'Overview', 'route' => 'shared-variables.index', 'icon' => 'dashboard', 'active' => request()->routeIs('shared-variables.index')],
-        ['label' => 'Team', 'route' => 'shared-variables.team.index', 'icon' => 'teams', 'active' => request()->routeIs('shared-variables.team.*')],
-        ['label' => 'Projects', 'route' => 'shared-variables.project.index', 'icon' => 'projects', 'active' => request()->routeIs('shared-variables.project.*')],
-        ['label' => 'Environments', 'route' => 'shared-variables.environment.index', 'icon' => 'layers', 'active' => request()->routeIs('shared-variables.environment.*')],
-        ['label' => 'Servers', 'route' => 'shared-variables.server.index', 'icon' => 'servers', 'active' => request()->routeIs('shared-variables.server.*')],
+        ['label' => __('Overview'), 'route' => 'shared-variables.index', 'icon' => 'dashboard', 'active' => request()->routeIs('shared-variables.index')],
+        ['label' => __('Team'), 'route' => 'shared-variables.team.index', 'icon' => 'teams', 'active' => request()->routeIs('shared-variables.team.*')],
+        ['label' => __('Projects'), 'route' => 'shared-variables.project.index', 'icon' => 'projects', 'active' => request()->routeIs('shared-variables.project.*')],
+        ['label' => __('Environments'), 'route' => 'shared-variables.environment.index', 'icon' => 'layers', 'active' => request()->routeIs('shared-variables.environment.*')],
+        ['label' => __('Servers'), 'route' => 'shared-variables.server.index', 'icon' => 'servers', 'active' => request()->routeIs('shared-variables.server.*')],
     ];
 @endphp
 
 <section class="w-full max-w-none">
     <header class="mb-6 xl:hidden">
-        <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">Shared variables</h1>
-        <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">Reusable environment variables across resources</p>
+        <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Shared variables') }}</h1>
+        <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('Reusable environment variables across resources') }}</p>
     </header>
 
     <div class="grid min-w-0 gap-8 xl:grid-cols-[210px_minmax(0,1fr)] xl:gap-10">
         <aside class="min-w-0 xl:self-start">
-            <nav aria-label="Shared variables"
+            <nav aria-label="{{ __('Shared variables') }}"
                 class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
                 @foreach ($sharedVariablesMenuItems as $menuItem)
                     <a wire:key="shared-variables-{{ str($menuItem['label'])->slug() }}"

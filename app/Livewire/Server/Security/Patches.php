@@ -119,7 +119,7 @@ class Patches extends Component
             // Send test notification
             $this->server->team->notify(new ServerPatchCheck($this->server, $testPatchData));
 
-            $this->dispatch('success', 'Test email sent successfully! Check your email inbox.');
+            $this->dispatch('success', __('Test email sent successfully! Check your email inbox.'));
         } catch (\Exception $e) {
             $this->dispatch('error', message: 'Failed to send test email: '.$e->getMessage());
         }

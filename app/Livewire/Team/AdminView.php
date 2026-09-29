@@ -71,12 +71,12 @@ class AdminView extends Component
         }
 
         if (! auth()->user()->isInstanceAdmin()) {
-            return $this->dispatch('error', 'You are not authorized to delete users');
+            return $this->dispatch('error', __('You are not authorized to delete users'));
         }
 
         $user = User::find($id);
         if (! $user) {
-            return $this->dispatch('error', 'User not found');
+            return $this->dispatch('error', __('User not found'));
         }
 
         try {

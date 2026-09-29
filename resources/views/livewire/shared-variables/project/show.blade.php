@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Project Variables | Coolify
+        {{ __('Project Variables | Coolify') }}
     </x-slot>
 
     <x-shared-variables.editor :resource="$project" :variables="$project->environment_variables"

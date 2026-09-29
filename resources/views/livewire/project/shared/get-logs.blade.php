@@ -303,12 +303,12 @@
                 <div class="runtime-log-toolbar logs-viewer-toolbar">
                     <div class="logs-viewer-toolbar-controls">
                         <div class="logs-viewer-actions">
-                            <button wire:click="getLogs(true)" title="Refresh Logs" {{ $streamLogs ? 'disabled' : '' }}
+                            <button wire:click="getLogs(true)" title="{{ __('Refresh Logs') }}" {{ $streamLogs ? 'disabled' : '' }}
                                 class="runtime-log-icon-button order-8">
                                 <x-reicon name="refresh" class="size-3.5" />
                             </button>
                             <button wire:click="toggleStreamLogs"
-                                title="{{ $streamLogs ? 'Stop Streaming' : 'Stream Logs' }}"
+                                title="{{ $streamLogs ? __('Stop Streaming') : __('Stream Logs') }}"
                                 class="runtime-log-icon-button order-9 {{ $streamLogs ? 'runtime-log-icon-button-active' : '' }}">
                                 @if ($streamLogs)
                                     {{-- Pause icon --}}
@@ -340,7 +340,7 @@
                                         Livewire.dispatch('error', ['Failed to prepare logs for clipboard.']);
                                     });
                                 "
-                                title="Copy Logs"
+                                title="{{ __('Copy Logs') }}"
                                 class="runtime-log-icon-button order-6">
                                 <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                     stroke-width="1.5" stroke="currentColor">
@@ -349,7 +349,7 @@
                                 </svg>
                             </button>
                             <div x-data="{ downloadMenuOpen: false, downloadingAllLogs: false }" class="relative order-7 shrink-0">
-                                <button x-on:click="downloadMenuOpen = !downloadMenuOpen" title="Download Logs"
+                                <button x-on:click="downloadMenuOpen = !downloadMenuOpen" title="{{ __('Download Logs') }}"
                                     class="runtime-log-icon-button">
                                     <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                         stroke-width="1.5" stroke="currentColor">
@@ -368,7 +368,7 @@
                                     <div>
                                         <button x-on:click="downloadLogs(); downloadMenuOpen = false"
                                             class="listbox-option">
-                                            Download displayed logs
+                                            {{ __('Download displayed logs') }}
                                         </button>
                                         <button x-on:click="
                                             downloadingAllLogs = true;
@@ -397,13 +397,13 @@
                                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
-                                                Downloading...
+                                                {{ __('Downloading...') }}
                                             </span>
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            <button wire:click="toggleTimestamps" title="Toggle Timestamps"
+                            <button wire:click="toggleTimestamps" title="{{ __('Toggle Timestamps') }}"
                                 class="runtime-log-icon-button order-1 {{ $showTimeStamps ? 'runtime-log-icon-button-active' : '' }}">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none"
                                     stroke="currentColor" stroke-width="2">
@@ -411,7 +411,7 @@
                                         d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                             </button>
-                            <button title="Toggle Log Colors" x-on:click="toggleColorLogs"
+                            <button title="{{ __('Toggle Log Colors') }}" x-on:click="toggleColorLogs"
                                 :class="colorLogs ? 'runtime-log-icon-button-active' : ''"
                                 class="runtime-log-icon-button order-3">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none"
@@ -421,7 +421,7 @@
                                 </svg>
                             </button>
                             <x-table.dropdown panel-class="runtime-log-menu min-w-40!">
-                                <x-slot:trigger><button type="button" title="Filter Log Levels"
+                                <x-slot:trigger><button type="button" title="{{ __('Filter Log Levels') }}"
                                     :class="Object.values(logFilters).some(v => !v) ? 'runtime-log-icon-button-active' : ''"
                                     class="runtime-log-icon-button" aria-haspopup="listbox" :aria-expanded="open">
                                     <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -433,27 +433,27 @@
                                     <div>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('error')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                                            <span class="flex-1 text-left">Error</span>
+                                            <span class="flex-1 text-left">{{ __('Error') }}</span>
                                             <span x-show="logFilters.error">✓</span>
                                         </button>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('warning')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                                            <span class="flex-1 text-left">Warning</span>
+                                            <span class="flex-1 text-left">{{ __('Warning') }}</span>
                                             <span x-show="logFilters.warning">✓</span>
                                         </button>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('debug')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                                            <span class="flex-1 text-left">Debug</span>
+                                            <span class="flex-1 text-left">{{ __('Debug') }}</span>
                                             <span x-show="logFilters.debug">✓</span>
                                         </button>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('info')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                                            <span class="flex-1 text-left">Info</span>
+                                            <span class="flex-1 text-left">{{ __('Info') }}</span>
                                             <span x-show="logFilters.info">✓</span>
                                         </button>
                                     </div>
                             </x-table.dropdown>
-                            <button title="Follow Logs" :class="alwaysScroll ? 'runtime-log-icon-button-active' : ''"
+                            <button title="{{ __('Follow Logs') }}" :class="alwaysScroll ? 'runtime-log-icon-button-active' : ''"
                                 x-on:click="toggleScroll"
                                 class="runtime-log-icon-button order-2">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -461,7 +461,7 @@
                                         stroke-width="2" d="M12 5v14m4-4l-4 4m-4-4l4 4" />
                                 </svg>
                             </button>
-                            <button title="Fullscreen" x-show="!fullscreen" x-on:click="makeFullscreen"
+                            <button title="{{ __('Fullscreen') }}" x-show="!fullscreen" x-on:click="makeFullscreen"
                                 class="runtime-log-icon-button order-5">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <g fill="none">
@@ -472,7 +472,7 @@
                                     </g>
                                 </svg>
                             </button>
-                            <button title="Minimize" x-show="fullscreen" x-on:click="makeFullscreen"
+                            <button title="{{ __('Minimize') }}" x-show="fullscreen" x-on:click="makeFullscreen"
                                 class="runtime-log-icon-button order-5">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -483,9 +483,9 @@
                         <div class="logs-viewer-end runtime-logs-viewer-end">
                             <div class="logs-viewer-meta">
                                 <form wire:submit="getLogs(true)" class="logs-viewer-lines">
-                                    <span class="logs-viewer-lines-label">Lines</span>
+                                    <span class="logs-viewer-lines-label">{{ __('Lines') }}</span>
                                     <input type="number" wire:model="numberOfLines" placeholder="100" min="1" max="50000"
-                                        title="Number of Lines (max 50,000)" {{ $streamLogs ? 'readonly' : '' }}
+                                        title="{{ __('Number of Lines (max 50,000)') }}" {{ $streamLogs ? 'readonly' : '' }}
                                         class="input logs-viewer-lines-input" />
                                 </form>
                                 <span x-show="searchQuery.trim()" x-text="matchCount + ' matches'"
@@ -494,12 +494,12 @@
                             <div class="logs-viewer-search relative">
                                 <x-reicon name="search"
                                     class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
-                                <input type="search" x-model.debounce.300ms="searchQuery" placeholder="Find in logs"
-                                    aria-label="Find in logs"
+                                <input type="search" x-model.debounce.300ms="searchQuery" placeholder="{{ __('Find in logs') }}"
+                                    aria-label="{{ __('Find in logs') }}"
                                     class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-8! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint" />
                                 <button x-cloak x-show="searchQuery" x-on:click="searchQuery = ''" type="button"
                                     class="absolute top-1/2 right-2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                                    aria-label="Clear search">
+                                    aria-label="{{ __('Clear search') }}">
                                     <x-reicon name="x" class="size-3" />
                                 </button>
                             </div>
@@ -517,7 +517,7 @@
                         <div id="logs" class="font-logs max-w-full cursor-default text-[11px] leading-relaxed sm:text-xs">
                             <div x-show="searchQuery.trim() && matchCount === 0"
                                 class="py-2 text-gray-500 dark:text-gray-400">
-                                No matches found.
+                                {{ __('No matches found.') }}
                             </div>
                             @foreach ($displayLines as $index => $line)
                                 @php
@@ -551,7 +551,7 @@
                         </div>
                     @else
                         <pre id="logs"
-                            class="font-logs max-w-full whitespace-pre-wrap break-all text-neutral-400">No logs yet.</pre>
+                            class="font-logs max-w-full whitespace-pre-wrap break-all text-neutral-400">{{ __('No logs yet.') }}</pre>
                     @endif
                 </div>
             </div>

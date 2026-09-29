@@ -1,6 +1,6 @@
 @props([
-    'title' => 'Profile',
-    'subtitle' => 'Your account preferences',
+    'title' => __('Profile'),
+    'subtitle' => __('Your account preferences'),
     'titleOnDesktop' => false,
 ])
 

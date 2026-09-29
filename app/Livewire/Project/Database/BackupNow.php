@@ -18,7 +18,7 @@ class BackupNow extends Component
             $this->authorize('manageBackups', $this->backup->database);
 
             DatabaseBackupJob::dispatch($this->backup);
-            $this->dispatch('success', 'Backup queued. It will be available in a few minutes.');
+            $this->dispatch('success', __('Backup queued. It will be available in a few minutes.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

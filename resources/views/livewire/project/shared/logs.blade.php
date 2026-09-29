@@ -10,7 +10,7 @@
         <livewire:project.database.heading :database="$resource" />
     @elseif ($type === 'service')
         <livewire:project.service.heading :service="$resource" :parameters="$parameters" :query="$query"
-            title="Logs" />
+            title="{{ __('Logs') }}" />
     @endif
 
     @php
@@ -49,23 +49,23 @@
             </div>
         @elseif ($logsUnavailable)
             @if ($servers->isEmpty())
-                <x-empty size="lg" title="Runtime logs unavailable"
-                    description="Connect and validate a server before viewing resource logs."
+                <x-empty size="lg" title="{{ __('Runtime logs unavailable') }}"
+                    description="{{ __('Connect and validate a server before viewing resource logs.') }}"
                     icon-name="file-content" />
             @elseif ($functionalServers->isEmpty())
-                <x-empty size="lg" title="Runtime logs unavailable"
-                    description="No functional servers are available, so container logs cannot be loaded."
+                <x-empty size="lg" title="{{ __('Runtime logs unavailable') }}"
+                    description="{{ __('No functional servers are available, so container logs cannot be loaded.') }}"
                     icon-name="file-content" />
             @else
-                <x-empty size="lg" title="Runtime logs unavailable"
-                    description="No containers are running, so there are no runtime logs to show."
+                <x-empty size="lg" title="{{ __('Runtime logs unavailable') }}"
+                    description="{{ __('No containers are running, so there are no runtime logs to show.') }}"
                     icon-name="file-content" />
             @endif
         @else
             <div class="flex flex-col gap-4">
                 @foreach ($servers as $server)
                     @if (! $server->isFunctional())
-                        <x-callout type="warning" title="Server unavailable">
+                        <x-callout type="warning" title="{{ __('Server unavailable') }}">
                             {{ $server->name }} is not functional, so its container logs cannot be loaded.
                         </x-callout>
                     @elseif (isset($serverContainers[$server->id]) && count($serverContainers[$server->id]) > 0)

@@ -51,7 +51,7 @@ it('renders a real copy button for pending invitation links', function () {
     $view = file_get_contents(resource_path('views/livewire/team/invitations.blade.php'));
 
     expect($view)
-        ->toContain('aria-label="Copy invitation link"')
+        ->toContain('aria-label="{{ __(\'Copy invitation link\') }}"')
         ->toContain('window.copyToClipboard(@js($invite->link))')
         ->toContain('class="button h-7! shrink-0 px-2!"');
 

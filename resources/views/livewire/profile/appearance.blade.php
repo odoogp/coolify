@@ -56,16 +56,16 @@
         <section class="application-settings-section">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Color theme</h2>
-                    <p>Choose the color scheme used in this browser.</p>
+                    <h2>{{ __('Color theme') }}</h2>
+                    <p>{{ __('Choose the color scheme used in this browser.') }}</p>
                 </div>
             </div>
             <div class="application-settings-section-body grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ([
-                    ['value' => 'light', 'label' => 'Light', 'description' => 'Bright surfaces and dark text.', 'preview' => 'bg-white'],
-                    ['value' => 'system', 'label' => 'System', 'description' => 'Follow your operating system.', 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
-                    ['value' => 'dark', 'label' => 'Dark', 'description' => 'Dark surfaces and soft contrast.', 'preview' => 'bg-[#181818]'],
-                    ['value' => 'custom', 'label' => 'Custom', 'description' => 'Choose any color for dark surfaces.', 'preview' => ''],
+                    ['value' => 'light', 'label' => __('Light'), 'description' => __('Bright surfaces and dark text.'), 'preview' => 'bg-white'],
+                    ['value' => 'system', 'label' => __('System'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
+                    ['value' => 'dark', 'label' => __('Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
+                    ['value' => 'custom', 'label' => __('Custom'), 'description' => __('Choose any color for dark surfaces.'), 'preview' => ''],
                 ] as $option)
                     <div role="button" tabindex="0"
                         @if ($option['value'] !== 'custom')
@@ -105,7 +105,7 @@
                         @if ($option['value'] === 'custom')
                             <input type="color" :value="themeColor" @input="previewThemeColor($event.target.value)"
                                 @change="saveThemeColor($event.target.value)"
-                                aria-label="Custom theme color"
+                                aria-label="{{ __('Custom theme color') }}"
                                 class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
                         @endif
                     </div>
@@ -116,14 +116,14 @@
         <section class="application-settings-section">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Page width</h2>
-                    <p>Choose how content uses the available browser width.</p>
+                    <h2>{{ __('Page width') }}</h2>
+                    <p>{{ __('Choose how content uses the available browser width.') }}</p>
                 </div>
             </div>
             <div class="application-settings-section-body grid gap-3 sm:grid-cols-2">
                 @foreach ([
-                    ['value' => 'full', 'label' => 'Full width', 'description' => 'Use all available space for page content.'],
-                    ['value' => 'centered', 'label' => 'Centered', 'description' => 'Keep content centered at a comfortable maximum width.'],
+                    ['value' => 'full', 'label' => __('Full width'), 'description' => __('Use all available space for page content.')],
+                    ['value' => 'centered', 'label' => __('Centered'), 'description' => __('Keep content centered at a comfortable maximum width.')],
                 ] as $option)
                     <button type="button" @click="setWidth('{{ $option['value'] }}')"
                         class="group overflow-hidden rounded-[10px] border border-neutral-200 bg-white text-left transition-[border-color,box-shadow] hover:border-neutral-300 hover:shadow-sm dark:border-white/[0.07] dark:bg-white/[0.025] dark:hover:border-white/[0.12]"

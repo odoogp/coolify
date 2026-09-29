@@ -5,7 +5,7 @@ test('scheduled jobs refresh control lives on the activity section not the navba
 
     expect($view)
         ->toContain('<x-settings.layout>')
-        ->toContain('settings-section title="Scheduler activity"')
+        ->toContain('settings-section title="{{ __(\'Scheduler activity\') }}"')
         ->toContain('wire:click="refresh"')
         ->not->toContain('<x-settings.navbar');
 

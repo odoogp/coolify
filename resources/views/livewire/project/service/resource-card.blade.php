@@ -44,27 +44,27 @@
         <div
             class="flex items-center justify-end gap-1 border-t border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/[0.06] dark:bg-white/[0.02]">
         @if ($isDatabase && ($resource->isBackupSolutionAvailable() || $resource->is_migrated))
-            <a class="icon-button" title="Service backups" aria-label="Service backups" {{ wireNavigate() }}
+            <a class="icon-button" title="{{ __('Service backups') }}" aria-label="{{ __('Service backups') }}" {{ wireNavigate() }}
                 href="{{ route('project.service.volume-backups.index', $parameters) }}">
                 <x-reicon name="database" class="size-4" />
             </a>
         @endif
         @if ($isApplication && $resource->fqdn)
             @can('update', $service)
-                <a class="icon-button" title="Manage domains" aria-label="Manage domains" {{ wireNavigate() }}
+                <a class="icon-button" title="{{ __('Manage domains') }}" aria-label="{{ __('Manage domains') }}" {{ wireNavigate() }}
                     href="{{ route('project.service.domains', $parameters) }}">
                     <x-reicon name="globe" class="size-4" />
                 </a>
             @endcan
         @endif
-        <a class="icon-button" title="Resource settings" aria-label="Resource settings" {{ wireNavigate() }}
+        <a class="icon-button" title="{{ __('Resource settings') }}" aria-label="{{ __('Resource settings') }}" {{ wireNavigate() }}
             href="{{ route('project.service.index', [...$parameters, 'stack_service_uuid' => $resource->uuid]) }}">
             <x-reicon name="settings" class="size-4" />
         </a>
         @if (str($resource->status)->contains('running'))
             @can('update', $service)
                 <x-modal-confirmation
-                    :title="$isApplication ? 'Confirm Service Application Restart?' : 'Confirm Service Database Restart?'"
+                    :title="$isApplication ? @js(__('Confirm Service Application Restart?')) : @js(__('Confirm Service Database Restart?'))"
                     buttonTitle="Restart" submitAction="restart" :actions="$isApplication
                         ? ['The selected service application will be unavailable during the restart.']
                         : ['This service database will be unavailable during the restart.']"
@@ -95,20 +95,20 @@
             </div>
             <div class="flex items-center justify-end gap-1">
                 @if ($isDatabase && ($resource->isBackupSolutionAvailable() || $resource->is_migrated))
-                    <a class="icon-button" title="Service backups" aria-label="Service backups" {{ wireNavigate() }}
+                    <a class="icon-button" title="{{ __('Service backups') }}" aria-label="{{ __('Service backups') }}" {{ wireNavigate() }}
                         href="{{ route('project.service.volume-backups.index', $parameters) }}">
                         <x-reicon name="database" class="size-4" />
                     </a>
                 @endif
                 @if ($isApplication && $resource->fqdn)
                     @can('update', $service)
-                        <a class="icon-button" title="Manage domains" aria-label="Manage domains" {{ wireNavigate() }}
+                        <a class="icon-button" title="{{ __('Manage domains') }}" aria-label="{{ __('Manage domains') }}" {{ wireNavigate() }}
                             href="{{ route('project.service.domains', $parameters) }}">
                             <x-reicon name="globe" class="size-4" />
                         </a>
                     @endcan
                 @endif
-                <a class="icon-button" title="Resource settings" aria-label="Resource settings" {{ wireNavigate() }}
+                <a class="icon-button" title="{{ __('Resource settings') }}" aria-label="{{ __('Resource settings') }}" {{ wireNavigate() }}
                     href="{{ route('project.service.index', [...$parameters, 'stack_service_uuid' => $resource->uuid]) }}">
                     <x-reicon name="settings" class="size-4" />
                 </a>

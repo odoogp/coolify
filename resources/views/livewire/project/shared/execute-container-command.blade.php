@@ -9,7 +9,7 @@
     @elseif ($type === 'database')
         <livewire:project.database.heading :database="$resource" />
     @elseif ($type === 'service')
-        <livewire:project.service.heading :service="$resource" :parameters="$parameters" title="Terminal" />
+        <livewire:project.service.heading :service="$resource" :parameters="$parameters" title="{{ __('Terminal') }}" />
     @else
         <livewire:server.navbar :server="$servers->first()" />
     @endif
@@ -57,12 +57,12 @@
     @if ($consoleUnavailable)
         <section class="mt-8 w-full max-w-none xl:mt-0">
             @if ($type === 'server')
-                <x-empty size="lg" title="Terminal unavailable"
-                    description="This server is not functional or terminal access is disabled."
+                <x-empty size="lg" title="{{ __('Terminal unavailable') }}"
+                    description="{{ __('This server is not functional or terminal access is disabled.') }}"
                     icon-name="browser-terminal" />
             @else
-                <x-empty size="lg" title="Terminal unavailable"
-                    description="No containers are running, or terminal access is disabled on the destination server."
+                <x-empty size="lg" title="{{ __('Terminal unavailable') }}"
+                    description="{{ __('No containers are running, or terminal access is disabled on the destination server.') }}"
                     icon-name="browser-terminal" />
             @endif
         </section>
@@ -182,9 +182,9 @@
                             class="absolute inset-0 z-20 flex items-start justify-start p-6 sm:p-10">
                             <div class="terminal-target-picker w-full max-w-md rounded-lg border p-2 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
                                 <div class="px-2 pt-1 pb-2">
-                                    <div class="text-sm font-semibold text-white/80">Start a terminal session</div>
+                                    <div class="text-sm font-semibold text-white/80">{{ __('Start a terminal session') }}</div>
                                     <div class="mt-0.5 text-[11px] text-white/45">
-                                    Choose a container to start a session
+                                    {{ __('Choose a container to start a session') }}
                                     </div>
                                 </div>
                                 <div class="max-h-64 overflow-y-auto">

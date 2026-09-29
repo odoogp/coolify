@@ -10,8 +10,8 @@
         <x-server.sidebar :server="$server" activeMenu="security" />
 
         <div class="application-settings-form w-full">
-            <x-application.settings-section id="server-terminal-access-section" title="Terminal access"
-                helper="Control dashboard terminal access for this server and its containers.">
+            <x-application.settings-section id="server-terminal-access-section" title="{{ __('Terminal access') }}"
+                helper="{{ __('Control dashboard terminal access for this server and its containers.') }}">
                 <x-slot:actions>
                     <x-status-badge :status="$isTerminalEnabled ? 'Enabled' : 'Disabled'"
                         :type="$isTerminalEnabled ? 'success' : 'error'" />
@@ -25,28 +25,28 @@
                         </div>
                         <div>
                             <p class="text-sm font-medium text-neutral-950 dark:text-fg">
-                                {{ $isTerminalEnabled ? 'Dashboard terminal is available' : 'Dashboard terminal is blocked' }}
+                                {{ $isTerminalEnabled ? __('Dashboard terminal is available') : __('Dashboard terminal is blocked') }}
                             </p>
                             <p class="mt-1 max-w-xl text-xs leading-5 text-neutral-500 dark:text-fg-dim">
-                                This setting applies to every user, including administrators and the team owner.
-                                Only administrators and owners can change it.
+                                {{ __('This setting applies to every user, including administrators and the team owner.') }}
+                                {{ __('Only administrators and owners can change it.') }}
                             </p>
                         </div>
                     </div>
 
                     @if (auth()->user()->isAdmin())
                         <div wire:key="terminal-access-change-{{ $isTerminalEnabled }}">
-                            <x-modal-confirmation title="Confirm Terminal Access Change?"
+                            <x-modal-confirmation title="{{ __('Confirm Terminal Access Change?') }}"
                                 temporaryDisableTwoStepConfirmation
-                                buttonTitle="{{ $isTerminalEnabled ? 'Disable terminal' : 'Enable terminal' }}"
+                                buttonTitle="{{ $isTerminalEnabled ? __('Disable terminal') : __('Enable terminal') }}"
                                 submitAction="toggleTerminal" :actions="[
                                     $isTerminalEnabled
                                         ? 'Disable terminal access for this server and all of its containers.'
                                         : 'Enable terminal access for this server and all of its containers.',
                                     'The change takes effect immediately for every user.',
                                 ]" confirmationText="{{ $server->name }}"
-                                shortConfirmationLabel="Server Name"
-                                step3ButtonText="{{ $isTerminalEnabled ? 'Disable Terminal' : 'Enable Terminal' }}"
+                                shortConfirmationLabel="{{ __('Server Name') }}"
+                                step3ButtonText="{{ $isTerminalEnabled ? __('Disable Terminal') : __('Enable Terminal') }}"
                                 :isHighlightedButton="!$isTerminalEnabled" />
                         </div>
                     @endif

@@ -8,18 +8,18 @@
     ];
 
     $configurationItems = collect([
-        ['label' => 'General', 'route' => 'project.service.configuration', 'icon' => 'settings'],
-        ['label' => 'Domains', 'route' => 'project.service.domains', 'icon' => 'globe'],
-        ['label' => 'Environment Variables', 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
-        ['label' => 'Persistent Storage', 'route' => 'project.service.storages', 'icon' => 'storages'],
-        ['label' => 'Backups', 'route' => 'project.service.volume-backups.index', 'icon' => 'database'],
-        ['label' => 'Runtime Logs', 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
-        ['label' => 'Terminal', 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->can('canAccessTerminal')],
-        ['label' => 'Scheduled Tasks', 'route' => 'project.service.scheduled-tasks.show', 'icon' => 'calendar'],
-        ['label' => 'Webhooks', 'route' => 'project.service.webhooks', 'icon' => 'notifications'],
-        ['label' => 'Resource Operations', 'route' => 'project.service.resource-operations', 'icon' => 'server-update'],
-        ['label' => 'Tags', 'route' => 'project.service.tags', 'icon' => 'tags'],
-        ['label' => 'Danger Zone', 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
+        ['label' => __('General'), 'route' => 'project.service.configuration', 'icon' => 'settings'],
+        ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
+        ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
+        ['label' => __('Persistent Storage'), 'route' => 'project.service.storages', 'icon' => 'storages'],
+        ['label' => __('Backups'), 'route' => 'project.service.volume-backups.index', 'icon' => 'database'],
+        ['label' => __('Runtime Logs'), 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
+        ['label' => __('Terminal'), 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->can('canAccessTerminal')],
+        ['label' => __('Scheduled Tasks'), 'route' => 'project.service.scheduled-tasks.show', 'icon' => 'calendar'],
+        ['label' => __('Webhooks'), 'route' => 'project.service.webhooks', 'icon' => 'notifications'],
+        ['label' => __('Resource Operations'), 'route' => 'project.service.resource-operations', 'icon' => 'server-update'],
+        ['label' => __('Tags'), 'route' => 'project.service.tags', 'icon' => 'tags'],
+        ['label' => __('Danger Zone'), 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
     ])->filter(fn (array $item): bool => $item['visible'] ?? true)
         ->map(fn (array $item): array => [
             ...$item,
@@ -46,7 +46,7 @@
 @endphp
 
 <aside class="application-settings-navigation min-w-0 xl:self-start">
-    <nav aria-label="Service settings"
+    <nav aria-label="{{ __('Service settings') }}"
         class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
         @foreach ($groupedItems as $groupLabel => $groupItems)
             @unless ($loop->first)
@@ -60,7 +60,7 @@
                     <x-reicon :name="$menuItem['icon']" class="menu-item-icon" />
                     <span class="menu-item-label">{{ $menuItem['label'] }}</span>
                     @if ($menuItem['hasWarning'] ?? false)
-                        <span class="ml-auto size-2 shrink-0 rounded-full bg-error" title="Required environment variables missing"></span>
+                        <span class="ml-auto size-2 shrink-0 rounded-full bg-error" title="{{ __('Required environment variables missing') }}"></span>
                     @endif
                 </a>
             @endforeach

@@ -34,7 +34,7 @@
                     </p>
                     <p class="mt-0.5 text-xs text-neutral-500 dark:text-fg-dim">
                         @if (data_get($execution, 'status') === 'running')
-                            Cleanup is currently running
+                            {{ __('Cleanup is currently running') }}
                         @else
                             {{ calculateDuration(data_get($execution, 'created_at'), data_get($execution, 'finished_at')) }}
                             · finished {{ \Carbon\Carbon::parse(data_get($execution, 'finished_at'))->diffForHumans() }}
@@ -52,11 +52,11 @@
                 <div class="border-t border-neutral-200 bg-neutral-50/60 p-4 dark:border-white/[0.08] dark:bg-black/20">
                     <div class="mb-3 flex items-center justify-between gap-3">
                         <p class="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-fg-dim">
-                            Execution output
+                            {{ __('Execution output') }}
                         </p>
                         @if (strlen(data_get($execution, 'message', '')) > 0)
                             <x-forms.button wire:click.prevent="downloadLogs({{ data_get($execution, 'id') }})">
-                                Download logs
+                                {{ __('Download logs') }}
                             </x-forms.button>
                         @endif
                     </div>
@@ -67,7 +67,7 @@
 @endforeach</pre>
                         @if ($this->hasMoreLogs())
                             <div class="mt-3">
-                                <x-forms.button wire:click.prevent="loadMoreLogs">Load more</x-forms.button>
+                                <x-forms.button wire:click.prevent="loadMoreLogs">{{ __('Load more') }}</x-forms.button>
                             </div>
                         @endif
                     @else
@@ -96,8 +96,8 @@
             @endif
         </div>
     @empty
-        <x-empty size="sm" title="No cleanup executions"
-            description="Run a manual cleanup or wait for the next scheduled execution."
+        <x-empty size="sm" title="{{ __('No cleanup executions') }}"
+            description="{{ __('Run a manual cleanup or wait for the next scheduled execution.') }}"
             icon-name="storages" />
     @endforelse
 </div>

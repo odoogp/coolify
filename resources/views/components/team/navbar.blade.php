@@ -1,6 +1,6 @@
 @props([
-    'title' => 'Team',
-    'subtitle' => 'Members, roles, and team settings',
+    'title' => __('Team'),
+    'subtitle' => __('Members, roles, and team settings'),
     // Hide family H1 only at xl+; keep create in the layer-2 bar.
     'titleOnDesktop' => false,
 ])
@@ -15,12 +15,12 @@
         @isset($actions)
             {{ $actions }}
         @else
-            <x-modal-input title="New Team">
+            <x-modal-input title="{{ __('New Team') }}">
                 <x-slot:content>
                     <button type="button"
                         class="button button-highlighted">
                         <x-reicon name="plus" class="size-3.5" />
-                        New team
+                        {{ __('New team') }}
                     </button>
                 </x-slot:content>
                 <livewire:team.create />

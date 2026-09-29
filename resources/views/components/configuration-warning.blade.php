@@ -1,11 +1,11 @@
 @props(['diff' => []])
 
 <div class="relative" x-data="{ open: false }" @click.outside="open = false" @keydown.escape.window="open = false">
-    <button type="button" aria-label="Configuration changes not applied" aria-haspopup="dialog"
+    <button type="button" aria-label="{{ __('Configuration changes not applied') }}" aria-haspopup="dialog"
         :aria-expanded="open" @click="open = !open"
         class="flex h-8 items-center justify-center gap-1.5 rounded-lg px-2 text-amber-700 transition-colors hover:bg-amber-100 dark:text-warning dark:hover:bg-warning/10">
         <x-reicon name="alert-triangle" class="size-4" />
-        <span class="hidden text-xs font-medium lg:inline">Changes pending</span>
+        <span class="hidden text-xs font-medium lg:inline">{{ __('Changes pending') }}</span>
     </button>
 
     <div x-show="open" x-cloak x-transition.opacity role="dialog"
@@ -18,21 +18,21 @@
             </span>
             <div class="min-w-0 flex-1">
                 <p class="text-[13px] font-semibold leading-4 text-neutral-950 dark:text-fg">
-                    The latest configuration has not been applied
+                    {{ __('The latest configuration has not been applied') }}
                 </p>
                 <p class="mt-0.5 text-[11px] leading-4 text-neutral-600 dark:text-fg-dim">
                     @if (data_get($diff, 'count'))
                         {{ data_get($diff, 'count') }}
                         {{ data_get($diff, 'count') === 1 ? 'change' : 'changes' }} unapplied.
-                        {{ data_get($diff, 'requires_build') ? 'Rebuild required.' : 'Redeploy to apply.' }}
+                        {{ data_get($diff, 'requires_build') ? __('Rebuild required.') : __('Redeploy to apply.') }}
                         <button type="button"
                             class="ml-0.5 inline-flex items-center gap-0.5 font-semibold text-coollabs transition-colors hover:text-coollabs-100 dark:text-warning dark:hover:text-warning/80"
                             @click="open = false; $dispatch('open-configuration-diff')">
-                            View changes
+                            {{ __('View changes') }}
                             <x-reicon name="arrow-right" class="size-2.5" />
                         </button>
                     @else
-                        Redeploy to apply.
+                        {{ __('Redeploy to apply.') }}
                     @endif
                 </p>
             </div>

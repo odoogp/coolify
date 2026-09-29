@@ -1,17 +1,17 @@
 <div wire:poll.2000ms="getDeployments" wire:init="getDeployments">
-    <x-application.settings-section title="Active deployments"
-        description="Deployments currently running for resources with this tag." flush>
+    <x-application.settings-section title="{{ __('Active deployments') }}"
+        description="{{ __('Deployments currently running for resources with this tag.') }}" flush>
         @if (collect($deploymentsPerTagPerServer)->flatten(1)->isEmpty())
-            <x-empty title="No active deployments"
-                description="Queued and running deployments will appear here automatically."
+            <x-empty title="{{ __('No active deployments') }}"
+                description="{{ __('Queued and running deployments will appear here automatically.') }}"
                 icon-name="refresh" size="sm" />
         @else
             <div class="data-table w-full">
                 <div
                     class="grid grid-cols-[minmax(0,1fr)_minmax(8rem,.55fr)_8rem] border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                    <span>Resource</span>
-                    <span>Server</span>
-                    <span>Status</span>
+                    <span>{{ __('Resource') }}</span>
+                    <span>{{ __('Server') }}</span>
+                    <span>{{ __('Status') }}</span>
                 </div>
 
                 @foreach ($deploymentsPerTagPerServer as $serverName => $deployments)

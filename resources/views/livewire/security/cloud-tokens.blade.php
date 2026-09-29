@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Cloud Tokens | Coolify
+        {{ __('Cloud Tokens | Coolify') }}
     </x-slot>
 
     <x-security.settings-layout>

@@ -6,13 +6,13 @@ it('matches the storage backup overview layout', function () {
     $component = file_get_contents(app_path('Livewire/Project/Database/Backup/Index.php'));
 
     expect($index)
-        ->toContain('title="Database backups"')
+        ->toContain('title="{{ __(\'Database backups\') }}"')
         ->toContain('Schedules')
         ->toContain('Enabled')
         ->toContain('Total executions')
         ->toContain('application-settings-form flex min-w-0 flex-col gap-6')
         ->and($schedules)
-        ->toContain('placeholder="Search backups"')
+        ->toContain('placeholder="{{ __(\'Search backups\') }}"')
         ->toContain('data-table overflow-hidden rounded-xl border')
         ->toContain('<span class="block truncate text-[12px] font-semibold')
         ->toContain("route('project.database.backup.execution'")

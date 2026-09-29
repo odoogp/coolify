@@ -123,7 +123,7 @@ class DockerCleanup extends Component
     {
         try {
             $this->syncData(true);
-            $this->dispatch('success', 'Server updated.');
+            $this->dispatch('success', __('Server updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -134,7 +134,7 @@ class DockerCleanup extends Component
         try {
             $this->authorize('update', $this->server);
             DockerCleanupJob::dispatch($this->server, true, $this->deleteUnusedVolumes, $this->deleteUnusedNetworks);
-            $this->dispatch('success', 'Manual cleanup job started. Depending on the amount of data, this might take a while.');
+            $this->dispatch('success', __('Manual cleanup job started. Depending on the amount of data, this might take a while.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -148,7 +148,7 @@ class DockerCleanup extends Component
                 throw new \Exception('Invalid Cron / Human expression for Docker Cleanup Frequency.');
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Server updated.');
+            $this->dispatch('success', __('Server updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

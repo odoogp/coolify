@@ -7,30 +7,30 @@
 @php
     $eventGroups = [
         'Deployments' => [
-            ['key' => 'deploymentSuccess', 'label' => 'Deployment success'],
-            ['key' => 'deploymentFailure', 'label' => 'Deployment failure'],
+            ['key' => 'deploymentSuccess', 'label' => __('Deployment success')],
+            ['key' => 'deploymentFailure', 'label' => __('Deployment failure')],
             [
                 'key' => 'statusChange',
-                'label' => 'Container status changes',
-                'helper' => 'Notify when a container stops or restarts.',
+                'label' => __('Container status changes'),
+                'helper' => __('Notify when a container stops or restarts.'),
             ],
         ],
         'Backups' => [
-            ['key' => 'backupSuccess', 'label' => 'Backup success'],
-            ['key' => 'backupFailure', 'label' => 'Backup failure'],
+            ['key' => 'backupSuccess', 'label' => __('Backup success')],
+            ['key' => 'backupFailure', 'label' => __('Backup failure')],
         ],
         'Scheduled tasks' => [
-            ['key' => 'scheduledTaskSuccess', 'label' => 'Scheduled task success'],
-            ['key' => 'scheduledTaskFailure', 'label' => 'Scheduled task failure'],
+            ['key' => 'scheduledTaskSuccess', 'label' => __('Scheduled task success')],
+            ['key' => 'scheduledTaskFailure', 'label' => __('Scheduled task failure')],
         ],
         'Servers' => [
-            ['key' => 'dockerCleanupSuccess', 'label' => 'Docker cleanup success'],
-            ['key' => 'dockerCleanupFailure', 'label' => 'Docker cleanup failure'],
-            ['key' => 'serverDiskUsage', 'label' => 'Disk usage warning'],
-            ['key' => 'serverReachable', 'label' => 'Server reachable'],
-            ['key' => 'serverUnreachable', 'label' => 'Server unreachable'],
-            ['key' => 'serverPatch', 'label' => 'Server patching'],
-            ['key' => 'traefikOutdated', 'label' => 'Traefik proxy outdated'],
+            ['key' => 'dockerCleanupSuccess', 'label' => __('Docker cleanup success')],
+            ['key' => 'dockerCleanupFailure', 'label' => __('Docker cleanup failure')],
+            ['key' => 'serverDiskUsage', 'label' => __('Disk usage warning')],
+            ['key' => 'serverReachable', 'label' => __('Server reachable')],
+            ['key' => 'serverUnreachable', 'label' => __('Server unreachable')],
+            ['key' => 'serverPatch', 'label' => __('Server patching')],
+            ['key' => 'traefikOutdated', 'label' => __('Traefik proxy outdated')],
         ],
     ];
 
@@ -63,8 +63,8 @@
 @endphp
 
 <div class="flex flex-col gap-6">
-    <x-application.settings-section title="Notification events"
-        description="Choose which events send a notification on this channel.">
+    <x-application.settings-section title="{{ __('Notification events') }}"
+        description="{{ __('Choose which events send a notification on this channel.') }}">
         <div class="grid gap-4 lg:grid-cols-2">
             @foreach ($eventGroups as $group => $events)
                 @php
@@ -89,11 +89,11 @@
     </x-application.settings-section>
 
     @if ($threaded)
-        <x-application.settings-section title="Forum topics"
-            description="Optional. Route enabled events to a Telegram forum topic using its message thread ID. Leave blank to post in the main chat.">
+        <x-application.settings-section title="{{ __('Forum topics') }}"
+            description="{{ __('Optional. Route enabled events to a Telegram forum topic using its message thread ID. Leave blank to post in the main chat.') }}">
             @if ($enabledThreadEvents === [])
                 <p class="text-[13px] leading-relaxed text-neutral-500 dark:text-fg-dim">
-                    Enable one or more events above to assign forum topic IDs.
+                    {{ __('Enable one or more events above to assign forum topic IDs.') }}
                 </p>
             @else
                 <div class="flex flex-col gap-5">
@@ -115,7 +115,7 @@
                                                 {{ $event['label'] }}
                                             </div>
                                             <div class="text-[11px] text-neutral-500 dark:text-fg-dim">
-                                                Topic ID
+                                                {{ __('Topic ID') }}
                                             </div>
                                         </div>
                                         <x-forms.input wire:key="{{ $channel }}-thread-{{ $event['key'] }}"

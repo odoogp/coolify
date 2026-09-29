@@ -41,8 +41,8 @@ it('renders copy fields as visible readonly controls with an accessible copy act
         ->toContain('window.copyToClipboard')
         ->toContain('input-with-copy-button')
         ->toContain('copy-button')
-        ->toContain('aria-label="Copy to clipboard"')
-        ->toContain('title="Copy to clipboard"')
+        ->toContain('aria-label="{{ __(\'Copy to clipboard\') }}"')
+        ->toContain('title="{{ __(\'Copy to clipboard\') }}"')
         ->toContain('class="size-[18px] text-green-500"');
 });
 

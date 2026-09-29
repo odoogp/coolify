@@ -99,7 +99,7 @@ it('shows the tag detail layout with stats when a tag is selected', function () 
 
     $breadcrumbs = file_get_contents(resource_path('views/components/top-breadcrumb.blade.php'));
     expect($breadcrumbs)
-        ->toContain('title="Tags"')
+        ->toContain('title="{{ __(\'Tags\') }}"')
         ->toContain("'label' => 'All tags'")
         ->toContain("route('tags.show', ['tagName' => \$tag->name])");
 });

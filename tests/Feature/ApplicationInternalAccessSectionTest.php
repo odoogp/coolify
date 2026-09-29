@@ -8,13 +8,13 @@ it('shows internal Docker access details in application general settings', funct
     $configurationSidebar = file_get_contents(resource_path('views/components/application/configuration-sidebar.blade.php'));
 
     expect($generalSettings)
-        ->toContain('id="access-section" title="Access"')
+        ->toContain('id="access-section" title="{{ __(\'Access\') }}"')
         ->toContain('<h3 class="mb-3 text-sm font-semibold text-black dark:text-fg">Public access</h3>')
         ->toContain("Str::plural('domain', \$domainCount)")
         ->toContain('Domains, DNS checks, and redirect settings')
         ->toContain('class="flex items-center gap-3 rounded-lg')
         ->toContain('class="icon-button ml-auto shrink-0"')
-        ->toContain('aria-label="Manage domains"')
+        ->toContain('aria-label="{{ __(\'Manage domains\') }}"')
         ->toContain('<x-reicon name="settings" class="size-4" />')
         ->not->toContain('<x-reicon name="arrow-right" class="size-3.5" />')
         ->toContain('<livewire:project.application.internal-access')

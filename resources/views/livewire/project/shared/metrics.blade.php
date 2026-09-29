@@ -7,62 +7,62 @@
         @if ($poll) wire:poll.5000ms="pollData" @endif
     @endif>
     @if ($resource->getMorphClass() === 'App\Models\Application' && $resource->build_pack === 'dockercompose')
-        <x-application.settings-section id="metrics-overview-section" title="Metrics"
-            helper="Inspect CPU and memory usage for this application.">
-            <x-empty size="sm" title="Metrics unavailable"
-                description="Container metrics are not currently available for Docker Compose applications."
+        <x-application.settings-section id="metrics-overview-section" title="{{ __('Metrics') }}"
+            helper="{{ __('Inspect CPU and memory usage for this application.') }}">
+            <x-empty size="sm" title="{{ __('Metrics unavailable') }}"
+                description="{{ __('Container metrics are not currently available for Docker Compose applications.') }}"
                 icon-name="dashboard" />
         </x-application.settings-section>
     @elseif (!$resource->destination->server->isMetricsEnabled())
-        <x-application.settings-section id="metrics-overview-section" title="Metrics"
-            helper="Inspect CPU and memory usage for this application.">
+        <x-application.settings-section id="metrics-overview-section" title="{{ __('Metrics') }}"
+            helper="{{ __('Inspect CPU and memory usage for this application.') }}">
             <x-slot:actions>
                 <a class="button"
                     href="{{ route('server.metrics', ['server_uuid' => $resource->destination->server->uuid]) }}"
                     {{ wireNavigate() }}>
-                    Server metrics
+                    {{ __('Server metrics') }}
                     <x-external-link />
                 </a>
             </x-slot:actions>
-            <x-callout type="info" title="Metrics are not enabled">
-                Enable Sentinel and metrics for this server before collecting application usage data.
+            <x-callout type="info" title="{{ __('Metrics are not enabled') }}">
+                {{ __('Enable Sentinel and metrics for this server before collecting application usage data.') }}
             </x-callout>
         </x-application.settings-section>
     @elseif (!str($resource->status)->contains('running'))
-        <x-application.settings-section id="metrics-overview-section" title="Metrics"
-            helper="Inspect CPU and memory usage for this application.">
+        <x-application.settings-section id="metrics-overview-section" title="{{ __('Metrics') }}"
+            helper="{{ __('Inspect CPU and memory usage for this application.') }}">
             <x-slot:actions>
                 <x-status-badge status="Not running" type="neutral" />
             </x-slot:actions>
-            <x-empty size="sm" title="Container is not running"
-                description="Start the application to begin collecting CPU and memory metrics."
+            <x-empty size="sm" title="{{ __('Container is not running') }}"
+                description="{{ __('Start the application to begin collecting CPU and memory metrics.') }}"
                 icon-name="dashboard" />
         </x-application.settings-section>
     @else
-        <x-application.settings-section id="metrics-overview-section" title="Metrics"
-            helper="Inspect recent CPU and memory usage reported by Sentinel.">
+        <x-application.settings-section id="metrics-overview-section" title="{{ __('Metrics') }}"
+            helper="{{ __('Inspect recent CPU and memory usage reported by Sentinel.') }}">
             <x-slot:actions>
                 <x-status-badge :status="$poll ? 'Live updates' : 'Historical range'"
                     :type="$poll ? 'success' : 'neutral'" />
             </x-slot:actions>
             <div class="max-w-xs">
-                <x-forms.listbox id="interval" label="Time range" onChange="setInterval" :options="[
-                    ['value' => 5, 'label' => 'Last 5 minutes · live'],
-                    ['value' => 10, 'label' => 'Last 10 minutes · live'],
-                    ['value' => 30, 'label' => 'Last 30 minutes'],
-                    ['value' => 60, 'label' => 'Last hour'],
-                    ['value' => 720, 'label' => 'Last 12 hours'],
-                    ['value' => 10080, 'label' => 'Last week'],
-                    ['value' => 43200, 'label' => 'Last 30 days'],
+                <x-forms.listbox id="interval" label="{{ __('Time range') }}" onChange="setInterval" :options="[
+                    ['value' => 5, 'label' => __('Last 5 minutes · live')],
+                    ['value' => 10, 'label' => __('Last 10 minutes · live')],
+                    ['value' => 30, 'label' => __('Last 30 minutes')],
+                    ['value' => 60, 'label' => __('Last hour')],
+                    ['value' => 720, 'label' => __('Last 12 hours')],
+                    ['value' => 10080, 'label' => __('Last week')],
+                    ['value' => 43200, 'label' => __('Last 30 days')],
                 ]" />
             </div>
             <p class="mt-3 text-xs leading-5 text-neutral-500 dark:text-fg-dim">
-                Five and ten minute ranges refresh automatically every five seconds.
+                {{ __('Five and ten minute ranges refresh automatically every five seconds.') }}
             </p>
         </x-application.settings-section>
 
-        <x-application.settings-section id="cpu-metrics-section" title="CPU usage"
-            helper="Percentage of available CPU capacity used by the application container.">
+        <x-application.settings-section id="cpu-metrics-section" title="{{ __('CPU usage') }}"
+            helper="{{ __('Percentage of available CPU capacity used by the application container.') }}">
             <div wire:ignore id="{!! $chartId !!}-cpu" class="min-h-[240px] w-full"></div>
 
             @script
@@ -158,7 +158,7 @@
                                 const date = new Date(timestamp);
 
                                 return `<div class="apexcharts-tooltip-custom">
-                                    <div class="apexcharts-tooltip-custom-value">CPU: <span class="apexcharts-tooltip-value-bold">${value}%</span></div>
+                                    <div class="apexcharts-tooltip-custom-value">{{ __('CPU:') }} <span class="apexcharts-tooltip-value-bold">${value}%</span></div>
                                     <div class="apexcharts-tooltip-custom-title">${date.toLocaleString(undefined, { timeZone: 'UTC', hour12: false })} UTC</div>
                                 </div>`;
                             },
@@ -212,8 +212,8 @@
             @endscript
         </x-application.settings-section>
 
-        <x-application.settings-section id="memory-metrics-section" title="Memory usage"
-            helper="Memory consumed by the application container, measured in megabytes.">
+        <x-application.settings-section id="memory-metrics-section" title="{{ __('Memory usage') }}"
+            helper="{{ __('Memory consumed by the application container, measured in megabytes.') }}">
             <div wire:ignore id="{!! $chartId !!}-memory" class="min-h-[240px] w-full"></div>
 
             @script
@@ -305,7 +305,7 @@
                                 const date = new Date(timestamp);
 
                                 return `<div class="apexcharts-tooltip-custom">
-                                    <div class="apexcharts-tooltip-custom-value">Memory: <span class="apexcharts-tooltip-value-bold">${value} MB</span></div>
+                                    <div class="apexcharts-tooltip-custom-value">{{ __('Memory:') }} <span class="apexcharts-tooltip-value-bold">${value} MB</span></div>
                                     <div class="apexcharts-tooltip-custom-title">${date.toLocaleString(undefined, { timeZone: 'UTC', hour12: false })} UTC</div>
                                 </div>`;
                             },

@@ -119,7 +119,7 @@ class Show extends Component
         });
 
         if ($changesMade) {
-            $this->dispatch('success', 'Environment variables updated.');
+            $this->dispatch('success', __('Environment variables updated.'));
         }
     }
 

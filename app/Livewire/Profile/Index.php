@@ -48,7 +48,7 @@ class Index extends Component
             $avatarStorage->store(Auth::user(), $this->avatar);
             $this->reset('avatar');
             $this->dispatch('avatar-updated', url: route('profile.avatar', ['v' => Auth::user()->fresh()->updated_at->timestamp]));
-            $this->dispatch('success', 'Profile picture updated.');
+            $this->dispatch('success', __('Profile picture updated.'));
 
             return true;
         } catch (\Throwable $e) {
@@ -63,7 +63,7 @@ class Index extends Component
         try {
             $avatarStorage->delete(Auth::user());
             $this->dispatch('avatar-updated', url: null);
-            $this->dispatch('success', 'Profile picture removed.');
+            $this->dispatch('success', __('Profile picture removed.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -92,7 +92,7 @@ class Index extends Component
                 'name' => $this->name,
             ]);
 
-            $this->dispatch('success', 'Profile updated.');
+            $this->dispatch('success', __('Profile updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -105,7 +105,7 @@ class Index extends Component
             if (! isCloud()) {
                 $settings = instanceSettings();
                 if (! $settings->smtp_enabled && ! $settings->resend_enabled) {
-                    $this->dispatch('error', 'Email functionality is not configured. Please contact your administrator.');
+                    $this->dispatch('error', __('Email functionality is not configured. Please contact your administrator.'));
 
                     return;
                 }
@@ -131,7 +131,7 @@ class Index extends Component
                 // Rate limit by new email address (3 requests per hour per email)
                 $newEmailKey = 'email-change:email:'.md5($this->new_email);
                 if (! RateLimiter::attempt($newEmailKey, 3, function () {}, 3600)) {
-                    $this->dispatch('error', 'This email address has received too many verification requests. Please try again later.');
+                    $this->dispatch('error', __('This email address has received too many verification requests. Please try again later.'));
 
                     return;
                 }
@@ -139,7 +139,7 @@ class Index extends Component
                 // Additional rate limit by IP address (5 requests per hour)
                 $ipKey = 'email-change:ip:'.request()->ip();
                 if (! RateLimiter::attempt($ipKey, 5, function () {}, 3600)) {
-                    $this->dispatch('error', 'Too many requests from your IP address. Please try again later.');
+                    $this->dispatch('error', __('Too many requests from your IP address. Please try again later.'));
 
                     return;
                 }
@@ -178,7 +178,7 @@ class Index extends Component
                         $this->new_email = '';
                         $this->email_verification_code = '';
                         $this->show_verification = false;
-                        $this->dispatch('error', 'Email change request cancelled due to too many failed attempts. Please start over.');
+                        $this->dispatch('error', __('Email change request cancelled due to too many failed attempts. Please start over.'));
                     }
 
                     return;
@@ -186,7 +186,7 @@ class Index extends Component
             }
 
             if (! Auth::user()->isEmailChangeCodeValid($this->email_verification_code)) {
-                $this->dispatch('error', 'Invalid or expired verification code.');
+                $this->dispatch('error', __('Invalid or expired verification code.'));
 
                 return;
             }
@@ -203,10 +203,10 @@ class Index extends Component
                 $this->email_verification_code = '';
                 $this->show_verification = false;
 
-                $this->dispatch('success', 'Email address updated successfully.');
+                $this->dispatch('success', __('Email address updated successfully.'));
                 $this->dispatch('close-email-change-modal');
             } else {
-                $this->dispatch('error', 'Failed to update email address.');
+                $this->dispatch('error', __('Failed to update email address.'));
             }
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -218,7 +218,7 @@ class Index extends Component
         try {
             // Check if there's a pending request
             if (! Auth::user()->hasEmailChangeRequest()) {
-                $this->dispatch('error', 'No pending email change request.');
+                $this->dispatch('error', __('No pending email change request.'));
 
                 return;
             }
@@ -243,7 +243,7 @@ class Index extends Component
                 // Rate limit by email address
                 $newEmailKey = 'email-change:email:'.md5(strtolower($pendingEmail));
                 if (! RateLimiter::attempt($newEmailKey, 3, function () {}, 3600)) {
-                    $this->dispatch('error', 'This email address has received too many verification requests. Please try again later.');
+                    $this->dispatch('error', __('This email address has received too many verification requests. Please try again later.'));
 
                     return;
                 }
@@ -266,7 +266,7 @@ class Index extends Component
         $this->show_email_change = false;
         $this->show_verification = false;
 
-        $this->dispatch('success', 'Email change request cancelled.');
+        $this->dispatch('success', __('Email change request cancelled.'));
     }
 
     public function resetPassword()
@@ -277,19 +277,19 @@ class Index extends Component
                 'new_password' => ['required', Password::defaults(), 'confirmed'],
             ]);
             if (! Hash::check($this->current_password, auth()->user()->password)) {
-                $this->dispatch('error', 'Current password is incorrect.');
+                $this->dispatch('error', __('Current password is incorrect.'));
 
                 return;
             }
             if ($this->new_password !== $this->new_password_confirmation) {
-                $this->dispatch('error', 'The two new passwords does not match.');
+                $this->dispatch('error', __('The two new passwords does not match.'));
 
                 return;
             }
             auth()->user()->update([
                 'password' => Hash::make($this->new_password),
             ]);
-            $this->dispatch('success', 'Password updated.');
+            $this->dispatch('success', __('Password updated.'));
             $this->current_password = '';
             $this->new_password = '';
             $this->new_password_confirmation = '';

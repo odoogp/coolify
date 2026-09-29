@@ -35,7 +35,7 @@ class UploadConfig extends Component
             $application = Application::ownedByCurrentTeam()->findOrFail($this->applicationId);
             $this->authorize('update', $application);
             $application->setConfig($this->config);
-            $this->dispatch('success', 'Application settings updated');
+            $this->dispatch('success', __('Application settings updated'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

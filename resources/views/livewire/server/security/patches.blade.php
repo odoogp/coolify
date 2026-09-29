@@ -19,23 +19,23 @@
         <x-server.sidebar :server="$server" activeMenu="security" />
 
         <div class="application-settings-form flex w-full flex-col gap-6">
-            <x-application.settings-section id="server-patching-overview-section" title="Server patching"
-                helper="Discover and apply operating system package updates.">
+            <x-application.settings-section id="server-patching-overview-section" title="{{ __('Server patching') }}"
+                helper="{{ __('Discover and apply operating system package updates.') }}">
                 <x-slot:actions>
                     <x-status-badge status="Experimental" type="warning" />
                     @if (isDev())
                         <x-forms.button type="button" wire:click="sendTestEmail">
-                            Send test email
+                            {{ __('Send test email') }}
                         </x-forms.button>
                     @endif
                     <x-forms.button type="button" wire:click="$dispatch('checkForUpdates')">
                         <x-reicon name="refresh" class="size-3.5" />
-                        Check for updates
+                        {{ __('Check for updates') }}
                     </x-forms.button>
                 </x-slot:actions>
 
-                <x-callout type="info" title="Supported package managers">
-                    Automated package discovery currently supports apt, dnf, and zypper. Weekly status notifications
+                <x-callout type="info" title="{{ __('Supported package managers') }}">
+                    {{ __('Automated package discovery currently supports apt, dnf, and zypper. Weekly status notifications') }}
                     can be managed from
                     <a class="font-medium underline" href="{{ route('notifications.email') }}"
                         {{ wireNavigate() }}>notification settings</a>.
@@ -43,51 +43,51 @@
             </x-application.settings-section>
 
             <div wire:loading wire:target="checkForUpdates">
-                <x-application.settings-section title="Checking for updates"
-                    helper="Package discovery can take several minutes.">
+                <x-application.settings-section title="{{ __('Checking for updates') }}"
+                    helper="{{ __('Package discovery can take several minutes.') }}">
                     <div class="flex items-center gap-3 py-4 text-sm text-neutral-600 dark:text-fg-dim">
                         <x-loading />
-                        Inspecting installed packages…
+                        {{ __('Inspecting installed packages…') }}
                     </div>
                 </x-application.settings-section>
             </div>
 
             <div wire:loading.remove wire:target="checkForUpdates">
                 @if ($error)
-                    <x-application.settings-section title="Package updates"
-                        helper="Available operating system updates for this server.">
-                        <x-callout type="danger" title="Could not check for updates">
+                    <x-application.settings-section title="{{ __('Package updates') }}"
+                        helper="{{ __('Available operating system updates for this server.') }}">
+                        <x-callout type="danger" title="{{ __('Could not check for updates') }}">
                             {{ $error }}
                         </x-callout>
                     </x-application.settings-section>
                 @elseif ($totalUpdates === 0)
-                    <x-application.settings-section title="Package updates"
-                        helper="Available operating system updates for this server.">
-                        <x-empty size="sm" title="Server is up to date"
-                            description="No package updates are currently available."
+                    <x-application.settings-section title="{{ __('Package updates') }}"
+                        helper="{{ __('Available operating system updates for this server.') }}">
+                        <x-empty size="sm" title="{{ __('Server is up to date') }}"
+                            description="{{ __('No package updates are currently available.') }}"
                             icon-name="check-circle" />
                     </x-application.settings-section>
                 @elseif (isset($updates) && count($updates) > 0)
-                    <x-application.settings-section id="server-package-updates-section" title="Package updates"
+                    <x-application.settings-section id="server-package-updates-section" title="{{ __('Package updates') }}"
                         helper="{{ $totalUpdates }} update{{ $totalUpdates === 1 ? '' : 's' }} available."
                         flush>
                         <x-slot:actions>
-                            <x-modal-confirmation title="Confirm package update?"
+                            <x-modal-confirmation title="{{ __('Confirm package update?') }}"
                                 buttonTitle="Update all packages" isHighlightedButton
                                 submitAction="updateAllPackages" dispatchAction :actions="[
                                     'All packages will be updated to their latest available versions.',
                                     'Docker or kernel updates may restart running containers.',
                                 ]" confirmationText="Update All Packages"
-                                confirmationLabel="Confirm by entering the text below"
-                                shortConfirmationLabel="Confirmation" :confirmWithPassword="false"
+                                confirmationLabel="{{ __('Confirm by entering the text below') }}"
+                                shortConfirmationLabel="{{ __('Confirmation') }}" :confirmWithPassword="false"
                                 step2ButtonText="Update All Packages" />
                         </x-slot:actions>
 
                         <div class="data-table">
                             <div class="data-table-header package-updates-table-grid">
-                                <span>Package</span>
-                                <span>New version</span>
-                                <span class="text-right">Action</span>
+                                <span>{{ __('Package') }}</span>
+                                <span>{{ __('New version') }}</span>
+                                <span class="text-right">{{ __('Action') }}</span>
                             </div>
                             @foreach ($updates as $update)
                                 <div
@@ -114,7 +114,7 @@
                                     <div class="flex justify-end">
                                         <x-forms.button type="button"
                                             wire:click="$dispatch('updatePackage', { package: '{{ data_get($update, 'package') }}' })">
-                                            Update
+                                            {{ __('Update') }}
                                         </x-forms.button>
                                     </div>
                                 </div>

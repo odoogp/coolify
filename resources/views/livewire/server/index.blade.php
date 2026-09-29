@@ -1,18 +1,18 @@
 <div class="application-settings-form w-full">
     <x-slot:title>
-        Servers | Coolify
+        {{ __('Servers | Coolify') }}
     </x-slot>
 
     <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 class="min-w-0 text-[24px]! leading-7! font-semibold! tracking-tight!">Servers</h1>
+        <h1 class="min-w-0 text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Servers') }}</h1>
         <div class="flex flex-wrap items-center gap-2">
             @if (isDev())
                 @can('create', App\Models\Server::class)
                     <a href="{{ route('server.transfer.import') }}" {{ wireNavigate() }}
                         class="button w-fit shrink-0 whitespace-nowrap">
                         <x-reicon name="upload" class="size-3.5" />
-                        Import transfer
-                        <x-status-badge label="Dev" />
+                        {{ __('Import transfer') }}
+                        <x-status-badge label="{{ __('Dev') }}" />
                     </a>
                 @endcan
             @endif
@@ -20,7 +20,7 @@
                 <a href="{{ route('server.create') }}" {{ wireNavigate() }}
                     class="button w-fit shrink-0 whitespace-nowrap button-highlighted">
                     <x-reicon name="plus" class="size-3.5" />
-                    New server
+                    {{ __('New server') }}
                 </a>
             @endcan
         </div>
@@ -81,19 +81,19 @@
         }
     }">
         @if ($servers->isEmpty())
-            <x-empty title="No servers yet"
-                description="Add a server to deploy applications, databases, and services."
+            <x-empty title="{{ __('No servers yet') }}"
+                description="{{ __('Add a server to deploy applications, databases, and services.') }}"
                 icon-name="servers" />
         @else
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="relative w-full sm:max-w-sm">
                     <x-reicon name="search"
                         class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
-                    <input x-model.debounce.150ms="search" type="search" placeholder="Search servers"
+                    <input x-model.debounce.150ms="search" type="search" placeholder="{{ __('Search servers') }}"
                         class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-8! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                     <button x-cloak x-show="search" x-on:click="search = ''" type="button"
                         class="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                        aria-label="Clear search">
+                        aria-label="{{ __('Clear search') }}">
                         <x-reicon name="x" class="size-3" />
                     </button>
                 </div>
@@ -110,7 +110,7 @@
                             :class="viewMode === 'table'
                                 ? 'control-selected'
                                 : 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                            aria-label="Table view">
+                            aria-label="{{ __('Table view') }}">
                             <x-reicon name="unordered-list" class="size-3.5" />
                         </button>
                         <button type="button" x-on:click="setViewMode('grid')"
@@ -118,7 +118,7 @@
                             :class="viewMode === 'grid'
                                 ? 'control-selected'
                                 : 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                            aria-label="Grid view">
+                            aria-label="{{ __('Grid view') }}">
                             <x-reicon name="grid" class="size-3.5" />
                         </button>
                     </div>
@@ -173,8 +173,8 @@
                 class="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
                 <div
                     class="grid min-w-[480px] grid-cols-[minmax(0,1fr)_9.5rem] border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                    <div>Server</div>
-                    <div>Status</div>
+                    <div>{{ __('Server') }}</div>
+                    <div>{{ __('Status') }}</div>
                 </div>
                 <template x-for="server in filteredServers" :key="server.uuid">
                     <a :href="server.href" {{ wireNavigate() }}
@@ -207,8 +207,8 @@
             <div x-show="filteredServers.length === 0"
                 class="flex min-h-52 flex-col items-center justify-center rounded-xl border border-neutral-200 bg-white px-6 text-center dark:border-white/[0.08] dark:bg-white/[0.025]">
                 <x-reicon name="search" class="mb-3 size-6 text-neutral-300 dark:text-fg-faint" />
-                <p class="text-[13px] font-medium">No matching servers</p>
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">Try a different search.</p>
+                <p class="text-[13px] font-medium">{{ __('No matching servers') }}</p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Try a different search.') }}</p>
             </div>
         @endif
 

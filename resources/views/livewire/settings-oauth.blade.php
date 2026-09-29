@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Authentication | Coolify
+        {{ __('Authentication | Coolify') }}
     </x-slot>
 
     <x-settings.layout>
@@ -8,7 +8,7 @@
         <div
             x-data="{ activeProvider: location.hash.slice(1).replace('-oauth-section', '') || '{{ $oauth_settings_map[0]['provider'] ?? '' }}' }"
             @hashchange.window="activeProvider = location.hash.slice(1).replace('-oauth-section', '')">
-            <nav aria-label="OAuth providers"
+            <nav aria-label="{{ __('OAuth providers') }}"
                 class="grid gap-0.5 py-1">
                 @foreach ($oauth_settings_map as $oauth_setting)
                     @php
@@ -47,33 +47,33 @@
                                 }
                                 $wire.toggleProvider(provider);
                             ">
-                                {{ $oauth_setting['enabled'] ? 'Disable' : 'Enable' }}
+                                {{ $oauth_setting['enabled'] ? __('Disable') : __('Enable') }}
                             </x-forms.button>
                         </div>
                     </x-slot:actions>
                     <div class="grid gap-4 lg:grid-cols-2">
                         <x-forms.input id="oauth_settings_map.{{ $provider }}.redirect_uri"
-                            placeholder="{{ route('auth.callback', $provider) }}" label="Redirect URI" />
+                            placeholder="{{ route('auth.callback', $provider) }}" label="{{ __('Redirect URI') }}" />
 
                         <x-forms.input id="oauth_settings_map.{{ $provider }}.client_id"
-                            label="Client ID" required />
+                            label="{{ __('Client ID') }}" required />
                         <x-forms.input id="oauth_settings_map.{{ $provider }}.client_secret"
-                            type="password" label="Client secret" autocomplete="new-password" required />
+                            type="password" label="{{ __('Client secret') }}" autocomplete="new-password" required />
 
                         @if ($provider === 'azure')
                             <x-forms.input id="oauth_settings_map.{{ $provider }}.tenant"
-                                label="Tenant" required />
+                                label="{{ __('Tenant') }}" required />
                         @endif
 
                         @if ($provider === 'google')
                             <x-forms.input id="oauth_settings_map.{{ $provider }}.tenant"
-                                helper="Optional hosted domain supplied to Google as a login hint."
-                                label="Hosted domain" />
+                                helper="{{ __('Optional hosted domain supplied to Google as a login hint.') }}"
+                                label="{{ __('Hosted domain') }}" />
                         @endif
 
                         @if (in_array($provider, ['authentik', 'clerk', 'zitadel', 'gitlab'], true))
                             <x-forms.input id="oauth_settings_map.{{ $provider }}.base_url"
-                                label="Base URL" :required="in_array($provider, ['authentik', 'clerk'], true)" />
+                                label="{{ __('Base URL') }}" :required="in_array($provider, ['authentik', 'clerk'], true)" />
                         @endif
                     </div>
                 </x-application.settings-section>

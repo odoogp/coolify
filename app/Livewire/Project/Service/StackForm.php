@@ -151,7 +151,7 @@ class StackForm extends Component
             $this->authorize('update', $this->service);
             $this->syncData(true);
             $this->service->save();
-            $this->dispatch('success', 'Service settings saved.');
+            $this->dispatch('success', __('Service settings saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -179,7 +179,7 @@ class StackForm extends Component
 
             $this->dispatch('refreshEnvs');
             $this->dispatch('refreshServices');
-            $notify && $this->dispatch('success', 'Service saved.');
+            $notify && $this->dispatch('success', __('Service saved.'));
         } catch (\Throwable $e) {
             // On error, refresh from database to restore clean state
             $this->service->refresh();

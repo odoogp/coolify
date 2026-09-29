@@ -45,7 +45,7 @@
                     </p>
                     <p class="mt-0.5 text-xs text-neutral-500 dark:text-fg-dim">
                         @if ($executionStatus === 'running')
-                            In progress
+                            {{ __('In progress') }}
                         @else
                             {{ calculateDuration(data_get($execution, 'created_at'), data_get($execution, 'finished_at')) }}
                             · finished {{ \Carbon\Carbon::parse(data_get($execution, 'finished_at'))->diffForHumans() }}
@@ -65,29 +65,29 @@
                         <div class="mt-3 flex flex-wrap gap-2">
                             @if ($this->hasMoreLogs())
                                 <x-forms.button wire:click.prevent="loadMoreLogs">
-                                    Load more
+                                    {{ __('Load more') }}
                                 </x-forms.button>
                                 <x-forms.button wire:click.prevent="loadAllLogs">
-                                    Load all
+                                    {{ __('Load all') }}
                                 </x-forms.button>
                             @endif
                             @if (strlen($execution->message) > 0)
                                 <x-forms.button wire:click.prevent="downloadLogs({{ data_get($execution, 'id') }})">
-                                    Download logs
+                                    {{ __('Download logs') }}
                                 </x-forms.button>
                             @endif
                         </div>
                     @else
                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                            {{ $executionStatus === 'running' ? 'Waiting for output…' : 'No output was recorded for this execution.' }}
+                            {{ $executionStatus === 'running' ? __('Waiting for output…') : __('No output was recorded for this execution.') }}
                         </p>
                     @endif
                 </div>
             @endif
         </div>
     @empty
-        <x-empty size="sm" title="No executions yet"
-            description="Run this task now or wait for its next scheduled execution."
+        <x-empty size="sm" title="{{ __('No executions yet') }}"
+            description="{{ __('Run this task now or wait for its next scheduled execution.') }}"
             icon-name="browser-terminal" />
     @endforelse
 </div>

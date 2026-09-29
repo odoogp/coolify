@@ -1,19 +1,19 @@
 @php
     $settingsMenuItems = [
         [
-            'label' => 'General',
+            'label' => __('General'),
             'route' => 'settings.index',
             'active' => $activeMenu === 'general',
             'icon' => 'settings',
         ],
         [
-            'label' => 'Advanced',
+            'label' => __('Advanced'),
             'route' => 'settings.advanced',
             'active' => $activeMenu === 'advanced',
             'icon' => 'grid',
         ],
         [
-            'label' => 'Updates',
+            'label' => __('Updates'),
             'route' => 'settings.updates',
             'active' => $activeMenu === 'updates',
             'icon' => 'refresh3',
@@ -22,9 +22,9 @@
 @endphp
 
 <aside class="application-settings-navigation min-w-0 xl:self-start">
-    <nav aria-label="Configuration sections"
+    <nav aria-label="{{ __('Configuration sections') }}"
         class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
-        <div class="nav-section hidden xl:block">Configuration</div>
+        <div class="nav-section hidden xl:block">{{ __('Configuration') }}</div>
         @foreach ($settingsMenuItems as $menuItem)
             <a @class([
                 'menu-item',

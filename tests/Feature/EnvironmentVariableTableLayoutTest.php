@@ -63,8 +63,8 @@ test('resource environment variables table has a Managed column and no name-cell
 
     expect($hardcoded)
         ->toContain('env-managed-desktop data-table-cell-check')
-        ->toContain('title="Environment variable details"')
-        ->toContain('<x-forms.input label="Value" :value="$value ?? \'\'" readonly />')
+        ->toContain('title="{{ __(\'Environment variable details\') }}"')
+        ->toContain('<x-forms.input label="{{ __(\'Value\') }}" :value="$value ?? \'\'" readonly />')
         ->not->toContain("{{ filled(\$value) ? \$value : '(empty)' }}")
         ->toContain('env-type-desktop')
         ->not->toContain('env-type-mobile')

@@ -30,10 +30,10 @@
             <div class="mb-3">
                 <div>
                     <h2 class="text-[14px]! leading-5! font-semibold! text-black dark:text-fg">
-                        Deployments
+                        {{ __('Deployments') }}
                     </h2>
                     <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                        Active and recent deployment activity
+                        {{ __('Active and recent deployment activity') }}
                     </p>
                 </div>
             </div>
@@ -44,20 +44,20 @@
                         class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
                         <div class="border-b border-neutral-200 px-4 py-2.5 dark:border-white/[0.08]">
                             <h3 class="text-[12px]! leading-4! font-semibold! text-black dark:text-fg">
-                                Active
+                                {{ __('Active') }}
                             </h3>
                             <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                                Running or queued right now
+                                {{ __('Running or queued right now') }}
                             </p>
                         </div>
 
                         <div
                             class="dashboard-deployment-table-grid hidden items-center gap-4 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 md:grid dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                            <span>Application</span>
-                            <span>Environment</span>
-                            <span>Server</span>
-                            <span>Status</span>
-                            <span>Started</span>
+                            <span>{{ __('Application') }}</span>
+                            <span>{{ __('Environment') }}</span>
+                            <span>{{ __('Server') }}</span>
+                            <span>{{ __('Status') }}</span>
+                            <span>{{ __('Started') }}</span>
                         </div>
 
                         @foreach ($activeDeployments as $deployment)
@@ -113,20 +113,20 @@
                         class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
                         <div class="border-b border-neutral-200 px-4 py-2.5 dark:border-white/[0.08]">
                             <h3 class="text-[12px]! leading-4! font-semibold! text-black dark:text-fg">
-                                Recent
+                                {{ __('Recent') }}
                             </h3>
                             <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                                Latest completed deployments
+                                {{ __('Latest completed deployments') }}
                             </p>
                         </div>
 
                         <div
                             class="dashboard-deployment-table-grid hidden items-center gap-4 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 md:grid dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                            <span>Application</span>
-                            <span>Environment</span>
-                            <span>Server</span>
-                            <span>Status</span>
-                            <span>Started</span>
+                            <span>{{ __('Application') }}</span>
+                            <span>{{ __('Environment') }}</span>
+                            <span>{{ __('Server') }}</span>
+                            <span>{{ __('Status') }}</span>
+                            <span>{{ __('Started') }}</span>
                         </div>
 
                         @foreach ($recentDeployments as $deployment)

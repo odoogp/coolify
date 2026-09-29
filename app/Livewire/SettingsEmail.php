@@ -116,7 +116,7 @@ class SettingsEmail extends Component
             $this->authorize('update', $this->settings);
             $this->resetErrorBag();
             $this->syncData(true);
-            $this->dispatch('success', 'Transactional email settings updated.');
+            $this->dispatch('success', __('Transactional email settings updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -198,7 +198,7 @@ class SettingsEmail extends Component
 
             $this->settings->save();
 
-            $this->dispatch('success', 'SMTP settings updated.');
+            $this->dispatch('success', __('SMTP settings updated.'));
         } catch (\Throwable $e) {
             $this->smtpEnabled = false;
 
@@ -229,7 +229,7 @@ class SettingsEmail extends Component
 
             $this->settings->save();
 
-            $this->dispatch('success', 'Resend settings updated.');
+            $this->dispatch('success', __('Resend settings updated.'));
         } catch (\Throwable $e) {
             $this->resendEnabled = false;
 
@@ -262,7 +262,7 @@ class SettingsEmail extends Component
                 $perMinute = 0,
                 function () {
                     $this->team?->notifyNow(new Test($this->testEmailAddress));
-                    $this->dispatch('success', 'Test Email sent.');
+                    $this->dispatch('success', __('Test Email sent.'));
                 },
                 $decaySeconds = 10,
             );

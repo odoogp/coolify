@@ -47,7 +47,7 @@
 
 ## Recommendation
 
-It is recommended to test the new Traefik version before switching it in production environments. You can update your proxy configuration by clicking on any server name above.
+{{ __('It is recommended to test the new Traefik version before switching it in production environments. You can update your proxy configuration by clicking on any server name above.') }}
 
 @if ($hasUpgrades ?? false)
 **Important for minor version upgrades:** Before upgrading to a new minor version, please read the [Traefik changelog](https://github.com/traefik/traefik/releases) to understand breaking changes and new features.
@@ -62,5 +62,5 @@ It is recommended to test the new Traefik version before switching it in product
 
 ---
 
-Click on any server name above to manage its proxy settings.
+{{ __('Click on any server name above to manage its proxy settings.') }}
 </x-emails.layout>

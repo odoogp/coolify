@@ -98,8 +98,8 @@
                                 })} UTC`;
 
                                 return `<div class="apexcharts-tooltip-custom">
-                                    <div class="apexcharts-tooltip-custom-value">CPU: <span class="apexcharts-tooltip-value-bold">${formatPercent(cpu)}</span></div>
-                                    <div class="apexcharts-tooltip-custom-value">Memory: <span class="apexcharts-tooltip-value-bold">${formatPercent(memory)}</span></div>
+                                    <div class="apexcharts-tooltip-custom-value">{{ __('CPU:') }} <span class="apexcharts-tooltip-value-bold">${formatPercent(cpu)}</span></div>
+                                    <div class="apexcharts-tooltip-custom-value">{{ __('Memory:') }} <span class="apexcharts-tooltip-value-bold">${formatPercent(memory)}</span></div>
                                     <div class="apexcharts-tooltip-custom-title">${formatTimestamp(timestamp)}</div>
                                 </div>`;
                             },

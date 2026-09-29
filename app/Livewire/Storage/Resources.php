@@ -76,7 +76,7 @@ class Resources extends Component
             ->first();
 
         if (! $newStorage) {
-            $this->dispatch('error', 'Storage not found.');
+            $this->dispatch('error', __('Storage not found.'));
 
             return;
         }
@@ -131,7 +131,7 @@ class Resources extends Component
             ->first();
 
         if (! $newStorage) {
-            $this->dispatch('error', 'Storage not found.');
+            $this->dispatch('error', __('Storage not found.'));
 
             return;
         }

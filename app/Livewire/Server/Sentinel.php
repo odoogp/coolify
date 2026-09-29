@@ -88,7 +88,7 @@ class Sentinel extends Component
             // Only refresh display-only state; never re-sync text-input properties
             // (would clobber any unsaved typing — see coolify#6062 / #6354 / #9695).
             $this->sentinelUpdatedAt = $this->server->sentinel_updated_at;
-            $this->dispatch('success', 'Sentinel has been restarted successfully.');
+            $this->dispatch('success', __('Sentinel has been restarted successfully.'));
         }
     }
 
@@ -98,7 +98,7 @@ class Sentinel extends Component
             $this->authorize('manageSentinel', $this->server);
             $customImage = isDev() ? $this->sentinelCustomDockerImage : null;
             $this->server->restartSentinel($customImage);
-            $this->dispatch('info', 'Restarting Sentinel.');
+            $this->dispatch('info', __('Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -110,7 +110,7 @@ class Sentinel extends Component
             $this->authorize('manageSentinel', $this->server);
             if (! $this->isSentinelEnabled) {
                 if ($this->server->isBuildServer()) {
-                    $this->dispatch('error', 'Sentinel cannot be enabled on build servers.');
+                    $this->dispatch('error', __('Sentinel cannot be enabled on build servers.'));
 
                     return;
                 }
@@ -136,7 +136,7 @@ class Sentinel extends Component
         try {
             $this->authorize('manageSentinel', $this->server);
             $this->server->settings->generateSentinelToken();
-            $this->dispatch('success', 'Token regenerated. Restarting Sentinel.');
+            $this->dispatch('success', __('Token regenerated. Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -146,7 +146,7 @@ class Sentinel extends Component
     {
         try {
             $this->syncData(true);
-            $this->dispatch('success', 'Sentinel settings updated. Restarting Sentinel.');
+            $this->dispatch('success', __('Sentinel settings updated. Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

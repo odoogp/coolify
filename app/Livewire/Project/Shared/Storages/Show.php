@@ -164,7 +164,7 @@ class Show extends Component
 
         $this->syncData(true);
         $this->storage->save();
-        $this->dispatch('success', 'Storage updated successfully');
+        $this->dispatch('success', __('Storage updated successfully'));
     }
 
     public function submit()
@@ -174,7 +174,7 @@ class Show extends Component
         $this->validate();
         $this->syncData(true);
         $this->storage->save();
-        $this->dispatch('success', 'Storage updated successfully');
+        $this->dispatch('success', __('Storage updated successfully'));
     }
 
     public function delete($password, $selectedActions = [])
@@ -186,7 +186,7 @@ class Show extends Component
         }
 
         if ($this->storage->scheduledBackups()->exists()) {
-            $this->dispatch('error', 'Delete this volume backup schedule and its archives before deleting the volume.');
+            $this->dispatch('error', __('Delete this volume backup schedule and its archives before deleting the volume.'));
 
             return false;
         }

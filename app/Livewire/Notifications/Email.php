@@ -220,7 +220,7 @@ class Email extends Component
     public function saveModel()
     {
         $this->syncData(true);
-        $this->dispatch('success', 'Email notifications settings updated.');
+        $this->dispatch('success', __('Email notifications settings updated.'));
     }
 
     public function instantSave(?string $type = null)
@@ -295,7 +295,7 @@ class Email extends Component
             $this->settings->smtp_ehlo_domain = $this->smtpEhloDomain;
 
             $this->settings->save();
-            $this->dispatch('success', 'SMTP settings updated.');
+            $this->dispatch('success', __('SMTP settings updated.'));
         } catch (\Throwable $e) {
             $this->smtpEnabled = false;
 
@@ -330,7 +330,7 @@ class Email extends Component
             $this->settings->smtp_from_name = $this->smtpFromName;
 
             $this->settings->save();
-            $this->dispatch('success', 'Resend settings updated.');
+            $this->dispatch('success', __('Resend settings updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -352,7 +352,7 @@ class Email extends Component
                 $perMinute = 0,
                 function () {
                     $this->team?->notifyNow(new Test($this->testEmailAddress, 'email'));
-                    $this->dispatch('success', 'Test Email sent.');
+                    $this->dispatch('success', __('Test Email sent.'));
                 },
                 $decaySeconds = 10,
             );

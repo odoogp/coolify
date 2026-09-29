@@ -35,7 +35,7 @@ it('uses card-style git source triggers instead of plain form buttons', function
 
     expect($view)
         ->toContain('<x-slot:trigger>')
-        ->toContain('label="Current"')
+        ->toContain('label="{{ __(\'Current\') }}"')
         ->toContain('aria-current="true"')
         ->toContain('<x-git-icon')
         ->toContain('rounded-xl border')

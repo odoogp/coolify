@@ -195,7 +195,7 @@ class ExecuteContainerCommand extends Component
     public function connectToContainer()
     {
         if ($this->selected_container === 'default') {
-            $this->dispatch('error', 'Please select a container.');
+            $this->dispatch('error', __('Please select a container.'));
 
             return;
         }

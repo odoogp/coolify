@@ -37,7 +37,7 @@ it('shows the coolify icon in the collapsed desktop brand slot', function () {
     $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
     expect($layout)
-        ->toContain('x-show="collapsed" x-cloak src="/coolify-logo.svg" alt="Coolify"')
+        ->toContain('x-show="collapsed" x-cloak src="/coolify-logo.svg" alt="{{ __(\'Coolify\') }}"')
         ->not->toContain('>C</span>');
 });
 

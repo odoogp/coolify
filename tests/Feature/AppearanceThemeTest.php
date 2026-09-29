@@ -21,7 +21,7 @@ test('custom color theme is available and applied across theme controls', functi
         ->toContain("this.theme === 'custom'")
         ->and($accountMenu)
         ->toContain("['value' => 'custom', 'label' => 'Custom']")
-        ->toContain('aria-label="Custom theme color"')
+        ->toContain('aria-label="{{ __(\'Custom theme color\') }}"')
         ->toContain('requestAnimationFrame(() =>')
         ->toContain('@input="previewThemeColor($event.target.value)"')
         ->toContain('@change="saveThemeColor($event.target.value)"')

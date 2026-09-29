@@ -105,7 +105,7 @@ class Index extends Component
         $this->settings->dev_helper_version = $this->dev_helper_version;
         if ($isSave) {
             $this->settings->save();
-            $this->dispatch('success', 'Settings updated!');
+            $this->dispatch('success', __('Settings updated!'));
         }
     }
 
@@ -174,7 +174,7 @@ class Index extends Component
                 $this->server->setupDynamicProxyConfiguration();
             }
             if (! $error_show) {
-                $this->dispatch('success', 'Instance settings updated successfully!');
+                $this->dispatch('success', __('Instance settings updated successfully!'));
             }
         } catch (\Exception $e) {
             return handleError($e, $this);
@@ -186,13 +186,13 @@ class Index extends Component
         try {
             $this->authorize('update', $this->settings);
             if (! isDev()) {
-                $this->dispatch('error', 'Building helper image is only available in development mode.');
+                $this->dispatch('error', __('Building helper image is only available in development mode.'));
 
                 return;
             }
 
             if (! $this->server) {
-                $this->dispatch('error', 'Server not available.');
+                $this->dispatch('error', __('Server not available.'));
 
                 return;
             }
@@ -201,13 +201,13 @@ class Index extends Component
 
             $version = $this->dev_helper_version ?: config('constants.coolify.helper_version');
             if (empty($version)) {
-                $this->dispatch('error', 'Please specify a version to build.');
+                $this->dispatch('error', __('Please specify a version to build.'));
 
                 return;
             }
 
             if (! preg_match('/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/', (string) $version)) {
-                $this->dispatch('error', 'Invalid helper version format.');
+                $this->dispatch('error', __('Invalid helper version format.'));
 
                 return;
             }

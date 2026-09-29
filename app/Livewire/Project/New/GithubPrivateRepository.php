@@ -255,6 +255,6 @@ class GithubPrivateRepository extends Component
             $this->port = 3000;
             $this->publish_directory = null;
         }
-        $this->dispatch('success', 'Application settings updated!');
+        $this->dispatch('success', __('Application settings updated!'));
     }
 }

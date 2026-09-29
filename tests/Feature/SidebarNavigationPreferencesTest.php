@@ -23,8 +23,8 @@ it('keeps changelog and appearance options out of the preferences dropdown', fun
 
     expect($dropdownView)
         ->toContain("\$trigger === 'changelog-sidebar'")
-        ->toContain('title="What\'s New"')
-        ->toContain('aria-label="What\'s New"')
+        ->toContain('title="{{ __(\'What\\\'s New\') }}"')
+        ->toContain('aria-label="{{ __(\'What\\\'s New\') }}"')
         ->toContain('wire:click="openWhatsNewModal"')
         ->toContain('class="relative text-left menu-item"')
         ->toContain('class="text-left menu-item-label"')

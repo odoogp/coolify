@@ -5,7 +5,7 @@
     'helper' => null,
     'required' => false,
     'options' => [], // list of ['value' => ..., 'label' => ..., 'disabled' => bool]
-    'placeholder' => 'Select…',
+    'placeholder' => __('Select…'),
     'emptyText' => 'No options available.',
     'live' => false,
     'onChange' => null, // optional $wire method to call after a selection

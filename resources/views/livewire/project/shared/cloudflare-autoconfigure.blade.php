@@ -5,9 +5,9 @@
 
 <div x-data="{ dnsEntriesOpen: false }" class="relative" @click.outside="dnsEntriesOpen = false">
     <button type="button" class="button" @click="dnsEntriesOpen = !dnsEntriesOpen" aria-haspopup="menu"
-        x-bind:aria-expanded="dnsEntriesOpen" title="DNS entries for this server">
+        x-bind:aria-expanded="dnsEntriesOpen" title="{{ __('DNS entries for this server') }}">
         <x-reicon name="globe" class="size-3.5" />
-        DNS entries
+        {{ __('DNS entries') }}
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
             stroke="currentColor" class="size-3.5 shrink-0 opacity-60">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8 9 4-4 4 4m0 6-4 4-4-4" />
@@ -19,13 +19,13 @@
             <button type="button" class="listbox-option justify-start! gap-2.5!" role="menuitem"
                 wire:click="openCloudflareAutoconfigureModal" @click="dnsEntriesOpen = false">
                 <x-reicon name="globe" class="size-3.5 shrink-0 opacity-70" />
-                Cloudflare
+                {{ __('Cloudflare') }}
             </button>
         @endif
         <button type="button" class="listbox-option justify-start! gap-2.5!" role="menuitem"
             @click="dnsEntriesOpen = false; $dispatch('open-dns-records-modal')">
             <x-reicon name="documentation" class="size-3.5 shrink-0 opacity-70" />
-            Manual records
+            {{ __('Manual records') }}
         </button>
     </div>
 </div>
@@ -53,9 +53,9 @@
                         class="application-settings-form application-settings-section relative flex w-full max-w-lg flex-col overflow-hidden"
                         style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
                         <header class="flex-nowrap!">
-                            <h3 class="min-w-0 flex-1 truncate">Configure DNS on Cloudflare</h3>
+                            <h3 class="min-w-0 flex-1 truncate">{{ __('Configure DNS on Cloudflare') }}</h3>
                             <button type="button" wire:click="closeCloudflareAutoconfigureModal"
-                                class="icon-button shrink-0" aria-label="Close">
+                                class="icon-button shrink-0" aria-label="{{ __('Close') }}">
                                 <x-reicon name="x" class="size-4" />
                             </button>
                         </header>
@@ -64,12 +64,12 @@
                                 $cloudflareHosts = $this->allDomainHostnames();
                             @endphp
                             <p class="text-sm leading-6 text-neutral-600 dark:text-fg-dim">
-                                Opens Cloudflare Domain Connect for every domain on this resource, with A records
+                                {{ __('Opens Cloudflare Domain Connect for every domain on this resource, with A records') }}
                                 prefilled to this server’s IP. Authorize each change in Cloudflare.
                             </p>
 
                             <div>
-                                <p class="mb-1.5 text-sm font-medium text-black dark:text-white">Domains</p>
+                                <p class="mb-1.5 text-sm font-medium text-black dark:text-white">{{ __('Domains') }}</p>
                                 <ul
                                     class="max-h-40 space-y-1 overflow-y-auto rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-[13px] text-black dark:border-coolgray-300 dark:bg-coolgray-100 dark:text-fg">
                                     @foreach ($cloudflareHosts as $host)
@@ -78,17 +78,17 @@
                                 </ul>
                             </div>
 
-                            <x-forms.input label="Server IP (A record target)"
+                            <x-forms.input label="{{ __('Server IP (A record target)') }}"
                                 value="{{ $serverIp ?: 'Unavailable' }}" readonly
-                                helper="This IP is taken from the destination server." />
+                                helper="{{ __('This IP is taken from the destination server.') }}" />
 
                             <div class="flex flex-wrap items-center justify-end gap-2 pt-2">
                                 <x-forms.button type="button" wire:click="closeCloudflareAutoconfigureModal">
-                                    Cancel
+                                    {{ __('Cancel') }}
                                 </x-forms.button>
                                 <x-forms.button type="button" wire:click="applyCloudflareAutoconfigure"
                                     isHighlighted>
-                                    Open Cloudflare
+                                    {{ __('Open Cloudflare') }}
                                     <x-external-link class="size-3 opacity-70" />
                                 </x-forms.button>
                             </div>
@@ -146,26 +146,26 @@
                     class="application-settings-form application-settings-section relative flex w-full max-w-2xl flex-col overflow-hidden"
                     style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
                     <header class="flex-nowrap!">
-                        <h3 class="min-w-0 flex-1 truncate">DNS entries</h3>
+                        <h3 class="min-w-0 flex-1 truncate">{{ __('DNS entries') }}</h3>
                         <button type="button" @click="closeDnsRecords()"
-                            class="icon-button shrink-0" aria-label="Close">
+                            class="icon-button shrink-0" aria-label="{{ __('Close') }}">
                             <x-reicon name="x" class="size-4" />
                         </button>
                     </header>
                     <div class="application-settings-section-body flex flex-col gap-4">
                         <p class="text-sm leading-6 text-neutral-600 dark:text-fg-dim">
-                            Hosts that still need DNS at your provider (working domains are omitted). Create matching
+                            {{ __('Hosts that still need DNS at your provider (working domains are omitted). Create matching') }}
                             Type / Name / Value records so traffic reaches this server.
                         </p>
 
                         @if (blank($serverIp) && count($dnsHints) === 0)
-                            <x-callout type="warning" title="No server IP">
-                                Could not determine a public IP for this destination. Set the server IP (or instance public IPv4 for localhost) first.
+                            <x-callout type="warning" title="{{ __('No server IP') }}">
+                                {{ __('Could not determine a public IP for this destination. Set the server IP (or instance public IPv4 for localhost) first.') }}
                             </x-callout>
                         @elseif (count($dnsHints) === 0)
-                            <x-callout type="info" title="Nothing to configure">
-                                No pending DNS entries. All listed domains already resolve correctly, or no domains are configured yet.
-                                Use Recheck after changing DNS.
+                            <x-callout type="info" title="{{ __('Nothing to configure') }}">
+                                {{ __('No pending DNS entries. All listed domains already resolve correctly, or no domains are configured yet.') }}
+                                {{ __('Use Recheck after changing DNS.') }}
                             </x-callout>
                         @else
                             <div class="overflow-x-auto rounded-md border border-neutral-200 dark:border-coolgray-300">
@@ -173,9 +173,9 @@
                                     <thead
                                         class="bg-neutral-50 text-[12px] uppercase tracking-wide text-neutral-500 dark:bg-coolgray-100 dark:text-fg-dim">
                                         <tr>
-                                            <th class="px-3 py-2 font-medium">Type</th>
-                                            <th class="px-3 py-2 font-medium">Name</th>
-                                            <th class="px-3 py-2 font-medium">Value</th>
+                                            <th class="px-3 py-2 font-medium">{{ __('Type') }}</th>
+                                            <th class="px-3 py-2 font-medium">{{ __('Name') }}</th>
+                                            <th class="px-3 py-2 font-medium">{{ __('Value') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-neutral-200 dark:divide-coolgray-300">
@@ -185,14 +185,14 @@
                                                 <td class="px-3 py-2.5">
                                                     @include('livewire.project.shared.partials.dns-copy-cell', [
                                                         'text' => $record['name'],
-                                                        'label' => 'Copy name',
+                                                        'label' => __('Copy name'),
                                                         'break' => true,
                                                     ])
                                                 </td>
                                                 <td class="px-3 py-2.5">
                                                     @include('livewire.project.shared.partials.dns-copy-cell', [
                                                         'text' => $record['value'],
-                                                        'label' => 'Copy value',
+                                                        'label' => __('Copy value'),
                                                         'break' => true,
                                                     ])
                                                 </td>
@@ -234,9 +234,9 @@
                                         · BIND zone format
                                     </p>
                                     <button type="button" class="button shrink-0"
-                                        title="Copy as BIND-compatible zone file"
+                                        title="{{ __('Copy as BIND-compatible zone file') }}"
                                         @click.prevent="copyAll(@js($dnsCopyText))">
-                                        <span x-text="copied ? 'Copied' : 'Copy all'"></span>
+                                        <span x-text="copied ? @js(__('Copied')) : @js(__('Copy all'))"></span>
                                     </button>
                                 </div>
                             @endif
@@ -245,12 +245,12 @@
                         <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
                             <x-forms.button type="button" @click="recheckDns()"
                                 wire:target="recheckDnsRecordsInModal,checkAllDns,checkDomainDns"
-                                title="Recheck DNS">
+                                title="{{ __('Recheck DNS') }}">
                                 <x-reicon name="refresh" class="size-3.5" />
-                                Recheck
+                                {{ __('Recheck') }}
                             </x-forms.button>
                             <x-forms.button type="button" @click="closeDnsRecords()" isHighlighted>
-                                Done
+                                {{ __('Done') }}
                             </x-forms.button>
                         </div>
                     </div>

@@ -1,20 +1,20 @@
 <div>
     <x-slot:title>
-        API Tokens | Coolify
+        {{ __('API Tokens | Coolify') }}
     </x-slot>
 
     <x-security.settings-layout>
 
     @if (!$isApiEnabled)
         <div class="application-settings-form">
-            <x-application.settings-section title="API disabled"
-                description="Enable the Coolify API before creating access tokens.">
-                <x-empty title="API access is turned off"
-                    description="Enable API access in instance settings to issue tokens." icon-name="keys"
+            <x-application.settings-section title="{{ __('API disabled') }}"
+                description="{{ __('Enable the Coolify API before creating access tokens.') }}">
+                <x-empty title="{{ __('API access is turned off') }}"
+                    description="{{ __('Enable API access in instance settings to issue tokens.') }}" icon-name="keys"
                     size="sm">
                     <x-slot:actions>
                         <a href="{{ route('settings.advanced') }}" class="button" {{ wireNavigate() }}>
-                            Open settings
+                            {{ __('Open settings') }}
                         </a>
                     </x-slot:actions>
                 </x-empty>
@@ -25,33 +25,33 @@
             $expirationList = collect($expirationOptions)
                 ->map(fn ($label, $days) => ['value' => (string) $days, 'label' => $label])
                 ->values()
-                ->push(['value' => '', 'label' => 'Never'])
+                ->push(['value' => '', 'label' => __('Never')])
                 ->all();
         @endphp
 
         <div class="application-settings-form flex flex-col gap-6">
             @can('create', App\Models\PersonalAccessToken::class)
                 <form wire:submit="addNewToken">
-                    <x-application.settings-section title="New API token">
+                    <x-application.settings-section title="{{ __('New API token') }}">
                         <x-slot:actions>
                             <button type="submit"
                                 class="button button-highlighted">
                                 <x-reicon name="plus" class="size-3.5" />
-                                Create token
+                                {{ __('Create token') }}
                             </button>
                         </x-slot:actions>
 
                         <div class="grid gap-4 lg:grid-cols-2">
-                            <x-forms.input required id="description" label="Description"
-                                placeholder="CI deployment token" />
-                            <x-forms.listbox id="expiresInDays" label="Expires in"
+                            <x-forms.input required id="description" label="{{ __('Description') }}"
+                                placeholder="{{ __('CI deployment token') }}" />
+                            <x-forms.listbox id="expiresInDays" label="{{ __('Expires in') }}"
                                 :options="$expirationList" />
                         </div>
 
                         <div class="mt-5 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                             <div class="mb-3 flex items-center gap-2">
-                                <h4 class="text-[12px] font-semibold text-black dark:text-fg">Permissions</h4>
-                                <x-helper helper="Only grant the abilities this token needs." />
+                                <h4 class="text-[12px] font-semibold text-black dark:text-fg">{{ __('Permissions') }}</h4>
+                                <x-helper helper="{{ __('Only grant the abilities this token needs.') }}" />
                             </div>
                             <div class="relative" x-data="{ permissionsOpen: false }"
                                 @click.outside="permissionsOpen = false" @keydown.escape.window="permissionsOpen = false">
@@ -66,36 +66,36 @@
                                 <div x-cloak x-show="permissionsOpen" x-transition.origin.top
                                     class="listbox-panel top-full! mt-1! w-full!" role="listbox">
                                     <div class="listbox-option p-0!">
-                                        <x-forms.checkbox id="permission-root" label="Root" fullWidth
+                                        <x-forms.checkbox id="permission-root" label="{{ __('Root') }}" fullWidth
                                             wire:model.live="permissions" domValue="root"
-                                            helper="Full access to every API operation."
+                                            helper="{{ __('Full access to every API operation.') }}"
                                             :checked="in_array('root', $permissions)" :disabled="!$canUseRootPermissions" />
                                     </div>
                                     <div class="listbox-option p-0!">
-                                        <x-forms.checkbox id="permission-write" label="Write" fullWidth
+                                        <x-forms.checkbox id="permission-write" label="{{ __('Write') }}" fullWidth
                                             wire:model.live="permissions" domValue="write"
-                                            helper="Create and update resources."
+                                            helper="{{ __('Create and update resources.') }}"
                                             :checked="in_array('write', $permissions)"
                                             :disabled="in_array('root', $permissions) || !$canUseWritePermissions" />
                                     </div>
                                     <div class="listbox-option p-0!">
-                                        <x-forms.checkbox id="permission-deploy" label="Deploy" fullWidth
+                                        <x-forms.checkbox id="permission-deploy" label="{{ __('Deploy') }}" fullWidth
                                             wire:model.live="permissions" domValue="deploy"
-                                            helper="Trigger deployments through webhooks."
+                                            helper="{{ __('Trigger deployments through webhooks.') }}"
                                             :checked="in_array('deploy', $permissions)"
                                             :disabled="in_array('root', $permissions) || !$canUseDeployPermissions" />
                                     </div>
                                     <div class="listbox-option p-0!">
-                                        <x-forms.checkbox id="permission-read" label="Read" fullWidth
+                                        <x-forms.checkbox id="permission-read" label="{{ __('Read') }}" fullWidth
                                             wire:model.live="permissions" domValue="read"
-                                            helper="Read non-sensitive resource data."
+                                            helper="{{ __('Read non-sensitive resource data.') }}"
                                             :checked="in_array('read', $permissions)"
                                             :disabled="in_array('root', $permissions)" />
                                     </div>
                                     <div class="listbox-option p-0!">
-                                        <x-forms.checkbox id="permission-read-sensitive" label="Read sensitive data"
+                                        <x-forms.checkbox id="permission-read-sensitive" label="{{ __('Read sensitive data') }}"
                                             fullWidth wire:model.live="permissions" domValue="read:sensitive"
-                                            helper="Include secrets, logs, passwords, and Compose content."
+                                            helper="{{ __('Include secrets, logs, passwords, and Compose content.') }}"
                                             :checked="in_array('read:sensitive', $permissions)"
                                             :disabled="in_array('root', $permissions) || !$canUseSensitivePermissions" />
                                     </div>
@@ -107,13 +107,13 @@
             @endcan
 
             @if (session()->has('token'))
-                <x-application.settings-section title="Copy your token"
-                    description="This value will not be shown again after you leave this page.">
+                <x-application.settings-section title="{{ __('Copy your token') }}"
+                    description="{{ __('This value will not be shown again after you leave this page.') }}">
                     <x-forms.copy-button :text="session('token')" />
                 </x-application.settings-section>
             @endif
 
-            <x-application.settings-section title="Issued tokens" flush>
+            <x-application.settings-section title="{{ __('Issued tokens') }}" flush>
                 <div x-data="{
                     search: '',
                     page: 1,
@@ -155,11 +155,11 @@
                                 <x-reicon name="search"
                                     class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
                                 <input x-model.debounce.150ms="search" x-on:input="page = 1" type="search"
-                                    placeholder="Search tokens" aria-label="Search tokens"
+                                    placeholder="{{ __('Search tokens') }}" aria-label="{{ __('Search tokens') }}"
                                     class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-8! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                                 <button x-cloak x-show="search" x-on:click="search = ''; page = 1" type="button"
                                     class="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                                    aria-label="Clear search">
+                                    aria-label="{{ __('Clear search') }}">
                                     <x-reicon name="x" class="size-3" />
                                 </button>
                             </div>
@@ -168,18 +168,18 @@
 
                     @if ($tokens->isEmpty())
                         <div class="p-4">
-                            <x-empty title="No API tokens" description="Create a token when an external client needs access."
+                            <x-empty title="{{ __('No API tokens') }}" description="{{ __('Create a token when an external client needs access.') }}"
                                 icon-name="keys" size="sm" />
                         </div>
                     @else
                         <div x-cloak x-show="filteredTokens.length > 0" class="data-table">
                             <div class="data-table-header api-tokens-table-grid">
-                                <span>Description</span>
-                                <span>Permissions</span>
-                                <span>Last used</span>
-                                <span>Created</span>
-                                <span>Expires</span>
-                                <span class="text-right">Actions</span>
+                                <span>{{ __('Description') }}</span>
+                                <span>{{ __('Permissions') }}</span>
+                                <span>{{ __('Last used') }}</span>
+                                <span>{{ __('Created') }}</span>
+                                <span>{{ __('Expires') }}</span>
+                                <span class="text-right">{{ __('Actions') }}</span>
                             </div>
                             @foreach ($tokens as $token)
                                 <div wire:key="api-token-{{ $token->id }}"
@@ -207,27 +207,27 @@
                                     </div>
                                     <div class="text-[11px] text-neutral-500 dark:text-fg-dim">
                                         @if (!$token->expires_at)
-                                            Never
+                                            {{ __('Never') }}
                                         @elseif ($token->expires_at->isPast())
-                                            <x-status-badge label="Expired" type="error" />
+                                            <x-status-badge label="{{ __('Expired') }}" type="error" />
                                         @else
                                             {{ $token->expires_at->format('Y-m-d') }}
                                         @endif
                                     </div>
                                     <div class="flex justify-end">
                                         @if (auth()->id() === $token->tokenable_id)
-                                            <x-modal-confirmation title="Confirm API Token Revocation?"
+                                            <x-modal-confirmation title="{{ __('Confirm API Token Revocation?') }}"
                                                 submitAction="revoke({{ $token->id }})" :actions="[
                                                     'This API token will be permanently revoked.',
                                                 ]"
                                                 confirmationText="{{ $token->name }}"
-                                                confirmationLabel="Enter the token description to confirm"
-                                                shortConfirmationLabel="Token description"
+                                                confirmationLabel="{{ __('Enter the token description to confirm') }}"
+                                                shortConfirmationLabel="{{ __('Token description') }}"
                                                 :confirmWithPassword="false" step2ButtonText="Revoke token">
                                                 <x-slot:trigger>
                                                     <button type="button"
                                                         class="inline-flex h-7 items-center rounded-md px-2 text-[11px] font-medium text-error transition-colors hover:bg-error/10">
-                                                        Revoke
+                                                        {{ __('Revoke') }}
                                                     </button>
                                                 </x-slot:trigger>
                                             </x-modal-confirmation>
@@ -238,8 +238,8 @@
                         </div>
 
                         <div x-cloak x-show="filteredTokens.length === 0" class="p-4">
-                            <x-empty size="sm" title="No matching tokens"
-                                description="Try a different description or permission." />
+                            <x-empty size="sm" title="{{ __('No matching tokens') }}"
+                                description="{{ __('Try a different description or permission.') }}" />
                         </div>
 
                         <x-client-pagination x-cloak x-show="filteredTokens.length > 0"

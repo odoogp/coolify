@@ -11,6 +11,7 @@ use App\Services\ChangelogService;
 use App\Traits\DeletesUserSessions;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notifiable;
@@ -40,7 +41,7 @@ use OpenApi\Attributes as OA;
         'marketing_emails' => ['type' => 'boolean', 'description' => 'The flag to receive marketing emails.'],
     ],
 )]
-class User extends Authenticatable implements SendsEmail
+class User extends Authenticatable implements HasLocalePreference, SendsEmail
 {
     use DeletesUserSessions, HasApiTokens, HasFactory, Notifiable, TwoFactorAuthenticatable;
 
@@ -56,6 +57,7 @@ class User extends Authenticatable implements SendsEmail
         'avatar_path',
         'avatar_storage_type',
         'avatar_s3_storage_id',
+        'locale',
     ];
 
     protected $hidden = [
@@ -88,9 +90,26 @@ class User extends Authenticatable implements SendsEmail
         $this->attributes['pending_email'] = $value ? strtolower($value) : null;
     }
 
+    public function preferredLocale(): string
+    {
+        $locale = $this->locale;
+
+        if (is_string($locale) && in_array($locale, config('app.supported_locales'), true)) {
+            return $locale;
+        }
+
+        return config('app.locale');
+    }
+
     protected static function boot()
     {
         parent::boot();
+
+        static::creating(function (User $user) {
+            if (! is_string($user->locale) || $user->locale === '') {
+                $user->locale = config('app.locale');
+            }
+        });
 
         static::created(function (User $user) {
             $team = [

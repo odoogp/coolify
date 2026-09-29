@@ -3,8 +3,8 @@
     @compose-validate.window="$wire.validateCompose().finally(() => $dispatch('compose-validate-finished'))"
     @compose-save.window="$wire.saveEditedCompose()"
     class="flex min-h-0 flex-col gap-3">
-    <x-callout type="info" title="Volume names">
-        Volume names are prefixed with the service UUID when you save to prevent collisions.
+    <x-callout type="info" title="{{ __('Volume names') }}">
+        {{ __('Volume names are prefixed with the service UUID when you save to prevent collisions.') }}
     </x-callout>
 
     <div class="compose-editor-container min-h-[24rem] overflow-hidden rounded-lg border border-neutral-200 bg-white dark:border-white/[0.10] dark:bg-[#0b0b0c]"
@@ -26,9 +26,9 @@
 
     <div
         class="flex flex-wrap items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 p-1 dark:border-white/[0.08] dark:bg-white/[0.025]">
-        <x-forms.checkbox label="Escape special characters in labels"
+        <x-forms.checkbox label="{{ __('Escape special characters in labels') }}"
             helper="By default, $ (and other characters) is escaped. A $ in a label is saved as $$. Turn this off to use environment variables inside labels."
             id="isContainerLabelEscapeEnabled" instantSave />
-        <x-forms.checkbox label="Use plain-text editor" id="showNormalTextarea" x-model="showNormalTextarea" />
+        <x-forms.checkbox label="{{ __('Use plain-text editor') }}" id="showNormalTextarea" x-model="showNormalTextarea" />
     </div>
 </div>

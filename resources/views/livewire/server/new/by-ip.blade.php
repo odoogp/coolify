@@ -10,26 +10,26 @@
         @endphp
 
         <form wire:submit="submit">
-            <x-application.settings-section title="Connect a server"
-                description="Add an existing Linux server using its SSH connection details.">
+            <x-application.settings-section title="{{ __('Connect a server') }}"
+                description="{{ __('Add an existing Linux server using its SSH connection details.') }}">
                 <x-slot:actions>
                     <button type="submit"
                         class="button button-highlighted">
-                        Continue
+                        {{ __('Continue') }}
                         <x-reicon name="arrow-right" class="size-3.5" />
                     </button>
                 </x-slot:actions>
 
                 <div class="mb-5">
-                    <x-forms.input id="ip" label="IP address or domain" required
-                        helper="For example 127.0.0.1 or server.example.com." />
+                    <x-forms.input id="ip" label="{{ __('IP address or domain') }}" required
+                        helper="{{ __('For example 127.0.0.1 or server.example.com.') }}" />
                 </div>
 
                 <div class="mb-5">
                     <div class="flex items-end gap-3">
                         <div class="min-w-0 flex-1">
-                            <x-forms.listbox id="private_key_id" label="Private key"
-                                placeholder="Select a private key" :options="$privateKeyOptions" />
+                            <x-forms.listbox id="private_key_id" label="{{ __('Private key') }}"
+                                placeholder="{{ __('Select a private key') }}" :options="$privateKeyOptions" />
                         </div>
                         @can('create', App\Models\PrivateKey::class)
                             <div x-data="{ dropdownOpen: false }" class="relative shrink-0"
@@ -38,7 +38,7 @@
                                 <button type="button" class="button" @click="dropdownOpen = !dropdownOpen"
                                     aria-haspopup="menu" :aria-expanded="dropdownOpen">
                                     <x-reicon name="plus" class="size-3.5" />
-                                    New key
+                                    {{ __('New key') }}
                                     <x-reicon name="chevron-down" class="size-3 opacity-55" />
                                 </button>
                                 <div x-cloak x-show="dropdownOpen" x-transition.origin.top.right role="menu"
@@ -47,20 +47,20 @@
                                         wire:click="generatePrivateKey('ed25519')"
                                         @click="dropdownOpen = false" role="menuitem">
                                         <x-reicon name="keys" class="size-3.5 shrink-0 opacity-70" />
-                                        Generate ED25519
+                                        {{ __('Generate ED25519') }}
                                     </button>
                                     <button type="button" class="listbox-option justify-start! gap-2.5!"
                                         wire:click="generatePrivateKey('rsa')" @click="dropdownOpen = false"
                                         role="menuitem">
                                         <x-reicon name="keys" class="size-3.5 shrink-0 opacity-70" />
-                                        Generate RSA
+                                        {{ __('Generate RSA') }}
                                     </button>
-                                    <x-modal-input title="Add Private Key Manually">
+                                    <x-modal-input title="{{ __('Add Private Key Manually') }}">
                                         <x-slot:content>
                                             <button type="button" @click="dropdownOpen = false"
                                                 class="listbox-option justify-start! gap-2.5!" role="menuitem">
                                                 <x-reicon name="plus" class="size-3.5 shrink-0 opacity-70" />
-                                                Add manually
+                                                {{ __('Add manually') }}
                                             </button>
                                         </x-slot:content>
                                         <livewire:security.private-key.create :modal_mode="true" from="server" />
@@ -72,22 +72,22 @@
                 </div>
 
                 <div class="grid gap-4 border-t border-neutral-200 pt-4 lg:grid-cols-2 dark:border-white/[0.08]">
-                    <x-forms.input id="name" label="Name" required />
-                    <x-forms.input id="description" label="Description" />
+                    <x-forms.input id="name" label="{{ __('Name') }}" required />
+                    <x-forms.input id="description" label="{{ __('Description') }}" />
                 </div>
 
                 <x-forms.collapsible class="mt-5 border-t border-neutral-200 pt-4 dark:border-white/[0.08]"
                     content-class="flex flex-col gap-4">
                     <div class="grid gap-4 lg:grid-cols-2">
-                        <x-forms.input id="user" label="User" required
-                            helper="Non-root SSH users are experimental." />
-                        <x-forms.input type="number" id="port" label="Port" required />
+                        <x-forms.input id="user" label="{{ __('User') }}" required
+                            helper="{{ __('Non-root SSH users are experimental.') }}" />
+                        <x-forms.input type="number" id="port" label="{{ __('Port') }}" required />
                     </div>
                     <x-forms.listbox id="is_build_server"
-                        helper="Build servers compile applications but do not host deployments. Enabling this makes the server build-only."
-                        label="Use as a dedicated build server" :options="[
-                            ['value' => false, 'label' => 'No'],
-                            ['value' => true, 'label' => 'Yes'],
+                        helper="{{ __('Build servers compile applications but do not host deployments. Enabling this makes the server build-only.') }}"
+                        label="{{ __('Use as a dedicated build server') }}" :options="[
+                            ['value' => false, 'label' => __('No')],
+                            ['value' => true, 'label' => __('Yes')],
                         ]" />
                 </x-forms.collapsible>
             </x-application.settings-section>

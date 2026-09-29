@@ -135,7 +135,7 @@ class General extends Component
             $this->syncData();
             $this->server = data_get($this->database, 'destination.server');
             if (! $this->server) {
-                $this->dispatch('error', 'Database destination server is not configured.');
+                $this->dispatch('error', __('Database destination server is not configured.'));
 
                 return;
             }
@@ -197,13 +197,13 @@ class General extends Component
 
             if (! $this->server->isLogDrainEnabled()) {
                 $this->isLogDrainEnabled = false;
-                $this->dispatch('error', 'Log drain is not enabled on the server. Please enable it first.');
+                $this->dispatch('error', __('Log drain is not enabled on the server. Please enable it first.'));
 
                 return;
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Database updated.');
-            $this->dispatch('success', 'You need to restart the service for the changes to take effect.');
+            $this->dispatch('success', __('Database updated.'));
+            $this->dispatch('success', __('You need to restart the service for the changes to take effect.'));
         } catch (Exception $e) {
             return handleError($e, $this);
         }
@@ -219,13 +219,13 @@ class General extends Component
             }
 
             if ($this->isPublic && ! $this->publicPort) {
-                $this->dispatch('error', 'Public port is required.');
+                $this->dispatch('error', __('Public port is required.'));
                 $this->isPublic = false;
 
                 return;
             }
             if ($this->isPublic && ! str($this->database->status)->startsWith('running')) {
-                $this->dispatch('error', 'Database must be started to be publicly accessible.');
+                $this->dispatch('error', __('Database must be started to be publicly accessible.'));
                 $this->isPublic = false;
 
                 return;
@@ -233,10 +233,10 @@ class General extends Component
             $this->syncData(true);
             if ($this->isPublic) {
                 StartDatabaseProxy::run($this->database);
-                $this->dispatch('success', 'Database is now publicly accessible.');
+                $this->dispatch('success', __('Database is now publicly accessible.'));
             } else {
                 StopDatabaseProxy::run($this->database);
-                $this->dispatch('success', 'Database is no longer publicly accessible.');
+                $this->dispatch('success', __('Database is no longer publicly accessible.'));
             }
             $this->dispatch('databaseUpdated');
         } catch (\Throwable $e) {
@@ -257,7 +257,7 @@ class General extends Component
         $oldScript = $initScripts->firstWhere('index', $script['index']);
 
         if ($existingScript && $existingScript['index'] !== $script['index']) {
-            $this->dispatch('error', 'A script with this filename already exists.');
+            $this->dispatch('error', __('A script with this filename already exists.'));
 
             return;
         }
@@ -304,7 +304,7 @@ class General extends Component
             ->all();
 
         $this->syncData(true);
-        $this->dispatch('success', 'Init script saved and updated.');
+        $this->dispatch('success', __('Init script saved and updated.'));
     }
 
     public function delete_init_script($script)
@@ -345,7 +345,7 @@ class General extends Component
             $this->initScripts = $updatedScripts;
             $this->syncData(true);
             $this->dispatch('refresh')->self();
-            $this->dispatch('success', 'Init script deleted from the database and the server.');
+            $this->dispatch('success', __('Init script deleted from the database and the server.'));
         }
     }
 
@@ -369,7 +369,7 @@ class General extends Component
 
         $found = collect($this->initScripts)->firstWhere('filename', $this->new_filename);
         if ($found) {
-            $this->dispatch('error', 'Filename already exists.');
+            $this->dispatch('error', __('Filename already exists.'));
 
             return;
         }
@@ -384,7 +384,7 @@ class General extends Component
             ],
         ]);
         $this->syncData(true);
-        $this->dispatch('success', 'Init script added.');
+        $this->dispatch('success', __('Init script added.'));
         $this->new_content = '';
         $this->new_filename = '';
     }
@@ -401,7 +401,7 @@ class General extends Component
                 $this->publicPort = null;
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Database updated.');
+            $this->dispatch('success', __('Database updated.'));
             $this->dispatch('databaseUpdated');
         } catch (Exception $e) {
             return handleError($e, $this);

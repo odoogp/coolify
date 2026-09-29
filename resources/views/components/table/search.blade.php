@@ -1,5 +1,5 @@
 @props([
-    'placeholder' => 'Search',
+    'placeholder' => __('Search'),
     'loadingTarget' => null,
     'disabled' => false,
     'clearAction' => null,
@@ -26,7 +26,7 @@
     @if ($clearAction && $clearWhen)
         <button x-cloak x-show="{{ $clearWhen }}" x-on:click="{{ $clearAction }}" type="button"
             class="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-            aria-label="Clear search">
+            aria-label="{{ __('Clear search') }}">
             <x-reicon name="x" class="size-3" />
         </button>
     @endif

@@ -8,19 +8,19 @@
         $showSettingsSidebar = in_array($currentRoute, ['storage.show', 'storage.resources', 'storage.danger'], true);
         $settingsMenuItems = [
             [
-                'label' => 'General',
+                'label' => __('General'),
                 'route' => 'storage.show',
                 'active' => $currentRoute === 'storage.show',
                 'icon' => 'settings',
             ],
             [
-                'label' => 'Resources',
+                'label' => __('Resources'),
                 'route' => 'storage.resources',
                 'active' => $currentRoute === 'storage.resources',
                 'icon' => 'grid',
             ],
             [
-                'label' => 'Danger Zone',
+                'label' => __('Danger Zone'),
                 'route' => 'storage.danger',
                 'active' => $currentRoute === 'storage.danger',
                 'icon' => 'shield-alert',
@@ -37,9 +37,9 @@
         <section class="application-settings-workspace mt-4 w-full max-w-none lg:mt-0">
             <div class="grid min-w-0 gap-8 xl:grid-cols-[210px_minmax(0,1fr)] xl:gap-8">
                 <aside class="application-settings-navigation min-w-0 xl:self-start">
-                    <nav aria-label="S3 storage settings"
+                    <nav aria-label="{{ __('S3 storage settings') }}"
                         class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
-                        <div class="nav-section hidden xl:block">Settings</div>
+                        <div class="nav-section hidden xl:block">{{ __('Settings') }}</div>
                         @foreach ($settingsMenuItems as $menuItem)
                             <a wire:key="storage-settings-{{ str($menuItem['label'])->slug() }}"
                                 @class([
@@ -62,18 +62,18 @@
                         <livewire:storage.resources :storage="$storage" :key="'resources-'.$storage->uuid" />
                     @elseif ($currentRoute === 'storage.danger')
                         <div class="application-settings-form">
-                            <x-application.settings-section id="storage-danger-section" title="Danger zone"
-                                helper="Destructive actions for this S3 storage destination cannot be undone.">
+                            <x-application.settings-section id="storage-danger-section" title="{{ __('Danger zone') }}"
+                                helper="{{ __('Destructive actions for this S3 storage destination cannot be undone.') }}">
                                 <div
                                     class="rounded-lg border border-red-300 bg-red-50 p-4 ring-1 ring-inset ring-red-200/60 dark:border-error/30 dark:bg-error/[0.08] dark:ring-error/10">
                                     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                         <div class="min-w-0">
                                             <div class="flex flex-wrap items-center gap-2">
-                                                <h4 class="text-sm font-semibold text-red-700 dark:text-error">Delete storage</h4>
+                                                <h4 class="text-sm font-semibold text-red-700 dark:text-error">{{ __('Delete storage') }}</h4>
                                                 <x-status-badge status="Permanent" type="error" />
                                             </div>
                                             <p class="mt-2 max-w-2xl text-[13px] leading-5 text-neutral-600 dark:text-fg-dim">
-                                                Permanently delete
+                                                {{ __('Permanently delete') }}
                                                 <strong class="font-semibold text-black dark:text-fg">{{ $storage->name }}</strong>
                                                 from Coolify. Existing objects in the bucket are not deleted.
                                             </p>
@@ -89,7 +89,7 @@
 
                                         <div class="shrink-0">
                                             @can('delete', $storage)
-                                                <x-modal-confirmation title="Confirm Storage Deletion?" isErrorButton
+                                                <x-modal-confirmation title="{{ __('Confirm Storage Deletion?') }}" isErrorButton
                                                     buttonTitle="Delete" submitAction="delete"
                                                     :actions="array_filter([
                                                         'The selected storage location will be permanently deleted from Coolify.',
@@ -98,12 +98,12 @@
                                                             : null,
                                                     ])"
                                                     confirmationText="{{ $storage->name }}"
-                                                    confirmationLabel="Please confirm the execution of the actions by entering the Storage Name below"
-                                                    shortConfirmationLabel="Storage Name" :confirmWithPassword="false"
+                                                    confirmationLabel="{{ __('Please confirm the execution of the actions by entering the Storage Name below') }}"
+                                                    shortConfirmationLabel="{{ __('Storage Name') }}" :confirmWithPassword="false"
                                                     step2ButtonText="Permanently Delete" />
                                             @else
                                                 <x-forms.button disabled tooltip="You do not have permission to delete this storage.">
-                                                    Delete
+                                                    {{ __('Delete') }}
                                                 </x-forms.button>
                                             @endcan
                                         </div>
@@ -112,8 +112,8 @@
 
                                 @cannot('delete', $storage)
                                     <div class="mt-4">
-                                        <x-callout type="danger" title="Insufficient permissions">
-                                            Contact a team administrator if this storage must be deleted.
+                                        <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
+                                            {{ __('Contact a team administrator if this storage must be deleted.') }}
                                         </x-callout>
                                     </div>
                                 @endcannot

@@ -17,9 +17,9 @@ it('uses compact icon actions for volume backup executions', function () {
     $view = file_get_contents(resource_path('views/livewire/project/shared/storages/volume-backups/executions.blade.php'));
 
     expect($view)
-        ->toContain('title="Download backup" aria-label="Download backup"')
+        ->toContain('title="{{ __(\'Download backup\') }}" aria-label="{{ __(\'Download backup\') }}"')
         ->toContain('<x-reicon name="upload" class="size-3.5 rotate-180" />')
-        ->toContain('title="Delete backup" aria-label="Delete backup"')
+        ->toContain('title="{{ __(\'Delete backup\') }}" aria-label="{{ __(\'Delete backup\') }}"')
         ->toContain('<x-reicon name="trash" class="size-3.5" />');
 });
 

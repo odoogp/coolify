@@ -69,28 +69,28 @@ class ApiTokens extends Component
     {
         // Re-evaluate policies fresh — never trust stored snapshot booleans.
         if ($permissionToUpdate == 'root' && ! auth()->user()->can('useRootPermissions', PersonalAccessToken::class)) {
-            $this->dispatch('error', 'You do not have permission to use root permissions.');
+            $this->dispatch('error', __('You do not have permission to use root permissions.'));
             $this->permissions = array_diff($this->permissions, ['root']);
 
             return;
         }
 
         if (in_array($permissionToUpdate, ['write', 'write:sensitive'], true) && ! auth()->user()->can('useWritePermissions', PersonalAccessToken::class)) {
-            $this->dispatch('error', 'You do not have permission to use write permissions.');
+            $this->dispatch('error', __('You do not have permission to use write permissions.'));
             $this->permissions = array_diff($this->permissions, ['write', 'write:sensitive']);
 
             return;
         }
 
         if ($permissionToUpdate == 'deploy' && ! auth()->user()->can('useDeployPermissions', PersonalAccessToken::class)) {
-            $this->dispatch('error', 'You do not have permission to use deploy permissions.');
+            $this->dispatch('error', __('You do not have permission to use deploy permissions.'));
             $this->permissions = array_diff($this->permissions, ['deploy']);
 
             return;
         }
 
         if ($permissionToUpdate == 'read:sensitive' && ! auth()->user()->can('useSensitivePermissions', PersonalAccessToken::class)) {
-            $this->dispatch('error', 'You do not have permission to use read:sensitive permissions.');
+            $this->dispatch('error', __('You do not have permission to use read:sensitive permissions.'));
             $this->permissions = array_diff($this->permissions, ['read:sensitive']);
 
             return;

@@ -35,7 +35,7 @@ test('instance settings pages use one shared sidebar workspace', function () {
     $oauth = file_get_contents(resource_path('views/livewire/settings-oauth.blade.php'));
     expect($oauth)
         ->toContain('<x-slot:submenu>')
-        ->toContain('aria-label="OAuth providers"')
+        ->toContain('aria-label="{{ __(\'OAuth providers\') }}"')
         ->toContain('window.scrollToSettingsSection?.')
         ->toContain('history.replaceState')
         ->not->toContain('xl:grid-cols-[210px_minmax(0,1fr)]');

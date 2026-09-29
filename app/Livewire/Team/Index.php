@@ -92,7 +92,7 @@ class Index extends Component
             $this->syncData(true);
             $this->team->save();
             refreshSession();
-            $this->dispatch('success', 'Team updated.');
+            $this->dispatch('success', __('Team updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

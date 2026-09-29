@@ -117,7 +117,7 @@
                     <button type="button" @click.stop="removeOption(value, $event)"
                         :disabled="{{ $disabled ? 'true' : 'false' }}"
                         class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs bg-coolgray-200 dark:bg-coolgray-700 rounded whitespace-nowrap {{ $disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400' }}"
-                        aria-label="Remove">
+                        aria-label="{{ __('Remove') }}">
                         <span x-text="getSelectedText(value)" class="max-w-[200px] truncate"></span>
                     </button>
                 </template>
@@ -136,7 +136,7 @@
 
                 <template x-if="filteredOptions.length === 0">
                     <div class="px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400">
-                        No options found
+                        {{ __('No options found') }}
                     </div>
                 </template>
 
@@ -281,7 +281,7 @@
 
                     <template x-if="filteredOptions.length === 0">
                         <div class="px-3 py-2 text-sm text-neutral-500 dark:text-neutral-400">
-                            No options found
+                            {{ __('No options found') }}
                         </div>
                     </template>
 

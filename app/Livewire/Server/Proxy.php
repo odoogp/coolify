@@ -133,7 +133,7 @@ class Proxy extends Component
             $this->validate();
             $this->syncData(true);
             $this->server->settings->save();
-            $this->dispatch('success', 'Settings saved.');
+            $this->dispatch('success', __('Settings saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -146,7 +146,7 @@ class Proxy extends Component
             $this->server->proxy->redirect_enabled = $this->redirectEnabled;
             $this->server->save();
             $this->server->setupDefaultRedirect();
-            $this->dispatch('success', 'Proxy configuration saved.');
+            $this->dispatch('success', __('Proxy configuration saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -162,7 +162,7 @@ class Proxy extends Component
             $this->server->save();
             $this->server->setupDefaultRedirect();
             $this->dispatch('refreshServerShow');
-            $this->dispatch('success', 'Proxy configuration saved.');
+            $this->dispatch('success', __('Proxy configuration saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -177,7 +177,7 @@ class Proxy extends Component
             SaveProxyConfiguration::run($this->server, $this->proxySettings);
             $this->server->save();
             $this->dispatch('refreshServerShow');
-            $this->dispatch('success', 'Proxy configuration reset to default.');
+            $this->dispatch('success', __('Proxy configuration reset to default.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

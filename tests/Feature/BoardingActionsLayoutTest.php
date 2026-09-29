@@ -19,7 +19,7 @@ test('DigitalOcean is available as an onboarding server provider', function () {
     $view = file_get_contents(resource_path('views/livewire/boarding/index.blade.php'));
 
     expect($view)
-        ->toContain('<x-modal-input title="Connect a DigitalOcean Server" isFullWidth>')
+        ->toContain('<x-modal-input title="{{ __(\'Connect a DigitalOcean Server\') }}" isFullWidth>')
         ->toContain('<x-digital-ocean-icon class="size-10 shrink-0" />')
         ->toContain('Deploy servers directly from your DigitalOcean account.')
         ->toContain('<livewire:server.new.by-digital-ocean :limit_reached="false" :from_onboarding="true" />');
@@ -29,8 +29,8 @@ test('server type details are shown on the relevant cards instead of a technical
     $view = file_get_contents(resource_path('views/livewire/boarding/index.blade.php'));
 
     expect($view)
-        ->toContain('aria-label="About this machine"')
-        ->toContain('aria-label="About remote servers"')
+        ->toContain('aria-label="{{ __(\'About this machine\') }}"')
+        ->toContain('aria-label="{{ __(\'About remote servers\') }}"')
         ->toContain('Not recommended for production workloads due to resource contention.')
         ->toContain('Any SSH-accessible server, including cloud VPS, bare metal, and self-hosted infrastructure.')
         ->not->toContain('<x-highlighted text="Servers" />')
@@ -52,7 +52,7 @@ test('server type cards use the standard card hover treatment', function () {
 test('existing SSH key selection does not show a redundant value tooltip', function () {
     $view = file_get_contents(resource_path('views/livewire/boarding/index.blade.php'));
 
-    expect($view)->toContain('label="Existing SSH key" :options="$privateKeyOptions" :tooltip="false"');
+    expect($view)->toContain('label="{{ __(\'Existing SSH key\') }}" :options="$privateKeyOptions" :tooltip="false"');
 });
 
 test('server connection step does not render a technical details panel', function () {

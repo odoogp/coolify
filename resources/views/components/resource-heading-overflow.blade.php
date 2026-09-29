@@ -4,7 +4,7 @@
 --}}
 @props([
     'id' => null,
-    'label' => 'Actions',
+    'label' => __('Actions'),
 ])
 
 <div

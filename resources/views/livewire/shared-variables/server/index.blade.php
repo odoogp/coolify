@@ -11,9 +11,9 @@
             }
         }">
             @if ($servers->isEmpty())
-                <x-empty title="No servers yet" description="Add a server before creating server-wide variables." icon-name="servers" />
+                <x-empty title="{{ __('No servers yet') }}" description="{{ __('Add a server before creating server-wide variables.') }}" icon-name="servers" />
             @else
-                <x-shared-variables.view-controls label="servers" storage-key="shared-variables-servers-view" />
+                <x-shared-variables.view-controls label="{{ __('servers') }}" storage-key="shared-variables-servers-view" />
 
                 <div x-cloak x-show="viewMode === 'grid'" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     @foreach ($servers as $server)

@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Instance Backup | Coolify
+        {{ __('Instance Backup | Coolify') }}
     </x-slot>
 
     <x-settings.layout>
@@ -10,15 +10,15 @@
                 <form wire:submit="submit">
                     <x-unsaved-bar action="submit" />
 
-                    <x-application.settings-section title="Instance database">
+                    <x-application.settings-section title="{{ __('Instance database') }}">
                         <div class="grid gap-4 lg:grid-cols-2">
-                            <x-forms.input label="Name" readonly id="name" />
-                            <x-forms.input label="Description" id="description" />
+                            <x-forms.input label="{{ __('Name') }}" readonly id="name" />
+                            <x-forms.input label="{{ __('Description') }}" id="description" />
                             <div class="lg:col-span-2">
-                                <x-forms.input label="UUID" readonly id="uuid" />
+                                <x-forms.input label="{{ __('UUID') }}" readonly id="uuid" />
                             </div>
-                            <x-forms.input label="User" readonly id="postgres_user" />
-                            <x-forms.input type="password" label="Password" readonly id="postgres_password" />
+                            <x-forms.input label="{{ __('User') }}" readonly id="postgres_user" />
+                            <x-forms.input type="password" label="{{ __('Password') }}" readonly id="postgres_password" />
                         </div>
                     </x-application.settings-section>
                 </form>
@@ -28,24 +28,24 @@
 
                 <livewire:project.database.backup-executions :backup="$backup" />
             @else
-                <x-application.settings-section title="Instance backup">
-                    <x-empty title="Backup is not configured"
-                        description="Coolify needs an internal database resource to create automatic backups."
+                <x-application.settings-section title="{{ __('Instance backup') }}">
+                    <x-empty title="{{ __('Backup is not configured') }}"
+                        description="{{ __('Coolify needs an internal database resource to create automatic backups.') }}"
                         icon-name="database" size="sm">
                         <x-slot:actions>
                             <x-forms.button wire:click="addCoolifyDatabase" isHighlighted>
-                                Configure backup
+                                {{ __('Configure backup') }}
                             </x-forms.button>
                         </x-slot:actions>
                     </x-empty>
                 </x-application.settings-section>
             @endif
         @else
-            <x-application.settings-section title="Instance backup">
-                <x-callout type="danger" title="Localhost is not ready">
-                    Validate the localhost connection before configuring instance backups.
+            <x-application.settings-section title="{{ __('Instance backup') }}">
+                <x-callout type="danger" title="{{ __('Localhost is not ready') }}">
+                    {{ __('Validate the localhost connection before configuring instance backups.') }}
                     <a href="{{ route('server.show', [$server->uuid]) }}" class="font-medium underline"
-                        {{ wireNavigate() }}>Open server settings</a>
+                        {{ wireNavigate() }}>{{ __('Open server settings') }}</a>
                 </x-callout>
             </x-application.settings-section>
         @endif

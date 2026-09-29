@@ -9,15 +9,15 @@ test('login register and forgot password headers are Coolify', function () {
     $forgot = file_get_contents(resource_path('views/auth/forgot-password.blade.php'));
 
     expect($login)
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->not->toContain('title="Welcome back"');
 
     expect($register)
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->not->toContain(":title=\"\$isFirstUser ? 'Create the root account' : 'Create your account'\"");
 
     expect($forgot)
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->not->toContain("title=\"{{ __('auth.forgot_password_heading') }}\"");
 });
 
@@ -50,7 +50,7 @@ test('confirm password page uses the shared auth shell', function () {
 
     expect($confirm)
         ->toContain('x-auth.shell')
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->toContain('x-auth.alert')
         ->toContain('auth-guidance')
         ->not->toContain('bg-gray-50 dark:bg-base')
@@ -62,7 +62,7 @@ test('two factor challenge page uses the shared auth shell', function () {
 
     expect($challenge)
         ->toContain('x-auth.shell')
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->toContain('x-auth.alert')
         ->toContain('auth-guidance')
         ->toContain('Verify and continue')
@@ -76,7 +76,7 @@ test('email verification page uses the shared auth shell', function () {
     expect($verification)
         ->toContain('x-layout-simple')
         ->toContain('x-auth.shell')
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->toContain('auth-guidance')
         ->toContain('block sm:inline')
         ->not->toContain('<x-layout>')
@@ -88,7 +88,7 @@ test('team invitation page uses the shared auth shell', function () {
 
     expect($invitation)
         ->toContain('x-auth.shell')
-        ->toContain('title="Coolify"')
+        ->toContain('title="{{ __(\'Coolify\') }}"')
         ->toContain('x-auth.alert')
         ->toContain('Accept invitation')
         ->not->toContain('bg-gray-50 dark:bg-base')

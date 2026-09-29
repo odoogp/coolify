@@ -66,7 +66,7 @@ class Create extends Component
             // If in modal mode, dispatch event and don't redirect
             if ($this->modal_mode) {
                 $this->dispatch('privateKeyCreated', keyId: $privateKey->id);
-                $this->dispatch('success', 'Private key created successfully.');
+                $this->dispatch('success', __('Private key created successfully.'));
 
                 return;
             }

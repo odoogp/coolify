@@ -7,7 +7,7 @@ it('uses the large modal treatment for the compose editor', function () {
     $modal = file_get_contents(resource_path('views/components/modal-input.blade.php'));
 
     expect($view)
-        ->toContain('title="Docker Compose"')
+        ->toContain('title="{{ __(\'Docker Compose\') }}"')
         ->toContain(':isLarge="true"')
         ->toContain('<x-slot:headerActions>')
         ->toContain("\$dispatch('compose-preview-toggle')")
@@ -34,7 +34,7 @@ it('renders the compose editor with clear guidance settings and actions', functi
     $view = file_get_contents(resource_path('views/livewire/project/service/edit-compose.blade.php'));
 
     expect($view)
-        ->toContain('<x-callout type="info" title="Volume names">')
+        ->toContain('<x-callout type="info" title="{{ __(\'Volume names\') }}">')
         ->not->toContain('View the final names')
         ->toContain('Use plain-text editor')
         ->toContain('min-h-[24rem]')

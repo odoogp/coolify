@@ -63,8 +63,8 @@
                     <x-unsaved-bar action="submit"
                         targets="name,description,ip,user,port,connectionTimeout,serverTimezone,wildcardDomain" />
 
-                    <x-application.settings-section id="server-overview-section" title="Server overview"
-                        helper="Connection health, provider state, operating system, and hardware details.">
+                    <x-application.settings-section id="server-overview-section" title="{{ __('Server overview') }}"
+                        helper="{{ __('Connection health, provider state, operating system, and hardware details.') }}">
                         <x-slot:actions>
                             @if ($provider)
                                 <x-status-badge :label="$provider . ($providerStatus ? ' · ' . ucfirst($providerStatus) : '')"
@@ -72,31 +72,31 @@
                                 @if ($provider === 'Hetzner')
                                     <x-forms.button type="button" class="size-8! px-0!"
                                         wire:click.prevent="checkHetznerServerStatus(true)"
-                                        title="Refresh provider status">
+                                        title="{{ __('Refresh provider status') }}">
                                         <x-reicon name="refresh" class="size-3.5" />
                                     </x-forms.button>
                                 @elseif ($provider === 'DigitalOcean')
                                     <x-forms.button type="button" class="size-8! px-0!"
                                         wire:click.prevent="checkDigitalOceanDropletStatus(true)"
-                                        title="Refresh provider status">
+                                        title="{{ __('Refresh provider status') }}">
                                         <x-reicon name="refresh" class="size-3.5" />
                                     </x-forms.button>
                                 @elseif ($provider === 'Vultr')
                                     <x-forms.button type="button" class="size-8! px-0!"
                                         wire:click.prevent="checkVultrInstanceStatus(true)"
-                                        title="Refresh provider status">
+                                        title="{{ __('Refresh provider status') }}">
                                         <x-reicon name="refresh" class="size-3.5" />
                                     </x-forms.button>
                                 @endif
                             @endif
                             @if ($server->server_metadata)
                                 <x-forms.button type="button" class="size-8! px-0!"
-                                    wire:click="refreshServerMetadata" title="Refresh server details">
+                                    wire:click="refreshServerMetadata" title="{{ __('Refresh server details') }}">
                                     <x-reicon name="refresh" class="size-3.5" />
                                 </x-forms.button>
                             @endif
                             @if ($server->isTransferredAway())
-                                <x-status-badge label="Transferred away" type="warning" />
+                                <x-status-badge label="{{ __('Transferred away') }}" type="warning" />
                             @else
                                 <x-status-badge :label="$server->isFunctional() ? 'Ready' : 'Validation required'"
                                     :type="$server->isFunctional() ? 'success' : 'warning'" />
@@ -114,11 +114,11 @@
                                 </p>
                                 <p class="mt-1 text-xs leading-5 text-neutral-500 dark:text-fg-dim">
                                     @if ($server->isTransferredAway())
-                                        This server was migrated away from this Coolify instance and cannot be managed here.
+                                        {{ __('This server was migrated away from this Coolify instance and cannot be managed here.') }}
                                     @elseif ($server->isFunctional())
-                                        The server is reachable, validated, and ready to host resources.
+                                        {{ __('The server is reachable, validated, and ready to host resources.') }}
                                     @else
-                                        Validate the SSH connection before using this server.
+                                        {{ __('Validate the SSH connection before using this server.') }}
                                     @endif
                                 </p>
                             </div>
@@ -130,20 +130,20 @@
                             <div class="mt-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                 <x-forms.button type="button" wire:click="refreshServerMetadata">
                                     <x-reicon name="refresh" class="size-3.5" />
-                                    Fetch server details
+                                    {{ __('Fetch server details') }}
                                 </x-forms.button>
                             </div>
                         @endif
                     </x-application.settings-section>
 
-                    <x-application.settings-section id="server-connection-section" title="Connection"
-                        helper="Configure how Coolify identifies, reaches, and validates this server.">
+                    <x-application.settings-section id="server-connection-section" title="{{ __('Connection') }}"
+                        helper="{{ __('Configure how Coolify identifies, reaches, and validates this server.') }}">
                         <x-slot:actions>
                             @if ($hasLinkableCloudProviders)
                                 <div x-data="{ open: false }" class="relative" @click.outside="open = false">
                                     <button type="button" class="button" @click="open = !open">
                                         <x-reicon name="plus" class="size-3.5" />
-                                        Link provider
+                                        {{ __('Link provider') }}
                                     </button>
                                     <div x-cloak x-show="open" x-transition.origin.top.right
                                         class="absolute top-9 right-0 z-50 w-56 rounded-lg border border-neutral-200 bg-white p-1 shadow-modal dark:border-white/[0.1] dark:bg-raised">
@@ -193,57 +193,57 @@
                                 <x-forms.button type="button" :isHighlighted="! $server->isFunctional()"
                                     @click="processDialogOpen = true" wire:click.prevent="validateServer">
                                     <x-reicon :name="$server->isFunctional() ? 'refresh' : 'alert-circle'" class="size-3.5" />
-                                    {{ $server->isFunctional() ? 'Revalidate connection' : 'Validate connection' }}
+                                    {{ $server->isFunctional() ? __('Revalidate connection') : __('Validate connection') }}
                                 </x-forms.button>
                             </x-process-dialog>
                         </x-slot:actions>
 
                         @if ($server->isTransferredAway())
-                            <x-callout type="warning" title="Transferred to another instance" class="mb-4">
-                                This server was migrated away from this Coolify instance. It cannot be revalidated or
+                            <x-callout type="warning" title="{{ __('Transferred to another instance') }}" class="mb-4">
+                                {{ __('This server was migrated away from this Coolify instance. It cannot be revalidated or') }}
                                 managed here. Use the target instance, or delete this server when you no longer need the
                                 archive.
                             </x-callout>
                         @endif
 
                         @if ($this->limaStartCommand)
-                            <x-callout type="info" title="Start this Lima VM locally" class="mb-4">
+                            <x-callout type="info" title="{{ __('Start this Lima VM locally') }}" class="mb-4">
                                 <code
                                     class="mt-2 block overflow-x-auto rounded-lg bg-neutral-950 px-3 py-2 font-mono text-[11px] text-neutral-200">{{ $this->limaStartCommand }}</code>
                             </x-callout>
                         @endif
 
                         @if ($server->isForceDisabled() && isCloud())
-                            <x-callout type="danger" title="Server disabled" class="mb-4">
-                                This server is disabled because the current plan server limit was exceeded.
+                            <x-callout type="danger" title="{{ __('Server disabled') }}" class="mb-4">
+                                {{ __('This server is disabled because the current plan server limit was exceeded.') }}
                             </x-callout>
                         @endif
 
                         <div class="grid gap-4 sm:grid-cols-2">
-                            <x-forms.input canGate="update" :canResource="$server" id="name" label="Name"
+                            <x-forms.input canGate="update" :canResource="$server" id="name" label="{{ __('Name') }}"
                                 required :disabled="$isValidating" />
                             <x-forms.input canGate="update" :canResource="$server" id="description"
-                                label="Description" :disabled="$isValidating" />
+                                label="{{ __('Description') }}" :disabled="$isValidating" />
                         </div>
 
                         <div class="mt-4 grid gap-4 lg:grid-cols-3">
                             <x-forms.input canGate="update" :canResource="$server" type="password" id="ip"
-                                label="IP address or domain"
+                                label="{{ __('IP address or domain') }}"
                                 helper="Enter a hostname or IP address without http:// or https://."
                                 required :disabled="$isValidating" />
-                            <x-forms.input canGate="update" :canResource="$server" id="user" label="SSH user"
+                            <x-forms.input canGate="update" :canResource="$server" id="user" label="{{ __('SSH user') }}"
                                 required :disabled="$isValidating" />
                             <x-forms.input canGate="update" :canResource="$server" type="number" id="port"
-                                label="SSH port" required :disabled="$isValidating" />
+                                label="{{ __('SSH port') }}" required :disabled="$isValidating" />
                         </div>
 
                         <div class="mt-4 grid gap-4 lg:grid-cols-3">
                             <x-forms.input canGate="update" :canResource="$server" type="number"
-                                id="connectionTimeout" label="Connection timeout"
-                                helper="Seconds to wait before an SSH connection fails." min="1" max="300"
+                                id="connectionTimeout" label="{{ __('Connection timeout') }}"
+                                helper="{{ __('Seconds to wait before an SSH connection fails.') }}" min="1" max="300"
                                 required :disabled="$isValidating" />
-                            <x-forms.searchable-listbox id="serverTimezone" label="Server timezone"
-                                helper="Used for backups, cron jobs, and displayed timestamps."
+                            <x-forms.searchable-listbox id="serverTimezone" label="{{ __('Server timezone') }}"
+                                helper="{{ __('Used for backups, cron jobs, and displayed timestamps.') }}"
                                 searchPlaceholder="Search timezones" emptyText="No matching timezone"
                                 :options="collect($this->timezones)->map(fn ($timezone) => [
                                     'value' => $timezone,
@@ -251,8 +251,8 @@
                                 ])->all()" :disabled="$isValidating || !auth()->user()->can('update', $server)" />
                             @if (!$isSwarmWorker && !$isBuildServer)
                                 <x-forms.input canGate="update" :canResource="$server"
-                                    placeholder="https://example.com" id="wildcardDomain" label="Wildcard domain"
-                                    helper="New resources can receive generated subdomains from this domain."
+                                    placeholder="https://example.com" id="wildcardDomain" label="{{ __('Wildcard domain') }}"
+                                    helper="{{ __('New resources can receive generated subdomains from this domain.') }}"
                                     :disabled="$isValidating" />
                             @endif
                         </div>
@@ -261,12 +261,12 @@
                             <div class="mt-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                 @if ($isBuildServerLocked)
                                     <x-forms.checkbox disabled id="isBuildServer"
-                                        helper="This server already hosts resources and cannot become build-only."
-                                        label="Use as a dedicated build server" />
+                                        helper="{{ __('This server already hosts resources and cannot become build-only.') }}"
+                                        label="{{ __('Use as a dedicated build server') }}" />
                                 @else
                                     <x-forms.checkbox canGate="update" :canResource="$server" instantSave
-                                        id="isBuildServer" label="Use as a dedicated build server"
-                                        helper="Build servers compile applications but do not host deployments. Enabling this makes the server build-only."
+                                        id="isBuildServer" label="{{ __('Use as a dedicated build server') }}"
+                                        helper="{{ __('Build servers compile applications but do not host deployments. Enabling this makes the server build-only.') }}"
                                         :disabled="$isValidating" />
                                 @endif
                             </div>
@@ -274,8 +274,8 @@
                     </x-application.settings-section>
 
                     @if ($server->validation_logs)
-                        <x-application.settings-section title="Previous validation output"
-                            helper="The latest output produced while checking this server.">
+                        <x-application.settings-section title="{{ __('Previous validation output') }}"
+                            helper="{{ __('The latest output produced while checking this server.') }}">
                             <div
                                 class="max-h-72 overflow-auto rounded-lg bg-neutral-950 p-4 font-mono text-xs leading-5 text-neutral-300">
                                 {!! $server->validation_logs !!}

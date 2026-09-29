@@ -56,8 +56,8 @@ test('shared variable collection pages provide search and persistent grid and li
 
     expect($controls)
         ->toContain('placeholder="Search {{ strtolower($label) }}"')
-        ->toContain('aria-label="List view"')
-        ->toContain('aria-label="Grid view"')
+        ->toContain('aria-label="{{ __(\'List view\') }}"')
+        ->toContain('aria-label="{{ __(\'Grid view\') }}"')
         ->toContain("localStorage.setItem('{{ \$storageKey }}'");
 });
 

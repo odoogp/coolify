@@ -1,6 +1,6 @@
 @props([
     'value',
-    'label' => 'Copy to clipboard',
+    'label' => __('Copy to clipboard'),
 ])
 
 <button type="button"

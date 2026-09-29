@@ -8,8 +8,8 @@ it('provides grid and table views for compose resources without sorting controls
         ->toContain("localStorage.getItem('service-compose-resources-view') || 'table'")
         ->toContain("setViewMode('table')")
         ->toContain("setViewMode('grid')")
-        ->toContain('aria-label="Table view"')
-        ->toContain('aria-label="Grid view"')
+        ->toContain('aria-label="{{ __(\'Table view\') }}"')
+        ->toContain('aria-label="{{ __(\'Grid view\') }}"')
         ->toContain('mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between')
         ->toContain('flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start')
         ->toContain("localStorage.setItem('service-compose-resources-view', mode)")
@@ -37,8 +37,8 @@ it('aligns compose resource columns and uses icon actions', function () {
     expect($configuration)->toContain($columns)
         ->and($resourceCard)->toContain($columns)
         ->toContain('flex flex-wrap items-center justify-end gap-1 sm:contents')
-        ->toContain('aria-label="Resource settings"')
-        ->toContain('aria-label="Service backups"')
+        ->toContain('aria-label="{{ __(\'Resource settings\') }}"')
+        ->toContain('aria-label="{{ __(\'Service backups\') }}"')
         ->toContain("route('project.service.volume-backups.index', \$parameters)")
         ->not->toContain("route('project.service.database.backups'")
         ->not->toContain('>Settings</a>')
@@ -49,9 +49,9 @@ it('distinguishes domain management from resource settings', function () {
     $resourceCard = file_get_contents(resource_path('views/livewire/project/service/resource-card.blade.php'));
 
     expect($resourceCard)
-        ->toContain('title="Manage domains" aria-label="Manage domains"')
+        ->toContain('title="{{ __(\'Manage domains\') }}" aria-label="{{ __(\'Manage domains\') }}"')
         ->toContain('<x-reicon name="globe" class="size-4" />')
-        ->toContain('title="Resource settings" aria-label="Resource settings"')
+        ->toContain('title="{{ __(\'Resource settings\') }}" aria-label="{{ __(\'Resource settings\') }}"')
         ->not->toContain('title="Edit domains" aria-label="Edit domains"');
 });
 

@@ -68,7 +68,7 @@ class Advanced extends Component
     {
         try {
             $this->syncData(true);
-            $this->dispatch('success', 'Server updated.');
+            $this->dispatch('success', __('Server updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -82,7 +82,7 @@ class Advanced extends Component
                 throw new \Exception('Invalid Cron / Human expression for Disk Usage Check Frequency.');
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Server updated.');
+            $this->dispatch('success', __('Server updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

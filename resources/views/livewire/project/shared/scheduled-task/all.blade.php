@@ -1,14 +1,14 @@
 <div>
-    <x-application.settings-section id="scheduled-tasks-section" title="Scheduled tasks"
-        helper="Run commands inside this resource automatically using a cron schedule." flush>
+    <x-application.settings-section id="scheduled-tasks-section" title="{{ __('Scheduled tasks') }}"
+        helper="{{ __('Run commands inside this resource automatically using a cron schedule.') }}" flush>
         <x-slot:actions>
             @can('update', $resource)
-                <x-modal-input title="New scheduled task" :closeOutside="false">
+                <x-modal-input title="{{ __('New scheduled task') }}" :closeOutside="false">
                     <x-slot:content>
                         <button type="button"
                             class="button button-highlighted">
                             <x-reicon name="plus" class="size-3.5" />
-                            Add task
+                            {{ __('Add task') }}
                         </button>
                     </x-slot:content>
                     <livewire:project.shared.scheduled-task.add :type="$resource->type()" :id="$resource->id"
@@ -52,7 +52,7 @@
                         @endif
                     </div>
                     <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
-                        Runs on
+                        {{ __('Runs on') }}
                         <code
                             class="ml-1 rounded bg-neutral-100 px-1.5 py-0.5 font-mono text-xs text-neutral-700 dark:bg-white/[0.05] dark:text-fg-dim">{{ $task->frequency }}</code>
                     </p>
@@ -60,8 +60,8 @@
                 <x-status-badge :status="$statusLabel" :type="$statusType" />
             </a>
         @empty
-            <x-empty title="No scheduled tasks"
-                description="Create a task to run maintenance commands, scripts, or recurring jobs automatically."
+            <x-empty title="{{ __('No scheduled tasks') }}"
+                description="{{ __('Create a task to run maintenance commands, scripts, or recurring jobs automatically.') }}"
                 icon-name="browser-terminal" />
         @endforelse
     </x-application.settings-section>

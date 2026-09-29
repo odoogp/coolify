@@ -13,11 +13,11 @@
             }
         }">
         @if (!$provider_locked)
-            <x-forms.listbox required id="provider" label="Provider" :wire="false" :value="$provider"
+            <x-forms.listbox required id="provider" label="{{ __('Provider') }}" :wire="false" :value="$provider"
                 x-model="selectedProvider" :options="[
-                ['value' => 'hetzner', 'label' => 'Hetzner'],
-                ['value' => 'digitalocean', 'label' => 'DigitalOcean'],
-                ['value' => 'vultr', 'label' => 'Vultr'],
+                ['value' => 'hetzner', 'label' => __('Hetzner')],
+                ['value' => 'digitalocean', 'label' => __('DigitalOcean')],
+                ['value' => 'vultr', 'label' => __('Vultr')],
             ]" />
         @else
             <input type="hidden" wire:model="provider" />
@@ -25,7 +25,7 @@
 
         <div
             class="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-[11px] leading-5 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-dim">
-            Create the token in the
+            {{ __('Create the token in the') }}
             <a :href="providerConsoleUrl"
                 target="_blank" class="font-medium text-coollabs hover:underline dark:text-warning">
                 <span x-text="providerName + ' console'"></span>
@@ -33,13 +33,13 @@
         </div>
 
         <div class="grid gap-4 lg:grid-cols-2">
-            <x-forms.input required id="name" label="Token name"
+            <x-forms.input required id="name" label="{{ __('Token name') }}"
                 x-bind:placeholder="`Production ${providerName} token`" />
-            <x-forms.input required type="password" id="token" label="API token"
-                placeholder="Paste the provider token" />
+            <x-forms.input required type="password" id="token" label="{{ __('API token') }}"
+                placeholder="{{ __('Paste the provider token') }}" />
             <div class="lg:col-span-2">
-                <x-forms.textarea id="description" label="Description" rows="3"
-                    placeholder="Optional notes about where this token is used" />
+                <x-forms.textarea id="description" label="{{ __('Description') }}" rows="3"
+                    placeholder="{{ __('Optional notes about where this token is used') }}" />
             </div>
         </div>
 
@@ -47,7 +47,7 @@
             <x-forms.button type="submit"
                 class="button-highlighted"
                 wire:target="addToken">
-                Validate and add
+                {{ __('Validate and add') }}
             </x-forms.button>
         </div>
     </form>

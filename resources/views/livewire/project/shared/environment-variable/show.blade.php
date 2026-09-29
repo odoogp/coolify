@@ -34,7 +34,7 @@
                 <x-helper :helper="e($comment)" />
             @endif
             @if ($is_really_required)
-                <span class="table-badge table-badge-danger shrink-0">Required</span>
+                <span class="table-badge table-badge-danger shrink-0">{{ __('Required') }}</span>
             @endif
         </div>
         @if (! $isSharedVariable)
@@ -85,11 +85,11 @@
         @endif
         <div class="justify-self-end">
             {{-- Open modal immediately (Alpine); decrypt value in a follow-up Livewire request. --}}
-            <x-modal-input title="Edit environment variable" :closeOutside="false" :wireIgnore="false"
+            <x-modal-input title="{{ __('Edit environment variable') }}" :closeOutside="false" :wireIgnore="false"
                 wireOpen="editorOpen">
                 <x-slot:content>
                     <button type="button" wire:click="loadValues" data-env-settings-trigger class="icon-button shrink-0"
-                        title="Edit environment variable" aria-label="Edit environment variable">
+                        title="{{ __('Edit environment variable') }}" aria-label="{{ __('Edit environment variable') }}">
                         <x-reicon name="settings" class="size-3.5" />
                     </button>
                 </x-slot:content>
@@ -97,23 +97,23 @@
                 <form wire:submit="submit" class="flex w-full flex-col gap-4"
                     x-data="{ isMultiline: $wire.entangle('is_multiline') }">
                     <div class="grid items-end gap-4 sm:grid-cols-2">
-                        <x-forms.input id="key" label="Name" :required="$is_redis_credential"
+                        <x-forms.input id="key" label="{{ __('Name') }}" :required="$is_redis_credential"
                             :disabled="!$canEditValue || $is_redis_credential" />
-                        <x-forms.input id="comment" label="Comment" placeholder="Optional note"
-                            helper="Add a note to document what this environment variable is used for." maxlength="256"
+                        <x-forms.input id="comment" label="{{ __('Comment') }}" placeholder="{{ __('Optional note') }}"
+                            helper="{{ __('Add a note to document what this environment variable is used for.') }}" maxlength="256"
                             :disabled="!$canUpdate" />
                     </div>
 
                     <div>
                         @if ($isValueHidden)
                             <div class="w-full">
-                                <label class="mb-1 flex items-center gap-1 text-sm font-medium">Value</label>
+                                <label class="mb-1 flex items-center gap-1 text-sm font-medium">{{ __('Value') }}</label>
                                 <input disabled type="text" value="Hidden (only admins can view)"
                                     class="input w-full italic !text-neutral-500 dark:!text-neutral-500" />
                             </div>
                         @elseif ($isLocked)
                             <div class="w-full">
-                                <label class="mb-1 flex items-center gap-1 text-sm font-medium">Value</label>
+                                <label class="mb-1 flex items-center gap-1 text-sm font-medium">{{ __('Value') }}</label>
                                 <input disabled type="text" value="Hidden after locking"
                                     class="input w-full italic !text-neutral-500 dark:!text-neutral-500" />
                             </div>
@@ -122,7 +122,7 @@
                             <div x-show="isMultiline" x-cloak wire:key="env-show-value-multiline-{{ $env->id }}"
                                 class="w-full">
                                 <label class="mb-1 flex items-center gap-1 text-sm font-medium">
-                                    Value
+                                    {{ __('Value') }}
                                     @if ($is_redis_credential)
                                         <x-highlighted text="*" />
                                     @endif
@@ -142,7 +142,7 @@
                             <div x-show="!isMultiline" class="w-full"
                                 wire:key="env-show-value-single-{{ $env->id }}">
                                 <label class="mb-1 flex items-center gap-1 text-sm font-medium">
-                                    Value
+                                    {{ __('Value') }}
                                     @if ($is_redis_credential)
                                         <x-highlighted text="*" />
                                     @endif
@@ -176,40 +176,40 @@
                     </div>
 
                     @if ($is_shared)
-                        <x-forms.input disabled type="password" id="real_value" label="Resolved value" />
+                        <x-forms.input disabled type="password" id="real_value" label="{{ __('Resolved value') }}" />
                     @endif
 
                     @if ($showValueType || $showInterpolation || $showBuildtime || $showRuntime)
                         <div
                             class="grid gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.07] sm:grid-cols-2">
                             @if ($showValueType)
-                                <x-forms.listbox id="is_multiline" label="Value type" :live="true" :options="[
-                                    ['value' => false, 'label' => 'Single line'],
-                                    ['value' => true, 'label' => 'Multiline'],
+                                <x-forms.listbox id="is_multiline" label="{{ __('Value type') }}" :live="true" :options="[
+                                    ['value' => false, 'label' => __('Single line')],
+                                    ['value' => true, 'label' => __('Multiline')],
                                 ]"
                                     :disabled="! $canUpdate" />
                             @endif
                             @if ($showInterpolation)
-                                <x-forms.listbox id="is_literal" label="Interpolation" :options="[
-                                    ['value' => false, 'label' => 'Interpolate $VARIABLES'],
-                                    ['value' => true, 'label' => 'Literal (keep $ characters as-is)'],
+                                <x-forms.listbox id="is_literal" label="{{ __('Interpolation') }}" :options="[
+                                    ['value' => false, 'label' => __('Interpolate $VARIABLES')],
+                                    ['value' => true, 'label' => __('Literal (keep $ characters as-is)')],
                                 ]"
                                     helper="Literal means $VARIABLES in the value is kept as the actual characters '$VARIABLES' instead of being resolved from another variable. Useful when your value contains a $ sign."
                                     :disabled="! $canUpdate" />
                             @endif
                             @if ($showBuildtime)
-                                <x-forms.listbox id="is_buildtime" label="Build time" :options="[
-                                    ['value' => true, 'label' => 'Available during build'],
-                                    ['value' => false, 'label' => 'Not available during build'],
+                                <x-forms.listbox id="is_buildtime" label="{{ __('Build time') }}" :options="[
+                                    ['value' => true, 'label' => __('Available during build')],
+                                    ['value' => false, 'label' => __('Not available during build')],
                                 ]"
-                                    helper="Make this variable available during the Docker build process. Useful for build secrets and dependencies."
+                                    helper="{{ __('Make this variable available during the Docker build process. Useful for build secrets and dependencies.') }}"
                                     :disabled="! $canUpdate" />
                             @endif
                             @if ($showRuntime)
-                                <x-forms.listbox id="is_runtime" label="Runtime" :options="[
-                                    ['value' => true, 'label' => 'Available in the container'],
-                                    ['value' => false, 'label' => 'Not available in the container'],
-                                ]" helper="Make this variable available in the running container at runtime."
+                                <x-forms.listbox id="is_runtime" label="{{ __('Runtime') }}" :options="[
+                                    ['value' => true, 'label' => __('Available in the container')],
+                                    ['value' => false, 'label' => __('Not available in the container')],
+                                ]" helper="{{ __('Make this variable available in the running container at runtime.') }}"
                                     :disabled="! $canUpdate" />
                             @endif
                         </div>
@@ -223,22 +223,22 @@
                         <div
                             class="flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.07]">
                             @if ($canUpdate && !$isLocked && !$isMagicVariable)
-                                <x-forms.button type="button" wire:click="lock">Lock</x-forms.button>
+                                <x-forms.button type="button" wire:click="lock">{{ __('Lock') }}</x-forms.button>
                             @endif
                             @can('delete', $this->env)
                                 @if (!$isMagicVariable)
-                                    <x-modal-confirmation title="Confirm Environment Variable Deletion?" isErrorButton
+                                    <x-modal-confirmation title="{{ __('Confirm Environment Variable Deletion?') }}" isErrorButton
                                         buttonTitle="Delete" submitAction="delete"
                                         :actions="['The selected environment variable will be permanently deleted.']"
                                         confirmationText="{{ $key }}"
-                                        confirmationLabel="Please confirm the execution of the actions by entering the Environment Variable Name below"
-                                        shortConfirmationLabel="Environment Variable Name" :confirmWithPassword="false"
+                                        confirmationLabel="{{ __('Please confirm the execution of the actions by entering the Environment Variable Name below') }}"
+                                        shortConfirmationLabel="{{ __('Environment Variable Name') }}" :confirmWithPassword="false"
                                         step2ButtonText="Permanently Delete" />
                                 @endif
                             @endcan
                             @if ($canUpdate)
                                 <x-forms.button type="submit" :disabled="$isDisabled" @click="modalOpen = false">
-                                    Update variable
+                                    {{ __('Update variable') }}
                                 </x-forms.button>
                             @endif
                         </div>

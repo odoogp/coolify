@@ -165,7 +165,7 @@ class Advanced extends Component
                 }
 
                 if (empty($validEntries)) {
-                    $this->dispatch('error', 'No valid IP addresses or subnets provided');
+                    $this->dispatch('error', __('No valid IP addresses or subnets provided'));
 
                     return;
                 }
@@ -212,7 +212,7 @@ class Advanced extends Component
             $this->settings->webhook_allow_localhost = $this->webhook_allow_localhost;
             $this->saveAvatarStorageSetting();
             $this->settings->save();
-            $this->dispatch('success', 'Settings updated!');
+            $this->dispatch('success', __('Settings updated!'));
         } catch (\Exception $e) {
             return handleError($e, $this);
         }
@@ -251,7 +251,7 @@ class Advanced extends Component
             $this->settings->domain_connect_private_key = null;
             $this->settings->save();
             $this->domain_connect_private_key = null;
-            $this->dispatch('success', 'Domain Connect private key removed.');
+            $this->dispatch('success', __('Domain Connect private key removed.'));
         } catch (\Exception $e) {
             handleError($e, $this);
         }

@@ -1,19 +1,19 @@
 <div class="application-settings-form w-full">
     <x-slot:title>
-        Projects | Coolify
+        {{ __('Projects | Coolify') }}
     </x-slot>
 
     <div x-data="projectsIndex()" class="w-full">
         <header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h1 class="min-w-0 truncate text-[24px]! leading-7! font-semibold! tracking-tight!">Projects</h1>
+            <h1 class="min-w-0 truncate text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Projects') }}</h1>
             @can('createAnyResource')
                 <div class="w-fit shrink-0">
-                    <x-modal-input title="New Project">
+                    <x-modal-input title="{{ __('New Project') }}">
                         <x-slot:content>
                             <button type="button"
                                 class="button button-highlighted">
                                 <x-reicon name="plus" class="size-3.5" />
-                                New project
+                                {{ __('New project') }}
                             </button>
                         </x-slot:content>
                         <livewire:project.add-empty />
@@ -23,13 +23,13 @@
         </header>
 
         @if ($projects->isEmpty())
-            <x-empty title="No projects yet"
-                description="Create a project to organize your environments and resources."
+            <x-empty title="{{ __('No projects yet') }}"
+                description="{{ __('Create a project to organize your environments and resources.') }}"
                 icon-name="projects">
                 <x-slot:contents>
                     <a class="text-[12px] font-medium text-coollabs hover:underline dark:text-warning"
                         href="{{ route('onboarding') }}" {{ wireNavigate() }}>
-                        Open onboarding
+                        {{ __('Open onboarding') }}
                     </a>
                 </x-slot:contents>
             </x-empty>
@@ -39,11 +39,11 @@
                     <x-reicon name="search"
                         class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
                     <input x-model.debounce.150ms="search" x-on:input="page = 1" type="search"
-                        placeholder="Search projects"
+                        placeholder="{{ __('Search projects') }}"
                         class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-8! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                     <button x-cloak x-show="search" x-on:click="search = ''; page = 1" type="button"
                         class="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                        aria-label="Clear search">
+                        aria-label="{{ __('Clear search') }}">
                         <span class="text-sm leading-none">×</span>
                     </button>
                 </div>
@@ -58,7 +58,7 @@
                                         stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
                                         stroke-linejoin="round" />
                                 </svg>
-                                Sort
+                                {{ __('Sort') }}
                             </button>
                         </x-slot:trigger>
                             <template x-for="option in sortOptions" :key="option.value">
@@ -83,7 +83,7 @@
                                 ?
                                 'control-selected' :
                                 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                            aria-label="Table view" title="Table view">
+                            aria-label="{{ __('Table view') }}" title="{{ __('Table view') }}">
                             <x-reicon name="unordered-list" class="size-3.5" />
                         </button>
                         <button type="button" x-on:click="setViewMode('grid')"
@@ -92,7 +92,7 @@
                                 ?
                                 'control-selected' :
                                 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                            aria-label="Grid view" title="Grid view">
+                            aria-label="{{ __('Grid view') }}" title="{{ __('Grid view') }}">
                             <x-reicon name="grid" class="size-3.5" />
                         </button>
                     </div>
@@ -121,7 +121,7 @@
                                         class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg"
                                         x-text="project.name"></h2>
                                     <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint"
-                                        x-text="project.description || 'No description'"></p>
+                                        x-text="project.description || @js(__('No description'))"></p>
                                 </div>
                             </div>
 
@@ -138,12 +138,12 @@
                                     <a x-show="project.addResourceHref" :href="project.addResourceHref"
                                         {{ wireNavigate() }}
                                         class="flex size-7.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                        title="Add resource" :aria-label="`Add resource to ${project.name}`">
+                                        title="{{ __('Add resource') }}" :aria-label="`Add resource to ${project.name}`">
                                         <x-reicon name="plus" class="size-3" />
                                     </a>
                                     <a x-show="project.settingsHref" :href="project.settingsHref" {{ wireNavigate() }}
                                         class="flex size-7.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                        title="Project settings" :aria-label="`Open settings for ${project.name}`">
+                                        title="{{ __('Project settings') }}" :aria-label="`Open settings for ${project.name}`">
                                         <x-reicon name="settings" class="size-3" />
                                     </a>
                                 </div>
@@ -160,10 +160,10 @@
                 class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
                 <div
                     class="projects-table-grid border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                    <div>Project</div>
-                    <div>Environments</div>
-                    <div>Resources</div>
-                    <div class="project-description">Description</div>
+                    <div>{{ __('Project') }}</div>
+                    <div>{{ __('Environments') }}</div>
+                    <div>{{ __('Resources') }}</div>
+                    <div class="project-description">{{ __('Description') }}</div>
                     <div></div>
                 </div>
 
@@ -195,12 +195,12 @@
                         <div class="flex items-center justify-end gap-0.5">
                             <a x-show="project.addResourceHref" :href="project.addResourceHref" {{ wireNavigate() }}
                                 class="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                title="Add resource" :aria-label="`Add resource to ${project.name}`">
+                                title="{{ __('Add resource') }}" :aria-label="`Add resource to ${project.name}`">
                                 <x-reicon name="plus" class="size-3.5" />
                             </a>
                             <a x-show="project.settingsHref" :href="project.settingsHref" {{ wireNavigate() }}
                                 class="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                title="Project settings" :aria-label="`Open settings for ${project.name}`">
+                                title="{{ __('Project settings') }}" :aria-label="`Open settings for ${project.name}`">
                                 <x-reicon name="settings" class="size-3.5" />
                             </a>
                         </div>
@@ -214,9 +214,9 @@
             <div x-show="filteredProjects.length === 0"
                 class="flex min-h-52 flex-col items-center justify-center rounded-xl border border-neutral-200 bg-white px-6 text-center dark:border-white/[0.08] dark:bg-white/[0.025]">
                 <x-reicon name="search" class="mb-3 size-6 text-neutral-300 dark:text-fg-faint" />
-                <p class="text-[13px] font-medium">No matching projects</p>
+                <p class="text-[13px] font-medium">{{ __('No matching projects') }}</p>
                 <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    Try a different search.
+                    {{ __('Try a different search.') }}
                 </p>
             </div>
         @endif

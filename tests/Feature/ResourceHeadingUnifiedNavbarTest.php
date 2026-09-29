@@ -322,7 +322,7 @@ it('renders configuration warnings as navbar popovers instead of floating notifi
         ->toContain('<x-configuration-warning :diff="$configurationDiff" />')
         ->not->toContain('<x-popup-small position="top-right"')
         ->and($warning)
-        ->toContain('aria-label="Configuration changes not applied"')
+        ->toContain('aria-label="{{ __(\'Configuration changes not applied\') }}"')
         ->toContain('<span class="hidden text-xs font-medium lg:inline">Changes pending</span>')
         ->toContain('The latest configuration has not been applied')
         ->toContain('fixed top-14 left-1/2')

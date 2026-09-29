@@ -83,7 +83,7 @@ class DynamicConfigurations extends Component
         }
         $this->contents = $contents;
         $this->dispatch('$refresh');
-        $this->dispatch('success', 'Dynamic configurations loaded.');
+        $this->dispatch('success', __('Dynamic configurations loaded.'));
     }
 
     public function mount()

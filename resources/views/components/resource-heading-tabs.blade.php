@@ -134,7 +134,7 @@
     <button
         type="button"
         class="resource-heading-tabs-control is-start"
-        aria-label="Scroll tabs left"
+        aria-label="{{ __('Scroll tabs left') }}"
         :aria-hidden="(!canStart).toString()"
         :tabindex="canStart ? 0 : -1"
         :class="canStart ? 'is-visible' : ''"
@@ -151,7 +151,7 @@
     <button
         type="button"
         class="resource-heading-tabs-control is-end"
-        aria-label="Scroll tabs right"
+        aria-label="{{ __('Scroll tabs right') }}"
         :aria-hidden="(!canEnd).toString()"
         :tabindex="canEnd ? 0 : -1"
         :class="canEnd ? 'is-visible' : ''"

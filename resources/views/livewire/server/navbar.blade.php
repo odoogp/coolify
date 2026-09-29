@@ -5,9 +5,9 @@
             <div class="flex h-full min-h-0 flex-col gap-3">
                 @if ($server->id === 0)
                     <div class="shrink-0 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
-                        <span class="font-semibold">Note:</span> This is the localhost server where Coolify runs.
-                        During proxy restart, the connection may be temporarily lost.
-                        If logs stop updating, please refresh the browser after a few minutes.
+                        <span class="font-semibold">{{ __('Note:') }}</span> This is the localhost server where Coolify runs.
+                        {{ __('During proxy restart, the connection may be temporarily lost.') }}
+                        {{ __('If logs stop updating, please refresh the browser after a few minutes.') }}
                     </div>
                 @endif
                 <div class="flex min-h-0 flex-1 flex-col">
@@ -21,7 +21,7 @@
         $serverRouteParameters = ['server_uuid' => $server->uuid];
         $serverMenuItems = [
             [
-                'label' => 'Configuration',
+                'label' => __('Configuration'),
                 'route' => 'server.show',
                 'active' => request()->routeIs(
                     'server.show',
@@ -39,14 +39,14 @@
                 ),
             ],
             [
-                'label' => 'Proxy',
+                'label' => __('Proxy'),
                 'route' => 'server.proxy',
                 'active' => request()->routeIs('server.proxy', 'server.proxy.*'),
                 'visible' => ! $server->isSwarmWorker() && ! $server->settings->is_build_server,
                 'warning' => $this->hasTraefikOutdated || $this->hasPendingProxyConfiguration,
             ],
             [
-                'label' => 'Sentinel',
+                'label' => __('Sentinel'),
                 'route' => 'server.sentinel',
                 'active' => request()->routeIs('server.sentinel', 'server.sentinel.*'),
                 'visible' => $server->isFunctional()
@@ -56,19 +56,19 @@
                 'warning' => $server->isSentinelEnabled() && ! $server->isSentinelLive(),
             ],
             [
-                'label' => 'Resources',
+                'label' => __('Resources'),
                 'route' => 'server.resources',
                 'active' => request()->routeIs('server.resources'),
             ],
             [
-                'label' => 'Terminal',
+                'label' => __('Terminal'),
                 'route' => 'server.command',
                 'active' => $currentRoute === 'server.command',
                 'navigate' => false,
                 'visible' => auth()->user()?->can('canAccessTerminal'),
             ],
             [
-                'label' => 'Security',
+                'label' => __('Security'),
                 'route' => 'server.security.patches',
                 'active' => request()->routeIs('server.security.*'),
                 'visible' => auth()->user()?->can('update', $server),
@@ -112,7 +112,7 @@
                 @click.outside="open = false" @keydown.escape.window="open = false">
                 <button type="button"
                     class="flex h-8 max-w-56 min-w-0 items-center gap-1.5 rounded-md px-2 transition-colors hover:bg-neutral-100 dark:hover:bg-white/[0.05] xl:max-w-72"
-                    @click="open = !open" :aria-expanded="open" aria-label="Switch server">
+                    @click="open = !open" :aria-expanded="open" aria-label="{{ __('Switch server') }}">
                     <span class="min-w-0 truncate font-semibold text-black dark:text-fg">
                         {{ $server->name }}
                     </span>
@@ -124,7 +124,7 @@
                         <div class="relative">
                             <x-reicon name="search"
                                 class="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
-                            <input type="search" x-model.debounce.100ms="search" placeholder="Filter servers…"
+                            <input type="search" x-model.debounce.100ms="search" placeholder="{{ __('Filter servers…') }}"
                                 class="input h-7! w-full rounded-md! border-neutral-200! bg-white! py-0! pr-2! pl-7! text-[11px]! text-black! placeholder:text-neutral-400! dark:border-white/[0.1]! dark:bg-coolgray-100! dark:text-white! dark:placeholder:text-fg-faint!">
                         </div>
                     </div>
@@ -171,7 +171,7 @@
                         <button type="button" class="button w-full justify-between" @click="open = !open"
                             :aria-expanded="open" aria-haspopup="menu">
                             <span class="inline-flex items-center gap-2">
-                                Actions
+                                {{ __('Actions') }}
                             </span>
                             <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
                                 <x-reicon name="chevron-down" class="size-3 opacity-55" />
@@ -187,7 +187,7 @@
                                     <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="restart" class="size-3.5 text-orange-500 dark:text-warning" />
                                     </span>
-                                    Restart Proxy
+                                    {{ __('Restart Proxy') }}
                                 </button>
                                 <button type="button" class="listbox-option justify-start! gap-2.5!"
                                     @click="open = false; document.getElementById('server-mobile-stop-proxy-trigger')?.click()"
@@ -195,7 +195,7 @@
                                     <span class="flex size-4 shrink-0 items-center justify-center">
                                         <x-reicon name="stop-circle" class="size-3.5 text-error" />
                                     </span>
-                                    Stop Proxy
+                                    {{ __('Stop Proxy') }}
                                 </button>
                                 @if ($traefikDashboardAvailable)
                                     <a class="listbox-option justify-start! gap-2.5!" target="_blank"
@@ -203,7 +203,7 @@
                                         <span class="flex size-4 shrink-0 items-center justify-center">
                                         <x-reicon name="external-link" class="size-3! opacity-70" />
                                         </span>
-                                        Traefik Dashboard
+                                        {{ __('Traefik Dashboard') }}
                                     </a>
                                 @endif
                             @else
@@ -212,7 +212,7 @@
                                     <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="play-circle" class="size-3.5 text-warning" />
                                     </span>
-                                    Start Proxy
+                                    {{ __('Start Proxy') }}
                                 </button>
                             @endif
                             <button type="button" class="listbox-option justify-start! gap-2.5!"
@@ -221,7 +221,7 @@
                                 <span class="flex size-4 shrink-0 items-center justify-center">
                                     <x-reicon name="refresh" class="size-3.5 opacity-70" />
                                 </span>
-                                Refresh Proxy Status
+                                {{ __('Refresh Proxy Status') }}
                             </button>
                         </div>
                     </div>
@@ -229,7 +229,7 @@
                     {{-- Programmatic open only (clicked from the Actions menu). Keep fully
                          display:none so the modal shells never reserve a layout row. --}}
                     <div class="hidden" aria-hidden="true">
-                        <x-modal-confirmation title="Confirm Proxy Restart?" buttonTitle="Restart Proxy"
+                        <x-modal-confirmation title="{{ __('Confirm Proxy Restart?') }}" buttonTitle="Restart Proxy"
                             submitAction="restart" :actions="[
                                 'This proxy will be stopped and started again.',
                                 'All resources hosted on Coolify will be unavailable during the restart.',
@@ -237,11 +237,11 @@
                             :dispatchEvent="true" dispatchEventType="restartEvent">
                             <x-slot:trigger>
                                 <button id="server-mobile-restart-proxy-trigger" type="button">
-                                    Restart Proxy
+                                    {{ __('Restart Proxy') }}
                                 </button>
                             </x-slot:trigger>
                         </x-modal-confirmation>
-                        <x-modal-confirmation title="Confirm Proxy Stopping?" buttonTitle="Stop Proxy"
+                        <x-modal-confirmation title="{{ __('Confirm Proxy Stopping?') }}" buttonTitle="Stop Proxy"
                             submitAction="stop(true)" :actions="[
                                 'The Coolify proxy will be stopped.',
                                 'All resources hosted on Coolify will be unavailable.',
@@ -249,7 +249,7 @@
                             :dispatchEvent="true" dispatchEventType="stopEvent">
                             <x-slot:trigger>
                                 <button id="server-mobile-stop-proxy-trigger" type="button">
-                                    Stop Proxy
+                                    {{ __('Stop Proxy') }}
                                 </button>
                             </x-slot:trigger>
                         </x-modal-confirmation>
@@ -306,7 +306,7 @@
                             <button type="button" class="button button-highlighted" @click="open = !open" :aria-expanded="open"
                                 aria-haspopup="menu" wire:loading.attr="disabled" wire:loading.class="is-loading"
                                 wire:target="checkProxy,startProxy">
-                                Actions
+                                {{ __('Actions') }}
                                 <x-reicon name="chevron-down" class="size-3 opacity-55" />
                             </button>
 
@@ -319,7 +319,7 @@
                                         <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="restart" class="size-3.5 opacity-70" />
                                         </span>
-                                        Restart Proxy
+                                        {{ __('Restart Proxy') }}
                                     </button>
                                     <button type="button" class="listbox-option justify-start! gap-2.5!"
                                         @click="open = false; document.getElementById('server-mobile-stop-proxy-trigger')?.click()"
@@ -327,7 +327,7 @@
                                         <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="stop-circle" class="size-3.5 text-error" />
                                         </span>
-                                        Stop Proxy
+                                        {{ __('Stop Proxy') }}
                                     </button>
                                 @else
                                     <button type="button" class="listbox-option justify-start! gap-2.5!"
@@ -335,7 +335,7 @@
                                         <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="play-circle" class="size-3.5 opacity-70" />
                                         </span>
-                                        Start Proxy
+                                        {{ __('Start Proxy') }}
                                     </button>
                                 @endif
                                 <div class="my-1 border-t border-coolgray-200 dark:border-coolgray-300"
@@ -346,7 +346,7 @@
                                     <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="refresh" class="size-3.5 opacity-70" />
                                     </span>
-                                    Refresh Proxy Status
+                                    {{ __('Refresh Proxy Status') }}
                                 </button>
                                 @if ($traefikDashboardAvailable)
                                     <a class="listbox-option justify-start! gap-2.5!" target="_blank"
@@ -354,7 +354,7 @@
                                         <span class="flex size-4 shrink-0 items-center justify-center">
                                             <x-reicon name="external-link" class="size-3! opacity-70" />
                                         </span>
-                                        Traefik Dashboard
+                                        {{ __('Traefik Dashboard') }}
                                     </a>
                                 @endif
                             </div>

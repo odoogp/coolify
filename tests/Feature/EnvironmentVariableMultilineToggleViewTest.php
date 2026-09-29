@@ -8,7 +8,7 @@ it('uses Alpine entangle to switch add value field immediately when multiline is
         ->toContain('<template x-if="isMultiline">')
         ->toContain('<template x-if="!isMultiline">')
         ->toContain('id="is_multiline"')
-        ->toContain('<x-forms.textarea id="value" label="Value" required class="font-sans" spellcheck />')
+        ->toContain('<x-forms.textarea id="value" label="{{ __(\'Value\') }}" required class="font-sans" spellcheck />')
         ->toContain('wire:key="env-value-textarea"')
         ->toContain('wire:key="env-value-input"');
 });

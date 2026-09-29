@@ -23,8 +23,8 @@ it('renders shared search controls with result counts and view switchers', funct
         ->toContain('filteredItems.length')
         ->toContain("setViewMode('table')")
         ->toContain("setViewMode('grid')")
-        ->toContain('aria-label="Table view"')
-        ->toContain('aria-label="Grid view"')
+        ->toContain('aria-label="{{ __(\'Table view\') }}"')
+        ->toContain('aria-label="{{ __(\'Grid view\') }}"')
         ->toContain('control-selected')
         ->and($emptyState)->toContain('filteredItems.length === 0');
 });

@@ -9,7 +9,7 @@
     <button type="button" class="button" @click="open = !open" :aria-expanded="open"
         aria-haspopup="menu">
         <x-reicon name="grid" class="size-3.5 opacity-70" />
-        Advanced
+        {{ __('Advanced') }}
         <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
             <x-reicon name="chevron-down" class="size-3 opacity-55" />
         </span>
@@ -23,7 +23,7 @@
                 <span class="flex size-4 shrink-0 items-center justify-center">
                     <x-reicon name="external-link" class="size-3! opacity-70" />
                 </span>
-                Traefik Dashboard
+                {{ __('Traefik Dashboard') }}
             </a>
         @endif
         <button type="button" class="listbox-option justify-start! gap-2.5!"
@@ -32,7 +32,7 @@
             <span class="flex size-4 shrink-0 items-center justify-center">
                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
             </span>
-            Refresh Proxy Status
+            {{ __('Refresh Proxy Status') }}
         </button>
     </div>
 </div>

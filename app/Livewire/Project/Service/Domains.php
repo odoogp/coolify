@@ -180,7 +180,7 @@ class Domains extends Component
         $this->service->parse();
         $this->refreshDomains();
         $this->dispatch('configurationChanged')->to(ConfigurationChecker::class);
-        $this->dispatch('success', 'Search engine indexing updated.');
+        $this->dispatch('success', __('Search engine indexing updated.'));
     }
 
     public function updateForceHttps(int $serviceApplicationId, bool $enabled): void
@@ -196,7 +196,7 @@ class Domains extends Component
         $this->service->parse();
         $this->refreshDomains();
         $this->dispatch('configurationChanged')->to(ConfigurationChecker::class);
-        $this->dispatch('success', 'HTTP to HTTPS redirect updated.');
+        $this->dispatch('success', __('HTTP to HTTPS redirect updated.'));
     }
 
     public function loadDomainState(): void
@@ -742,7 +742,7 @@ class Domains extends Component
 
             $app = $this->findServiceApp($serviceApplicationId);
             if (! $app) {
-                $this->dispatch('error', 'Service application not found.');
+                $this->dispatch('error', __('Service application not found.'));
 
                 return;
             }
@@ -786,7 +786,7 @@ class Domains extends Component
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
             if ($this->notifyRedirectUpdate) {
-                $this->dispatch('success', 'Redirect updated.');
+                $this->dispatch('success', __('Redirect updated.'));
             }
             $this->dispatch('configurationChanged');
             $this->pruneDomainDnsStatusesToCurrentDomains();
@@ -969,7 +969,7 @@ class Domains extends Component
 
             $app = $this->findServiceApp($this->newServiceApplicationId);
             if (! $app) {
-                $this->dispatch('error', 'Select a service application.');
+                $this->dispatch('error', __('Select a service application.'));
 
                 return;
             }
@@ -1047,7 +1047,7 @@ class Domains extends Component
 
             if ($failedDnsChecks > 0) {
                 $this->persistAllDomainDnsStatuses();
-                $this->dispatch('error', 'Some DNS checks could not be started. Try again from the Domains page.');
+                $this->dispatch('error', __('Some DNS checks could not be started. Try again from the Domains page.'));
             }
 
             $this->dispatch('success', $failedDnsChecks === $dnsChecks->count()
@@ -1202,7 +1202,7 @@ class Domains extends Component
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
             $this->pendingAction = null;
-            $this->dispatch('success', 'Domain updated.');
+            $this->dispatch('success', __('Domain updated.'));
             $this->refreshDomains();
             $this->checkUrlsDns([$newUrl], (int) $app->id);
         } catch (\Throwable $e) {
@@ -1235,7 +1235,7 @@ class Domains extends Component
 
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
-            $this->dispatch('success', 'Domain removed.');
+            $this->dispatch('success', __('Domain removed.'));
             $this->pruneDomainDnsStatusesToCurrentDomains();
             $this->refreshDomains();
         } catch (\Throwable $e) {
@@ -1301,7 +1301,7 @@ class Domains extends Component
             $this->pendingAction = null;
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
-            $this->dispatch('success', 'Domain added.');
+            $this->dispatch('success', __('Domain added.'));
             $this->refreshDomains();
             $this->checkUrlsDns($newUrls, (int) $app->id);
         } catch (\Throwable $e) {
@@ -1317,7 +1317,7 @@ class Domains extends Component
             $app = $this->findServiceApp($this->newServiceApplicationId);
             $server = $this->service->server;
             if (! $app || ! $server) {
-                $this->dispatch('error', 'Service application or server not found.');
+                $this->dispatch('error', __('Service application or server not found.'));
 
                 return;
             }
@@ -1400,7 +1400,7 @@ class Domains extends Component
         });
 
         if (str($app->fqdn)->contains(',')) {
-            $this->dispatch('warning', 'Some services do not support multiple domains, which can lead to problems and is NOT RECOMMENDED.<br><br>Only use multiple domains if you know what you are doing.');
+            $this->dispatch('warning', __('Some services do not support multiple domains, which can lead to problems and is NOT RECOMMENDED.<br><br>Only use multiple domains if you know what you are doing.'));
         }
 
         $this->dispatch('configurationChanged');

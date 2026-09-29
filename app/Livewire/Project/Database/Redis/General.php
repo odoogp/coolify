@@ -113,7 +113,7 @@ class General extends Component
             $this->syncData();
             $this->server = data_get($this->database, 'destination.server');
             if (! $this->server) {
-                $this->dispatch('error', 'Database destination server is not configured.');
+                $this->dispatch('error', __('Database destination server is not configured.'));
 
                 return;
             }
@@ -166,13 +166,13 @@ class General extends Component
 
             if (! $this->server->isLogDrainEnabled()) {
                 $this->isLogDrainEnabled = false;
-                $this->dispatch('error', 'Log drain is not enabled on the server. Please enable it first.');
+                $this->dispatch('error', __('Log drain is not enabled on the server. Please enable it first.'));
 
                 return;
             }
             $this->syncData(true);
-            $this->dispatch('success', 'Database updated.');
-            $this->dispatch('success', 'You need to restart the service for the changes to take effect.');
+            $this->dispatch('success', __('Database updated.'));
+            $this->dispatch('success', __('You need to restart the service for the changes to take effect.'));
         } catch (Exception $e) {
             return handleError($e, $this);
         }
@@ -199,7 +199,7 @@ class General extends Component
                 ['value' => $this->redisPassword, 'resourceable_id' => $this->database->id]
             );
 
-            $this->dispatch('success', 'Database updated.');
+            $this->dispatch('success', __('Database updated.'));
             $this->dispatch('databaseUpdated');
         } catch (Exception $e) {
             return handleError($e, $this);
@@ -214,13 +214,13 @@ class General extends Component
             $this->authorize('update', $this->database);
 
             if ($this->isPublic && ! $this->publicPort) {
-                $this->dispatch('error', 'Public port is required.');
+                $this->dispatch('error', __('Public port is required.'));
                 $this->isPublic = false;
 
                 return;
             }
             if ($this->isPublic && ! str($this->database->status)->startsWith('running')) {
-                $this->dispatch('error', 'Database must be started to be publicly accessible.');
+                $this->dispatch('error', __('Database must be started to be publicly accessible.'));
                 $this->isPublic = false;
 
                 return;
@@ -228,10 +228,10 @@ class General extends Component
             $this->syncData(true);
             if ($this->isPublic) {
                 StartDatabaseProxy::run($this->database);
-                $this->dispatch('success', 'Database is now publicly accessible.');
+                $this->dispatch('success', __('Database is now publicly accessible.'));
             } else {
                 StopDatabaseProxy::run($this->database);
-                $this->dispatch('success', 'Database is no longer publicly accessible.');
+                $this->dispatch('success', __('Database is no longer publicly accessible.'));
             }
             $this->dispatch('databaseUpdated');
         } catch (\Throwable $e) {

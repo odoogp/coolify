@@ -137,7 +137,7 @@ class SettingsBackup extends Component
                 'postgres_user' => $this->postgres_user,
                 'postgres_password' => $this->postgres_password,
             ]);
-            $this->dispatch('success', 'Backup updated.');
+            $this->dispatch('success', __('Backup updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

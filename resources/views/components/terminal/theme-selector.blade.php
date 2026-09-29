@@ -3,7 +3,7 @@
 <div class="relative ml-auto shrink-0" @click.outside="themeOpen = false">
     <button type="button"
         class="terminal-theme-trigger flex h-8 items-center gap-2 rounded-md px-2.5 text-xs font-medium text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white"
-        @click="themeOpen = !themeOpen" aria-label="Choose terminal theme" :aria-expanded="themeOpen">
+        @click="themeOpen = !themeOpen" aria-label="{{ __('Choose terminal theme') }}" :aria-expanded="themeOpen">
         <span class="size-2 rounded-full ring-1 ring-white/20"
             :style="{ backgroundColor: @js($themeAccents)[consoleTheme] }"></span>
         <span x-text="@js($themeNames)[consoleTheme]"></span>

@@ -26,7 +26,7 @@ it('shows the pre-session target list as a page card instead of a full-height co
         ->toContain("@else\n        <div wire:key=\"terminal-session-canvas\" data-terminal-session-canvas")
         ->and($pickerBranch)
         ->toContain('<x-application.settings-section class="terminal-target-card"')
-        ->toContain('title="Start a terminal session"')
+        ->toContain('title="{{ __(\'Start a terminal session\') }}"')
         // The themed console canvas belongs to an open session, not to target selection.
         ->not->toContain('application-console-shell')
         ->not->toContain(':data-console-theme="consoleTheme"')
@@ -39,7 +39,7 @@ it('keeps the pre-session target list scrollable inside the full-width card', fu
 
     expect($view)
         ->toContain('data-terminal-target-picker="page"')
-        ->toContain('aria-label="Filter terminal targets"')
+        ->toContain('aria-label="{{ __(\'Filter terminal targets\') }}"')
         ->toContain('class="application-settings-workspace flex w-full min-w-0 flex-col"')
         ->toContain('class="terminal-target-card-list"')
         ->and($styles)
@@ -111,7 +111,7 @@ it('opens the global terminal outside Livewire navigation like resource terminal
     $navbar = file_get_contents(resource_path('views/components/navbar.blade.php'));
 
     expect($navbar)
-        ->toContain('<a title="Terminal"')
+        ->toContain('<a title="{{ __(\'Terminal\') }}"')
         ->toContain('href="{{ route(\'terminal\') }}"')
         ->not->toMatch('/<a title="Terminal"[^>]*wireNavigate\(\)/s');
 });
@@ -297,14 +297,14 @@ it('shows terminal unavailable without the terminal shell wrapper', function () 
     expect($consoleView)
         ->toContain('$consoleUnavailable')
         ->toContain('@if ($consoleUnavailable)')
-        ->toContain('title="Terminal unavailable"')
+        ->toContain('title="{{ __(\'Terminal unavailable\') }}"')
         ->toContain('icon-name="browser-terminal"')
         // Empty state must not nest inside the themed terminal chrome.
         ->not->toContain('No running containers');
 
     expect($unavailableBranch)
         ->toContain('<x-empty')
-        ->toContain('title="Terminal unavailable"')
+        ->toContain('title="{{ __(\'Terminal unavailable\') }}"')
         ->not->toContain('application-console-shell')
         ->not->toContain('application-console-header')
         ->not->toContain('Choose terminal theme');
@@ -320,7 +320,7 @@ it('shows runtime logs unavailable without log viewer chrome', function () {
 
     expect($logsView)
         ->toContain('$logsUnavailable')
-        ->toContain('title="Runtime logs unavailable"')
+        ->toContain('title="{{ __(\'Runtime logs unavailable\') }}"')
         ->toContain('icon-name="file-content"')
         ->toContain('class="mt-4 w-full lg:mt-3"')
         ->toContain('application-settings-workspace')
@@ -329,7 +329,7 @@ it('shows runtime logs unavailable without log viewer chrome', function () {
 
     expect($unavailableBranch)
         ->toContain('<x-empty')
-        ->toContain('title="Runtime logs unavailable"')
+        ->toContain('title="{{ __(\'Runtime logs unavailable\') }}"')
         ->not->toContain('runtime-log-shell')
         ->not->toContain('livewire:project.shared.get-logs')
         ->not->toContain('logs-viewer-toolbar');
@@ -345,7 +345,7 @@ it('uses server and container icons in the target list but not on the closed dro
         ->toContain("x-show=\"target.type === 'container'\"")
         ->toContain('name="servers"')
         ->toContain('name="layers"')
-        ->toContain('aria-label="Choose terminal target"')
+        ->toContain('aria-label="{{ __(\'Choose terminal target\') }}"')
         // Trigger shows label + chevron only (no leading reicon inside the button).
         ->toMatch('/aria-label="Choose terminal target">\s*<span class="min-w-0 truncate/');
 });

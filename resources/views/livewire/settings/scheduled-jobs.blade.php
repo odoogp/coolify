@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Scheduled Jobs | Coolify
+        {{ __('Scheduled Jobs | Coolify') }}
     </x-slot>
 
     <x-settings.layout>
@@ -15,7 +15,7 @@
             history.replaceState(null, '', `#${tab}`);
         }
     }">
-        <x-application.settings-section title="Scheduler activity" flush>
+        <x-application.settings-section title="{{ __('Scheduler activity') }}" flush>
             <x-slot:actions>
                 <div
                     class="flex items-center gap-0.5 rounded-[10px] border border-neutral-200 bg-neutral-100 p-1 dark:border-white/[0.07] dark:bg-white/[0.035]">
@@ -40,7 +40,7 @@
                 </div>
                 <x-forms.button type="button" wire:click="refresh">
                     <x-reicon name="refresh" class="size-3.5" />
-                    Refresh
+                    {{ __('Refresh') }}
                 </x-forms.button>
             </x-slot:actions>
             <div
@@ -51,7 +51,7 @@
                         <x-reicon name="search"
                             class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
                         <input wire:model.live.debounce.250ms="search" type="search"
-                            placeholder="Search scheduled jobs"
+                            placeholder="{{ __('Search scheduled jobs') }}"
                             class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-3! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                     </div>
 
@@ -59,11 +59,11 @@
                         <x-table.dropdown panel-class="w-52!">
                             <x-slot:trigger><button type="button" class="button" aria-haspopup="listbox" :aria-expanded="open">
                                 <x-reicon name="filter" class="size-3.5" />
-                                Filter
+                                {{ __('Filter') }}
                             </button></x-slot:trigger>
                                 <div
                                     class="px-2 py-1 text-[10px] font-semibold tracking-wide text-neutral-400 uppercase dark:text-fg-faint">
-                                    Type
+                                    {{ __('Type') }}
                                 </div>
                                 @foreach (['all' => 'All types', 'backup' => 'Backups', 'task' => 'Tasks', 'cleanup' => 'Docker cleanup'] as $value => $label)
                                     <button type="button" class="listbox-option"
@@ -77,7 +77,7 @@
                                 @endforeach
                                 <div
                                     class="mt-1 border-t border-neutral-200 px-2 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-neutral-400 uppercase dark:border-white/[0.08] dark:text-fg-faint">
-                                    Time range
+                                    {{ __('Time range') }}
                                 </div>
                                 @foreach (['last_24h' => 'Last 24 hours', 'last_7d' => 'Last 7 days', 'last_30d' => 'Last 30 days', 'all' => 'All time'] as $value => $label)
                                     <button type="button" class="listbox-option"
@@ -94,7 +94,7 @@
                         <x-table.dropdown panel-class="w-44!">
                             <x-slot:trigger><button type="button" class="button" aria-haspopup="listbox" :aria-expanded="open">
                                 <x-reicon name="sort-direction" class="size-3.5" />
-                                Sort
+                                {{ __('Sort') }}
                             </button></x-slot:trigger>
                                 @foreach (['newest' => 'Newest first', 'oldest' => 'Oldest first'] as $value => $label)
                                     <button type="button" class="listbox-option"
@@ -113,8 +113,8 @@
 
             <div x-cloak x-show="activeTab === 'executions'">
                 @if ($executions->isEmpty())
-                    <x-empty title="No failures"
-                        description="No failed scheduled executions match the current filters."
+                    <x-empty title="{{ __('No failures') }}"
+                        description="{{ __('No failed scheduled executions match the current filters.') }}"
                         icon-name="check-circle" size="sm" />
                 @else
                     <div x-data="{
@@ -128,12 +128,12 @@
                     }">
                         <div class="data-table">
                             <div class="data-table-header scheduled-executions-table-grid">
-                                <span>Type</span>
-                                <span>Resource</span>
-                                <span>Server</span>
-                                <span>Started</span>
-                                <span>Duration</span>
-                                <span>Message</span>
+                                <span>{{ __('Type') }}</span>
+                                <span>{{ __('Resource') }}</span>
+                                <span>{{ __('Server') }}</span>
+                                <span>{{ __('Started') }}</span>
+                                <span>{{ __('Duration') }}</span>
+                                <span>{{ __('Message') }}</span>
                             </div>
                             @foreach ($executions as $execution)
                                 @php
@@ -194,8 +194,8 @@
 
             <div x-cloak x-show="activeTab === 'scheduler-runs'">
                 @if ($managerRuns->isEmpty())
-                    <x-empty title="No manager runs"
-                        description="Scheduler manager activity appears here after its next run."
+                    <x-empty title="{{ __('No manager runs') }}"
+                        description="{{ __('Scheduler manager activity appears here after its next run.') }}"
                         icon-name="refresh" size="sm" />
                 @else
                     <div x-data="{
@@ -209,11 +209,11 @@
                     }">
                         <div class="data-table">
                             <div class="data-table-header scheduler-runs-table-grid">
-                                <span>Time</span>
-                                <span>Event</span>
-                                <span>Duration</span>
-                                <span>Dispatched</span>
-                                <span>Skipped</span>
+                                <span>{{ __('Time') }}</span>
+                                <span>{{ __('Event') }}</span>
+                                <span>{{ __('Duration') }}</span>
+                                <span>{{ __('Dispatched') }}</span>
+                                <span>{{ __('Skipped') }}</span>
                             </div>
                             @foreach ($managerRuns as $run)
                                 <div wire:key="run-{{ $loop->index }}"
@@ -248,16 +248,16 @@
 
             <div x-cloak x-show="activeTab === 'skipped-jobs'">
                 @if ($skipLogs->isEmpty())
-                    <x-empty title="No skipped jobs"
-                        description="All scheduled jobs met their dispatch conditions."
+                    <x-empty title="{{ __('No skipped jobs') }}"
+                        description="{{ __('All scheduled jobs met their dispatch conditions.') }}"
                         icon-name="check-circle" size="sm" />
                 @else
                     <div class="data-table">
                         <div class="data-table-header skipped-jobs-table-grid">
-                            <span>Time</span>
-                            <span>Type</span>
-                            <span>Resource</span>
-                            <span>Reason</span>
+                            <span>{{ __('Time') }}</span>
+                            <span>{{ __('Type') }}</span>
+                            <span>{{ __('Resource') }}</span>
+                            <span>{{ __('Reason') }}</span>
                         </div>
                         @foreach ($skipLogs as $skip)
                             @php

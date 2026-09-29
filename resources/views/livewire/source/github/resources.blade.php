@@ -1,9 +1,9 @@
             <div x-data="{ search: '' }" class="application-settings-form">
-                <x-application.settings-section title="Resources"
-                    description="Applications currently using this GitHub App." flush>
+                <x-application.settings-section title="{{ __('Resources') }}"
+                    description="{{ __('Applications currently using this GitHub App.') }}" flush>
                     @if ($applications->isEmpty())
-                        <x-empty title="No resources use this source"
-                            description="Applications will appear here after this GitHub App is selected as their source."
+                        <x-empty title="{{ __('No resources use this source') }}"
+                            description="{{ __('Applications will appear here after this GitHub App is selected as their source.') }}"
                             icon-name="sources" size="sm" />
                     @else
                         <div class="border-b border-neutral-200 p-3 dark:border-white/[0.08]">
@@ -11,17 +11,17 @@
                                 <x-reicon name="search"
                                     class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
                                 <input x-model.debounce.150ms="search" type="search"
-                                    placeholder="Search resources"
+                                    placeholder="{{ __('Search resources') }}"
                                     class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-3! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                             </div>
                         </div>
                         <div class="overflow-x-auto">
                             <div
                                 class="grid min-w-[680px] grid-cols-[minmax(10rem,.8fr)_minmax(10rem,.8fr)_minmax(12rem,1fr)_8rem] border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                                <div>Project</div>
-                                <div>Environment</div>
-                                <div>Resource</div>
-                                <div>Type</div>
+                                <div>{{ __('Project') }}</div>
+                                <div>{{ __('Environment') }}</div>
+                                <div>{{ __('Resource') }}</div>
+                                <div>{{ __('Type') }}</div>
                             </div>
                             @foreach ($applications->sortBy('name', SORT_NATURAL) as $resource)
                                 @php

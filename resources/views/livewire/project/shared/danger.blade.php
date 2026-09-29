@@ -8,8 +8,8 @@
             default => 'resource',
         };
     @endphp
-    <x-application.settings-section id="danger-zone-section" title="Danger zone"
-        helper="Destructive resource actions cannot be undone.">
+    <x-application.settings-section id="danger-zone-section" title="{{ __('Danger zone') }}"
+        helper="{{ __('Destructive resource actions cannot be undone.') }}">
         <div
             class="rounded-lg border border-red-300 bg-red-50 p-4 ring-1 ring-inset ring-red-200/60 dark:border-error/30 dark:bg-error/[0.08] dark:ring-error/10">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -19,7 +19,7 @@
                         <x-status-badge status="Permanent" type="error" />
                     </div>
                     <p class="mt-2 max-w-2xl text-[13px] leading-5 text-neutral-600 dark:text-fg-dim">
-                        Permanently delete
+                        {{ __('Permanently delete') }}
                         <strong class="font-semibold text-black dark:text-fg">{{ $resourceName }}</strong>,
                         stop its containers, and remove the selected Docker resources and configuration.
                     </p>
@@ -37,8 +37,8 @@
                             isErrorButton submitAction="delete" :checkboxes="$checkboxes"
                             :actions="['Permanently delete this resource and its selected Docker resources.']"
                             confirmationText="{{ $resourceName }}"
-                            confirmationLabel="Enter the resource name to confirm permanent deletion"
-                            shortConfirmationLabel="Resource name" />
+                            confirmationLabel="{{ __('Enter the resource name to confirm permanent deletion') }}"
+                            shortConfirmationLabel="{{ __('Resource name') }}" />
                     @else
                         <x-forms.button disabled tooltip="You do not have permission to delete this resource.">
                             Delete {{ $resourceLabel }}
@@ -50,8 +50,8 @@
 
         @if (!$canDelete)
             <div class="mt-4">
-                <x-callout type="danger" title="Insufficient permissions">
-                    Contact a team administrator if this resource must be deleted.
+                <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
+                    {{ __('Contact a team administrator if this resource must be deleted.') }}
                 </x-callout>
             </div>
         @endif

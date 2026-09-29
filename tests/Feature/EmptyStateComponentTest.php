@@ -61,9 +61,9 @@ it('keeps backup execution actions compact', function () {
         ->toContain('<span class="text-right">Actions</span>')
         ->toContain('class="flex items-center justify-end gap-1"')
         ->not->toContain('sticky right-0')
-        ->toContain('title="Download backup" aria-label="Download backup"')
+        ->toContain('title="{{ __(\'Download backup\') }}" aria-label="{{ __(\'Download backup\') }}"')
         ->toContain('<x-reicon name="upload" class="size-3.5 rotate-180" />')
-        ->toContain('title="Delete backup" aria-label="Delete backup"')
+        ->toContain('title="{{ __(\'Delete backup\') }}" aria-label="{{ __(\'Delete backup\') }}"')
         ->toContain('<x-reicon name="trash" class="size-3.5" />');
 });
 

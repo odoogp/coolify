@@ -7,7 +7,7 @@
     <div class="relative min-w-0" :class="collapsed && 'lg:hidden'"
         x-data="{ open: false }" @keydown.escape.window="open = false">
         <button type="button" @click="open = !open" @click.outside="open = false"
-            title="Switch team"
+            title="{{ __('Switch team') }}"
             class="group/team flex h-8 items-center gap-1.5 rounded-lg px-2 -ml-1 text-left opacity-70 transition-[background-color,opacity] hover:bg-neutral-100 hover:opacity-100 dark:hover:bg-white/[0.05]">
             <span class="whitespace-nowrap text-[13px] font-semibold text-black dark:text-fg">{{ $currentTeam->name }}</span>
             <svg class="size-4 shrink-0 text-neutral-400 dark:text-fg-faint" viewBox="0 0 24 24" fill="none">
@@ -19,7 +19,7 @@
             class="listbox-panel left-0! z-[90]! max-h-72! min-w-56">
             <div
                 class="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-fg-faint">
-                Teams
+                {{ __('Teams') }}
             </div>
             @foreach (auth()->user()->teams as $team)
                 <button type="button" wire:click="switch_to({{ $team->id }}, window.location.href)" @click="open = false"
@@ -28,11 +28,11 @@
                 </button>
             @endforeach
             <div class="mt-1 border-t border-neutral-200 pt-1 dark:border-white/[0.08]">
-                <x-modal-input title="New Team">
+                <x-modal-input title="{{ __('New Team') }}">
                     <x-slot:content>
                         <button type="button" class="listbox-option w-full" @click="open = false">
                             <x-reicon name="plus" class="size-3.5 shrink-0" />
-                            <span class="min-w-0 flex-1 text-left">New team</span>
+                            <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
                         </button>
                     </x-slot:content>
                     <livewire:team.create :key="'team-switcher-create-expanded'" />
@@ -63,7 +63,7 @@
             class="listbox-panel fixed! top-auto! z-[100]! max-h-72! min-w-48">
             <div
                 class="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-fg-faint">
-                Teams
+                {{ __('Teams') }}
             </div>
             @foreach (auth()->user()->teams as $team)
                 <button type="button" wire:click="switch_to({{ $team->id }}, window.location.href)" @click="teamOpen = false"
@@ -72,11 +72,11 @@
                 </button>
             @endforeach
             <div class="mt-1 border-t border-neutral-200 pt-1 dark:border-white/[0.08]">
-                <x-modal-input title="New Team">
+                <x-modal-input title="{{ __('New Team') }}">
                     <x-slot:content>
                         <button type="button" class="listbox-option w-full" @click="teamOpen = false">
                             <x-reicon name="plus" class="size-3.5 shrink-0" />
-                            <span class="min-w-0 flex-1 text-left">New team</span>
+                            <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
                         </button>
                     </x-slot:content>
                     <livewire:team.create :key="'team-switcher-create-collapsed'" />

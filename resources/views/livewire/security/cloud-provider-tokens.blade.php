@@ -1,14 +1,14 @@
 <div class="application-settings-form">
-    <x-application.settings-section title="Cloud tokens"
-        description="Provider credentials used to provision cloud servers." flush>
+    <x-application.settings-section title="{{ __('Cloud tokens') }}"
+        description="{{ __('Provider credentials used to provision cloud servers.') }}" flush>
         <x-slot:actions>
             @can('create', App\Models\CloudProviderToken::class)
-                <x-modal-input title="New Cloud Token">
+                <x-modal-input title="{{ __('New Cloud Token') }}">
                     <x-slot:content>
                         <button type="button"
                             class="button button-highlighted">
                             <x-reicon name="plus" class="size-3.5" />
-                            New token
+                            {{ __('New token') }}
                         </button>
                     </x-slot:content>
                     <livewire:security.cloud-provider-token-form :modal_mode="true" wire:key="new-cloud-provider-token" />
@@ -16,18 +16,18 @@
             @endcan
         </x-slot:actions>
         @if ($tokens->isEmpty())
-            <x-empty title="No cloud tokens"
-                description="Add a provider token to provision new cloud servers." icon-name="keys" size="sm" />
+            <x-empty title="{{ __('No cloud tokens') }}"
+                description="{{ __('Add a provider token to provision new cloud servers.') }}" icon-name="keys" size="sm" />
         @else
             <div>
                 <div class="grid grid-cols-[minmax(0,1fr)_8rem_1.75rem] items-center gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[13px] font-medium text-neutral-500 sm:grid-cols-[minmax(0,1fr)_8rem_minmax(0,1fr)_1.75rem] dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
-                    <div class="pl-11">Token</div>
-                    <div class="text-center">Provider</div>
-                    <div class="hidden sm:block">Description</div>
+                    <div class="pl-11">{{ __('Token') }}</div>
+                    <div class="text-center">{{ __('Provider') }}</div>
+                    <div class="hidden sm:block">{{ __('Description') }}</div>
                     <div class="w-7"></div>
                 </div>
                 @foreach ($tokens as $savedToken)
-                    <x-modal-input title="Edit Cloud Token" isFullWidth :wireIgnore="false" :contentClicks="false"
+                    <x-modal-input title="{{ __('Edit Cloud Token') }}" isFullWidth :wireIgnore="false" :contentClicks="false"
                         wire:key="cloud-token-{{ $savedToken->id }}"
                         class="border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]">
                         <x-slot:content>
@@ -48,11 +48,11 @@
                         <div class="flex justify-center">
                             <span
                                 class="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-600 dark:bg-white/[0.06] dark:text-fg-dim">
-                                {{ $savedToken->provider === 'digitalocean' ? 'DigitalOcean' : ucfirst($savedToken->provider) }}
+                                {{ $savedToken->provider === 'digitalocean' ? __('DigitalOcean') : ucfirst($savedToken->provider) }}
                             </span>
                         </div>
                         <p class="hidden truncate text-[12px] text-neutral-500 sm:block dark:text-fg-dim">{{ $savedToken->description ?: '-' }}</p>
-                        <button type="button" class="icon-button" title="Edit cloud token"
+                        <button type="button" class="icon-button" title="{{ __('Edit cloud token') }}"
                             aria-label="Edit {{ $savedToken->name }}" @click="modalOpen=true">
                             <x-reicon name="settings" class="size-3.5" />
                         </button>
