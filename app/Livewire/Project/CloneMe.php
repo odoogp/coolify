@@ -10,6 +10,7 @@ use App\Jobs\VolumeCloneJob;
 use App\Models\Environment;
 use App\Models\Project;
 use App\Models\Server;
+use App\Services\AdminCreationQuota;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
@@ -73,7 +74,9 @@ class CloneMe extends Component
 
     public function render()
     {
-        return view('livewire.project.clone-me');
+        return view('livewire.project.clone-me', [
+            'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
+        ]);
     }
 
     public function selectServer($server_id, $destination_uuid)
@@ -107,17 +110,19 @@ class CloneMe extends Component
                 if ($foundProject) {
                     throw new \Exception('Project with the same name already exists.');
                 }
-                $project = Project::create([
+                $additionalEnvironments = [];
+                if ($this->environment->name !== 'production') {
+                    $additionalEnvironments[] = [
+                        'name' => $this->environment->name,
+                        'uuid' => new_public_id(),
+                    ];
+                }
+                $project = app(AdminCreationQuota::class)->createProject(auth()->user(), [
                     'name' => $this->newName,
                     'team_id' => currentTeam()->id,
                     'description' => $this->project->description.' (clone)',
-                ]);
-                if ($this->environment->name !== 'production') {
-                    $project->environments()->create([
-                        'name' => $this->environment->name,
-                        'uuid' => new_public_id(),
-                    ]);
-                }
+                ], $additionalEnvironments);
+                $project->unsetRelation('environments');
                 $environment = $project->environments->where('name', $this->environment->name)->first();
             } else {
                 $foundEnv = $this->project->environments()->where('name', $this->newName)->first();
@@ -125,7 +130,7 @@ class CloneMe extends Component
                     throw new \Exception('Environment with the same name already exists.');
                 }
                 $project = $this->project;
-                $environment = $this->project->environments()->create([
+                $environment = app(AdminCreationQuota::class)->createEnvironment(auth()->user(), $this->project, [
                     'name' => $this->newName,
                     'uuid' => new_public_id(),
                 ]);

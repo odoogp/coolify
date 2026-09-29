@@ -1,10 +1,11 @@
 <div wire:key="team-member-row-{{ $member->id }}"
     x-cloak x-show="isMemberVisible({{ $member->id }})"
-    x-bind:style="{ order: memberOrder({{ $member->id }}) }"
-    @class([
-        'data-table-row team-members-table-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]',
-        'team-members-table-grid-2fa' => auth()->user()?->can('manageMembers', currentTeam()),
-    ])>
+    x-bind:style="{ order: memberOrder({{ $member->id }}) }">
+<div @class([
+    'data-table-row team-members-table-grid border-b border-neutral-200 dark:border-white/[0.07]',
+    'last:border-b-0' => ! $canEditLimits,
+    'team-members-table-grid-2fa' => auth()->user()?->can('manageMembers', currentTeam()),
+])>
     <div>
         <div class="flex items-center gap-2">
             <div
@@ -85,4 +86,26 @@
             @endif
         @endcan
     </div>
+</div>
+@if ($canEditLimits)
+    <form wire:submit="saveCreationLimits"
+        class="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-white/[0.07]">
+        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+            Leave empty for no limit.
+            Projects {{ $usage['projects'] }}@if ($maxProjects !== null && $maxProjects !== '')/{{ $maxProjects }}@endif
+            · Environments {{ $usage['environments'] }}@if ($maxEnvironments !== null && $maxEnvironments !== '')/{{ $maxEnvironments }}@endif
+            · Members {{ $usage['members'] }}@if ($maxMembers !== null && $maxMembers !== '')/{{ $maxMembers }}@endif
+        </p>
+        <div class="grid gap-3 sm:grid-cols-4">
+            <x-forms.input id="maxProjects" type="number" min="0" label="Projects" />
+            <x-forms.input id="maxEnvironments" type="number" min="0" label="Environments" />
+            <x-forms.input id="maxMembers" type="number" min="0" label="Members" />
+            <div class="flex items-end">
+                <x-forms.button type="submit" defaultClass="button button-highlighted">
+                    Save limits
+                </x-forms.button>
+            </div>
+        </div>
+    </form>
+@endif
 </div>

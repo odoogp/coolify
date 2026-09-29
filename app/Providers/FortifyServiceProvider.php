@@ -8,9 +8,11 @@ use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Models\OauthSetting;
 use App\Models\TeamInvitation;
+use App\Services\AdminCreationQuota;
 use App\Models\User;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
@@ -87,11 +89,13 @@ class FortifyServiceProvider extends ServiceProvider
                 if ($invitation && $invitation->isValid()) {
                     // User is logging in for the first time after being invited
                     // Attach them to the invited team if not already attached
-                    if (! $user->teams()->where('team_id', $invitation->team->id)->exists()) {
-                        $user->teams()->attach($invitation->team->id, ['role' => $invitation->role]);
-                    }
+                    DB::transaction(function () use ($user, $invitation): void {
+                        if (! $user->teams()->where('team_id', $invitation->team->id)->exists()) {
+                            $user->teams()->attach($invitation->team->id, app(AdminCreationQuota::class)->attributesForAcceptedInvitation($invitation));
+                        }
+                        $invitation->delete();
+                    });
                     $user->currentTeam = $invitation->team;
-                    $invitation->delete();
                 } else {
                     // Normal login - use personal team
                     $user->currentTeam = $user->teams->firstWhere('personal_team', true);

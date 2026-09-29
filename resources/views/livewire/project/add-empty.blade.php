@@ -4,6 +4,8 @@
         <x-forms.input placeholder="A short project description" id="description" label="Description" />
     </div>
 
+    <x-creation-quota :quota="$creationQuota" />
+
     <p
         class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-dim">
         A production environment will be created automatically.

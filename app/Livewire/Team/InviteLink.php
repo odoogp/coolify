@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Team;
 
+use App\Exceptions\AdminCreationQuotaExceeded;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\AdminCreationQuota;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Crypt;
@@ -95,7 +97,7 @@ class InviteLink extends Component
                 }
             }
 
-            $invitation = TeamInvitation::firstOrCreate([
+            $invitation = app(AdminCreationQuota::class)->createInvitation(auth()->user(), [
                 'team_id' => currentTeam()->id,
                 'uuid' => $uuid,
                 'email' => $this->email,
@@ -119,6 +121,8 @@ class InviteLink extends Component
                 $this->dispatch('success', 'Invitation link generated.');
                 $this->dispatch('refreshInvitations');
             }
+        } catch (AdminCreationQuotaExceeded $e) {
+            return handleError(error: $e, livewire: $this);
         } catch (\Throwable $e) {
             $error_message = $e->getMessage();
             if ($e->getCode() === '23505') {
@@ -127,5 +131,12 @@ class InviteLink extends Component
 
             return handleError(error: $e, livewire: $this, customErrorMessage: $error_message);
         }
+    }
+
+    public function render()
+    {
+        return view('livewire.team.invite-link', [
+            'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
+        ]);
     }
 }

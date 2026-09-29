@@ -23,6 +23,8 @@
                     </x-callout>
                 @endif
 
+                <x-creation-quota :quota="$creationQuota" class="mt-4" />
+
                 <div class="mt-4 grid gap-4 lg:grid-cols-2">
                     <x-forms.input id="email" type="email" label="Email address"
                         placeholder="teammate@example.com" required />

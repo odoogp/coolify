@@ -13,6 +13,7 @@ class TeamInvitation extends Model
         'role',
         'link',
         'via',
+        'invited_by',
     ];
 
     /**

@@ -91,4 +91,16 @@ class TeamPolicy
 
         return $user->isAdminOfTeam($team->id);
     }
+
+    /**
+     * Creation quotas belong to each admin and can only be written by the team owner.
+     */
+    public function updateCreationLimits(User $user, Team $team): bool
+    {
+        if (! $user->teams->contains('id', $team->id)) {
+            return false;
+        }
+
+        return $user->roleInTeam($team->id) === 'owner';
+    }
 }

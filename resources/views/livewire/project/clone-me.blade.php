@@ -6,6 +6,7 @@
             <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
                 Clone this environment inside {{ $project->name }}
             </p>
+            <x-creation-quota :quota="$creationQuota" class="mt-2" />
         </header>
 
         <div class="flex flex-col gap-6">

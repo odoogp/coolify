@@ -34,6 +34,7 @@ use App\Models\StandalonePostgresql;
 use App\Models\StandaloneRedis;
 use App\Models\SwarmDocker;
 use App\Models\Tag;
+use App\Services\AdminCreationQuota;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -606,12 +607,12 @@ class ServerTransferImporter
             $uuid = new_public_id();
         }
 
-        $project = Project::create([
+        $project = app(AdminCreationQuota::class)->withoutEnforcement(fn () => Project::create([
             'uuid' => $uuid,
             'name' => data_get($payload, 'name') ?: generate_random_name(),
             'description' => data_get($payload, 'description'),
             'team_id' => $teamId,
-        ]);
+        ]));
         $created['projects']++;
 
         $this->importProjectSharedEnvVars(data_get($payload, 'shared_environment_variables', []), $project, $teamId);
@@ -684,12 +685,12 @@ class ServerTransferImporter
             $uuid = new_public_id();
         }
 
-        $environment = Environment::create([
+        $environment = app(AdminCreationQuota::class)->withoutEnforcement(fn () => Environment::create([
             'uuid' => $uuid,
             'name' => $name,
             'description' => data_get($payload, 'description'),
             'project_id' => $project->id,
-        ]);
+        ]));
         $created['environments']++;
 
         $this->importEnvironmentSharedEnvVars(data_get($payload, 'shared_environment_variables', []), $environment, $project->team_id);

@@ -4,6 +4,7 @@ namespace App\Livewire\Project;
 
 use App\Models\Environment;
 use App\Models\Project;
+use App\Services\AdminCreationQuota;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -64,9 +65,8 @@ class Show extends Component
         try {
             $this->authorize('create', Environment::class);
             $this->validate();
-            $environment = Environment::create([
+            $environment = app(AdminCreationQuota::class)->createEnvironment(auth()->user(), $this->project, [
                 'name' => $this->name,
-                'project_id' => $this->project->id,
                 'uuid' => new_public_id(),
             ]);
 
@@ -93,6 +93,7 @@ class Show extends Component
         $canCreateResource = auth()->user()->can('createAnyResource');
 
         return view('livewire.project.show', [
+            'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'environmentsJs' => $this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject): array {
                 $resourceCount = collect([
                     $environment->applications_count,

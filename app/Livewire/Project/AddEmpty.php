@@ -3,6 +3,7 @@
 namespace App\Livewire\Project;
 
 use App\Models\Project;
+use App\Services\AdminCreationQuota;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
@@ -33,7 +34,7 @@ class AddEmpty extends Component
         try {
             $this->authorize('create', Project::class);
             $this->validate();
-            $project = Project::create([
+            $project = app(AdminCreationQuota::class)->createProject(auth()->user(), [
                 'name' => $this->name,
                 'description' => $this->description,
                 'team_id' => currentTeam()->id,
@@ -49,5 +50,12 @@ class AddEmpty extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    public function render()
+    {
+        return view('livewire.project.add-empty', [
+            'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
+        ]);
     }
 }

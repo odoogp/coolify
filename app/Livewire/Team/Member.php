@@ -5,9 +5,11 @@ namespace App\Livewire\Team;
 use App\Actions\User\RevokeUserTeamTokens;
 use App\Enums\Role;
 use App\Models\User;
+use App\Services\AdminCreationQuota;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class Member extends Component
@@ -15,6 +17,61 @@ class Member extends Component
     use AuthorizesRequests;
 
     public User $member;
+
+    public mixed $maxProjects = null;
+
+    public mixed $maxEnvironments = null;
+
+    public mixed $maxMembers = null;
+
+    public function mount(): void
+    {
+        $team = currentTeam();
+        if ($team === null) {
+            return;
+        }
+
+        $pivot = $this->member->teams()->where('teams.id', $team->id)->first()?->pivot;
+        $this->maxProjects = $this->quotaInput(data_get($pivot, 'max_projects'));
+        $this->maxEnvironments = $this->quotaInput(data_get($pivot, 'max_environments'));
+        $this->maxMembers = $this->quotaInput(data_get($pivot, 'max_members'));
+    }
+
+    public function saveCreationLimits(): void
+    {
+        try {
+            $team = currentTeam();
+            $this->authorize('updateCreationLimits', $team);
+
+            if ($this->getMemberRole() !== Role::ADMIN->value) {
+                throw new \Exception('Creation limits apply to admins.');
+            }
+
+            $this->maxProjects = $this->blankToNull($this->maxProjects);
+            $this->maxEnvironments = $this->blankToNull($this->maxEnvironments);
+            $this->maxMembers = $this->blankToNull($this->maxMembers);
+
+            $this->validate([
+                'maxProjects' => ['nullable', 'integer', 'min:0'],
+                'maxEnvironments' => ['nullable', 'integer', 'min:0'],
+                'maxMembers' => ['nullable', 'integer', 'min:0'],
+            ]);
+
+            $teamId = $team->id;
+            $this->member->teams()->updateExistingPivot($teamId, [
+                'max_projects' => $this->maxProjects,
+                'max_environments' => $this->maxEnvironments,
+                'max_members' => $this->maxMembers,
+            ]);
+            Cache::forget('user:'.$this->member->id.':team:'.$teamId);
+            Cache::forget('team:'.$this->member->id);
+            $this->dispatch('success', 'Creation limits saved.');
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->dispatch('error', $e->getMessage());
+        }
+    }
 
     public function makeAdmin()
     {
@@ -99,8 +156,41 @@ class Member extends Component
         }
     }
 
+    public function render()
+    {
+        $team = currentTeam();
+        $canEditLimits = $team !== null
+            && auth()->user()?->can('updateCreationLimits', $team)
+            && $this->getMemberRole() === Role::ADMIN->value;
+
+        return view('livewire.team.member', [
+            'canEditLimits' => $canEditLimits,
+            'usage' => $canEditLimits
+                ? app(AdminCreationQuota::class)->usage($this->member, $team->id)
+                : null,
+        ]);
+    }
+
     private function getMemberRole()
     {
         return $this->member->teams()->where('teams.id', currentTeam()->id)->first()?->pivot?->role;
+    }
+
+    private function quotaInput(mixed $value): ?int
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    private function blankToNull(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return $value;
     }
 }

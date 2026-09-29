@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -29,6 +30,7 @@ class Project extends BaseModel
         'description',
         'team_id',
         'uuid',
+        'created_by',
     ];
 
     /**
@@ -52,6 +54,9 @@ class Project extends BaseModel
 
     protected static function booted()
     {
+        static::creating(function (Project $project): void {
+            app(AdminCreationQuota::class)->guardProject($project);
+        });
         static::created(function ($project) {
             ProjectSetting::create([
                 'project_id' => $project->id,
@@ -60,6 +65,7 @@ class Project extends BaseModel
                 'name' => 'production',
                 'project_id' => $project->id,
                 'uuid' => new_public_id(),
+                'created_by' => $project->created_by,
             ]);
         });
         static::deleting(function ($project) {

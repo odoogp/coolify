@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Services\AdminCreationQuota;
 use App\Support\ValidationPatterns;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -265,7 +266,7 @@ class ProjectController extends Controller
             ], 422);
         }
 
-        $project = Project::create([
+        $project = app(AdminCreationQuota::class)->createProject($request->user(), [
             'name' => $request->name,
             'description' => $request->description,
             'team_id' => $teamId,
@@ -668,7 +669,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Environment with this name already exists.'], 409);
         }
 
-        $environment = $project->environments()->create([
+        $environment = app(AdminCreationQuota::class)->createEnvironment($request->user(), $project, [
             'name' => $request->name,
         ]);
 

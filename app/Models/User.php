@@ -254,7 +254,7 @@ class User extends Authenticatable implements SendsEmail
 
     public function teams()
     {
-        return $this->belongsToMany(Team::class)->withPivot('role');
+        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'added_by');
     }
 
     public function changelogReads()

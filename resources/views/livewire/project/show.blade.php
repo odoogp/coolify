@@ -34,6 +34,7 @@
                         </x-slot:content>
 
                         <form class="space-y-4" wire:submit="submit">
+                            <x-creation-quota :quota="$creationQuota" />
                             <x-forms.input placeholder="staging" id="name" label="Name" required />
 
                             <footer

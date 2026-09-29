@@ -7,6 +7,7 @@ use App\Models\PrivateKey;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Team;
+use App\Services\AdminCreationQuota;
 use App\Services\ConfigurationRepository;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -466,12 +467,17 @@ class Index extends Component
 
     public function createNewProject()
     {
-        $this->createdProject = Project::create([
-            'name' => 'My first project',
-            'team_id' => currentTeam()->id,
-            'uuid' => new_public_id(),
-        ]);
-        $this->currentState = 'create-resource';
+        try {
+            $this->authorize('create', Project::class);
+            $this->createdProject = app(AdminCreationQuota::class)->createProject(auth()->user(), [
+                'name' => 'My first project',
+                'team_id' => currentTeam()->id,
+                'uuid' => new_public_id(),
+            ]);
+            $this->currentState = 'create-resource';
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
     }
 
     public function showNewResource()

@@ -6,6 +6,7 @@ use App\Events\TestEvent;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
+use App\Services\AdminCreationQuota;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
@@ -133,7 +134,7 @@ class Controller extends BaseController
             [$user, $invitation] = $credentials;
             $team = $invitation->team;
             if (! $user->teams()->where('team_id', $team->id)->exists()) {
-                $user->teams()->attach($team->id, ['role' => $invitation->role]);
+                $user->teams()->attach($team->id, app(AdminCreationQuota::class)->attributesForAcceptedInvitation($invitation));
             }
 
             $user->forceFill([
@@ -256,8 +257,10 @@ class Controller extends BaseController
 
             return redirect()->route('team.index');
         }
-        $user->teams()->attach($invitation->team->id, ['role' => $invitation->role]);
-        $invitation->delete();
+        DB::transaction(function () use ($user, $invitation): void {
+            $user->teams()->attach($invitation->team->id, app(AdminCreationQuota::class)->attributesForAcceptedInvitation($invitation));
+            $invitation->delete();
+        });
 
         refreshSession($invitation->team);
 

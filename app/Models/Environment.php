@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,10 +31,14 @@ class Environment extends BaseModel
         'description',
         'project_id',
         'uuid',
+        'created_by',
     ];
 
     protected static function booted()
     {
+        static::creating(function (Environment $environment): void {
+            app(AdminCreationQuota::class)->guardEnvironment($environment);
+        });
         static::deleting(function ($environment) {
             $shared_variables = $environment->environment_variables();
             foreach ($shared_variables as $shared_variable) {
