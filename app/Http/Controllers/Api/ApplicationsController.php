@@ -1214,6 +1214,10 @@ class ApplicationsController extends Controller
 
         $this->authorize('create', Application::class);
 
+        // removeUnnecessaryFieldsFromRequest() strips force_domain_override before
+        // the docker_compose_domains checks below run, so read it up front.
+        $forceDomainOverride = $request->boolean('force_domain_override');
+
         if ($request->instant_deploy) {
             abort_unless($request->user()->tokenCan('deploy') || $request->user()->tokenCan('root'), 403, 'Missing required permissions: deploy');
         }
@@ -1463,7 +1467,7 @@ class ApplicationsController extends Controller
                 });
 
                 $duplicates = $urls->duplicates()->unique()->values();
-                if ($duplicates->isNotEmpty() && ! $request->boolean('force_domain_override')) {
+                if ($duplicates->isNotEmpty() && ! $forceDomainOverride) {
                     $errors[] = 'The current request contains conflicting URLs: '.implode(', ', $duplicates->toArray()).' Use force_domain_override=true to proceed.';
                 }
 
@@ -1484,7 +1488,7 @@ class ApplicationsController extends Controller
                         ], 422);
                     }
 
-                    if ($result['hasConflicts'] && ! $request->boolean('force_domain_override')) {
+                    if ($result['hasConflicts'] && ! $forceDomainOverride) {
                         return response()->json([
                             'message' => 'Domain conflicts detected. Use force_domain_override=true to proceed.',
                             'conflicts' => $result['conflicts'],
@@ -1731,7 +1735,7 @@ class ApplicationsController extends Controller
                 });
 
                 $duplicates = $urls->duplicates()->unique()->values();
-                if ($duplicates->isNotEmpty() && ! $request->boolean('force_domain_override')) {
+                if ($duplicates->isNotEmpty() && ! $forceDomainOverride) {
                     $errors[] = 'The current request contains conflicting URLs: '.implode(', ', $duplicates->toArray()).' Use force_domain_override=true to proceed. ';
                 }
 
@@ -1752,7 +1756,7 @@ class ApplicationsController extends Controller
                         ], 422);
                     }
 
-                    if ($result['hasConflicts'] && ! $request->boolean('force_domain_override')) {
+                    if ($result['hasConflicts'] && ! $forceDomainOverride) {
                         return response()->json([
                             'message' => 'Domain conflicts detected. Use force_domain_override=true to proceed.',
                             'conflicts' => $result['conflicts'],
@@ -1964,7 +1968,7 @@ class ApplicationsController extends Controller
                 });
 
                 $duplicates = $urls->duplicates()->unique()->values();
-                if ($duplicates->isNotEmpty() && ! $request->boolean('force_domain_override')) {
+                if ($duplicates->isNotEmpty() && ! $forceDomainOverride) {
                     $errors[] = 'The current request contains conflicting URLs: '.implode(', ', $duplicates->toArray()).' Use force_domain_override=true to proceed.';
                 }
 
@@ -1985,7 +1989,7 @@ class ApplicationsController extends Controller
                         ], 422);
                     }
 
-                    if ($result['hasConflicts'] && ! $request->boolean('force_domain_override')) {
+                    if ($result['hasConflicts'] && ! $forceDomainOverride) {
                         return response()->json([
                             'message' => 'Domain conflicts detected. Use force_domain_override=true to proceed.',
                             'conflicts' => $result['conflicts'],
