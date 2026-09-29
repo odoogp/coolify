@@ -62,8 +62,19 @@ RUN npm run build
 
 # =================================================================
 # Stage 3: Get MinIO client
+# dl.min.io returns 410 for this archived release. The binary comes from the
+# official minio/mc GitHub release for MINIO_VERSION.
 # =================================================================
-FROM minio/mc:${MINIO_VERSION} AS minio-client
+FROM alpine:3 AS minio-client
+
+ARG MINIO_VERSION
+ARG TARGETARCH
+
+RUN set -eux; \
+    apk add --no-cache ca-certificates curl; \
+    curl -fsSL "https://github.com/minio/mc/releases/download/${MINIO_VERSION}/mc.linux-${TARGETARCH}.${MINIO_VERSION}" -o /usr/bin/mc; \
+    chmod +x /usr/bin/mc; \
+    mc --version
 
 # =================================================================
 # Final Stage: Production image
