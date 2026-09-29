@@ -10,15 +10,35 @@
 ## DOCKER_POOL_FORCE_OVERRIDE - Force override Docker address pool configuration (default: false)
 ## AUTOUPDATE - Set to "false" to disable auto-updates
 ## REGISTRY_URL - Custom registry URL for Docker images (default: docker.io)
-## COOLIFY_BUILD_LOCAL - Set to "true" to build this fork instead of pulling coollabsio/coolify
+## COOLIFY_LOCAL_BUILD - Set to "true" to install this git checkout (build docker/production/Dockerfile as coolify-custom:local). Does not download coollabsio/coolify.
+## COOLIFY_BUILD_LOCAL - Alias of COOLIFY_LOCAL_BUILD
+##
+## Fork install from a clone:
+##   git clone https://github.com/odoogp/coolify.git
+##   cd coolify
+##   COOLIFY_LOCAL_BUILD=true ./scripts/install.sh
+## Equivalent: ./scripts/install-custom.sh
 
 set -e # Exit immediately if a command exits with a non-zero status
 ## $1 could be empty, so we need to disable this check
 #set -u # Treat unset variables as an error and exit
 set -o pipefail # Cause a pipeline to return the status of the last command that exited with a non-zero status
-if [ "${COOLIFY_BUILD_LOCAL:-false}" = "true" ]; then
+
+# Official installs are often `curl | bash`. Resolve the git checkout only for a local build.
+if [ "${COOLIFY_LOCAL_BUILD:-false}" = "true" ] || [ "${COOLIFY_BUILD_LOCAL:-false}" = "true" ]; then
+    COOLIFY_LOCAL_BUILD=true
+    if [ -z "${BASH_SOURCE[0]:-}" ] || [ ! -f "${BASH_SOURCE[0]}" ]; then
+        echo "COOLIFY_LOCAL_BUILD requires a git checkout: COOLIFY_LOCAL_BUILD=true ./scripts/install.sh"
+        exit 1
+    fi
     SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-    exec "$SCRIPT_DIR/install-custom.sh"
+    REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+    if [ ! -f "$REPO_ROOT/docker/production/Dockerfile" ]; then
+        echo "Local build needs ${REPO_ROOT}/docker/production/Dockerfile"
+        exit 1
+    fi
+else
+    COOLIFY_LOCAL_BUILD=false
 fi
 
 CDN="https://cdn.coollabs.io/coolify"
@@ -43,6 +63,10 @@ echo ""
 echo "Welcome to Coolify Installer!"
 echo "This script will install everything for you. Sit back and relax."
 echo "Source code: https://github.com/coollabsio/coolify/blob/v4.x/scripts/install.sh"
+if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
+    echo "Local build: ${REPO_ROOT}"
+    echo "Image: coolify-custom:local (docker.io/coollabsio/coolify is not pulled)"
+fi
 
 # Predefined root user
 ROOT_USERNAME=${ROOT_USERNAME:-}
@@ -323,8 +347,13 @@ if [ "$OS_TYPE" = 'amzn' ]; then
     dnf install -y findutils >/dev/null
 fi
 
-# Fetch versions.json once and parse all values from it
-VERSIONS_JSON=$(curl -L --silent $CDN/versions.json)
+# Fetch versions.json once and parse all values from it.
+# A local build must still install when the official CDN is unreachable.
+if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
+    VERSIONS_JSON=$(curl -L --silent --max-time 15 $CDN/versions.json || true)
+else
+    VERSIONS_JSON=$(curl -L --silent $CDN/versions.json)
+fi
 LATEST_VERSION=$(echo "$VERSIONS_JSON" | grep -i version | xargs | awk '{print $2}' | tr -d ',')
 LATEST_HELPER_VERSION=$(echo "$VERSIONS_JSON" | grep -i version | xargs | awk '{print $6}' | tr -d ',')
 LATEST_REALTIME_VERSION=$(echo "$VERSIONS_JSON" | grep -i version | xargs | awk '{print $8}' | tr -d ',')
@@ -350,6 +379,10 @@ if [ "$1" != "" ]; then
     LATEST_VERSION=$1
     LATEST_VERSION="${LATEST_VERSION,,}"
     LATEST_VERSION="${LATEST_VERSION#v}"
+fi
+
+if [ "$COOLIFY_LOCAL_BUILD" = "true" ] && [ -z "${LATEST_VERSION:-}" ]; then
+    LATEST_VERSION="local"
 fi
 
 echo "---------------------------------------------"
@@ -775,38 +808,63 @@ else
     fi
 fi
 
-log_section "Step 5/9: Downloading required files from CDN"
-echo "5/9 Downloading required files from CDN..."
-log "Downloading configuration files in parallel..."
+copy_repo_file() {
+    local src="$1"
+    local dest="$2"
 
-# Download files in parallel for faster installation
-curl -fsSL -L $CDN/docker-compose.yml -o /data/coolify/source/docker-compose.yml &
-PID1=$!
-curl -fsSL -L $CDN/docker-compose.prod.yml -o /data/coolify/source/docker-compose.prod.yml &
-PID2=$!
-curl -fsSL -L $CDN/.env.production -o /data/coolify/source/.env.production &
-PID3=$!
-curl -fsSL -L $CDN/upgrade.sh -o /data/coolify/source/upgrade.sh &
-PID4=$!
-curl -fsSL -L $CDN/upgrade-postgres.sh -o /data/coolify/source/upgrade-postgres.sh &
-PID5=$!
-
-# Wait for all downloads to complete and check for errors
-DOWNLOAD_FAILED=false
-for PID in $PID1 $PID2 $PID3 $PID4 $PID5; do
-    if ! wait $PID; then
-        DOWNLOAD_FAILED=true
+    if [ -e "$dest" ] && [ "$src" -ef "$dest" ]; then
+        log "Skipping copy, source and destination are the same file: $dest"
+        return 0
     fi
-done
+    cp "$src" "$dest"
+}
 
-if [ "$DOWNLOAD_FAILED" = true ]; then
-    echo " - ERROR: One or more downloads failed. Please check your network connection."
-    exit 1
+if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
+    log_section "Step 5/9: Copying required files from the local repository"
+    echo "5/9 Copying required files from ${REPO_ROOT}..."
+    log "Copying configuration files from ${REPO_ROOT}. The official CDN is not used."
+    copy_repo_file "$REPO_ROOT/docker-compose.yml" /data/coolify/source/docker-compose.yml
+    copy_repo_file "$REPO_ROOT/docker-compose.prod.yml" /data/coolify/source/docker-compose.prod.yml
+    copy_repo_file "$REPO_ROOT/.env.production" /data/coolify/source/.env.production
+    copy_repo_file "$REPO_ROOT/scripts/upgrade.sh" /data/coolify/source/upgrade.sh
+    copy_repo_file "$REPO_ROOT/scripts/upgrade-postgres.sh" /data/coolify/source/upgrade-postgres.sh
+    chmod +x /data/coolify/source/upgrade.sh /data/coolify/source/upgrade-postgres.sh
+    log "Local configuration files copied successfully"
+    echo "     Done."
+else
+    log_section "Step 5/9: Downloading required files from CDN"
+    echo "5/9 Downloading required files from CDN..."
+    log "Downloading configuration files in parallel..."
+
+    # Download files in parallel for faster installation
+    curl -fsSL -L $CDN/docker-compose.yml -o /data/coolify/source/docker-compose.yml &
+    PID1=$!
+    curl -fsSL -L $CDN/docker-compose.prod.yml -o /data/coolify/source/docker-compose.prod.yml &
+    PID2=$!
+    curl -fsSL -L $CDN/.env.production -o /data/coolify/source/.env.production &
+    PID3=$!
+    curl -fsSL -L $CDN/upgrade.sh -o /data/coolify/source/upgrade.sh &
+    PID4=$!
+    curl -fsSL -L $CDN/upgrade-postgres.sh -o /data/coolify/source/upgrade-postgres.sh &
+    PID5=$!
+
+    # Wait for all downloads to complete and check for errors
+    DOWNLOAD_FAILED=false
+    for PID in $PID1 $PID2 $PID3 $PID4 $PID5; do
+        if ! wait $PID; then
+            DOWNLOAD_FAILED=true
+        fi
+    done
+
+    if [ "$DOWNLOAD_FAILED" = true ]; then
+        echo " - ERROR: One or more downloads failed. Please check your network connection."
+        exit 1
+    fi
+
+    chmod +x /data/coolify/source/upgrade.sh /data/coolify/source/upgrade-postgres.sh
+    log "All configuration files downloaded successfully"
+    echo "     Done."
 fi
-
-chmod +x /data/coolify/source/upgrade.sh /data/coolify/source/upgrade-postgres.sh
-log "All configuration files downloaded successfully"
-echo "     Done."
 
 log_section "Step 6/9: Setting up environment variable file"
 echo "6/9 Setting up environment variable file..."
@@ -842,6 +900,19 @@ update_env_var() {
     elif ! grep -q "^${key}=" "$ENV_FILE"; then
         printf '%s=%s\n' "$key" "$value" >>"$ENV_FILE"
         echo " - Added ${key} and its value as the variable was missing"
+    fi
+}
+
+set_env_var() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^${key}=" "$ENV_FILE"; then
+        sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        echo " - Updated ${key}"
+    else
+        printf '%s=%s\n' "$key" "$value" >>"$ENV_FILE"
+        echo " - Added ${key}"
     fi
 }
 
@@ -888,6 +959,19 @@ else
         update_env_var "DOCKER_ADDRESS_POOL_SIZE" "$DOCKER_ADDRESS_POOL_SIZE"
     fi
 fi
+
+if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
+    echo " - Configuring local image coolify-custom:local (pull_policy never)"
+    update_env_var "DB_USERNAME" "coolify"
+    update_env_var "DB_DATABASE" "coolify"
+    set_env_var "COOLIFY_IMAGE" "coolify-custom:local"
+    set_env_var "COOLIFY_PULL_POLICY" "never"
+    set_env_var "COOLIFY_BUILD_CONTEXT" "$REPO_ROOT"
+    set_env_var "COOLIFY_VERSION" "${LATEST_VERSION:-local}"
+    if [ "${AUTOUPDATE:-}" != "true" ]; then
+        set_env_var "AUTOUPDATE" "false"
+    fi
+fi
 log "Environment variables check completed"
 echo "     Done."
 
@@ -921,73 +1005,153 @@ log "SSH key check completed"
 echo "     Done."
 
 log_section "Step 9/9: Installing Coolify"
-echo "9/9 Installing Coolify ($LATEST_VERSION)..."
-echo -e " - It could take a while based on your server's performance, network speed, stars, etc."
-echo -e " - Please wait."
-getAJoke
+if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
+    # local-build-step-9-start
+    echo "9/9 Building Coolify from ${REPO_ROOT}..."
+    echo " - Image: coolify-custom:local"
+    echo " - The official image docker.io/coollabsio/coolify is not pulled."
+    echo " - Existing volumes are kept."
 
-if [[ $- == *x* ]]; then
-    bash -x /data/coolify/source/upgrade.sh "${LATEST_VERSION:-latest}" "${LATEST_HELPER_VERSION:-latest}" "${REGISTRY_URL:-docker.io}" "true"
-else
-    bash /data/coolify/source/upgrade.sh "${LATEST_VERSION:-latest}" "${LATEST_HELPER_VERSION:-latest}" "${REGISTRY_URL:-docker.io}" "true"
-fi
-echo " - Coolify installed successfully."
-echo " - Waiting for Coolify to be ready..."
+    if [ ! -f "$ENV_FILE" ]; then
+        echo " - ERROR: ${ENV_FILE} does not exist. Compose cannot start without it."
+        exit 1
+    fi
 
-# Wait for upgrade.sh background process to complete
-# upgrade.sh writes status to /data/coolify/source/.upgrade-status
-# Status file format: step|message|timestamp
-# Step 6 = "Upgrade complete", file deleted 10 seconds after
-UPGRADE_STATUS_FILE="/data/coolify/source/.upgrade-status"
-MAX_WAIT=180
-WAITED=0
-SEEN_STATUS_FILE=false
+    if ! docker network inspect coolify >/dev/null 2>&1; then
+        echo " - Creating Docker network coolify..."
+        if ! docker network create --attachable --ipv6 coolify >/dev/null 2>&1; then
+            docker network create --attachable coolify >/dev/null
+        fi
+    else
+        echo " - Docker network coolify already exists."
+    fi
 
-while [ $WAITED -lt $MAX_WAIT ]; do
-    if [ -f "$UPGRADE_STATUS_FILE" ]; then
-        SEEN_STATUS_FILE=true
-        STATUS=$(cat "$UPGRADE_STATUS_FILE" 2>/dev/null | cut -d'|' -f1)
-        MESSAGE=$(cat "$UPGRADE_STATUS_FILE" 2>/dev/null | cut -d'|' -f2)
-        if [ "$STATUS" = "6" ]; then
-            log "Upgrade completed: $MESSAGE"
-            echo " - Upgrade complete!"
-            break
-        elif [ "$STATUS" = "error" ]; then
-            echo " - ERROR: Upgrade failed: $MESSAGE"
-            echo " - Please check the upgrade logs: /data/coolify/source/upgrade-*.log"
+    mkdir -p /data/coolify/images/{avatars,project-icons}
+    chown -R 9999:root /data/coolify/images
+    chmod -R 700 /data/coolify/images
+
+    # Shell variables override --env-file. Force the local image even if the
+    # caller inherited COOLIFY_IMAGE=docker.io/coollabsio/coolify:latest.
+    export COOLIFY_IMAGE="coolify-custom:local"
+    export COOLIFY_PULL_POLICY="never"
+    export COOLIFY_BUILD_CONTEXT="$REPO_ROOT"
+    export COOLIFY_VERSION="${LATEST_VERSION:-local}"
+
+    COMPOSE_FILES="-f /data/coolify/source/docker-compose.yml -f /data/coolify/source/docker-compose.prod.yml"
+    if [ -f /data/coolify/source/docker-compose.custom.yml ]; then
+        COMPOSE_FILES="$COMPOSE_FILES -f /data/coolify/source/docker-compose.custom.yml"
+    fi
+    if [ -f /data/coolify/source/docker-compose.postgres-upgrade.yml ]; then
+        COMPOSE_FILES="$COMPOSE_FILES -f /data/coolify/source/docker-compose.postgres-upgrade.yml"
+    fi
+
+    COMPOSE_CONFIG=$(docker compose --project-directory /data/coolify/source --env-file "$ENV_FILE" $COMPOSE_FILES config --format json)
+    COOLIFY_SERVICE_IMAGE=$(echo "$COMPOSE_CONFIG" | jq -r '.services.coolify.image')
+    COOLIFY_PULL_POLICY_RESOLVED=$(echo "$COMPOSE_CONFIG" | jq -r '.services.coolify.pull_policy')
+
+    case "$COOLIFY_SERVICE_IMAGE" in
+        coolify-custom:local|docker.io/coolify-custom:local|*/coolify-custom:local) ;;
+        *)
+            echo " - ERROR: Expected coolify-custom:local, got ${COOLIFY_SERVICE_IMAGE}."
+            echo " - Refusing to pull or run docker.io/coollabsio/coolify."
             exit 1
+            ;;
+    esac
+
+    if [ "$COOLIFY_PULL_POLICY_RESOLVED" != "never" ]; then
+        echo " - ERROR: Expected pull_policy never, got ${COOLIFY_PULL_POLICY_RESOLVED}."
+        exit 1
+    fi
+
+    echo " - Building docker/production/Dockerfile. This can take several minutes."
+    if ! docker compose --project-directory /data/coolify/source --env-file "$ENV_FILE" $COMPOSE_FILES build coolify; then
+        echo " - ERROR: Failed to build coolify-custom:local."
+        exit 1
+    fi
+
+    if ! docker image inspect coolify-custom:local >/dev/null 2>&1; then
+        echo " - ERROR: coolify-custom:local was not created."
+        exit 1
+    fi
+
+    echo " - Starting coolify, coolify-db, coolify-redis, and coolify-realtime."
+    if ! docker compose --project-directory /data/coolify/source --env-file "$ENV_FILE" $COMPOSE_FILES up -d --remove-orphans --wait --wait-timeout 180; then
+        echo " - ERROR: Failed to start the local Coolify stack."
+        exit 1
+    fi
+
+    echo " - Coolify installed from coolify-custom:local."
+    echo " - To update: cd ${REPO_ROOT} && git pull && COOLIFY_LOCAL_BUILD=true ./scripts/install.sh"
+    # local-build-step-9-end
+else
+    echo "9/9 Installing Coolify ($LATEST_VERSION)..."
+    echo -e " - It could take a while based on your server's performance, network speed, stars, etc."
+    echo -e " - Please wait."
+    getAJoke
+
+    if [[ $- == *x* ]]; then
+        bash -x /data/coolify/source/upgrade.sh "${LATEST_VERSION:-latest}" "${LATEST_HELPER_VERSION:-latest}" "${REGISTRY_URL:-docker.io}" "true"
+    else
+        bash /data/coolify/source/upgrade.sh "${LATEST_VERSION:-latest}" "${LATEST_HELPER_VERSION:-latest}" "${REGISTRY_URL:-docker.io}" "true"
+    fi
+    echo " - Coolify installed successfully."
+    echo " - Waiting for Coolify to be ready..."
+
+    # Wait for upgrade.sh background process to complete
+    # upgrade.sh writes status to /data/coolify/source/.upgrade-status
+    # Status file format: step|message|timestamp
+    # Step 6 = "Upgrade complete", file deleted 10 seconds after
+    UPGRADE_STATUS_FILE="/data/coolify/source/.upgrade-status"
+    MAX_WAIT=180
+    WAITED=0
+    SEEN_STATUS_FILE=false
+
+    while [ $WAITED -lt $MAX_WAIT ]; do
+        if [ -f "$UPGRADE_STATUS_FILE" ]; then
+            SEEN_STATUS_FILE=true
+            STATUS=$(cat "$UPGRADE_STATUS_FILE" 2>/dev/null | cut -d'|' -f1)
+            MESSAGE=$(cat "$UPGRADE_STATUS_FILE" 2>/dev/null | cut -d'|' -f2)
+            if [ "$STATUS" = "6" ]; then
+                log "Upgrade completed: $MESSAGE"
+                echo " - Upgrade complete!"
+                break
+            elif [ "$STATUS" = "error" ]; then
+                echo " - ERROR: Upgrade failed: $MESSAGE"
+                echo " - Please check the upgrade logs: /data/coolify/source/upgrade-*.log"
+                exit 1
+            else
+                if [ $((WAITED % 10)) -eq 0 ]; then
+                    echo " - Upgrade in progress: $MESSAGE (${WAITED}s)"
+                fi
+            fi
         else
-            if [ $((WAITED % 10)) -eq 0 ]; then
-                echo " - Upgrade in progress: $MESSAGE (${WAITED}s)"
+            # Status file doesn't exist
+            if [ "$SEEN_STATUS_FILE" = true ]; then
+                # We saw the file before, now it's gone = upgrade completed and cleaned up
+                log "Upgrade status file cleaned up - upgrade complete"
+                echo " - Upgrade complete!"
+                break
+            fi
+            # Haven't seen status file yet - either very early or upgrade.sh hasn't started
+            if [ $((WAITED % 10)) -eq 0 ] && [ $WAITED -gt 0 ]; then
+                echo " - Waiting for upgrade process to start... (${WAITED}s)"
             fi
         fi
-    else
-        # Status file doesn't exist
-        if [ "$SEEN_STATUS_FILE" = true ]; then
-            # We saw the file before, now it's gone = upgrade completed and cleaned up
-            log "Upgrade status file cleaned up - upgrade complete"
-            echo " - Upgrade complete!"
-            break
-        fi
-        # Haven't seen status file yet - either very early or upgrade.sh hasn't started
-        if [ $((WAITED % 10)) -eq 0 ] && [ $WAITED -gt 0 ]; then
-            echo " - Waiting for upgrade process to start... (${WAITED}s)"
-        fi
-    fi
-    sleep 2
-    WAITED=$((WAITED + 2))
-done
+        sleep 2
+        WAITED=$((WAITED + 2))
+    done
 
-if [ $WAITED -ge $MAX_WAIT ]; then
-    if [ "$SEEN_STATUS_FILE" = false ]; then
-        # Never saw status file - fallback to old behavior (wait 20s + health check)
-        log "Status file not found, using fallback wait"
-        echo " - Status file not found, waiting 20 seconds..."
-        sleep 20
-    else
-        echo " - ERROR: Upgrade timed out after ${MAX_WAIT}s"
-        echo " - Please check the upgrade logs: /data/coolify/source/upgrade-*.log"
-        exit 1
+    if [ $WAITED -ge $MAX_WAIT ]; then
+        if [ "$SEEN_STATUS_FILE" = false ]; then
+            # Never saw status file - fallback to old behavior (wait 20s + health check)
+            log "Status file not found, using fallback wait"
+            echo " - Status file not found, waiting 20 seconds..."
+            sleep 20
+        else
+            echo " - ERROR: Upgrade timed out after ${MAX_WAIT}s"
+            echo " - Please check the upgrade logs: /data/coolify/source/upgrade-*.log"
+            exit 1
+        fi
     fi
 fi
 

@@ -5,7 +5,8 @@ services:
     image: "${COOLIFY_IMAGE:-coolify-custom:local}"
     pull_policy: "${COOLIFY_PULL_POLICY:-never}"
     build:
-      context: .
+      # Installer sets this to the git checkout. "." is the compose project dir.
+      context: ${COOLIFY_BUILD_CONTEXT:-.}
       dockerfile: docker/production/Dockerfile
       args:
         COOLIFY_VERSION: ${COOLIFY_VERSION:-local}
