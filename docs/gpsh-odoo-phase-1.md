@@ -9,8 +9,8 @@ Tabla `odoo_profiles`, una fila por proyecto.
 | Campo | Qué es |
 | --- | --- |
 | `odoo_version` | `17`, `18`, `19` o `20` |
-| `max_staging_environments` | Entero. Por defecto `1`. No puede ser negativo. |
-| `unlimited_staging_environments` | Boolean. Por defecto `false`. |
+| `max_staging_environments` | Columna vieja del proyecto. Ya no decide el cupo. |
+| `unlimited_staging_environments` | Columna vieja del proyecto. Ya no decide el cupo. |
 
 Si el ilimitado está apagado, el proyecto puede tener como máximo esa cantidad de environments de staging. Si está encendido, el número no se aplica.
 
@@ -29,10 +29,13 @@ Si ya existe `staging`, se reutiliza y no se renombra. El siguiente que se cree 
 La regla vive en `App\Support\OdooStaging::canCreateStagingEnvironment()`:
 
 ```
-sin perfil        → no
-ilimitado         → sí
-si no             → cantidad de stagings < max_staging_environments
+sin perfil                         → no
+member                             → no
+owner, o admin sin número          → sí
+admin con número                   → sus stagings en el equipo < max_staging_branches
 ```
+
+Ese número lo escribe solo el owner, en el miembro del equipo. No es un límite del proyecto. Producción no cuenta.
 
 `Project::createNextStagingEnvironment()` es el único sitio que crea el siguiente, y llama a esa regla. Clonar production llama a ese mismo método.
 
@@ -40,7 +43,7 @@ Un proyecto sin perfil no gana un staging. Sigue siendo solo `production`.
 
 ## Clonar production
 
-Si el proyecto ya tiene su ambiente `production`, clonar crea un solo staging (`staging-1`, o el siguiente número libre). No crea otro `production`. Si el límite ya se alcanzó, no crea nada.
+Si el proyecto ya tiene su ambiente `production`, clonar crea un solo staging (`staging-1`, o el siguiente número libre). No crea otro `production`. Si el usuario que lanza ya llegó a su cupo, no crea nada. El owner asocia a ese usuario la cuenta de GitHub que usa al lanzar.
 
 Ese clon no copia la base, el filestore ni la rama de GitHub. Production se queda igual.
 

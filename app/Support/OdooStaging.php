@@ -4,13 +4,16 @@ namespace App\Support;
 
 use App\Models\Environment;
 use App\Models\Project;
+use App\Models\User;
+use App\Services\AdminCreationQuota;
 use Illuminate\Support\Collection;
 
 /**
- * Staging capacity for an Odoo project.
+ * Staging identity for an Odoo project.
  *
  * A staging environment is a normal Coolify Environment whose name is
- * "staging" or "staging-N". Production is never counted. Git branches are not.
+ * "staging" or "staging-N". Production is never counted. How many a person
+ * can launch is that user's quota, set by the team owner.
  */
 class OdooStaging
 {
@@ -32,16 +35,16 @@ class OdooStaging
 
     public static function canCreateStagingEnvironment(Project $project): bool
     {
-        $profile = $project->odooProfile;
-        if ($profile === null) {
+        if ($project->odooProfile === null || $project->team_id === null) {
             return false;
         }
 
-        if ($profile->unlimited_staging_environments) {
-            return true;
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            return false;
         }
 
-        return self::stagingEnvironments($project)->count() < (int) $profile->max_staging_environments;
+        return app(AdminCreationQuota::class)->canLaunchStaging($user, (int) $project->team_id);
     }
 
     public static function nextName(Project $project): string

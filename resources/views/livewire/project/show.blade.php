@@ -50,6 +50,8 @@
             @endcan
         </header>
 
+        <livewire:project.odoo-summary :project="$project" />
+
         @if ($project->environments->isEmpty())
             <x-empty title="{{ __('No environments yet') }}"
                 description="{{ __('Add an environment to start organizing this project\'s resources.') }}"

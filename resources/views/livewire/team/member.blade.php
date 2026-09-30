@@ -106,12 +106,27 @@
             <x-forms.input id="maxProductionBranches" type="number" min="0" label="{{ __('Production branches') }}" />
             <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
             <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
+            <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}"
+                helper="{{ __('The GitHub account this user uses when launching Odoo.') }}"
+                :options="$githubApps" />
             <div class="flex items-end">
                 <x-forms.button type="submit" defaultClass="button button-highlighted">
                     {{ __('Save limits') }}
                 </x-forms.button>
             </div>
         </div>
+    </form>
+@endif
+@if ($canGrantOdoo)
+    <form wire:submit="saveOdooAbilities" class="flex flex-col gap-2 px-4 py-3">
+        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Odoo abilities for this member. The owner grants them. They do not include servers or S3.') }}</p>
+        @foreach ($grantableOdooAbilities as $ability)
+            <label class="flex items-center gap-2 text-[13px]">
+                <input type="checkbox" value="{{ $ability }}" wire:model="odooAbilities">
+                <span>{{ $ability }}</span>
+            </label>
+        @endforeach
+        <x-forms.button type="submit" defaultClass="button button-highlighted">{{ __('Save Odoo abilities') }}</x-forms.button>
     </form>
 @endif
 </div>

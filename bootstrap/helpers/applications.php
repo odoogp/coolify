@@ -3,6 +3,7 @@
 use App\Actions\Application\StopApplication;
 use App\Enums\ApplicationDeploymentStatus;
 use App\Jobs\ApplicationDeploymentJob;
+use App\Jobs\SyncOdooAddonsJob;
 use App\Jobs\VolumeCloneJob;
 use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
@@ -88,16 +89,12 @@ function queue_application_deployment(Application $application, string $deployme
         $deployment->update([
             'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
         ]);
-        ApplicationDeploymentJob::dispatch(
-            application_deployment_queue_id: $deployment->id,
-        );
+        dispatch_queued_application_deployment($deployment->id);
     } elseif (next_queuable($server_id, $application_id, $commit, $pull_request_id)) {
         $deployment->update([
             'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
         ]);
-        ApplicationDeploymentJob::dispatch(
-            application_deployment_queue_id: $deployment->id,
-        );
+        dispatch_queued_application_deployment($deployment->id);
     }
 
     return [
@@ -112,8 +109,19 @@ function force_start_deployment(ApplicationDeploymentQueue $deployment)
         'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
     ]);
 
+    dispatch_queued_application_deployment($deployment->id);
+}
+function dispatch_queued_application_deployment(int $deploymentId): void
+{
+    $application = ApplicationDeploymentQueue::query()->find($deploymentId)?->application;
+    if ($application?->is_odoo_addons) {
+        SyncOdooAddonsJob::dispatch(application_deployment_queue_id: $deploymentId);
+
+        return;
+    }
+
     ApplicationDeploymentJob::dispatch(
-        application_deployment_queue_id: $deployment->id,
+        application_deployment_queue_id: $deploymentId,
     );
 }
 function queue_next_deployment(Application $application)
@@ -131,9 +139,7 @@ function queue_next_deployment(Application $application)
                 'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
             ]);
 
-            ApplicationDeploymentJob::dispatch(
-                application_deployment_queue_id: $next_deployment->id,
-            );
+            dispatch_queued_application_deployment($next_deployment->id);
         }
     }
 }
@@ -180,9 +186,7 @@ function next_after_cancel(?Server $server = null)
                         'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
                     ]);
 
-                    ApplicationDeploymentJob::dispatch(
-                        application_deployment_queue_id: $next->id,
-                    );
+                    dispatch_queued_application_deployment($next->id);
                 }
             }
         }

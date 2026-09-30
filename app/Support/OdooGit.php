@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Jobs\RestartOdooBranchJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
@@ -188,7 +187,10 @@ class OdooGit
 
         foreach ($rows as $row) {
             $row->update(['status' => 'updating']);
-            RestartOdooBranchJob::dispatch($row->id);
+            if ($row->addons_application_id !== null) {
+                continue;
+            }
+            \App\Jobs\SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
         }
 
         return $rows->count();

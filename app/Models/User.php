@@ -291,7 +291,7 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 
     public function teams()
     {
-        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by');
+        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities');
     }
 
     public function changelogReads()

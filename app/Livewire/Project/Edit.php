@@ -11,6 +11,7 @@ use App\Support\OdooStaging;
 use App\Support\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -31,10 +32,6 @@ class Edit extends Component
     public ?string $description = null;
 
     public string $odooVersion = '18';
-
-    public int $maxStagingEnvironments = 1;
-
-    public bool $unlimitedStagingEnvironments = false;
 
     public bool $odooStagingIsEmpty = false;
 
@@ -150,19 +147,11 @@ class Edit extends Component
             $this->authorize('update', $this->project);
             $validated = Validator::make([
                 'odooVersion' => $this->odooVersion,
-                'maxStagingEnvironments' => $this->maxStagingEnvironments,
-                'unlimitedStagingEnvironments' => $this->unlimitedStagingEnvironments,
             ], [
                 'odooVersion' => ['required', Rule::in(OdooVersion::SUPPORTED)],
-                'maxStagingEnvironments' => ['required', 'integer', 'min:0'],
-                'unlimitedStagingEnvironments' => ['boolean'],
             ])->validate();
 
-            $this->project->enableOdoo(
-                $validated['odooVersion'],
-                (int) $validated['maxStagingEnvironments'],
-                (bool) $validated['unlimitedStagingEnvironments'],
-            );
+            $this->project->enableOdoo($validated['odooVersion']);
             $this->project->refresh();
             $this->syncOdooState();
             $this->dispatch('success', __('Odoo profile saved. Nothing was deployed.'));
@@ -178,16 +167,22 @@ class Edit extends Component
         $this->project->load('odooProfile');
         $profile = $this->project->odooProfile;
         $this->odooVersion = $profile?->odoo_version ?? $this->odooVersion;
-        $this->maxStagingEnvironments = (int) ($profile?->max_staging_environments ?? $this->maxStagingEnvironments);
-        $this->unlimitedStagingEnvironments = (bool) ($profile?->unlimited_staging_environments ?? false);
         $stagings = OdooStaging::stagingEnvironments($this->project);
         $this->odooStagingIsEmpty = $stagings->isNotEmpty() && $stagings->every(fn ($environment): bool => $environment->isEmpty());
         $this->canCloneProductionToStaging = $profile !== null && $this->project->canCreateStagingEnvironment();
         $connected = OdooGit::connectedApps($this->project->team_id);
         $this->odooGithubConnected = $connected->isNotEmpty();
         $this->odooGithubAppId = $profile?->github_app_id;
-        if ($this->odooGithubAppId === null && $connected->count() === 1) {
-            $this->odooGithubAppId = $connected->first()->id;
+        if ($this->odooGithubAppId === null) {
+            $userAppId = auth()->id() === null ? null : DB::table('team_user')
+                ->where('user_id', auth()->id())
+                ->where('team_id', $this->project->team_id)
+                ->value('github_app_id');
+            if ($userAppId !== null && $connected->contains('id', (int) $userAppId)) {
+                $this->odooGithubAppId = (int) $userAppId;
+            } elseif ($connected->count() === 1) {
+                $this->odooGithubAppId = $connected->first()->id;
+            }
         }
         $this->odooRepositoryId = $profile?->repository_id;
         $this->odooGithubApps = $connected

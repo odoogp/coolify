@@ -6,6 +6,8 @@ use App\Actions\User\RevokeUserTeamTokens;
 use App\Enums\Role;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
+use App\Support\OdooAbilities;
+use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +32,11 @@ class Member extends Component
 
     public mixed $maxServices = null;
 
+    public mixed $githubAppId = null;
+
+    /** @var list<string> */
+    public array $odooAbilities = [];
+
     public function mount(): void
     {
         $team = currentTeam();
@@ -44,6 +51,10 @@ class Member extends Component
         $this->maxProductionBranches = $this->quotaInput(data_get($pivot, 'max_production_branches'));
         $this->maxStagingBranches = $this->quotaInput(data_get($pivot, 'max_staging_branches'));
         $this->maxServices = $this->quotaInput(data_get($pivot, 'max_services'));
+        $this->githubAppId = data_get($pivot, 'github_app_id');
+        $raw = data_get($pivot, 'odoo_abilities');
+        $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+        $this->odooAbilities = is_array($decoded) ? OdooAbilities::onlyGrantable(array_map('strval', $decoded)) : [];
     }
 
     public function saveCreationLimits(): void
@@ -62,6 +73,7 @@ class Member extends Component
             $this->maxProductionBranches = $this->blankToNull($this->maxProductionBranches);
             $this->maxStagingBranches = $this->blankToNull($this->maxStagingBranches);
             $this->maxServices = $this->blankToNull($this->maxServices);
+            $this->githubAppId = $this->blankToNull($this->githubAppId);
 
             $this->validate([
                 'maxProjects' => ['nullable', 'integer', 'min:0'],
@@ -70,9 +82,16 @@ class Member extends Component
                 'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
                 'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
                 'maxServices' => ['nullable', 'integer', 'min:0'],
+                'githubAppId' => ['nullable', 'integer'],
             ]);
 
             $teamId = $team->id;
+            if ($this->githubAppId !== null && ! OdooGit::connectedApps($teamId)->contains('id', (int) $this->githubAppId)) {
+                throw ValidationException::withMessages([
+                    'githubAppId' => __('Select a connected GitHub account.'),
+                ]);
+            }
+
             $this->member->teams()->updateExistingPivot($teamId, [
                 'max_projects' => $this->maxProjects,
                 'max_environments' => $this->maxEnvironments,
@@ -80,12 +99,34 @@ class Member extends Component
                 'max_production_branches' => $this->maxProductionBranches,
                 'max_staging_branches' => $this->maxStagingBranches,
                 'max_services' => $this->maxServices,
+                'github_app_id' => $this->githubAppId,
             ]);
             Cache::forget('user:'.$this->member->id.':team:'.$teamId);
             Cache::forget('team:'.$this->member->id);
             $this->dispatch('success', __('Creation limits saved.'));
         } catch (ValidationException $e) {
             throw $e;
+        } catch (\Exception $e) {
+            $this->dispatch('error', $e->getMessage());
+        }
+    }
+
+    public function saveOdooAbilities(): void
+    {
+        try {
+            $team = currentTeam();
+            $this->authorize('updateCreationLimits', $team);
+
+            if ($this->getMemberRole() !== Role::MEMBER->value) {
+                throw new \Exception('Odoo abilities are granted to members.');
+            }
+
+            $this->odooAbilities = OdooAbilities::onlyGrantable($this->odooAbilities);
+            $teamId = $team->id;
+            $this->member->teams()->updateExistingPivot($teamId, [
+                'odoo_abilities' => json_encode($this->odooAbilities),
+            ]);
+            $this->dispatch('success', __('Odoo abilities saved.'));
         } catch (\Exception $e) {
             $this->dispatch('error', $e->getMessage());
         }
@@ -186,6 +227,13 @@ class Member extends Component
             'usage' => $canEditLimits
                 ? app(AdminCreationQuota::class)->usage($this->member, $team->id)
                 : null,
+            'githubApps' => $canEditLimits
+                ? OdooGit::connectedApps($team->id)->map(fn ($app): array => ['value' => $app->id, 'label' => $app->name])->all()
+                : [],
+            'canGrantOdoo' => $team !== null
+                && auth()->user()?->can('updateCreationLimits', $team)
+                && $this->getMemberRole() === Role::MEMBER->value,
+            'grantableOdooAbilities' => OdooAbilities::GRANTABLE,
         ]);
     }
 

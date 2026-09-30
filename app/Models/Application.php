@@ -223,6 +223,7 @@ class Application extends BaseModel
         'source_id',
         'source_type',
         'repository_project_id',
+        'is_odoo_addons',
         'private_key_id',
     ];
 
@@ -260,6 +261,7 @@ class Application extends BaseModel
             'restart_count' => 'integer',
             'max_restart_count' => 'integer',
             'last_restart_at' => 'datetime',
+            'is_odoo_addons' => 'boolean',
         ];
     }
 

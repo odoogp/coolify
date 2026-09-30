@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\GitlabController;
 use App\Http\Controllers\Api\HetznerController;
 use App\Http\Controllers\Api\InstanceEmailSettingsController;
 use App\Http\Controllers\Api\NotificationsController;
+use App\Http\Controllers\Api\OdooProjectController;
 use App\Http\Controllers\Api\OtherController;
 use App\Http\Controllers\Api\ProjectController;
 use App\Http\Controllers\Api\ResourcesController;
@@ -113,6 +114,13 @@ Route::group([
     Route::post('/projects', [ProjectController::class, 'create_project'])->middleware(['api.ability:write']);
     Route::patch('/projects/{uuid}', [ProjectController::class, 'update_project'])->middleware(['api.ability:write']);
     Route::delete('/projects/{uuid}', [ProjectController::class, 'delete_project'])->middleware(['api.ability:write']);
+    Route::get('/projects/{uuid}/odoo', [OdooProjectController::class, 'show'])->middleware(['api.ability:read']);
+    Route::post('/projects/{uuid}/odoo/{environment}/provision', [OdooProjectController::class, 'provision'])->middleware(['api.ability:write']);
+    Route::post('/projects/{uuid}/odoo/{environment}/deploy', [OdooProjectController::class, 'deploy'])->middleware(['api.ability:deploy']);
+    Route::post('/projects/{uuid}/odoo/{environment}/sync', [OdooProjectController::class, 'sync'])->middleware(['api.ability:write']);
+    Route::post('/projects/{uuid}/odoo/{environment}/backup', [OdooProjectController::class, 'backup'])->middleware(['api.ability:write']);
+    Route::post('/projects/{uuid}/odoo/{environment}/clone-data', [OdooProjectController::class, 'cloneData'])->middleware(['api.ability:write']);
+    Route::post('/projects/{uuid}/odoo/backups/{backup}/restore', [OdooProjectController::class, 'restore'])->middleware(['api.ability:write']);
 
     Route::get('/security/keys', [SecurityController::class, 'keys'])->middleware(['api.ability:read']);
     Route::post('/security/keys', [SecurityController::class, 'create_key'])->middleware(['api.ability:write']);

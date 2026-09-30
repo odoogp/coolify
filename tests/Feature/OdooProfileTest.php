@@ -1,7 +1,9 @@
 <?php
 
 use App\Livewire\Project\Edit;
+use App\Livewire\Team\Member as TeamMember;
 use App\Models\Environment;
+use App\Models\GithubApp;
 use App\Models\InstanceSettings;
 use App\Models\OdooProfile;
 use App\Models\Project;
@@ -9,8 +11,10 @@ use App\Models\S3Storage;
 use App\Models\Server;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\AdminCreationQuota;
 use App\Support\OdooStaging;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -57,11 +61,16 @@ it('enables an odoo profile and an empty first staging environment without deplo
 });
 
 it('does not count production as a staging environment', function () {
-    $this->project->enableOdoo('18', 1, false);
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin', 'max_staging_branches' => 1]);
+    $this->actingAs($admin);
+
+    $this->project->enableOdoo('18');
 
     expect(OdooStaging::stagingEnvironments($this->project)->pluck('name')->all())->toBe(['staging-1']);
     expect($this->project->canCreateStagingEnvironment())->toBeFalse();
     expect($this->project->environments()->where('name', 'production')->exists())->toBeTrue();
+    expect(app(AdminCreationQuota::class)->stagingLaunchUsage($admin->id, $this->team->id))->toBe(1);
 });
 
 it('updates the odoo version without creating another staging environment', function () {
@@ -69,7 +78,6 @@ it('updates the odoo version without creating another staging environment', func
 
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->set('odooVersion', '19')
-        ->set('maxStagingEnvironments', 1)
         ->call('enableOdoo')
         ->assertHasNoErrors();
 
@@ -91,27 +99,32 @@ it('reuses an existing staging environment and does not create another', functio
     expect($this->project->createNextStagingEnvironment()->name)->toBe('staging-2');
 });
 
-it('rejects a staging environment past the configured limit', function () {
-    $this->project->enableOdoo('18', 2, false);
-    $this->project->createNextStagingEnvironment();
+it('rejects a staging environment past the user limit on every project', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin', 'max_staging_branches' => 1]);
+    $this->actingAs($admin);
+    $this->project->enableOdoo('18', 5, true);
 
     expect($this->project->canCreateStagingEnvironment())->toBeFalse();
     expect(fn () => $this->project->createNextStagingEnvironment())->toThrow(RuntimeException::class);
-    expect($this->project->environments()->orderBy('name')->pluck('name')->all())->toBe([
-        'production',
-        'staging-1',
-        'staging-2',
-    ]);
+
+    $other = Project::factory()->create(['team_id' => $this->team->id]);
+    $other->enableOdoo('18', 5, true);
+
+    expect($other->environments()->where('name', 'staging-1')->exists())->toBeFalse();
+    expect(OdooStaging::stagingEnvironments($this->project)->pluck('name')->all())->toBe(['staging-1']);
 });
 
-it('allows more staging environments when the limit is unlimited', function () {
-    $this->project->enableOdoo('18', 1, true);
+it('allows more staging environments when the user has no staging limit', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin']);
+    $this->actingAs($admin);
+    $this->project->enableOdoo('18', 1, false);
     $this->project->createNextStagingEnvironment();
     $this->project->createNextStagingEnvironment();
 
     expect(OdooStaging::stagingEnvironments($this->project)->count())->toBe(3);
     expect($this->project->canCreateStagingEnvironment())->toBeTrue();
-    expect($this->project->odooProfile->max_staging_environments)->toBe(1);
 });
 
 it('clones production into one staging and keeps a single production', function () {
@@ -130,8 +143,11 @@ it('clones production into one staging and keeps a single production', function 
     expect($this->project->services()->count())->toBe(0);
 });
 
-it('does not create a staging when the limit is already full', function () {
-    $this->project->enableOdoo('18', 1, false);
+it('does not create a staging when the user limit is already full', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin', 'max_staging_branches' => 1]);
+    $this->actingAs($admin);
+    $this->project->enableOdoo('18');
 
     expect(fn () => $this->project->cloneProductionAsStaging())->toThrow(\RuntimeException::class);
     expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);
@@ -153,14 +169,17 @@ it('does not let a member clone production into a staging', function () {
     expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);
 });
 
-it('rejects a negative staging limit', function () {
-    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
-        ->set('maxStagingEnvironments', -1)
-        ->call('enableOdoo')
-        ->assertHasErrors(['maxStagingEnvironments']);
+it('rejects a negative staging limit and keeps it off the project page', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin']);
 
-    expect(OdooProfile::query()->count())->toBe(0);
-    expect($this->project->environments()->pluck('name')->all())->toBe(['production']);
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertDontSee('Allow unlimited staging environments');
+
+    Livewire::test(\App\Livewire\Team\Member::class, ['member' => $admin])
+        ->set('maxStagingBranches', -1)
+        ->call('saveCreationLimits')
+        ->assertHasErrors(['maxStagingBranches']);
 });
 
 it('rejects an unsupported odoo version', function () {
@@ -181,7 +200,6 @@ it('does not let a member enable or change odoo settings', function () {
 
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->set('odooVersion', '18')
-        ->set('maxStagingEnvironments', 4)
         ->call('enableOdoo')
         ->assertDispatched('error');
 
@@ -201,6 +219,61 @@ it('does not let a member enable or change odoo settings', function () {
         ->assertDispatched('error')
         ->call('saveOdooGit')
         ->assertDispatched('error');
+});
+
+it('lets only the owner attach a github account and a staging limit to a user', function () {
+    $keyId = DB::table('private_keys')->insertGetId([
+        'uuid' => (string) str()->uuid(),
+        'name' => 'odoo-github',
+        'private_key' => 'test-key',
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $githubApp = GithubApp::create([
+        'name' => 'Acme GitHub',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'app_id' => 123,
+        'installation_id' => 456,
+        'private_key_id' => $keyId,
+        'webhook_secret' => 'odoo-hook',
+        'team_id' => $this->team->id,
+        'is_public' => false,
+    ]);
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin']);
+
+    Livewire::test(TeamMember::class, ['member' => $admin])
+        ->set('maxStagingBranches', 1)
+        ->set('githubAppId', $githubApp->id)
+        ->call('saveCreationLimits')
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
+    $pivot = DB::table('team_user')->where('user_id', $admin->id)->where('team_id', $this->team->id)->first();
+    expect((int) $pivot->max_staging_branches)->toBe(1)
+        ->and((int) $pivot->github_app_id)->toBe($githubApp->id);
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(TeamMember::class, ['member' => $admin])
+        ->assertDontSee('Save limits')
+        ->set('maxStagingBranches', 9)
+        ->set('githubAppId', null)
+        ->call('saveCreationLimits')
+        ->assertDispatched('error');
+
+    expect((int) DB::table('team_user')->where('user_id', $admin->id)->value('max_staging_branches'))->toBe(1)
+        ->and((int) DB::table('team_user')->where('user_id', $admin->id)->value('github_app_id'))->toBe($githubApp->id);
+
+    $this->project->enableOdoo('18');
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertSet('odooGithubConnected', true)
+        ->assertSet('odooGithubAppId', $githubApp->id);
 });
 
 it('removes the odoo profile when the project is deleted', function () {

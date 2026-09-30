@@ -98,6 +98,19 @@
 
             <div class="min-w-0">
                 @if ($currentRoute === 'project.service.configuration')
+                    @if ($odooNeedsGithub)
+                        <section class="application-settings-section mb-6">
+                            <div class="application-settings-section-body flex flex-col gap-3">
+                                <p class="text-sm font-medium">{{ __('GitHub') }}</p>
+                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Sign in with GitHub before deploying this Odoo service. The deploy creates the key and the branch in the repository. An account that is already connected is reused.') }}
+                                </p>
+                                <div>
+                                    <a class="button" href="{{ route('source.all') }}">{{ __('Connect GitHub') }}</a>
+                                </div>
+                            </div>
+                        </section>
+                    @endif
                     <livewire:project.service.stack-form :service="$service" />
 
                     <div class="mt-8" x-data="{

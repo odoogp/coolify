@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\Service;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Support\OdooStaging;
 use Illuminate\Support\Facades\DB;
 
 class AdminCreationQuota
@@ -489,6 +490,34 @@ class AdminCreationQuota
             ->count();
 
         return $accepted + $pending;
+    }
+
+    /**
+     * Owners are not capped. An empty admin limit means unlimited. Members cannot launch staging.
+     */
+    public function canLaunchStaging(User $user, int $teamId): bool
+    {
+        $membership = $this->membership($user->id, $teamId);
+        if ($membership === null || $membership->role === Role::MEMBER->value) {
+            return false;
+        }
+
+        if ($membership->role === Role::OWNER->value || $membership->max_staging_branches === null) {
+            return true;
+        }
+
+        return $this->stagingLaunchUsage($user->id, $teamId) < (int) $membership->max_staging_branches;
+    }
+
+    public function stagingLaunchUsage(int $userId, int $teamId): int
+    {
+        return Environment::query()
+            ->where('created_by', $userId)
+            ->whereHas('project', fn ($query) => $query->where('team_id', $teamId))
+            ->get(['id', 'name'])
+            ->filter(fn (Environment $environment): bool => OdooStaging::isStagingName($environment->name)
+                || in_array(mb_strtolower(trim((string) $environment->name)), ['stage', 'stg'], true))
+            ->count();
     }
 
     private function limitValue(?object $membership, string $column): ?int

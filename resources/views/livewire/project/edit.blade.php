@@ -115,23 +115,9 @@
                     <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
                         :disabled="! auth()->user()->can('update', $project)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
                 </div>
-                <div class="max-w-sm">
-                    <p class="mb-1.5 text-sm font-medium">{{ __('Staging environments') }}</p>
-                    <p class="mb-3 text-[13px] text-neutral-500 dark:text-fg-dim">
-                        {{ __('Sets how many staging environments this project can have. Each environment can be linked to a different branch later.') }}
-                    </p>
-                    <x-forms.input canGate="update" :canResource="$project" id="maxStagingEnvironments" type="number" min="0"
-                        label="{{ __('Maximum number') }}"
-                        :disabled="$unlimitedStagingEnvironments || ! auth()->user()->can('update', $project)" />
-                </div>
-                <x-forms.checkbox canGate="update" :canResource="$project" id="unlimitedStagingEnvironments" live
-                    label="{{ __('Allow unlimited staging environments') }}"
-                    helper="{{ __('When this is on, the maximum number is not used.') }}" />
-                @if ($unlimitedStagingEnvironments)
-                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                        {{ __('The maximum number is not used while unlimited staging is on.') }}
-                    </p>
-                @endif
+                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                    {{ __('How many staging environments you can launch is set on your user by the team owner. It is not a limit of this project.') }}
+                </p>
                 @if ($project->odooProfile && $odooStagingIsEmpty)
                     <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                         {{ __('Staging is empty. No database, filestore, or addons are deployed yet.') }}
@@ -152,7 +138,7 @@
                     <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                         {{ $canCloneProductionToStaging
                             ? __('Creates one staging environment. It does not create another production.')
-                            : __('The staging limit is reached. Raise it before cloning production again.') }}
+                            : __('Your staging limit is reached. The team owner sets how many staging environments you can launch.') }}
                     </p>
                 @endif
                 @if ($project->odooProfile)
@@ -165,14 +151,11 @@
                         </div>
                         @if (! $odooGithubConnected)
                             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('Sign in with GitHub to create the key and connect the webhook for this environment.') }}
+                                {{ __('GitHub is connected when the Odoo service is created. If the account is already connected, it is reused. The deploy creates the key and the branch in the repository.') }}
                             </p>
-                            <div>
-                                <a class="button" href="{{ route('source.all') }}">{{ __('Connect GitHub') }}</a>
-                            </div>
                         @else
                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                            {{ __('The connected GitHub account is reused. Its webhook marks the exact branch as updating and restarts Odoo.') }}
+                            {{ __('This GitHub account is reused. Deploying the Odoo service creates the key and this environment branch in the repository.') }}
                         </p>
                         <div class="grid max-w-xl gap-4 sm:grid-cols-2">
                             <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub App') }}"

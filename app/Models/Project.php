@@ -161,7 +161,7 @@ class Project extends BaseModel
         return Environment::create([
             'name' => $name,
             'project_id' => $this->id,
-            'created_by' => $this->created_by,
+            'created_by' => auth()->id() ?? $this->created_by,
         ]);
     }
 

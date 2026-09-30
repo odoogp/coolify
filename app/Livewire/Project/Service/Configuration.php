@@ -3,6 +3,7 @@
 namespace App\Livewire\Project\Service;
 
 use App\Models\Service;
+use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -31,6 +32,8 @@ class Configuration extends Component
         'refresh' => 'refreshServices',
     ];
 
+    public bool $odooNeedsGithub = false;
+
     public function render()
     {
         return view('livewire.project.service.configuration');
@@ -57,6 +60,10 @@ class Configuration extends Component
 
             $this->project = $project;
             $this->environment = $environment;
+            $project->loadMissing('odooProfile');
+            $this->odooNeedsGithub = $this->service->supportsOdooJupyter()
+                && $project->odooProfile !== null
+                && OdooGit::connectedApps((int) $project->team_id)->isEmpty();
             $this->applications = $this->service->applications->sort();
             $this->databases = $this->service->databases->sort();
         } catch (\Throwable $e) {

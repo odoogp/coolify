@@ -23,4 +23,4 @@ Al guardar, el nombre tiene que estar en la lista de ramas que devuelve esa GitH
 
 No se registra otro webhook. El que ya existe, `POST /source/github/events`, busca la rama guardada. Si el push es exactamente esa rama, la marca como `updating` y reinicia el contenedor `odoo` de ese environment cuando el servicio ya existe. Mientras tanto la pantalla dice que Odoo se está actualizando.
 
-Si el equipo ya tiene una GitHub App instalada, con su llave privada y su webhook, se reutiliza. Si no, el entorno pide iniciar sesión con GitHub en Fuentes para crear esa llave y conectar el webhook.
+Si el equipo ya tiene una GitHub App instalada, se reutiliza al crear el servicio Odoo. Si no, el inicio de sesión se pide en ese servicio, no en los ajustes del proyecto. El despliegue de ese servicio es el que crea la llave y la rama en el repositorio.

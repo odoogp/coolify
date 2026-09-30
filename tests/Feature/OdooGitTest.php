@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\RestartOdooBranchJob;
+use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\Edit;
 use App\Models\Application;
 use App\Models\GithubApp;
@@ -132,7 +133,8 @@ it('does not let a member save github branches', function () {
 it('asks to sign in with github when the account is not connected', function () {
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->assertSet('odooGithubConnected', false)
-        ->assertSee('Sign in with GitHub to create the key and connect the webhook for this environment.');
+        ->assertSee('GitHub is connected when the Odoo service is created.')
+        ->assertDontSee('Connect GitHub');
 });
 
 it('reuses the github account that already has a key and a webhook', function () {
@@ -153,7 +155,7 @@ it('reuses the github account that already has a key and a webhook', function ()
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->assertSet('odooGithubConnected', true)
         ->assertSet('odooGithubAppId', $this->githubApp->id)
-        ->assertSee('The connected GitHub account is reused.');
+        ->assertSee('This GitHub account is reused. Deploying the Odoo service creates the key and this environment branch in the repository.');
 });
 
 it('marks only the matching github branch as updating when the webhook arrives', function () {
@@ -193,7 +195,7 @@ it('marks only the matching github branch as updating when the webhook arrives',
     expect($staging->odooBranch->fresh()->status)->toBe('updating');
     expect($production->odooBranch->fresh()->status)->toBe('idle');
     expect($otherStaging->odooBranch->fresh()->status)->toBe('idle');
-    Queue::assertPushed(RestartOdooBranchJob::class, fn (RestartOdooBranchJob $job): bool => $job->odooEnvironmentBranchId === $staging->odooBranch->id);
+    Queue::assertPushed(SyncOdooAddonsJob::class, fn (SyncOdooAddonsJob $job): bool => $job->odooEnvironmentBranchId === $staging->odooBranch->id);
 });
 
 it('returns the branch to idle after the odoo restart finishes', function () {
