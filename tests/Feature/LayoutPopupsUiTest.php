@@ -31,8 +31,9 @@ test('non-critical reminders collapse after ten seconds', function () {
 
     expect($view)
         ->toContain('reminderCollapseAfter: 10000')
-        ->toContain("scheduleReminderCollapse('sponsorship')")
         ->toContain("scheduleReminderCollapse('notification')")
-        ->toContain('reminders.sponsorship.compact = true')
-        ->toContain('reminders.notification.compact = true');
+        ->toContain('reminders.notification.compact = true')
+        ->not->toContain('GitHub Sponsors')
+        ->not->toContain('Love Coolify? Support our work.')
+        ->not->toContain('opencollective.com');
 });

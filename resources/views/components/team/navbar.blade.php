@@ -15,16 +15,18 @@
         @isset($actions)
             {{ $actions }}
         @else
-            <x-modal-input title="{{ __('New Team') }}">
-                <x-slot:content>
-                    <button type="button"
-                        class="button button-highlighted">
-                        <x-reicon name="plus" class="size-3.5" />
-                        {{ __('New team') }}
-                    </button>
-                </x-slot:content>
-                <livewire:team.create />
-            </x-modal-input>
+            @can('create', \App\Models\Team::class)
+                <x-modal-input title="{{ __('New Team') }}">
+                    <x-slot:content>
+                        <button type="button"
+                            class="button button-highlighted">
+                            <x-reicon name="plus" class="size-3.5" />
+                            {{ __('New team') }}
+                        </button>
+                    </x-slot:content>
+                    <livewire:team.create />
+                </x-modal-input>
+            @endcan
         @endisset
     </x-slot:actions>
 </x-dashboard.navbar>

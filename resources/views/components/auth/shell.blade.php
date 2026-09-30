@@ -7,10 +7,15 @@
     <div class="auth-shell-content">
         <div class="auth-card">
             <div class="auth-card-heading">
-                <h1>{{ $title }}</h1>
-                @if ($description)
-                    <p>{{ $description }}</p>
-                @endif
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h1>{{ $title }}</h1>
+                        @if ($description)
+                            <p>{{ $description }}</p>
+                        @endif
+                    </div>
+                    <x-locale-switcher variant="compact" />
+                </div>
             </div>
 
             <div class="auth-card-body">
@@ -22,9 +27,6 @@
                     {{ $footer }}
                 </footer>
             @endisset
-        </div>
-        <div class="mt-4">
-            <x-locale-switcher variant="compact" />
         </div>
     </div>
 </section>

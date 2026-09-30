@@ -964,6 +964,7 @@ if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
     echo " - Configuring local image coolify-custom:local (pull_policy never)"
     update_env_var "DB_USERNAME" "coolify"
     update_env_var "DB_DATABASE" "coolify"
+    set_env_var "COOLIFY_LOCAL_BUILD" "true"
     set_env_var "COOLIFY_IMAGE" "coolify-custom:local"
     set_env_var "COOLIFY_PULL_POLICY" "never"
     set_env_var "COOLIFY_BUILD_CONTEXT" "$REPO_ROOT"

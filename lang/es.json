@@ -3481,5 +3481,10 @@
     "Waiting for output…": "Esperando la salida…",
     "Create the root account for this instance.": "Crea la cuenta raíz de esta instancia.",
     "Create your account to get started.": "Crea tu cuenta para empezar.",
-    "Copy details": "Copiar detalles"
+    "Copy details": "Copiar detalles",
+    "Leave empty for no limit.": "Déjalo vacío para no poner límite.",
+    "Production branches": "Ramas de producción",
+    "Staging branches": "Ramas de staging",
+    "Save limits": "Guardar límites",
+    "Creation limits saved.": "Límites de creación guardados."
 }

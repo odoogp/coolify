@@ -181,4 +181,5 @@ it('reports whether the running version has reached the target', function (strin
     'already newer' => ['4.3.2', '4.3.1', true],
     'missing running version' => ['', '4.3.1', false],
     'missing target version' => ['4.3.1', '', false],
+    'local git labels' => ['11366-terminal-websocket-connection@aaaaaaaaaaaa', '11366-terminal-websocket-connection@bbbbbbbbbbbb', true],
 ]);

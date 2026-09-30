@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProcessStatus;
+use App\Services\AdminCreationQuota;
 use App\Services\ContainerStatusAggregator;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
@@ -83,6 +84,7 @@ class Service extends BaseModel
             if (blank($service->name)) {
                 $service->name = 'service-'.new_public_id();
             }
+            app(AdminCreationQuota::class)->guardService($service);
         });
         static::created(function ($service) {
             $service->compose_parsing_version = self::$parserVersion;

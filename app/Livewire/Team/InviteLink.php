@@ -78,12 +78,12 @@ class InviteLink extends Component
 
             if (is_null($user)) {
                 $password = Str::password();
-                $user = User::create([
+                $user = User::withoutPersonalTeam(fn () => User::create([
                     'name' => str($this->email)->before('@'),
                     'email' => $this->email,
                     'password' => Hash::make($password),
                     'force_password_reset' => true,
-                ]);
+                ]));
                 $token = Crypt::encryptString("{$user->email}@@@{$uuid}@@@{$password}");
                 $link = $this->invitationUrl('auth.link', ['token' => $token]);
             }

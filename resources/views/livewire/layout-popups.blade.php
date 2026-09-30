@@ -1,23 +1,16 @@
 <div x-data="{
     popups: {
-        sponsorship: true,
         notification: true,
         realtime: false,
     },
     reminders: {
-        sponsorship: { compact: false },
         notification: { compact: false },
     },
     reminderCollapseAfter: 10000,
     isDevelopment: {{ isDev() ? 'true' : 'false' }},
     init() {
-        this.popups.sponsorship = this.shouldShowMonthlyPopup('popupSponsorship');
         this.popups.notification = this.shouldShowMonthlyPopup('popupNotification');
         this.popups.realtime = localStorage.getItem('popupRealtime');
-
-        if (this.popups.sponsorship) {
-            this.scheduleReminderCollapse('sponsorship');
-        }
 
         if (this.popups.notification) {
             this.scheduleReminderCollapse('notification');
@@ -48,10 +41,6 @@
     },
     scheduleReminderCollapse(reminder) {
         setTimeout(() => {
-            if (reminder === 'sponsorship') {
-                this.reminders.sponsorship.compact = true;
-            }
-
             if (reminder === 'notification') {
                 this.reminders.notification.compact = true;
             }
@@ -140,62 +129,6 @@
             @endif
         </span>
     @endauth
-    @if (instanceSettings()->is_sponsorship_popup_enabled && !isCloud())
-        <span x-show="popups.sponsorship">
-            <x-popup>
-                <x-slot:customActions>
-                    <div class="relative mx-auto flex w-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-modal transition-all duration-300 dark:border-white/[0.1] dark:bg-surface"
-                        :class="reminders.sponsorship.compact ? 'max-w-sm gap-3 p-4' : 'max-w-2xl gap-5 p-5 sm:p-6'">
-                        <button type="button" aria-label="{{ __('Dismiss sponsorship reminder') }}"
-                            class="absolute top-3 right-3 flex size-7 items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                            @click="bannerVisible=false;disableSponsorship()">
-                            <x-reicon name="x" class="size-3.5" />
-                        </button>
-
-                        <div class="flex items-start gap-4 pr-8">
-                            <div x-show="!reminders.sponsorship.compact" x-transition.opacity
-                                class="hidden size-12 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-neutral-50 sm:flex dark:border-white/[0.08] dark:bg-white/[0.04]">
-                                <img src="{{ asset('heart.png') }}" alt="" class="size-9">
-                            </div>
-                            <div class="min-w-0">
-                                <h2 class="text-[15px]! leading-5! font-semibold! text-black dark:text-fg">
-                                    {{ __('Love Coolify? Support our work.') }}
-                                </h2>
-                                <p x-show="!reminders.sponsorship.compact" x-transition.opacity
-                                    class="mt-1 text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
-                                    Coolify is profitable thanks to <span
-                                        class="font-semibold text-coollabs dark:text-warning">you</span>. Your support
-                                    helps us build more features and keep improving the project.
-                                </p>
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                            <a target="_blank" href="https://github.com/sponsors/coollabsio"
-                                class="button button-highlighted h-9 justify-center sm:flex-1">
-                                {{ __('GitHub Sponsors') }}
-                            </a>
-                            <a x-show="!reminders.sponsorship.compact" x-transition.opacity target="_blank"
-                                href="https://opencollective.com/coollabsio/donate?interval=month&amount=10&name=&legalName=&email="
-                                class="button h-9 justify-center sm:flex-1">
-                                {{ __('Open Collective') }}
-                            </a>
-                            <a x-show="!reminders.sponsorship.compact" x-transition.opacity
-                                href="https://donate.stripe.com/8x2bJ104ifmB9kB45u38402" target="_blank"
-                                class="button h-9 justify-center sm:flex-1">
-                                {{ __('Stripe') }}
-                            </a>
-                            <button x-show="!reminders.sponsorship.compact" x-transition.opacity type="button"
-                                class="h-9 cursor-pointer px-2 text-[12px] font-medium text-neutral-500 transition-colors hover:text-black sm:shrink-0 dark:text-fg-dim dark:hover:text-fg"
-                                @click="bannerVisible=false;disableSponsorship()">
-                                {{ __('Maybe next time') }}
-                            </button>
-                        </div>
-                    </div>
-                </x-slot:customActions>
-            </x-popup>
-        </span>
-    @endif
     @if (request()->query->get('cancelled'))
         <x-banner>
             <div class="flex items-center gap-2">
@@ -294,11 +227,6 @@
         </span>
     @endif
     <script>
-        function disableSponsorship() {
-            // Store current timestamp instead of just 'false'
-            localStorage.setItem('popupSponsorship', Date.now().toString());
-        }
-
         function disableNotification() {
             // Store current timestamp instead of just 'false'
             localStorage.setItem('popupNotification', Date.now().toString());

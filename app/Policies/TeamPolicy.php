@@ -28,8 +28,7 @@ class TeamPolicy
      */
     public function create(User $user): bool
     {
-        // All authenticated users can create teams
-        return true;
+        return $user->teams()->wherePivot('role', 'owner')->exists();
     }
 
     /**

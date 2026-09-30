@@ -95,10 +95,10 @@ class FortifyServiceProvider extends ServiceProvider
                         }
                         $invitation->delete();
                     });
+                    $user->unsetRelation('teams');
                     $user->currentTeam = $invitation->team;
                 } else {
-                    // Normal login - use personal team
-                    $user->currentTeam = $user->teams->firstWhere('personal_team', true);
+                    $user->currentTeam = $user->teams->firstWhere('personal_team', true) ?? $user->teams->first();
                     if (! $user->currentTeam) {
                         $user->currentTeam = $user->recreate_personal_team();
                     }

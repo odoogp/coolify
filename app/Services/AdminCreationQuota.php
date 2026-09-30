@@ -4,8 +4,10 @@ namespace App\Services;
 
 use App\Enums\Role;
 use App\Exceptions\AdminCreationQuotaExceeded;
+use App\Models\Application;
 use App\Models\Environment;
 use App\Models\Project;
+use App\Models\Service;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -154,6 +156,70 @@ class AdminCreationQuota
         $this->assertWithinLimits($membership, $actor->id, $teamId, environments: 1);
     }
 
+    public function guardApplication(Application $application): void
+    {
+        if ($this->suspended() || $application->environment_id === null) {
+            return;
+        }
+
+        $actor = auth()->user();
+        if ($application->created_by === null && $actor !== null) {
+            $application->created_by = $actor->id;
+        }
+
+        if (! $actor instanceof User || (int) $application->created_by !== (int) $actor->id) {
+            return;
+        }
+
+        $environment = Environment::query()->with('project:id,team_id')->find($application->environment_id);
+        $teamId = $environment?->project?->team_id;
+        $kind = $this->environmentKind($environment?->name);
+        if ($teamId === null || $kind === null) {
+            return;
+        }
+
+        $teamId = (int) $teamId;
+        $membership = DB::transactionLevel() > 0
+            ? $this->lockedMembership($actor->id, $teamId)
+            : $this->membership($actor->id, $teamId);
+
+        if ($kind === 'production') {
+            $this->assertWithinLimits($membership, $actor->id, $teamId, productionBranches: 1);
+
+            return;
+        }
+
+        $this->assertWithinLimits($membership, $actor->id, $teamId, stagingBranches: 1);
+    }
+
+    public function guardService(Service $service): void
+    {
+        if ($this->suspended() || $service->environment_id === null) {
+            return;
+        }
+
+        $actor = auth()->user();
+        if ($service->created_by === null && $actor !== null) {
+            $service->created_by = $actor->id;
+        }
+
+        if (! $actor instanceof User || (int) $service->created_by !== (int) $actor->id) {
+            return;
+        }
+
+        $teamId = Environment::query()->whereKey($service->environment_id)->with('project:id,team_id')->first()?->project?->team_id;
+        if ($teamId === null) {
+            return;
+        }
+
+        $teamId = (int) $teamId;
+        $membership = DB::transactionLevel() > 0
+            ? $this->lockedMembership($actor->id, $teamId)
+            : $this->membership($actor->id, $teamId);
+
+        $this->assertWithinLimits($membership, $actor->id, $teamId, services: 1);
+    }
+
     /**
      * Imports and other restores must not consume an admin's personal quota.
      */
@@ -169,7 +235,7 @@ class AdminCreationQuota
     }
 
     /**
-     * @return array{projects: int, environments: int, members: int}
+     * @return array{projects: int, environments: int, members: int, production_branches: int, staging_branches: int, services: int}
      */
     public function usage(User $user, int $teamId): array
     {
@@ -177,6 +243,9 @@ class AdminCreationQuota
             'projects' => $this->projectUsage($user->id, $teamId),
             'environments' => $this->environmentUsage($user->id, $teamId),
             'members' => $this->memberUsage($user->id, $teamId),
+            'production_branches' => $this->branchUsage($user->id, $teamId, 'production'),
+            'staging_branches' => $this->branchUsage($user->id, $teamId, 'staging'),
+            'services' => $this->serviceUsage($user->id, $teamId),
         ];
     }
 
@@ -184,7 +253,10 @@ class AdminCreationQuota
      * @return array{
      *     projects: array{used: int, limit: int|null},
      *     environments: array{used: int, limit: int|null},
-     *     members: array{used: int, limit: int|null}
+     *     members: array{used: int, limit: int|null},
+     *     production_branches: array{used: int, limit: int|null},
+     *     staging_branches: array{used: int, limit: int|null},
+     *     services: array{used: int, limit: int|null}
      * }|null
      */
     public function summaryForViewer(): ?array
@@ -211,6 +283,18 @@ class AdminCreationQuota
             'members' => [
                 'used' => $usage['members'],
                 'limit' => $this->limitValue($membership, 'max_members'),
+            ],
+            'production_branches' => [
+                'used' => $usage['production_branches'],
+                'limit' => $this->limitValue($membership, 'max_production_branches'),
+            ],
+            'staging_branches' => [
+                'used' => $usage['staging_branches'],
+                'limit' => $this->limitValue($membership, 'max_staging_branches'),
+            ],
+            'services' => [
+                'used' => $usage['services'],
+                'limit' => $this->limitValue($membership, 'max_services'),
             ],
         ];
     }
@@ -248,6 +332,9 @@ class AdminCreationQuota
         int $projects = 0,
         int $environments = 0,
         int $members = 0,
+        int $productionBranches = 0,
+        int $stagingBranches = 0,
+        int $services = 0,
     ): void {
         if ($membership === null || $membership->role !== Role::ADMIN->value) {
             return;
@@ -279,6 +366,33 @@ class AdminCreationQuota
                 'miembros',
             );
         }
+
+        if ($productionBranches > 0) {
+            $this->assertLimit(
+                $membership->max_production_branches,
+                $this->branchUsage($userId, $teamId, 'production'),
+                $productionBranches,
+                'ramas de producción',
+            );
+        }
+
+        if ($stagingBranches > 0) {
+            $this->assertLimit(
+                $membership->max_staging_branches,
+                $this->branchUsage($userId, $teamId, 'staging'),
+                $stagingBranches,
+                'ramas de staging',
+            );
+        }
+
+        if ($services > 0) {
+            $this->assertLimit(
+                $membership->max_services,
+                $this->serviceUsage($userId, $teamId),
+                $services,
+                'servicios',
+            );
+        }
     }
 
     private function assertLimit(mixed $limit, int $used, int $needed, string $label): void
@@ -307,6 +421,56 @@ class AdminCreationQuota
         return Environment::query()
             ->where('created_by', $userId)
             ->whereHas('project', fn ($query) => $query->where('team_id', $teamId))
+            ->count();
+    }
+
+    private function environmentKind(?string $name): ?string
+    {
+        $normalized = mb_strtolower(trim((string) $name));
+
+        if (in_array($normalized, $this->branchNames('production'), true)) {
+            return 'production';
+        }
+
+        if (in_array($normalized, $this->branchNames('staging'), true)) {
+            return 'staging';
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function branchNames(string $kind): array
+    {
+        return $kind === 'production'
+            ? ['production', 'produccion', 'producción', 'prod']
+            : ['staging', 'stage', 'stg'];
+    }
+
+    private function branchUsage(int $userId, int $teamId, string $kind): int
+    {
+        $names = $this->branchNames($kind);
+
+        return Application::query()
+            ->where('created_by', $userId)
+            ->whereHas('environment', function ($query) use ($teamId, $names) {
+                $query->whereHas('project', fn ($project) => $project->where('team_id', $teamId))
+                    ->where(function ($nameQuery) use ($names) {
+                        foreach ($names as $name) {
+                            $nameQuery->orWhereRaw('lower(name) = ?', [$name]);
+                        }
+                    });
+            })
+            ->count();
+    }
+
+    private function serviceUsage(int $userId, int $teamId): int
+    {
+        return Service::query()
+            ->where('created_by', $userId)
+            ->whereHas('environment.project', fn ($query) => $query->where('team_id', $teamId))
             ->count();
     }
 

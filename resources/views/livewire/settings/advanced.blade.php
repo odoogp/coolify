@@ -127,11 +127,6 @@
                             ['value' => false, 'label' => __('Enabled')],
                             ['value' => true, 'label' => __('Disabled')],
                         ]" />
-                    <x-forms.listbox id="is_sponsorship_popup_enabled" label="{{ __('Sponsorship reminders') }}"
-                        helper="{{ __('Show the monthly project sponsorship reminder.') }}" onChange="instantSave" :options="[
-                            ['value' => true, 'label' => __('Enabled')],
-                            ['value' => false, 'label' => __('Disabled')],
-                        ]" />
                 </div>
             </x-application.settings-section>
 

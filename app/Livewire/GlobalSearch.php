@@ -7,6 +7,7 @@ use App\Models\Environment;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Service;
+use App\Models\Team;
 use App\Models\StandaloneClickhouse;
 use App\Models\StandaloneDragonfly;
 use App\Models\StandaloneKeydb;
@@ -226,7 +227,7 @@ class GlobalSearch extends Component
         }
 
         if ($type === 'team') {
-            return true;
+            return $user->can('create', Team::class);
         }
 
         // Applications, Databases, Services, and other resources
@@ -936,15 +937,16 @@ class GlobalSearch extends Component
             ]);
         }
 
-        // Team - can be created by anyone (they become owner of new team)
-        $items->push([
-            'name' => 'Team',
-            'description' => 'Create a new team to collaborate with others',
-            'quickcommand' => '(type: new team)',
-            'type' => 'team',
-            'category' => 'Quick Actions',
-            'component' => 'team.create',
-        ]);
+        if ($user->can('create', Team::class)) {
+            $items->push([
+                'name' => 'Team',
+                'description' => 'Create a new team to collaborate with others',
+                'quickcommand' => '(type: new team)',
+                'type' => 'team',
+                'category' => 'Quick Actions',
+                'component' => 'team.create',
+            ]);
+        }
 
         // Storage - can be created if user is admin or owner
         if ($user->isAdmin() || $user->isOwner()) {

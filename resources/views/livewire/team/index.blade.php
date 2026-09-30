@@ -10,9 +10,11 @@
             <x-application.settings-section title="{{ __('General') }}"
                 description="{{ __('Manage this team\'s identity and shared API access.') }}">
                 <x-slot:actions>
-                    <x-modal-input buttonTitle="New team" title="{{ __('New Team') }}">
-                        <livewire:team.create />
-                    </x-modal-input>
+                    @can('create', \App\Models\Team::class)
+                        <x-modal-input buttonTitle="New team" title="{{ __('New Team') }}">
+                            <livewire:team.create />
+                        </x-modal-input>
+                    @endcan
                 </x-slot:actions>
                 <div class="grid gap-4 lg:grid-cols-2">
                     <x-forms.input id="name" label="{{ __('Name') }}" required canGate="update" :canResource="$team" />

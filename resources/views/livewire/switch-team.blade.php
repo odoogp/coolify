@@ -27,17 +27,19 @@
                     <span class="min-w-0 flex-1 truncate">{{ $team->name }}</span>
                 </button>
             @endforeach
-            <div class="mt-1 border-t border-neutral-200 pt-1 dark:border-white/[0.08]">
-                <x-modal-input title="{{ __('New Team') }}">
-                    <x-slot:content>
-                        <button type="button" class="listbox-option w-full" @click="open = false">
-                            <x-reicon name="plus" class="size-3.5 shrink-0" />
-                            <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
-                        </button>
-                    </x-slot:content>
-                    <livewire:team.create :key="'team-switcher-create-expanded'" />
-                </x-modal-input>
-            </div>
+            @can('create', \App\Models\Team::class)
+                <div class="mt-1 border-t border-neutral-200 pt-1 dark:border-white/[0.08]">
+                    <x-modal-input title="{{ __('New Team') }}">
+                        <x-slot:content>
+                            <button type="button" class="listbox-option w-full" @click="open = false">
+                                <x-reicon name="plus" class="size-3.5 shrink-0" />
+                                <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
+                            </button>
+                        </x-slot:content>
+                        <livewire:team.create :key="'team-switcher-create-expanded'" />
+                    </x-modal-input>
+                </div>
+            @endcan
         </div>
     </div>
 
@@ -71,17 +73,19 @@
                     <span class="min-w-0 flex-1 truncate">{{ $team->name }}</span>
                 </button>
             @endforeach
-            <div class="mt-1 border-t border-neutral-200 pt-1 dark:border-white/[0.08]">
-                <x-modal-input title="{{ __('New Team') }}">
-                    <x-slot:content>
-                        <button type="button" class="listbox-option w-full" @click="teamOpen = false">
-                            <x-reicon name="plus" class="size-3.5 shrink-0" />
-                            <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
-                        </button>
-                    </x-slot:content>
-                    <livewire:team.create :key="'team-switcher-create-collapsed'" />
-                </x-modal-input>
-            </div>
+            @can('create', \App\Models\Team::class)
+                <div class="mt-1 border-t border-neutral-200 pt-1 dark:border-white/[0.08]">
+                    <x-modal-input title="{{ __('New Team') }}">
+                        <x-slot:content>
+                            <button type="button" class="listbox-option w-full" @click="teamOpen = false">
+                                <x-reicon name="plus" class="size-3.5 shrink-0" />
+                                <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
+                            </button>
+                        </x-slot:content>
+                        <livewire:team.create :key="'team-switcher-create-collapsed'" />
+                    </x-modal-input>
+                </div>
+            @endcan
         </div>
     </div>
 </div>

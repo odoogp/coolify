@@ -1096,6 +1096,18 @@ html[data-theme="custom"] textarea:disabled {
     padding: 1.25rem 1.25rem 1rem;
 }
 
+.auth-locale select {
+    height: 2rem;
+    max-width: 8.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--coollabs-hairline);
+    background: var(--coollabs-base);
+    color: inherit;
+    padding: 0 1.6rem 0 0.6rem;
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
 .auth-card-heading h1 {
     margin: 0;
     font-size: 1.25rem;

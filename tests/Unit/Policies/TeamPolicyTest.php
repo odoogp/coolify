@@ -28,10 +28,24 @@ it('allows any authenticated user to view any teams list', function () {
     expect((new TeamPolicy)->viewAny($user))->toBeTrue();
 });
 
-it('allows authenticated users to create teams', function () {
+it('allows owners to create teams', function () {
     $user = Mockery::mock(User::class)->makePartial();
+    $relation = Mockery::mock();
+    $relation->shouldReceive('wherePivot')->once()->with('role', 'owner')->andReturnSelf();
+    $relation->shouldReceive('exists')->once()->andReturn(true);
+    $user->shouldReceive('teams')->once()->andReturn($relation);
 
     expect((new TeamPolicy)->create($user))->toBeTrue();
+});
+
+it('denies users who are not team owners from creating teams', function () {
+    $user = Mockery::mock(User::class)->makePartial();
+    $relation = Mockery::mock();
+    $relation->shouldReceive('wherePivot')->once()->with('role', 'owner')->andReturnSelf();
+    $relation->shouldReceive('exists')->once()->andReturn(false);
+    $user->shouldReceive('teams')->once()->andReturn($relation);
+
+    expect((new TeamPolicy)->create($user))->toBeFalse();
 });
 
 it('allows target team members to view the team', function () {

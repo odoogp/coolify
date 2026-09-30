@@ -6,6 +6,7 @@ use App\Actions\Server\UpdateCoolify;
 use App\Models\InstanceSettings;
 use App\Models\Server;
 use App\Services\CoolifyUpgradeStatus;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
 class Upgrade extends Component
@@ -50,6 +51,12 @@ class Upgrade extends Component
             return;
         }
 
+        if (is_coolify_local_build()) {
+            $this->applyLocalUpgradeState();
+
+            return;
+        }
+
         $settings = InstanceSettings::find(0);
         $hasNewerVersion = version_compare($this->latestVersion, $this->currentVersion, '>');
         $newVersionAvailable = (bool) data_get($settings, 'new_version_available', false);
@@ -60,6 +67,22 @@ class Upgrade extends Component
         }
 
         $this->isUpgradeAvailable = $hasNewerVersion && $newVersionAvailable;
+    }
+
+    protected function applyLocalUpgradeState(): void
+    {
+        $settings = InstanceSettings::find(0);
+        $revision = Cache::get('coolify:local-git');
+
+        if (is_array($revision) && isset($revision['branch'], $revision['head'], $revision['upstream'])) {
+            $this->currentVersion = $revision['branch'].'@'.substr((string) $revision['head'], 0, 12);
+            $this->latestVersion = $revision['branch'].'@'.substr((string) $revision['upstream'], 0, 12);
+            $this->isUpgradeAvailable = $revision['head'] !== $revision['upstream'];
+
+            return;
+        }
+
+        $this->isUpgradeAvailable = (bool) data_get($settings, 'new_version_available', false);
     }
 
     public function upgrade()

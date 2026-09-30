@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\TeamInvitation;
 use App\Providers\RouteServiceProvider;
 use Closure;
 use Illuminate\Http\Request;
@@ -12,8 +13,9 @@ class DecideWhatToDoWithUser
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (auth()?->user()?->teams?->count() === 0) {
-            $currentTeam = auth()->user()?->recreate_personal_team();
+        $user = auth()->user();
+        if ($user && $user->teams?->count() === 0 && ! TeamInvitation::whereEmail($user->email)->exists()) {
+            $currentTeam = $user->recreate_personal_team();
             refreshSession($currentTeam);
         }
         if (auth()?->user()?->currentTeam()) {

@@ -11,21 +11,15 @@
 @endphp
 
 @if ($variant === 'compact')
-    <div class="flex items-center justify-center gap-1 text-xs">
-        @foreach ($locales as $code => $label)
-            <form method="POST" action="{{ route('locale.update') }}">
-                @csrf
-                <input type="hidden" name="locale" value="{{ $code }}">
-                <button type="submit" @class([
-                    'rounded-md px-2 py-1',
-                    'font-semibold text-neutral-900 dark:text-fg' => $current === $code,
-                    'text-neutral-500 hover:text-neutral-900 dark:text-fg-faint dark:hover:text-fg' => $current !== $code,
-                ])>
-                    {{ $label }}
-                </button>
-            </form>
-        @endforeach
-    </div>
+    <form method="POST" action="{{ route('locale.update') }}" class="auth-locale">
+        @csrf
+        <label class="sr-only" for="auth-locale">{{ __('Language') }}</label>
+        <select id="auth-locale" name="locale" onchange="this.form.submit()">
+            @foreach ($locales as $code => $label)
+                <option value="{{ $code }}" @selected($current === $code)>{{ $label }}</option>
+            @endforeach
+        </select>
+    </form>
 @else
     <div class="px-2 pt-1 pb-0.5 text-[10px] font-medium tracking-wide text-neutral-400 uppercase dark:text-fg-faint">
         {{ __('Language') }}

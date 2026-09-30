@@ -45,6 +45,8 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 {
     use DeletesUserSessions, HasApiTokens, HasFactory, Notifiable, TwoFactorAuthenticatable;
 
+    private static bool $skipPersonalTeam = false;
+
     protected $fillable = [
         'name',
         'email',
@@ -101,6 +103,18 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         return config('app.locale');
     }
 
+    public static function withoutPersonalTeam(callable $callback): mixed
+    {
+        $previous = static::$skipPersonalTeam;
+        static::$skipPersonalTeam = true;
+
+        try {
+            return $callback();
+        } finally {
+            static::$skipPersonalTeam = $previous;
+        }
+    }
+
     protected static function boot()
     {
         parent::boot();
@@ -112,6 +126,10 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         });
 
         static::created(function (User $user) {
+            if (static::$skipPersonalTeam && $user->id !== 0) {
+                return;
+            }
+
             $team = [
                 'name' => $user->name."'s Team",
                 'personal_team' => true,
@@ -273,7 +291,7 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 
     public function teams()
     {
-        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'added_by');
+        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by');
     }
 
     public function changelogReads()

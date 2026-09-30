@@ -405,3 +405,121 @@ test('two creates stop at the cap', function () {
 
     expect(Project::query()->where('created_by', $this->admin->id)->count())->toBe(2);
 });
+
+test('an invited admin stays on the assigned team and cannot create another', function () {
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(InviteLink::class)
+        ->set('email', 'client@example.com')
+        ->set('role', 'admin')
+        ->call('viaLink')
+        ->assertDispatched('success');
+
+    $invitee = User::query()->where('email', 'client@example.com')->first();
+
+    expect($invitee->teams()->count())->toBe(0)
+        ->and($invitee->can('create', Team::class))->toBeFalse();
+
+    $this->actingAs($invitee);
+
+    Livewire::test(\App\Livewire\Team\Create::class)
+        ->set('name', 'Client team')
+        ->call('submit')
+        ->assertForbidden();
+});
+
+test('logging in does not create a personal team for an invited admin', function () {
+    $invitee = User::withoutPersonalTeam(fn () => User::factory()->create([
+        'email' => 'invited-login@example.com',
+        'password' => bcrypt('password'),
+    ]));
+
+    TeamInvitation::create([
+        'team_id' => $this->team->id,
+        'uuid' => new_public_id(32),
+        'email' => $invitee->email,
+        'role' => 'admin',
+        'link' => 'http://localhost/invitations/invited-login',
+        'via' => 'email',
+    ]);
+
+    $this->post('/login', [
+        'email' => $invitee->email,
+        'password' => 'password',
+    ]);
+
+    expect($invitee->teams()->where('personal_team', true)->exists())->toBeFalse()
+        ->and($invitee->teams()->where('teams.id', $this->team->id)->exists())->toBeTrue();
+});
+
+test('an admin cannot exceed production, staging, or service quotas', function () {
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $this->team]);
+
+    $project = Project::factory()->create([
+        'team_id' => $this->team->id,
+        'created_by' => $this->owner->id,
+    ]);
+    $production = Environment::factory()->create([
+        'project_id' => $project->id,
+        'name' => 'production',
+        'created_by' => $this->owner->id,
+    ]);
+    $staging = Environment::factory()->create([
+        'project_id' => $project->id,
+        'name' => 'staging',
+        'created_by' => $this->owner->id,
+    ]);
+
+    $this->admin->teams()->updateExistingPivot($this->team->id, [
+        'max_production_branches' => 1,
+        'max_staging_branches' => 1,
+        'max_services' => 1,
+    ]);
+
+    $this->actingAs($this->admin);
+
+    $application = [
+        'destination_id' => null,
+        'destination_type' => null,
+    ];
+
+    \App\Models\Application::factory()->create([
+        ...$application,
+        'environment_id' => $production->id,
+    ]);
+    \App\Models\Application::factory()->create([
+        ...$application,
+        'environment_id' => $staging->id,
+    ]);
+
+    expect(fn () => \App\Models\Application::factory()->create([
+        ...$application,
+        'environment_id' => $production->id,
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 ramas de producción en este equipo.');
+
+    expect(fn () => \App\Models\Application::factory()->create([
+        ...$application,
+        'environment_id' => $staging->id,
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 ramas de staging en este equipo.');
+
+    $key = \App\Models\PrivateKey::factory()->create(['team_id' => $this->team->id]);
+    $server = \App\Models\Server::factory()->create([
+        'team_id' => $this->team->id,
+        'private_key_id' => $key->id,
+    ]);
+    $destination = \App\Models\StandaloneDocker::query()->where('server_id', $server->id)->firstOrFail();
+
+    \App\Models\Service::factory()->create([
+        'environment_id' => $production->id,
+        'destination_id' => $destination->id,
+        'destination_type' => $destination->getMorphClass(),
+    ]);
+
+    expect(fn () => \App\Models\Service::factory()->create([
+        'environment_id' => $production->id,
+        'destination_id' => $destination->id,
+        'destination_type' => $destination->getMorphClass(),
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 servicios en este equipo.');
+});

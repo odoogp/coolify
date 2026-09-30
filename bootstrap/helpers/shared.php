@@ -864,6 +864,17 @@ function isDev(): bool
     return config('app.env') === 'local';
 }
 
+function is_coolify_local_build(): bool
+{
+    if (filter_var(config('constants.coolify.local_build'), FILTER_VALIDATE_BOOLEAN)) {
+        return true;
+    }
+
+    $image = (string) config('constants.coolify.image');
+
+    return $image === 'coolify-custom:local' || str_ends_with($image, '/coolify-custom:local');
+}
+
 function isCloud(): bool
 {
     return ! config('constants.coolify.self_hosted');

@@ -31,6 +31,7 @@ it('keeps the official cdn install and adds a local build mode', function () {
         ->toContain('update_env_var "PUSHER_APP_ID"')
         ->toContain('update_env_var "PUSHER_APP_KEY"')
         ->toContain('update_env_var "PUSHER_APP_SECRET"')
+        ->toContain('set_env_var "COOLIFY_LOCAL_BUILD" "true"')
         ->toContain('set_env_var "COOLIFY_IMAGE" "coolify-custom:local"')
         ->toContain('set_env_var "COOLIFY_PULL_POLICY" "never"')
         ->toContain('docker network create --attachable coolify')
@@ -69,8 +70,27 @@ it('builds the fork image and keeps the official postgres redis and realtime ima
         ->toContain('image: redis:7-alpine');
 });
 
+it('updates a local checkout without pulling the official image', function () {
+    $script = file_get_contents(base_path('scripts/upgrade-local.sh'));
+
+    expect($script)
+        ->toContain('git fetch origin')
+        ->toContain('git pull --ff-only origin "$BRANCH"')
+        ->toContain('git status --porcelain')
+        ->toContain('docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT"')
+        ->toContain('coolify-custom:local')
+        ->toContain('COOLIFY_PULL_POLICY="never"')
+        ->toContain('up -d --no-deps --force-recreate --wait --wait-timeout 180 coolify')
+        ->toContain('http://127.0.0.1:${APP_PORT}/api/health')
+        ->toContain('docker tag "$PREVIOUS_ID" "$IMAGE"')
+        ->not->toContain('coollabsio/coolify')
+        ->not->toContain('docker pull')
+        ->not->toContain('down -v')
+        ->not->toContain('.env.production');
+});
+
 it('parses the install scripts as bash', function () {
-    foreach (['scripts/install.sh', 'scripts/install-custom.sh'] as $path) {
+    foreach (['scripts/install.sh', 'scripts/install-custom.sh', 'scripts/upgrade-local.sh'] as $path) {
         $output = [];
         $exit = 0;
         exec('bash -n '.escapeshellarg(base_path($path)).' 2>&1', $output, $exit);

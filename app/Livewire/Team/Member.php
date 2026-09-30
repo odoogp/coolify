@@ -24,6 +24,12 @@ class Member extends Component
 
     public mixed $maxMembers = null;
 
+    public mixed $maxProductionBranches = null;
+
+    public mixed $maxStagingBranches = null;
+
+    public mixed $maxServices = null;
+
     public function mount(): void
     {
         $team = currentTeam();
@@ -35,6 +41,9 @@ class Member extends Component
         $this->maxProjects = $this->quotaInput(data_get($pivot, 'max_projects'));
         $this->maxEnvironments = $this->quotaInput(data_get($pivot, 'max_environments'));
         $this->maxMembers = $this->quotaInput(data_get($pivot, 'max_members'));
+        $this->maxProductionBranches = $this->quotaInput(data_get($pivot, 'max_production_branches'));
+        $this->maxStagingBranches = $this->quotaInput(data_get($pivot, 'max_staging_branches'));
+        $this->maxServices = $this->quotaInput(data_get($pivot, 'max_services'));
     }
 
     public function saveCreationLimits(): void
@@ -50,11 +59,17 @@ class Member extends Component
             $this->maxProjects = $this->blankToNull($this->maxProjects);
             $this->maxEnvironments = $this->blankToNull($this->maxEnvironments);
             $this->maxMembers = $this->blankToNull($this->maxMembers);
+            $this->maxProductionBranches = $this->blankToNull($this->maxProductionBranches);
+            $this->maxStagingBranches = $this->blankToNull($this->maxStagingBranches);
+            $this->maxServices = $this->blankToNull($this->maxServices);
 
             $this->validate([
                 'maxProjects' => ['nullable', 'integer', 'min:0'],
                 'maxEnvironments' => ['nullable', 'integer', 'min:0'],
                 'maxMembers' => ['nullable', 'integer', 'min:0'],
+                'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
+                'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
+                'maxServices' => ['nullable', 'integer', 'min:0'],
             ]);
 
             $teamId = $team->id;
@@ -62,10 +77,13 @@ class Member extends Component
                 'max_projects' => $this->maxProjects,
                 'max_environments' => $this->maxEnvironments,
                 'max_members' => $this->maxMembers,
+                'max_production_branches' => $this->maxProductionBranches,
+                'max_staging_branches' => $this->maxStagingBranches,
+                'max_services' => $this->maxServices,
             ]);
             Cache::forget('user:'.$this->member->id.':team:'.$teamId);
             Cache::forget('team:'.$this->member->id);
-            $this->dispatch('success', 'Creation limits saved.');
+            $this->dispatch('success', __('Creation limits saved.'));
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
