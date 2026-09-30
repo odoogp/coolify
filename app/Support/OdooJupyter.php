@@ -68,7 +68,8 @@ class OdooJupyter
 
     public static function launchCommand(): string
     {
-        return <<<'BASH'
+        // ponytail: Compose interpolates $ in the command. $$ is the only escape; a bare $( fails the deploy.
+        return str_replace('$', '$$', <<<'BASH'
 set -e
 python3 - <<'PY'
 import os, time, psycopg2
@@ -100,7 +101,7 @@ env.cr.commit()
 PY
 fi
 exec odoo "${args[@]}" -d "$ODOO_DATABASE"
-BASH;
+BASH);
     }
 
     /**

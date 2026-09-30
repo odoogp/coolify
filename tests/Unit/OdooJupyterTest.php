@@ -295,6 +295,8 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($aligned['odoo']['command'])->toContain('--proxy-mode')
         ->and($aligned['odoo']['command'])->toContain('base.user_admin')
         ->and($aligned['odoo']['command'])->toContain('--http-interface=0.0.0.0')
+        ->and($aligned['odoo']['command'])->toContain('$$ODOO_DATABASE')
+        ->and(str_replace('$$', '', $aligned['odoo']['command']))->not->toContain('$')
         ->and($aligned['odoo']['environment'])->toBe(['ODOO_DATABASE=mi_empresa_staging_1'])
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0');
 });
