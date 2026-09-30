@@ -3584,6 +3584,8 @@
     "Clone to staging": "Clonar a staging",
     "Change account": "Cambiar cuenta",
     "Create repository": "Crear repositorio",
+    "Deploying branch :branch": "Desplegando la rama :branch",
+    "GitHub branch :branch": "Rama de GitHub :branch",
     "Search repositories": "Buscar repositorios",
     "Refresh repositories": "Reevaluar repositorios",
     "No matching repositories.": "Ningún repositorio coincide.",

@@ -73,6 +73,9 @@ class AddEmpty extends Component
                 $githubApp = OdooGit::userApp((int) $project->team_id, auth()->id());
                 if ($githubApp instanceof GithubApp) {
                     OdooGit::launchEnvironment($project, $githubApp, 'production');
+                    if ($created instanceof Service) {
+                        OdooGit::cloneIntoService($created);
+                    }
                 } else {
                     $parameters = [
                         'project_uuid' => $project->uuid,

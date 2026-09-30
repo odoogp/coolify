@@ -527,6 +527,48 @@ class OdooGit
         ]);
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function cloneCommands(string $volume, string $cloneUrl, string $branch): array
+    {
+        $script = 'set -e; '
+            .'if [ -d /addons/.git ]; then '
+            .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).' && git -C /addons checkout -B '.escapeshellarg($branch).' FETCH_HEAD; '
+            .'else git clone --depth 1 --branch '.escapeshellarg($branch).' '.escapeshellarg($cloneUrl).' /tmp/src && cp -a /tmp/src/. /addons/; '
+            .'fi; chown -R 100:101 /addons || true; chmod -R a+rX /addons || true';
+
+        return [
+            'docker volume create '.escapeshellarg($volume),
+            'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine/git -c '.escapeshellarg($script),
+        ];
+    }
+
+    public static function cloneIntoService(Service $service): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        if (! $service->supportsOdooJupyter()) {
+            return;
+        }
+
+        $service->loadMissing('environment.project.odooProfile.githubApp', 'environment.odooBranch', 'destination.server');
+        $profile = $service->environment?->project?->odooProfile;
+        $repository = $profile?->git_repository;
+        $githubApp = $profile?->githubApp;
+        $server = $service->destination?->server;
+        if (blank($repository) || ! $githubApp instanceof GithubApp || $server === null) {
+            return;
+        }
+
+        $branch = $service->environment?->odooBranch?->git_branch ?: $service->environment?->name ?: 'main';
+        $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
+        $token = generateGithubInstallationToken($githubApp);
+        $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
+        instant_remote_process(self::cloneCommands(OdooAddons::extraAddonsVolume($service), $url, (string) $branch), $server);
+    }
+
     public static function ensureLaunchAllowed(Service $service): void
     {
         if (! $service->supportsOdooJupyter()) {

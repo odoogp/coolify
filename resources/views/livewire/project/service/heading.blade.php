@@ -42,6 +42,7 @@
         ));
 
         $serviceStatus = str($service->status ?? 'exited');
+        $githubBranch = $service->environment?->odooBranch?->git_branch;
         $environmentVariablesUrl = route('project.service.environment-variables', [
             'project_uuid' => $service->environment->project->uuid,
             'environment_uuid' => $service->environment->uuid,
@@ -52,11 +53,15 @@
     <livewire:project.shared.configuration-checker :resource="$service" />
 
     <x-process-dialog @startservice.window="processDialogOpen = true" closeWithX>
-        <x-slot:title>Service Startup</x-slot:title>
+        <x-slot:title>{{ filled($githubBranch) ? __('Deploying branch :branch', ['branch' => $githubBranch]) : 'Service Startup' }}</x-slot:title>
         <x-slot:content>
             <livewire:activity-monitor header="Logs" fullHeight />
         </x-slot:content>
     </x-process-dialog>
+
+    @if (filled($githubBranch))
+        <p class="mb-3 font-mono text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('GitHub branch :branch', ['branch' => $githubBranch]) }}</p>
+    @endif
 
     <div x-data="{ deploying: false }" @service-deploy-finished.window="deploying = false">
         <div class="mb-3 w-full xl:hidden">

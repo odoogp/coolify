@@ -18,6 +18,7 @@ class DeployServiceApplication
     {
         $service = $serviceApplication->service;
         OdooGit::ensureLaunchAllowed($service);
+        OdooGit::cloneIntoService($service);
         $composeServiceName = $serviceApplication->name;
 
         $service->parse();

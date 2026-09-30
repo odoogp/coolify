@@ -400,6 +400,17 @@ it('shows the repository choice on the odoo service page', function () {
         ->not->toContain('Subscription Code');
 });
 
+it('clones the repository branch into the addon volume jupyter shows', function () {
+    $commands = OdooGit::cloneCommands('svc_odoo-extra-addons', 'https://example.test/acme/odoo.git', 'production');
+    $script = implode("\n", $commands);
+
+    expect($script)->toContain('git clone')
+        ->and($script)->toContain('production')
+        ->and($script)->toContain('svc_odoo-extra-addons')
+        ->and($script)->toContain('alpine/git')
+        ->and($script)->toContain('/addons');
+});
+
 it('names a new github app after the product and keeps it on the user', function () {
     $app = OdooGit::beginConnect($this->project);
 

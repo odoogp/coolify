@@ -7,6 +7,7 @@ use App\Livewire\Team\Member as TeamMember;
 use App\Models\Environment;
 use App\Models\Application;
 use App\Models\GithubApp;
+use App\Models\Service;
 use App\Models\InstanceSettings;
 use App\Models\OdooProfile;
 use App\Models\Project;
@@ -347,4 +348,29 @@ it('lists environments once and clones production into one staging', function ()
     expect($this->project->environments()->pluck('name')->sort()->values()->all())->toBe(['production', 'staging-1'])
         ->and(Application::query()->count())->toBe(0)
         ->and($this->project->environments()->where('name', 'staging-1')->first()->odooBranch)->toBeNull();
+});
+
+it('copies the production service into the staging clone', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    Service::factory()->create([
+        'environment_id' => $production->id,
+        'name' => 'odoo-production',
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+        'server_id' => null,
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->set('cloneAddons', 'copy')
+        ->call('cloneToStaging')
+        ->assertRedirect();
+
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    $copy = $staging->services()->first();
+
+    expect($copy)->not->toBeNull()
+        ->and($copy->docker_compose_raw)->toContain('odoo:20')
+        ->and($copy->environment_id)->toBe($staging->id)
+        ->and($production->services()->count())->toBe(1);
 });

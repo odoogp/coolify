@@ -240,6 +240,7 @@ class Configuration extends Component
             if ($this->odooRepoMode === 'new') {
                 $classification = OdooStaging::isStagingName($this->environment->name) ? 'staging' : 'production';
                 $environment = OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
+                OdooGit::cloneIntoService($this->service);
                 $this->syncOdooGithub();
                 $this->dispatch('success', __('Environment :name launched on :branch.', [
                     'name' => $environment->name,
@@ -260,6 +261,7 @@ class Configuration extends Component
                 $this->environment,
                 $this->odooBranch,
             );
+            OdooGit::cloneIntoService($this->service);
             $this->syncOdooGithub();
             $this->dispatch('success', __('Repository associated. This environment uses :branch.', [
                 'branch' => $this->odooBranch,

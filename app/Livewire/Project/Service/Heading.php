@@ -36,6 +36,13 @@ class Heading extends Component
             $this->service->isConfigurationChanged(true);
             $this->dispatch('configurationChanged');
         }
+
+        $activity = Activity::where('properties->type_uuid', $this->service->uuid)->latest()->first();
+        $status = data_get($activity, 'properties.status');
+        if ($activity && in_array($status, [ProcessStatus::QUEUED->value, ProcessStatus::IN_PROGRESS->value], true)) {
+            $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
+            $this->dispatch('activityMonitor', $activity->id);
+        }
     }
 
     public function getListeners()

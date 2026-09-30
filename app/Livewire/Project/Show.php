@@ -2,9 +2,11 @@
 
 namespace App\Livewire\Project;
 
+use App\Actions\Service\StartService;
 use App\Models\Environment;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
+use App\Models\Service;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
 use App\Support\ValidationPatterns;
@@ -137,13 +139,24 @@ class Show extends Component
                 );
             }
 
+            $copied = $this->copyProductionService($selected, $staging);
+            if ($copied instanceof Service && filled($repository) && $this->cloneAddons === 'copy') {
+                OdooGit::cloneIntoService($copied);
+            }
+            if ($copied instanceof Service && $copied->server?->isFunctional()) {
+                StartService::run($copied, pullLatestImages: true);
+            }
+
             $this->showCloneWizard = false;
-            $message = match (true) {
-                filled($repository) && $this->cloneAddons === 'copy' => __('Staging :name cloned from production.', ['name' => $staging->name]),
-                $this->cloneAddons === 'copy' => __('Staging :name is ready. Addons stay in the production Jupyter folder.', ['name' => $staging->name]),
-                default => __('Staging :name created without modules.', ['name' => $staging->name]),
-            };
-            $this->dispatch('success', $message);
+            if ($copied instanceof Service) {
+                return redirectRoute($this, 'project.service.configuration', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $staging->uuid,
+                    'service_uuid' => $copied->uuid,
+                ]);
+            }
+
+            $this->dispatch('success', __('Staging :name created without modules.', ['name' => $staging->name]));
 
             return redirectRoute($this, 'project.show', ['project_uuid' => $this->project->uuid]);
         } catch (InvalidArgumentException|RuntimeException $exception) {
@@ -151,6 +164,33 @@ class Show extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    private function copyProductionService(Environment $source, Environment $staging): ?Service
+    {
+        $original = $source->services()->get()->first(
+            fn (Service $service): bool => $service->supportsOdooJupyter()
+        );
+        if (! $original instanceof Service) {
+            return null;
+        }
+
+        $copy = $original->replicate();
+        $copy->uuid = new_public_id();
+        $copy->environment_id = $staging->id;
+        $copy->config_hash = null;
+        $copy->name = 'odoo-'.$staging->name;
+        $copy->save();
+
+        foreach ($original->environment_variables as $variable) {
+            $cloned = $variable->replicate();
+            $cloned->uuid = new_public_id();
+            $cloned->resourceable_id = $copy->id;
+            $cloned->resourceable_type = $copy->getMorphClass();
+            $cloned->save();
+        }
+
+        return $copy;
     }
 
     public function navigateToEnvironment($projectUuid, $environmentUuid)
