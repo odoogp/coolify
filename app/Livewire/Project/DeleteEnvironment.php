@@ -34,16 +34,26 @@ class DeleteEnvironment extends Component
             ]);
             $environment = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id);
             $this->authorize('delete', $environment);
+            $environment->delete();
 
-            if ($environment->isEmpty()) {
-                $environment->delete();
-
-                return redirectRoute($this, 'project.show', ['project_uuid' => $this->parameters['project_uuid']]);
-            }
-
-            return $this->dispatch('error', "<strong>Environment {$environment->name}</strong> has defined resources, please delete them first.");
+            return redirectRoute($this, 'project.show', ['project_uuid' => $this->parameters['project_uuid']]);
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    public function render()
+    {
+        $environment = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id);
+        $resources = $environment->resources();
+        $actions = $resources->isEmpty()
+            ? [__('This will delete the selected environment.')]
+            : [__('Delete the resources in this environment: :resources', [
+                'resources' => $resources->map(fn ($resource) => (string) $resource->name)->filter()->implode(', '),
+            ])];
+
+        return view('livewire.project.delete-environment', [
+            'actions' => $actions,
+        ]);
     }
 }

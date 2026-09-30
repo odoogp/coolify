@@ -10,6 +10,7 @@ class OdooEnvironmentBranch extends Model
     protected $fillable = [
         'environment_id',
         'git_branch',
+        'status',
     ];
 
     public function environment(): BelongsTo

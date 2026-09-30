@@ -44,12 +44,11 @@
                     <div class="min-w-0">
                         <h2 class="text-sm font-semibold text-red-800 dark:text-red-300">{{ __('Delete environment') }}</h2>
                         <p class="mt-1 max-w-2xl text-sm text-red-700/80 dark:text-red-200/70">
-                            {{ __('Remove every resource before permanently deleting this environment.') }}
+                            {{ __('Deleting this environment also deletes the resources it has.') }}
                         </p>
                     </div>
                     <div class="shrink-0 sm:pt-0.5">
-                        <livewire:project.delete-environment :disabled="! $environment->isEmpty()"
-                            :environment_id="$environment->id" />
+                        <livewire:project.delete-environment :environment_id="$environment->id" />
                     </div>
                 </div>
             </section>

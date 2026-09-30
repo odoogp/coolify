@@ -111,7 +111,7 @@ class CloneMe extends Component
                     throw new \Exception('Project with the same name already exists.');
                 }
                 $additionalEnvironments = [];
-                if ($this->environment->name !== 'production') {
+                if (strcasecmp((string) $this->environment?->name, 'production') !== 0) {
                     $additionalEnvironments[] = [
                         'name' => $this->environment->name,
                         'uuid' => new_public_id(),
@@ -125,15 +125,22 @@ class CloneMe extends Component
                 $project->unsetRelation('environments');
                 $environment = $project->environments->where('name', $this->environment->name)->first();
             } else {
-                $foundEnv = $this->project->environments()->where('name', $this->newName)->first();
-                if ($foundEnv) {
-                    throw new \Exception('Environment with the same name already exists.');
-                }
                 $project = $this->project;
-                $environment = app(AdminCreationQuota::class)->createEnvironment(auth()->user(), $this->project, [
-                    'name' => $this->newName,
-                    'uuid' => new_public_id(),
-                ]);
+                if ($project->odooProfile && strcasecmp((string) $this->environment?->name, 'production') === 0) {
+                    $environment = $project->cloneProductionAsStaging();
+                } else {
+                    if (strcasecmp($this->newName, 'production') === 0 && $project->environments()->whereRaw('LOWER(name) = ?', ['production'])->exists()) {
+                        throw new \Exception('This project already has a production environment.');
+                    }
+                    $foundEnv = $project->environments()->where('name', $this->newName)->first();
+                    if ($foundEnv) {
+                        throw new \Exception('Environment with the same name already exists.');
+                    }
+                    $environment = app(AdminCreationQuota::class)->createEnvironment(auth()->user(), $project, [
+                        'name' => $this->newName,
+                        'uuid' => new_public_id(),
+                    ]);
+                }
             }
             $applications = $this->environment->applications;
             $databases = $this->environment->databases();

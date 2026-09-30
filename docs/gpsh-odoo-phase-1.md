@@ -34,9 +34,15 @@ ilimitado         → sí
 si no             → cantidad de stagings < max_staging_environments
 ```
 
-`Project::createNextStagingEnvironment()` es el único sitio que crea el siguiente, y llama a esa regla.
+`Project::createNextStagingEnvironment()` es el único sitio que crea el siguiente, y llama a esa regla. Clonar production llama a ese mismo método.
 
 Un proyecto sin perfil no gana un staging. Sigue siendo solo `production`.
+
+## Clonar production
+
+Si el proyecto ya tiene su ambiente `production`, clonar crea un solo staging (`staging-1`, o el siguiente número libre). No crea otro `production`. Si el límite ya se alcanzó, no crea nada.
+
+Ese clon no copia la base, el filestore ni la rama de GitHub. Production se queda igual.
 
 ## Fuera de esta fase
 

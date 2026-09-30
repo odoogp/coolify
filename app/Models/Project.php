@@ -153,11 +153,37 @@ class Project extends BaseModel
             throw new RuntimeException('Staging environment limit reached.');
         }
 
+        $name = OdooStaging::nextName($this);
+        if (strcasecmp($name, 'production') === 0) {
+            throw new RuntimeException('A clone cannot create another production environment.');
+        }
+
         return Environment::create([
-            'name' => OdooStaging::nextName($this),
+            'name' => $name,
             'project_id' => $this->id,
             'created_by' => $this->created_by,
         ]);
+    }
+
+    /**
+     * One new staging environment from the existing production category.
+     * Does not create a second production, services, or a deployment.
+     */
+    public function cloneProductionAsStaging(): Environment
+    {
+        $this->loadMissing('odooProfile');
+        if ($this->odooProfile === null) {
+            throw new RuntimeException('Odoo is not enabled for this project.');
+        }
+
+        $productions = $this->environments()->get()->filter(
+            fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
+        );
+        if ($productions->count() !== 1) {
+            throw new RuntimeException('This project must have one production environment.');
+        }
+
+        return $this->createNextStagingEnvironment();
     }
 
     public function team()

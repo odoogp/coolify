@@ -114,6 +114,45 @@ it('allows more staging environments when the limit is unlimited', function () {
     expect($this->project->odooProfile->max_staging_environments)->toBe(1);
 });
 
+it('clones production into one staging and keeps a single production', function () {
+    $this->project->enableOdoo('20', 2, false);
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->call('cloneProductionAsStaging')
+        ->assertDispatched('success');
+
+    expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);
+    expect($this->project->environments()->orderBy('name')->pluck('name')->all())->toBe([
+        'production',
+        'staging-1',
+        'staging-2',
+    ]);
+    expect($this->project->services()->count())->toBe(0);
+});
+
+it('does not create a staging when the limit is already full', function () {
+    $this->project->enableOdoo('18', 1, false);
+
+    expect(fn () => $this->project->cloneProductionAsStaging())->toThrow(\RuntimeException::class);
+    expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);
+    expect($this->project->environments()->pluck('name')->all())->toEqualCanonicalizing(['production', 'staging-1']);
+});
+
+it('does not let a member clone production into a staging', function () {
+    $this->project->enableOdoo('18', 2, false);
+    $member = User::factory()->create();
+    $member->teams()->attach($this->team, ['role' => 'member']);
+    $this->actingAs($member);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->call('cloneProductionAsStaging')
+        ->assertDispatched('error');
+
+    expect($this->project->environments()->where('name', 'staging-2')->exists())->toBeFalse();
+    expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);
+});
+
 it('rejects a negative staging limit', function () {
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->set('maxStagingEnvironments', -1)

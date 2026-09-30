@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\RestartOdooBranchJob;
 use App\Livewire\Project\Edit;
 use App\Models\Application;
 use App\Models\GithubApp;
@@ -10,6 +11,8 @@ use App\Models\Team;
 use App\Models\User;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -124,4 +127,84 @@ it('does not let a member save github branches', function () {
 
     expect(OdooEnvironmentBranch::query()->count())->toBe(0)
         ->and(Application::query()->count())->toBe(0);
+});
+
+it('asks to sign in with github when the account is not connected', function () {
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertSet('odooGithubConnected', false)
+        ->assertSee('Sign in with GitHub to create the key and connect the webhook for this environment.');
+});
+
+it('reuses the github account that already has a key and a webhook', function () {
+    $keyId = DB::table('private_keys')->insertGetId([
+        'uuid' => (string) str()->uuid(),
+        'name' => 'odoo-github',
+        'private_key' => 'test-key',
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $keyId,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertSet('odooGithubConnected', true)
+        ->assertSet('odooGithubAppId', $this->githubApp->id)
+        ->assertSee('The connected GitHub account is reused.');
+});
+
+it('marks only the matching github branch as updating when the webhook arrives', function () {
+    Queue::fake();
+    $this->githubApp->update(['webhook_secret' => 'odoo-hook']);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    $otherStaging = $this->project->environments()->where('name', 'staging-2')->first();
+    OdooGit::assign(
+        $this->project,
+        $this->githubApp,
+        'acme/odoo',
+        99,
+        ['main', 'develop', 'feature/nueva-facturacion'],
+        [
+            $production->id => 'main',
+            $staging->id => 'develop',
+            $otherStaging->id => 'feature/nueva-facturacion',
+        ],
+    );
+
+    $payload = json_encode([
+        'ref' => 'refs/heads/develop',
+        'repository' => ['id' => 99],
+        'after' => 'abc123',
+        'commits' => [['message' => 'update addons']],
+    ]);
+    $response = $this->call('POST', '/webhooks/source/github/events', [], [], [], [
+        'HTTP_X-GitHub-Event' => 'push',
+        'HTTP_X-GitHub-Hook-Installation-Target-Id' => (string) $this->githubApp->app_id,
+        'HTTP_X-Hub-Signature-256' => 'sha256='.hash_hmac('sha256', $payload, 'odoo-hook'),
+        'CONTENT_TYPE' => 'application/json',
+    ], $payload);
+
+    $response->assertOk();
+    expect($response->getContent())->toContain("Odoo branch 'develop' is updating.");
+    expect($staging->odooBranch->fresh()->status)->toBe('updating');
+    expect($production->odooBranch->fresh()->status)->toBe('idle');
+    expect($otherStaging->odooBranch->fresh()->status)->toBe('idle');
+    Queue::assertPushed(RestartOdooBranchJob::class, fn (RestartOdooBranchJob $job): bool => $job->odooEnvironmentBranchId === $staging->odooBranch->id);
+});
+
+it('returns the branch to idle after the odoo restart finishes', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $row = OdooEnvironmentBranch::query()->create([
+        'environment_id' => $production->id,
+        'git_branch' => 'main',
+        'status' => 'updating',
+    ]);
+
+    (new RestartOdooBranchJob($row->id))->handle();
+
+    expect($row->fresh()->status)->toBe('idle');
 });

@@ -2,11 +2,13 @@
 
 namespace App\Support;
 
+use App\Jobs\RestartOdooBranchJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Rules\ValidGitBranch;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
@@ -147,5 +149,48 @@ class OdooGit
     public static function tracksBranch(Environment $environment): bool
     {
         return strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name);
+    }
+
+    /**
+     * A GitHub account is connected when the App is installed and has its private key.
+     * That is the same key and webhook the source screen already creates.
+     *
+     * @return Collection<int, GithubApp>
+     */
+    public static function connectedApps(int $teamId): Collection
+    {
+        return GithubApp::query()
+            ->where(function ($query) use ($teamId) {
+                $query->where('team_id', $teamId)->orWhere('is_system_wide', true);
+            })
+            ->where('is_public', false)
+            ->whereNotNull('app_id')
+            ->whereNotNull('installation_id')
+            ->whereNotNull('private_key_id')
+            ->whereNotNull('webhook_secret')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * The existing GitHub webhook calls this for a push. It marks only the
+     * environment whose saved branch is exactly that GitHub branch.
+     */
+    public static function queueBranchUpdate(GithubApp $githubApp, int $repositoryId, string $branch): int
+    {
+        $rows = OdooEnvironmentBranch::query()
+            ->where('git_branch', $branch)
+            ->whereHas('environment.project.odooProfile', function ($query) use ($githubApp, $repositoryId) {
+                $query->where('github_app_id', $githubApp->id)
+                    ->where('repository_id', $repositoryId);
+            })
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->update(['status' => 'updating']);
+            RestartOdooBranchJob::dispatch($row->id);
+        }
+
+        return $rows->count();
     }
 }

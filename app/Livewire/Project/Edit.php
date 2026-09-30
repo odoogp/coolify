@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
+use RuntimeException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -37,6 +38,10 @@ class Edit extends Component
 
     public bool $odooStagingIsEmpty = false;
 
+    public bool $canCloneProductionToStaging = false;
+
+    public bool $odooGithubConnected = false;
+
     public ?int $odooGithubAppId = null;
 
     public ?int $odooRepositoryId = null;
@@ -53,7 +58,7 @@ class Edit extends Component
     /** @var array<int|string, string> */
     public array $odooEnvironmentBranches = [];
 
-    /** @var list<array{id: int, name: string}> */
+    /** @var list<array{id: int, name: string, status: string}> */
     public array $odooTrackedEnvironments = [];
 
     public $icon;
@@ -177,27 +182,48 @@ class Edit extends Component
         $this->unlimitedStagingEnvironments = (bool) ($profile?->unlimited_staging_environments ?? false);
         $stagings = OdooStaging::stagingEnvironments($this->project);
         $this->odooStagingIsEmpty = $stagings->isNotEmpty() && $stagings->every(fn ($environment): bool => $environment->isEmpty());
+        $this->canCloneProductionToStaging = $profile !== null && $this->project->canCreateStagingEnvironment();
+        $connected = OdooGit::connectedApps($this->project->team_id);
+        $this->odooGithubConnected = $connected->isNotEmpty();
         $this->odooGithubAppId = $profile?->github_app_id;
+        if ($this->odooGithubAppId === null && $connected->count() === 1) {
+            $this->odooGithubAppId = $connected->first()->id;
+        }
         $this->odooRepositoryId = $profile?->repository_id;
-        $this->odooGithubApps = GithubApp::query()
-            ->where(function ($query) {
-                $query->where('team_id', $this->project->team_id)->orWhere('is_system_wide', true);
-            })
-            ->where('is_public', false)
-            ->whereNotNull('app_id')
-            ->orderBy('name')
-            ->get(['id', 'name'])
+        $this->odooGithubApps = $connected
             ->map(fn (GithubApp $app): array => ['value' => $app->id, 'label' => $app->name])
             ->all();
+        $branchRows = OdooEnvironmentBranch::query()
+            ->whereIn('environment_id', $this->project->environments()->pluck('id'))
+            ->get()
+            ->keyBy('environment_id');
         $this->odooTrackedEnvironments = $this->project->environments()->orderBy('name')->get()
             ->filter(fn ($environment): bool => OdooGit::tracksBranch($environment))
-            ->map(fn ($environment): array => ['id' => $environment->id, 'name' => $environment->name])
+            ->map(fn ($environment): array => [
+                'id' => $environment->id,
+                'name' => $environment->name,
+                'status' => (string) ($branchRows->get($environment->id)?->status ?? 'idle'),
+            ])
             ->values()
             ->all();
-        $this->odooEnvironmentBranches = OdooEnvironmentBranch::query()
-            ->whereIn('environment_id', collect($this->odooTrackedEnvironments)->pluck('id'))
-            ->pluck('git_branch', 'environment_id')
+        $this->odooEnvironmentBranches = $branchRows
+            ->mapWithKeys(fn (OdooEnvironmentBranch $row): array => [$row->environment_id => $row->git_branch])
             ->all();
+    }
+
+    public function cloneProductionAsStaging(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $staging = $this->project->cloneProductionAsStaging();
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('Staging :name created from production. Production was left as it is.', ['name' => $staging->name]));
+        } catch (RuntimeException $e) {
+            $this->dispatch('error', __($e->getMessage()));
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
     }
 
     public function loadOdooRepositories(): void

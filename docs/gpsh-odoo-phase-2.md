@@ -21,4 +21,6 @@ No hay una sola columna `staging_branch`. Cada staging tiene la suya. Production
 
 Al guardar, el nombre tiene que estar en la lista de ramas que devuelve esa GitHub App para ese repositorio. Dos environments del mismo proyecto no pueden usar la misma rama.
 
-No se crea una Application, no se despliega y no se registra otro webhook. Eso sigue para más adelante.
+No se registra otro webhook. El que ya existe, `POST /source/github/events`, busca la rama guardada. Si el push es exactamente esa rama, la marca como `updating` y reinicia el contenedor `odoo` de ese environment cuando el servicio ya existe. Mientras tanto la pantalla dice que Odoo se está actualizando.
+
+Si el equipo ya tiene una GitHub App instalada, con su llave privada y su webhook, se reutiliza. Si no, el entorno pide iniciar sesión con GitHub en Fuentes para crear esa llave y conectar el webhook.

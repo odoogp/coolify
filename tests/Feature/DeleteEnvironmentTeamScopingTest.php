@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\DeleteResourceJob;
 use App\Livewire\Project\DeleteEnvironment;
 use App\Models\Application;
 use App\Models\Environment;
@@ -9,6 +10,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
@@ -65,10 +67,24 @@ test('delete still removes an empty environment owned by the current team', func
     expect(Environment::find($this->environmentA->id))->toBeNull();
 });
 
-test('delete cannot resolve a non-empty environment from another team', function () {
-    // The team-scoped lookup must stay in the delete() path so the
-    // "has defined resources" branch can never run for an environment
-    // outside the caller's team.
+test('deleting an environment also deletes the resources it has', function () {
+    Queue::fake();
+    $application = Application::factory()->create([
+        'environment_id' => $this->environmentA->id,
+        'name' => 'odoo',
+    ]);
+
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
+        ->set('parameters', ['project_uuid' => $this->projectA->uuid])
+        ->assertSee('Delete the resources in this environment: odoo')
+        ->call('delete');
+
+    expect(Environment::find($this->environmentA->id))->toBeNull();
+    expect(Application::withTrashed()->find($application->id)?->trashed())->toBeTrue();
+    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id);
+});
+
+test('delete cannot resolve an environment from another team', function () {
     Application::factory()->create([
         'environment_id' => $this->environmentB->id,
     ]);

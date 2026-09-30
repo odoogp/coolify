@@ -137,11 +137,24 @@
                         {{ __('Staging is empty. No database, filestore, or addons are deployed yet.') }}
                     </p>
                 @endif
-                <div>
+                <div class="flex flex-wrap gap-2">
                     <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
                         {{ $project->odooProfile ? __('Save Odoo settings') : __('Enable Odoo') }}
                     </x-forms.button>
+                    @if ($project->odooProfile)
+                        <x-forms.button type="button" wire:click="cloneProductionAsStaging" canGate="update" :canResource="$project"
+                            :disabled="! $canCloneProductionToStaging">
+                            {{ __('Clone production as staging') }}
+                        </x-forms.button>
+                    @endif
                 </div>
+                @if ($project->odooProfile)
+                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                        {{ $canCloneProductionToStaging
+                            ? __('Creates one staging environment. It does not create another production.')
+                            : __('The staging limit is reached. Raise it before cloning production again.') }}
+                    </p>
+                @endif
                 @if ($project->odooProfile)
                     <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                         <div>
@@ -150,6 +163,17 @@
                                 {{ __('The environment stays named production or staging. The branch must be the name GitHub uses. main and produccion are not the same branch.') }}
                             </p>
                         </div>
+                        @if (! $odooGithubConnected)
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('Sign in with GitHub to create the key and connect the webhook for this environment.') }}
+                            </p>
+                            <div>
+                                <a class="button" href="{{ route('source.all') }}">{{ __('Connect GitHub') }}</a>
+                            </div>
+                        @else
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('The connected GitHub account is reused. Its webhook marks the exact branch as updating and restarts Odoo.') }}
+                        </p>
                         <div class="grid max-w-xl gap-4 sm:grid-cols-2">
                             <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub App') }}"
                                 :disabled="! auth()->user()->can('update', $project)" :options="$odooGithubApps" />
@@ -168,6 +192,11 @@
                         @foreach ($odooTrackedEnvironments as $environment)
                             <div wire:key="odoo-branch-{{ $environment['id'] }}" class="max-w-sm">
                                 <label class="mb-1.5 block text-sm font-medium">{{ $environment['name'] }}</label>
+                                @if (($environment['status'] ?? 'idle') === 'updating')
+                                    <p class="mb-2 text-[13px] font-medium text-amber-700 dark:text-amber-300">{{ __('Odoo is updating') }}</p>
+                                @elseif (($environment['status'] ?? 'idle') === 'failed')
+                                    <p class="mb-2 text-[13px] font-medium text-red-700 dark:text-red-300">{{ __('Odoo update failed') }}</p>
+                                @endif
                                 <p class="mb-2 text-[13px] text-neutral-500 dark:text-fg-dim">
                                     {{ strcasecmp($environment['name'], 'production') === 0
                                         ? __('Category: production. Choose the GitHub branch for this environment.')
@@ -191,6 +220,7 @@
                                 {{ __('Save GitHub branches') }}
                             </x-forms.button>
                         </div>
+                        @endif
                     </div>
                 @endif
             </div>

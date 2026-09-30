@@ -7,6 +7,7 @@ use App\Http\Controllers\Webhook\Concerns\DetectsSkipDeployCommits;
 use App\Http\Controllers\Webhook\Concerns\MatchesManualWebhookApplications;
 use App\Jobs\GithubAppPermissionJob;
 use App\Jobs\ProcessGithubPullRequestWebhook;
+use App\Support\OdooGit;
 use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\PrivateKey;
@@ -329,8 +330,13 @@ class Github extends Controller
                 ->whereRelation('source', 'is_public', false);
             if ($x_github_event === 'push') {
                 $applications = $applications->where('git_branch', $branch)->get();
+                $odooUpdates = OdooGit::queueBranchUpdate($github_app, (int) $id, (string) $branch);
                 if ($applications->isEmpty()) {
-                    return response("Nothing to do. No applications found with branch '$branch'.");
+                    if ($odooUpdates === 0) {
+                        return response("Nothing to do. No applications found with branch '$branch'.");
+                    }
+
+                    return response("Odoo branch '$branch' is updating.");
                 }
             }
             if ($x_github_event === 'pull_request') {

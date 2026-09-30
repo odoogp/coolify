@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Jobs\DeleteResourceJob;
 use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(
@@ -40,10 +42,13 @@ class Environment extends BaseModel
         static::creating(function (Environment $environment): void {
             app(AdminCreationQuota::class)->guardEnvironment($environment);
         });
-        static::deleting(function ($environment) {
-            $shared_variables = $environment->environment_variables();
-            foreach ($shared_variables as $shared_variable) {
-                $shared_variable->delete();
+        static::deleting(function (Environment $environment) {
+            foreach ($environment->resources() as $resource) {
+                $resource->delete();
+                DeleteResourceJob::dispatch($resource);
+            }
+            foreach ($environment->environment_variables as $sharedVariable) {
+                $sharedVariable->delete();
             }
         });
     }
@@ -56,6 +61,19 @@ class Environment extends BaseModel
     public static function ownedByCurrentTeamAPI(int $teamId)
     {
         return Environment::whereRelation('project.team', 'id', $teamId)->orderBy('name');
+    }
+
+    /**
+     * Applications, databases, and services that belong to this environment.
+     *
+     * @return Collection<int, \Illuminate\Database\Eloquent\Model>
+     */
+    public function resources(): Collection
+    {
+        return $this->applications
+            ->concat($this->databases())
+            ->concat($this->services)
+            ->values();
     }
 
     public function isEmpty()

@@ -13,7 +13,9 @@ test('environment delete section stacks on small screens', function () {
 
     expect($view)
         ->toContain('flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-start sm:justify-between')
-        ->toContain('livewire:project.delete-environment');
+        ->toContain('livewire:project.delete-environment')
+        ->toContain('Deleting this environment also deletes the resources it has.')
+        ->not->toContain('isEmpty()');
 });
 
 test('app-tab utility includes icon text spacing', function () {
