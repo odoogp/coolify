@@ -3,7 +3,9 @@
 namespace App\Livewire\Project\Resource;
 
 use App\Models\EnvironmentVariable;
+use App\Models\OdooComposeTemplate;
 use App\Models\Service;
+use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -95,6 +97,13 @@ class Create extends Component
                     ];
                     if (in_array($oneClickServiceName, NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK)) {
                         data_set($service_payload, 'connect_to_docker_network', true);
+                    }
+                    if ($oneClickServiceName === 'odoo') {
+                        $odooVersion = OdooVersion::current($service_payload['docker_compose_raw']) ?? '18';
+                        $savedCompose = OdooComposeTemplate::composeFor($odooVersion);
+                        if ($savedCompose !== null) {
+                            $service_payload['docker_compose_raw'] = $savedCompose;
+                        }
                     }
                     $service = new Service($service_payload);
                     $service->save();

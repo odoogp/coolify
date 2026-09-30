@@ -127,20 +127,7 @@
                     <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
                         {{ $project->odooProfile ? __('Save Odoo settings') : __('Enable Odoo') }}
                     </x-forms.button>
-                    @if ($project->odooProfile)
-                        <x-forms.button type="button" wire:click="cloneProductionAsStaging" canGate="update" :canResource="$project"
-                            :disabled="! $canCloneProductionToStaging">
-                            {{ __('Clone production as staging') }}
-                        </x-forms.button>
-                    @endif
                 </div>
-                @if ($project->odooProfile)
-                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                        {{ $canCloneProductionToStaging
-                            ? __('Creates one staging environment. It does not create another production.')
-                            : __('Your staging limit is reached. The team owner sets how many staging environments you can launch.') }}
-                    </p>
-                @endif
                 @if ($project->odooProfile)
                     <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                         <div>
@@ -171,44 +158,62 @@
                                 :disabled="$odooRepositories === [] || ! auth()->user()->can('update', $project)"
                                 :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
                         </div>
-                        <div class="flex flex-wrap gap-2">
+                        <div>
                             <x-forms.button type="button" wire:click="loadOdooRepositories" canGate="update" :canResource="$project">
                                 {{ __('Load repositories') }}
                             </x-forms.button>
-                            <x-forms.button type="button" wire:click="loadOdooBranches" canGate="update" :canResource="$project">
-                                {{ __('Load branches') }}
-                            </x-forms.button>
                         </div>
-                        @foreach ($odooTrackedEnvironments as $environment)
-                            <div wire:key="odoo-branch-{{ $environment['id'] }}" class="max-w-sm">
-                                <label class="mb-1.5 block text-sm font-medium">{{ $environment['name'] }}</label>
-                                @if (($environment['status'] ?? 'idle') === 'updating')
-                                    <p class="mb-2 text-[13px] font-medium text-amber-700 dark:text-amber-300">{{ __('Odoo is updating') }}</p>
-                                @elseif (($environment['status'] ?? 'idle') === 'failed')
-                                    <p class="mb-2 text-[13px] font-medium text-red-700 dark:text-red-300">{{ __('Odoo update failed') }}</p>
-                                @endif
-                                <p class="mb-2 text-[13px] text-neutral-500 dark:text-fg-dim">
-                                    {{ strcasecmp($environment['name'], 'production') === 0
-                                        ? __('Category: production. Choose the GitHub branch for this environment.')
-                                        : __('Category: staging. The GitHub branch can be any branch in the repository.') }}
-                                </p>
-                                @if ($odooGithubBranches !== [])
-                                    <select wire:model="odooEnvironmentBranches.{{ $environment['id'] }}" class="input"
+                        @if ($odooGithubBranches === [])
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('Choose a repository before selecting a branch.') }}
+                            </p>
+                        @else
+                            <div class="grid max-w-xl gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label class="mb-1.5 block text-sm font-medium" for="odoo-launch-category">{{ __('Category') }}</label>
+                                    <select id="odoo-launch-category" wire:model="odooLaunchCategory" class="input"
+                                        @disabled(! auth()->user()->can('update', $project))>
+                                        <option value="production">{{ __('Production') }}</option>
+                                        <option value="staging">{{ __('Staging') }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="mb-1.5 block text-sm font-medium" for="odoo-launch-branch">{{ __('Branch') }}</label>
+                                    <select id="odoo-launch-branch" wire:model="odooLaunchBranch" class="input"
                                         @disabled(! auth()->user()->can('update', $project))>
                                         <option value="">{{ __('Choose a GitHub branch') }}</option>
                                         @foreach ($odooGithubBranches as $branch)
                                             <option value="{{ $branch }}">{{ $branch }}</option>
                                         @endforeach
                                     </select>
-                                @elseif (filled($odooEnvironmentBranches[$environment['id']] ?? null))
-                                    <p class="font-mono text-sm">{{ $odooEnvironmentBranches[$environment['id']] }}</p>
-                                @endif
+                                </div>
                             </div>
-                        @endforeach
-                        <div>
-                            <x-forms.button type="button" wire:click="saveOdooGit" canGate="update" :canResource="$project" isHighlighted>
-                                {{ __('Save GitHub branches') }}
-                            </x-forms.button>
+                            <div>
+                                <x-forms.button type="button" wire:click="launchOdooEnvironment" canGate="update" :canResource="$project" isHighlighted>
+                                    {{ __('Launch environment') }}
+                                </x-forms.button>
+                            </div>
+                        @endif
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <p class="text-sm font-medium">{{ __('Production') }}</p>
+                                @foreach ($odooTrackedEnvironments as $environment)
+                                    @continue(strcasecmp($environment['name'], 'production') !== 0)
+                                    <p wire:key="odoo-panel-{{ $environment['id'] }}" class="mt-2 font-mono text-sm">
+                                        {{ $odooEnvironmentBranches[$environment['id']] ?? __('No branch yet') }}
+                                    </p>
+                                @endforeach
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">{{ __('Staging') }}</p>
+                                @foreach ($odooTrackedEnvironments as $environment)
+                                    @continue(strcasecmp($environment['name'], 'production') === 0)
+                                    <p wire:key="odoo-panel-{{ $environment['id'] }}" class="mt-2 text-sm">
+                                        <span class="font-medium">{{ $environment['name'] }}</span>
+                                        <span class="font-mono">{{ $odooEnvironmentBranches[$environment['id']] ?? __('No branch yet') }}</span>
+                                    </p>
+                                @endforeach
+                            </div>
                         </div>
                         @endif
                     </div>

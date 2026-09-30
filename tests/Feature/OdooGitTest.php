@@ -140,6 +140,7 @@ it('starts the github app install when the account is not connected', function (
         ->assertSet('odooGithubConnected', false)
         ->assertSee('Connect your GitHub account')
         ->assertSee('Connect GitHub')
+        ->assertDontSee('Launch environment')
         ->call('connectOdooGithub');
 
     $created = GithubApp::query()->where('team_id', $this->team->id)->latest('id')->first();
@@ -174,6 +175,9 @@ it('reuses the github account that already has a key and a webhook', function ()
         ->assertSet('odooGithubConnected', true)
         ->assertSet('odooGithubAppId', $this->githubApp->id)
         ->assertSee('Connected to GitHub')
+        ->assertSee('Choose a repository before selecting a branch.')
+        ->assertSee('No branch yet')
+        ->assertDontSee('Launch environment')
         ->assertDontSee('Connect GitHub');
 });
 
@@ -246,35 +250,64 @@ it('refuses to launch odoo without a connected github account and still launches
     expect(fn () => (new StartService)->handle($odoo))->toThrow(RuntimeException::class, 'Connect a GitHub account before launching Odoo.');
 });
 
-it('asks the owner to classify every odoo launch before connecting github', function () {
-    $environment = $this->project->environments()->where('name', 'production')->first();
+it('launches the environment with its branch before anything is deployed', function () {
     $before = $this->project->environments()->count();
+
+    $staging = OdooGit::launchEnvironment(
+        $this->project,
+        $this->githubApp,
+        'acme/odoo',
+        99,
+        ['main', 'develop'],
+        'staging',
+        'develop',
+    );
+
+    expect($staging->name)->toBe('staging-1')
+        ->and($staging->fresh()->odooBranch->git_branch)->toBe('develop')
+        ->and($staging->services()->count())->toBe(0)
+        ->and($this->project->environments()->count())->toBe($before)
+        ->and($this->project->odooProfile->fresh()->git_repository)->toBe('acme/odoo');
+
+    $production = OdooGit::launchEnvironment(
+        $this->project,
+        $this->githubApp,
+        'acme/odoo',
+        99,
+        ['main', 'develop'],
+        'production',
+        'main',
+    );
+
+    expect($production->name)->toBe('production')
+        ->and($production->fresh()->odooBranch->git_branch)->toBe('main');
+
+    expect(fn () => OdooGit::launchEnvironment(
+        $this->project,
+        $this->githubApp,
+        'acme/odoo',
+        99,
+        ['main', 'develop'],
+        'staging',
+        'main',
+    ))->toThrow(InvalidArgumentException::class);
+});
+
+it('does not ask for the branch or github while deploying', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
     $odoo = Service::factory()->create([
         'environment_id' => $environment->id,
         'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
     ]);
 
-    $component = Livewire::test(Heading::class, [
+    Livewire::test(Heading::class, [
         'service' => $odoo,
         'parameters' => [],
         'query' => [],
     ])->call('start')
-        ->assertSet('odooAskClassification', true)
-        ->assertSee('This Odoo instance must be production or staging.');
+        ->assertDispatched('error')
+        ->assertDontSee('Launch environment');
 
-    expect($odoo->fresh()->environment_id)->toBe($environment->id)
-        ->and($this->project->environments()->count())->toBe($before)
-        ->and(GithubApp::query()->where('team_id', $this->team->id)->count())->toBe(1);
-
-    $component->call('classifyOdooLaunch', 'staging');
-
-    $staging = $this->project->environments()->orderByDesc('id')->first();
-    $created = GithubApp::query()->where('team_id', $this->team->id)->latest('id')->first();
-
-    expect($odoo->fresh()->environment_id)->toBe($staging->id)
-        ->and($staging->name)->toStartWith('staging')
-        ->and($staging->created_by)->toBe($this->user->id)
-        ->and($staging->name)->not->toBe('production');
-
-    $component->assertRedirect(route('source.github.show', ['github_app_uuid' => $created->uuid]));
+    expect(GithubApp::query()->where('team_id', $this->team->id)->count())->toBe(1)
+        ->and($this->project->environments()->count())->toBe(3);
 });

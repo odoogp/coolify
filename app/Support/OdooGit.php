@@ -153,43 +153,74 @@ class OdooGit
     }
 
     /**
-     * Odoo cannot start until this team has a GitHub App that finished installation.
-     * Other services never reach this check.
+     * Creates or fills one environment and its GitHub branch in the same transaction.
+     * The branch is chosen here, before anything is deployed.
      */
-    /**
-     * Every Odoo launch names its category. The owner is not exempt.
-     * Production stays the existing production environment. Staging stays
-     * put when it is already staging, and otherwise opens the next one.
-     */
-    public static function placeLaunch(Service $service, string $classification): void
+    public static function launchEnvironment(Project $project, GithubApp $githubApp, string $gitRepository, int $repositoryId, array $githubBranches, string $classification, string $branch): Environment
     {
+        $profile = $project->odooProfile;
+        if ($profile === null) {
+            throw new InvalidArgumentException('Odoo is not enabled for this project.');
+        }
         if (! in_array($classification, ['production', 'staging'], true)) {
             throw new InvalidArgumentException('Choose production or staging.');
         }
-
-        $service->loadMissing('environment.project');
-        $project = $service->environment?->project;
-        if ($project === null) {
-            throw new RuntimeException('This Odoo service has no project.');
+        if ((int) $githubApp->team_id !== (int) $project->team_id && ! $githubApp->is_system_wide) {
+            throw new InvalidArgumentException('This GitHub App is not available to the project team.');
+        }
+        if (! preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $gitRepository)) {
+            throw new InvalidArgumentException('Invalid GitHub repository.');
         }
 
-        if ($classification === 'production') {
-            $environment = $project->environments()->get()->first(
-                fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-            );
-            if (! $environment instanceof Environment) {
-                throw new RuntimeException('This project has no production environment.');
+        $branch = trim($branch);
+        $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
+        if ($check->fails()) {
+            throw new InvalidArgumentException('The GitHub branch name is invalid.');
+        }
+        $githubBranches = array_values(array_unique(array_map(strval(...), $githubBranches)));
+        if (! in_array($branch, $githubBranches, true)) {
+            throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
+        }
+
+        return DB::transaction(function () use ($project, $profile, $githubApp, $gitRepository, $repositoryId, $classification, $branch): Environment {
+            $profile->update([
+                'github_app_id' => $githubApp->id,
+                'repository_id' => $repositoryId,
+                'git_repository' => $gitRepository,
+            ]);
+
+            if ($classification === 'production') {
+                $environment = $project->environments()->get()->first(
+                    fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
+                );
+                if (! $environment instanceof Environment) {
+                    throw new RuntimeException('This project has no production environment.');
+                }
+            } else {
+                $environment = $project->environments()->with('odooBranch')->orderBy('id')->get()->first(
+                    fn (Environment $environment): bool => OdooStaging::isStagingName($environment->name) && blank($environment->odooBranch?->git_branch)
+                );
+                if (! $environment instanceof Environment) {
+                    $environment = $project->createNextStagingEnvironment();
+                }
             }
-        } elseif (OdooStaging::isStagingName((string) $service->environment?->name)) {
-            $environment = $service->environment;
-        } else {
-            $environment = $project->createNextStagingEnvironment();
-        }
 
-        if ((int) $service->environment_id !== (int) $environment->id) {
-            $service->environment_id = $environment->id;
-            $service->save();
-        }
+            $taken = OdooEnvironmentBranch::query()
+                ->whereIn('environment_id', $project->environments()->pluck('id'))
+                ->where('git_branch', $branch)
+                ->where('environment_id', '!=', $environment->id)
+                ->exists();
+            if ($taken) {
+                throw new InvalidArgumentException('Each environment needs its own GitHub branch.');
+            }
+
+            OdooEnvironmentBranch::query()->updateOrCreate(
+                ['environment_id' => $environment->id],
+                ['git_branch' => $branch],
+            );
+
+            return $environment;
+        });
     }
 
     public static function ensureLaunchAllowed(Service $service): void

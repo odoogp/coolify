@@ -43,6 +43,10 @@ class Edit extends Component
 
     public ?int $odooRepositoryId = null;
 
+    public string $odooLaunchCategory = 'staging';
+
+    public string $odooLaunchBranch = '';
+
     /** @var list<array{value: int, label: string}> */
     public array $odooGithubApps = [];
 
@@ -224,6 +228,39 @@ class Edit extends Component
         }
 
         $this->loadOdooBranches();
+    }
+
+    public function launchOdooEnvironment(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            if (! $this->odooGithubConnected) {
+                throw new InvalidArgumentException('Connect a GitHub account before launching an environment.');
+            }
+            $branch = $this->odooLaunchBranch;
+            $repository = $this->selectedOdooRepository(refresh: true);
+            $branches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
+            $environment = OdooGit::launchEnvironment(
+                $this->project,
+                $this->odooGithubApp(),
+                $repository['full_name'],
+                (int) $repository['id'],
+                $branches,
+                $this->odooLaunchCategory,
+                $branch,
+            );
+            $this->odooLaunchBranch = '';
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('Environment :name launched on :branch.', [
+                'name' => $environment->name,
+                'branch' => $branch,
+            ]));
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
     }
 
     public function cloneProductionAsStaging(): void

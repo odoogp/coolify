@@ -4,6 +4,7 @@
             ['label' => __('General'), 'route' => 'settings.index', 'icon' => 'settings'],
             ['label' => __('Advanced'), 'route' => 'settings.advanced', 'icon' => 'grid'],
             ['label' => __('Updates'), 'route' => 'settings.updates', 'icon' => 'refresh3'],
+            ['label' => __('Odoo'), 'route' => 'settings.odoo', 'icon' => 'layers'],
         ],
         'Instance' => [
             ['label' => __('Backup'), 'route' => 'settings.backup', 'icon' => 'database'],

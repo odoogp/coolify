@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project\Service;
 
+use App\Models\OdooComposeTemplate;
 use App\Models\Service;
 use App\Support\OdooVersion;
 use App\Support\ValidationPatterns;
@@ -118,7 +119,8 @@ class StackForm extends Component
                 return;
             }
 
-            $updated = OdooVersion::apply((string) $this->dockerComposeRaw, $version);
+            $saved = OdooComposeTemplate::composeFor($version);
+            $updated = $saved ?? OdooVersion::apply((string) $this->dockerComposeRaw, $version);
             if ($updated === $this->dockerComposeRaw) {
                 $this->odooVersion = OdooVersion::current((string) $this->dockerComposeRaw);
                 $this->dispatch('error', __('This Odoo image cannot be changed from here. Edit the Compose file.'));
