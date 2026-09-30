@@ -13,6 +13,14 @@
             ['label' => __('Scheduled Jobs'), 'route' => 'settings.scheduled-jobs', 'icon' => 'calendar'],
         ],
     ];
+
+    if (isInstanceOwner()) {
+        $settingsMenuSections['Configuration'][] = [
+            'label' => __('Service templates'),
+            'route' => 'settings.service-templates',
+            'icon' => 'code',
+        ];
+    }
 @endphp
 
 <section class="application-settings-workspace w-full max-w-none">

@@ -149,5 +149,9 @@ class AuthServiceProvider extends ServiceProvider
         Gate::define('canAccessTerminal', function ($user) {
             return $user->isAdmin() || $user->isOwner();
         });
+
+        Gate::define('updateServiceTemplates', function ($user) {
+            return $user->isInstanceOwner();
+        });
     }
 }

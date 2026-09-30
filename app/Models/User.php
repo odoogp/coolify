@@ -367,6 +367,13 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         return $role === 'admin' || $role === 'owner';
     }
 
+    public function isInstanceOwner(): bool
+    {
+        return $this->teams->contains(function ($team): bool {
+            return (int) $team->id === 0 && $team->pivot->role === 'owner';
+        });
+    }
+
     public function isInstanceAdmin()
     {
         $found_root_team = $this->teams->filter(function ($team) {

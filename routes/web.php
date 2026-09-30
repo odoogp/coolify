@@ -78,6 +78,7 @@ use App\Livewire\Settings\Advanced as SettingsAdvanced;
 use App\Livewire\Settings\Index as SettingsIndex;
 use App\Livewire\Settings\Odoo as SettingsOdoo;
 use App\Livewire\Settings\ScheduledJobs as SettingsScheduledJobs;
+use App\Livewire\Settings\ServiceTemplates as SettingsServiceTemplates;
 use App\Livewire\Settings\Updates as SettingsUpdates;
 use App\Livewire\SettingsBackup;
 use App\Livewire\SettingsEmail;
@@ -168,6 +169,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/email', SettingsEmail::class)->name('settings.email');
     Route::get('/settings/oauth', SettingsOauth::class)->name('settings.oauth');
     Route::get('/settings/scheduled-jobs', SettingsScheduledJobs::class)->name('settings.scheduled-jobs');
+    Route::get('/settings/service-templates', SettingsServiceTemplates::class)->name('settings.service-templates');
 
     Route::get('/profile', ProfileIndex::class)->name('profile');
     Route::get('/profile/avatar', ProfileAvatarController::class)->name('profile.avatar');

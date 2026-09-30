@@ -15,6 +15,7 @@ use App\Models\LocalPersistentVolume;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
+use App\Support\ServiceTemplateCatalog;
 use App\Models\ServiceDatabase;
 use App\Models\SharedEnvironmentVariable;
 use App\Models\StandaloneClickhouse;
@@ -518,6 +519,11 @@ function generate_readme_file(string $name, string $updated_at): string
 function isInstanceAdmin()
 {
     return auth()?->user()?->isInstanceAdmin() ?? false;
+}
+
+function isInstanceOwner(): bool
+{
+    return auth()->user()?->isInstanceOwner() ?? false;
 }
 
 function currentTeam()
@@ -1392,6 +1398,11 @@ function get_service_templates_fetched_at(): ?CarbonImmutable
 
 function get_service_templates(bool $force = false): Collection
 {
+    return ServiceTemplateCatalog::apply(service_templates_from_catalog($force));
+}
+
+function service_templates_from_catalog(bool $force = false): Collection
+{
     if ($force) {
         try {
             $response = Http::retry(3, 1000, throw: false)
@@ -1405,7 +1416,7 @@ function get_service_templates(bool $force = false): Collection
 
             return collect(json_decode($response->body()))->sortKeys();
         } catch (Throwable) {
-            return get_service_templates();
+            return service_templates_from_catalog();
         }
     }
 
