@@ -32,11 +32,16 @@ test('jupyter is injected only for an odoo stack and shares the addon volume', f
     expect($jupyter['user'])->toBe('0:0');
     expect($jupyter['working_dir'])->toBe('/workspace/addons');
     expect($jupyter['restart'])->toBe('always');
-    expect($jupyter['command'])->toContain('chown -R 100:101 /workspace/addons');
-    expect($jupyter['command'])->toContain('exec setpriv --reuid=100 --regid=101 --clear-groups jupyter lab');
-    expect($jupyter['command'])->toContain('--ServerApp.root_dir=/workspace/addons');
-    expect($jupyter['command'])->toContain('--ServerApp.token=${SERVICE_PASSWORD_JUPYTER}');
-    expect($jupyter['command'])->not->toContain('chmod');
+    expect($jupyter['entrypoint'][5])->toBe('chown -R 100:101 /workspace/addons && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"');
+    expect($jupyter['command'])->toBe([
+        'jupyter',
+        'lab',
+        '--ServerApp.token=${SERVICE_PASSWORD_JUPYTER}',
+        '--ServerApp.root_dir=/workspace/addons',
+        '--ip=0.0.0.0',
+        '--allow-root',
+        '--no-browser',
+    ]);
     expect($jupyter['volumes'])->toBe(['odoo-extra-addons:/workspace/addons']);
     expect($odoo['volumes'])->toContain('odoo-extra-addons:/mnt/extra-addons');
     expect((string) $jupyter['expose'][0])->toBe('8888');
@@ -48,7 +53,8 @@ test('jupyter is injected only for an odoo stack and shares the addon volume', f
     expect($jupyter['environment'])->toContain('JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime');
     expect($jupyter['environment'])->toContain('JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTER}');
     expect($jupyter['healthcheck'])->toBe(['disable' => true]);
-    expect($jupyter['entrypoint'])->toBe(['tini', '-g', '--', 'bash', '-c']);
+    expect($jupyter['entrypoint'][0])->toBe('tini');
+    expect($jupyter['entrypoint'][4])->toBe('-c');
     expect($jupyter)->not->toHaveKey('networks');
     expect(json_encode($jupyter))->not->toContain('/home/jovyan');
     expect(json_encode($jupyter))->not->toContain('$target');
