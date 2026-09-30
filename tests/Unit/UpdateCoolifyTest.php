@@ -348,7 +348,11 @@ it('runs the local upgrade script instead of the official image update', functio
     $command = (string) Activity::query()->latest('id')->first()?->getExtraProperty('command');
 
     expect($command)
+        ->toContain('printf %s ')
+        ->toContain('| base64 -d > /data/coolify/source/upgrade-local.sh')
+        ->toContain('chmod +x /data/coolify/source/upgrade-local.sh')
         ->toContain('bash /data/coolify/source/upgrade-local.sh')
+        ->not->toContain('COOLIFY_LOCAL_UPGRADE')
         ->not->toContain('cdn.coollabs.io')
         ->not->toContain('bash /data/coolify/source/upgrade.sh');
 

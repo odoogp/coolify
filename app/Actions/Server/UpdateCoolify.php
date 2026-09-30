@@ -230,9 +230,7 @@ class UpdateCoolify
         $encoded = base64_encode($script);
 
         return [
-            "base64 -d > /data/coolify/source/upgrade-local.sh <<'COOLIFY_LOCAL_UPGRADE'",
-            $encoded,
-            'COOLIFY_LOCAL_UPGRADE',
+            'printf %s '.escapeshellarg($encoded).' | base64 -d > /data/coolify/source/upgrade-local.sh',
             'chmod +x /data/coolify/source/upgrade-local.sh',
         ];
     }
