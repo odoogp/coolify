@@ -135,7 +135,7 @@
                                     @endif
                                     @if ($odooRepoMode === 'new')
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            {{ __('The repository is named after the project. This environment becomes a branch with the same name.') }}
+                                            {{ __('The new repository is named :name. This environment becomes a branch with the same name.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
                                         </p>
                                     @else
                                         <div class="flex flex-wrap items-end gap-3">

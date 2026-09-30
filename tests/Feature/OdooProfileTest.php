@@ -2,6 +2,7 @@
 
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
+use App\Livewire\Project\Show;
 use App\Livewire\Team\Member as TeamMember;
 use App\Models\Environment;
 use App\Models\Application;
@@ -327,4 +328,22 @@ it('asks for the odoo version and github while creating the project', function (
         ->and(session('from.parameters.project_uuid'))->toBe($connected->uuid)
         ->and(GithubApp::query()->count())->toBe($before + 1)
         ->and(Application::query()->count())->toBe(0);
+});
+
+it('lists environments once and clones production into one staging', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
+        ->not->toContain('project.odoo-summary')
+        ->toContain('cloneToStaging');
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->set('cloneAddons', 'empty')
+        ->call('cloneToStaging')
+        ->assertRedirect();
+
+    expect($this->project->environments()->pluck('name')->sort()->values()->all())->toBe(['production', 'staging-1'])
+        ->and(Application::query()->count())->toBe(0)
+        ->and($this->project->environments()->where('name', 'staging-1')->first()->odooBranch)->toBeNull();
 });

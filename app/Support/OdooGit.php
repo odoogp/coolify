@@ -439,6 +439,31 @@ class OdooGit
         ]);
     }
 
+    public static function cloneBranch(GithubApp $githubApp, string $fullName, string $fromBranch, string $toBranch): void
+    {
+        if ($fromBranch === $toBranch) {
+            throw new RuntimeException('The new branch must be different from the source branch.');
+        }
+
+        [$owner, $name] = self::splitRepository($fullName);
+        $repo = rawurlencode($owner).'/'.rawurlencode($name);
+        $source = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($fromBranch), 'get', null, false);
+        $sha = (string) data_get($source, 'data.object.sha');
+        if ($sha === '') {
+            throw new RuntimeException('The source branch does not exist on GitHub.');
+        }
+
+        $existing = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($toBranch), 'get', null, false);
+        if (filled(data_get($existing, 'data.object.sha'))) {
+            throw new RuntimeException('That branch already exists on GitHub.');
+        }
+
+        githubApi($githubApp, "/repos/{$repo}/git/refs", 'post', [
+            'ref' => 'refs/heads/'.$toBranch,
+            'sha' => $sha,
+        ]);
+    }
+
     public static function ensureLaunchAllowed(Service $service): void
     {
         if (! $service->supportsOdooJupyter()) {
@@ -466,7 +491,7 @@ class OdooGit
             ],
         ]);
         $githubApp = GithubApp::create([
-            'name' => substr(generate_random_name(), 0, 30),
+            'name' => self::appName((int) $project->team_id),
             'api_url' => 'https://api.github.com',
             'html_url' => 'https://github.com',
             'custom_user' => 'git',
@@ -476,6 +501,19 @@ class OdooGit
         session(['from' => session('from') + ['source_id' => $githubApp->id]]);
 
         return $githubApp;
+    }
+
+    private static function appName(int $teamId): string
+    {
+        $base = str(product_name())->lower()->toString();
+        $name = $base;
+        $suffix = 2;
+        while (GithubApp::query()->where('team_id', $teamId)->where('name', $name)->exists()) {
+            $name = substr($base.'-'.$suffix, 0, 30);
+            $suffix++;
+        }
+
+        return $name;
     }
 
     /**

@@ -50,8 +50,6 @@
             @endcan
         </header>
 
-        <livewire:project.odoo-summary :project="$project" />
-
         @if ($project->environments->isEmpty())
             <x-empty title="{{ __('No environments yet') }}"
                 description="{{ __('Add an environment to start organizing this project\'s resources.') }}"
@@ -122,6 +120,48 @@
                 </div>
             </div>
 
+            @if ($selectedEnvironment)
+                <div
+                    class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
+                    <p class="truncate text-[13px] font-semibold">{{ $selectedEnvironment->name }}</p>
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if (strcasecmp($selectedEnvironment->name, 'production') === 0 && $project->odooProfile)
+                            <button type="button" class="button button-highlighted" wire:click="$set('showCloneWizard', true)">
+                                {{ __('Clone') }}
+                            </button>
+                        @endif
+                        @can('delete', $selectedEnvironment)
+                            <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
+                                :key="'delete-environment-'.$selectedEnvironment->id" />
+                        @endcan
+                    </div>
+                </div>
+                @if ($showCloneWizard)
+                    <div
+                        class="mb-3 space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                        <p class="text-[13px] font-medium">{{ __('Clone production into a new staging environment.') }}</p>
+                        <label class="flex items-center gap-2 text-[13px]">
+                            <input type="radio" wire:model="cloneAddons" value="copy" class="rounded-full">
+                            {{ __('Copy addons') }}
+                        </label>
+                        <label class="flex items-center gap-2 text-[13px]">
+                            <input type="radio" wire:model="cloneAddons" value="empty" class="rounded-full">
+                            {{ __('New, without modules') }}
+                        </label>
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                            @if (filled($project->odooProfile?->git_repository))
+                                {{ __('GitHub is connected, so the new staging is another branch of :repository. It does not reuse the production branch.', ['repository' => $project->odooProfile->git_repository]) }}
+                            @else
+                                {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
+                            @endif
+                        </p>
+                        <button type="button" class="button button-highlighted" wire:click="cloneToStaging">
+                            {{ __('Clone') }}
+                        </button>
+                    </div>
+                @endif
+            @endif
+
             <div x-cloak x-show="viewMode === 'grid'">
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <template x-for="environment in paginatedEnvironments" :key="environment.uuid">
@@ -185,9 +225,9 @@
 
                 <template x-for="environment in paginatedEnvironments" :key="environment.uuid">
                     <div
-                        class="environments-table-grid group relative min-h-14 items-center border-b border-neutral-200 px-4 py-2.5 transition-colors last:border-b-0 hover:bg-neutral-50 dark:border-white/[0.07] dark:hover:bg-white/[0.025]">
-                        <a :href="environment.href" {{ wireNavigate() }} class="absolute inset-0"
-                            :aria-label="`Open ${environment.name}`"></a>
+                        class="environments-table-grid group relative min-h-14 cursor-pointer items-center border-b border-neutral-200 px-4 py-2.5 transition-colors last:border-b-0 hover:bg-neutral-50 dark:border-white/[0.07] dark:hover:bg-white/[0.025]"
+                        :class="selected === environment.uuid ? 'bg-neutral-100 dark:bg-white/[0.06]' : ''"
+                        x-on:click="$wire.selectEnvironment(environment.uuid)">
                         <div class="flex min-w-0 items-center gap-3">
                             <div
                                 class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-fg-dim">
@@ -242,7 +282,8 @@
             search: '',
             sortBy: 'name-asc',
             sortOpen: false,
-            viewMode: localStorage.getItem('project-environments-view') || 'grid',
+            selected: @entangle('selectedEnvironmentUuid'),
+            viewMode: @js($project->odooProfile !== null) ? 'table' : (localStorage.getItem('project-environments-view') || 'grid'),
             page: 1,
             pageSize: 12,
             environments: @js($environmentsJs),

@@ -8,6 +8,10 @@ Si más adelante se conecta GitHub, se puede hacer desde el servicio que ya exis
 
 La categoría (producción o staging) se elige al lanzar el entorno. No se pregunta otra vez en el botón de deploy. No se crea una Application en ese paso.
 
+Dentro del proyecto hay una sola lista de entornos. Al elegir uno, el panel tiene eliminar y, si es producción, clonar. El asistente pregunta si el staging nuevo copia los addons o nace sin módulos. Con GitHub, copiar crea otra rama del mismo repositorio a partir de la rama de producción; no reutiliza esa rama. Sin repositorio, el staging queda vacío y los addons siguen en Jupyter de producción.
+
+La GitHub App que abre Conectar GitHub se llama `gpsh`. Si ese nombre ya está en el equipo, el siguiente es `gpsh-2`. El repositorio nuevo se llama como el proyecto, en slug.
+
 ## Qué se guarda
 
 En `odoo_profiles`, solo cuando hay GitHub:

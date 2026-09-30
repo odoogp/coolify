@@ -150,6 +150,11 @@ function encodeGithubPathSegment(string $segment): string
 
 function assertGithubClockInSync(string $apiUrl): void
 {
+    static $syncedUntil = [];
+    if (($syncedUntil[$apiUrl] ?? 0) > time()) {
+        return;
+    }
+
     $response = Http::get("{$apiUrl}/zen");
     $serverTime = CarbonImmutable::now()->setTimezone('UTC');
     $githubTime = Carbon::parse($response->header('date'));
@@ -164,6 +169,8 @@ function assertGithubClockInSync(string $apiUrl): void
             'Please synchronize your system clock.'
         );
     }
+
+    $syncedUntil[$apiUrl] = time() + 60;
 }
 
 function generateGithubToken(GithubApp $source, string $type)
@@ -207,7 +214,17 @@ function generateGithubToken(GithubApp $source, string $type)
 
 function generateGithubInstallationToken(GithubApp $source)
 {
-    return generateGithubToken($source, 'installation');
+    static $cache = [];
+    $id = (string) $source->id;
+    if (isset($cache[$id]) && $cache[$id]['until'] > time()) {
+        return $cache[$id]['token'];
+    }
+
+    $token = generateGithubToken($source, 'installation');
+    // ponytail: one installation token per app for 10 minutes. GitHub tokens last an hour; a worker past this ceiling just asks again.
+    $cache[$id] = ['token' => $token, 'until' => time() + 600];
+
+    return $token;
 }
 
 function generateGithubJwt(GithubApp $source)
@@ -237,17 +254,15 @@ function githubApi(?GithubApp $source, string $endpoint, string $method = 'get',
     }
 
     if (! $response->successful() && $throwError) {
-        $resetTime = Carbon::parse((int) $response->header('X-RateLimit-Reset'))->format('Y-m-d H:i:s');
         $errorMessage = data_get($response->json(), 'message', 'no error message found');
-        $remainingCalls = $response->header('X-RateLimit-Remaining', '0');
+        $remainingCalls = $response->header('X-RateLimit-Remaining');
+        $detail = 'GitHub API call failed: '.$errorMessage;
+        if (filled($remainingCalls)) {
+            $resetTime = Carbon::parse((int) $response->header('X-RateLimit-Reset'))->format('Y-m-d H:i:s');
+            $detail .= " Remaining calls: {$remainingCalls}. Reset: {$resetTime} UTC.";
+        }
 
-        throw new Exception(
-            'GitHub API call failed:<br>'.
-            "Error: {$errorMessage}<br>".
-            'Rate Limit Status:<br>'.
-            "- Remaining Calls: {$remainingCalls}<br>".
-            "- Reset Time: {$resetTime} UTC"
-        );
+        throw new Exception($detail);
     }
 
     return [

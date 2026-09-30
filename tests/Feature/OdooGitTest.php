@@ -395,3 +395,59 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('associateOdooRepository')
         ->not->toContain('Subscription Code');
 });
+
+it('names a new github app after the product', function () {
+    expect(OdooGit::beginConnect($this->project)->name)->toBe('gpsh')
+        ->and(OdooGit::beginConnect($this->project)->name)->toBe('gpsh-2');
+});
+
+it('clones the production branch onto a different branch and asks github for one token', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-clone-key',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+
+    \Illuminate\Support\Facades\Http::fake(function ($request) {
+        $url = $request->url();
+        $method = strtoupper($request->method());
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/production')) {
+            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'prodsha']], 200, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/git/refs')) {
+            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/staging-3'], 201, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    OdooGit::cloneBranch($this->githubApp, 'acme/mi-empresa', 'production', 'staging-3');
+
+    $posted = \Illuminate\Support\Facades\Http::recorded(
+        fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
+    );
+    $tokens = \Illuminate\Support\Facades\Http::recorded(
+        fn ($request) => str_contains($request->url(), '/access_tokens')
+    );
+    expect($posted)->toHaveCount(1)
+        ->and($posted[0][0]->data()['ref'])->toBe('refs/heads/staging-3')
+        ->and($posted[0][0]->data()['sha'])->toBe('prodsha')
+        ->and($tokens->count())->toBeLessThan(2);
+});
