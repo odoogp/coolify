@@ -234,16 +234,20 @@ class OdooJupyter
     {
         return [
             'image' => self::IMAGE,
+            'user' => '100:101',
             'working_dir' => self::WORKSPACE,
             'restart' => 'always',
             'expose' => [self::LISTEN_PORT],
             'environment' => [
                 'SERVICE_URL_JUPYTER_'.self::LISTEN_PORT,
                 'JUPYTER_ENABLE_LAB=yes',
-                'JUPYTER_CONFIG_DIR=/home/jovyan/.jupyter',
+                'HOME=/tmp',
+                'JUPYTER_CONFIG_DIR=/tmp/jupyter-config',
+                'JUPYTER_DATA_DIR=/tmp/jupyter-data',
+                'JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime',
                 'JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTER}',
             ],
-            'command' => 'jupyter lab --ServerApp.token=${SERVICE_PASSWORD_JUPYTER} --ip=0.0.0.0 --allow-root --no-browser',
+            'command' => 'jupyter lab --ServerApp.token=${SERVICE_PASSWORD_JUPYTER} --ServerApp.root_dir='.self::WORKSPACE.' --ip=0.0.0.0 --allow-root --no-browser',
             'volumes' => [
                 $volumeSource.':'.self::WORKSPACE,
             ],
