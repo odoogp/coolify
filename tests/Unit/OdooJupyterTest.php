@@ -43,14 +43,7 @@ test('jupyter is injected only for an odoo stack and shares the addon volume', f
     expect($jupyter['environment'])->toContain('JUPYTER_DATA_DIR=/tmp/jupyter-data');
     expect($jupyter['environment'])->toContain('JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime');
     expect($jupyter['environment'])->toContain('JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTER}');
-    expect($jupyter['entrypoint'])->toBe([
-        'tini',
-        '-g',
-        '--',
-        'bash',
-        '-c',
-        'mkdir -p /tmp/jupyter-runtime /tmp/jupyter-config /tmp/jupyter-data && exec "$$0" "$$@"',
-    ]);
+    expect($jupyter)->not->toHaveKey('entrypoint');
     expect($jupyter)->not->toHaveKey('networks');
     expect(json_encode($jupyter))->not->toContain('/home/jovyan');
     expect(json_encode($jupyter))->not->toContain('$target');

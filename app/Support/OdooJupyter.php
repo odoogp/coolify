@@ -238,14 +238,6 @@ class OdooJupyter
             'working_dir' => self::WORKSPACE,
             'restart' => 'always',
             'expose' => [self::LISTEN_PORT],
-            'entrypoint' => [
-                'tini',
-                '-g',
-                '--',
-                'bash',
-                '-c',
-                'mkdir -p /tmp/jupyter-runtime /tmp/jupyter-config /tmp/jupyter-data && exec "$$0" "$$@"',
-            ],
             'environment' => [
                 'SERVICE_URL_JUPYTER_'.self::LISTEN_PORT,
                 'JUPYTER_ENABLE_LAB=yes',
