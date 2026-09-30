@@ -103,6 +103,99 @@
             </section>
         </form>
 
+        <section class="application-settings-section">
+            <div class="application-settings-section-header">
+                <div>
+                    <h2>{{ __('Odoo') }}</h2>
+                    <p>{{ __('Turn this project into an Odoo client. The first staging environment is created empty when none exists. Nothing is deployed.') }}</p>
+                </div>
+            </div>
+            <div class="application-settings-section-body flex flex-col gap-4">
+                <div class="max-w-sm">
+                    <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
+                        :disabled="! auth()->user()->can('update', $project)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+                </div>
+                <div class="max-w-sm">
+                    <p class="mb-1.5 text-sm font-medium">{{ __('Staging environments') }}</p>
+                    <p class="mb-3 text-[13px] text-neutral-500 dark:text-fg-dim">
+                        {{ __('Sets how many staging environments this project can have. Each environment can be linked to a different branch later.') }}
+                    </p>
+                    <x-forms.input canGate="update" :canResource="$project" id="maxStagingEnvironments" type="number" min="0"
+                        label="{{ __('Maximum number') }}"
+                        :disabled="$unlimitedStagingEnvironments || ! auth()->user()->can('update', $project)" />
+                </div>
+                <x-forms.checkbox canGate="update" :canResource="$project" id="unlimitedStagingEnvironments" live
+                    label="{{ __('Allow unlimited staging environments') }}"
+                    helper="{{ __('When this is on, the maximum number is not used.') }}" />
+                @if ($unlimitedStagingEnvironments)
+                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                        {{ __('The maximum number is not used while unlimited staging is on.') }}
+                    </p>
+                @endif
+                @if ($project->odooProfile && $odooStagingIsEmpty)
+                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                        {{ __('Staging is empty. No database, filestore, or addons are deployed yet.') }}
+                    </p>
+                @endif
+                <div>
+                    <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
+                        {{ $project->odooProfile ? __('Save Odoo settings') : __('Enable Odoo') }}
+                    </x-forms.button>
+                </div>
+                @if ($project->odooProfile)
+                    <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                        <div>
+                            <p class="text-sm font-medium">{{ __('GitHub') }}</p>
+                            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('The environment stays named production or staging. The branch must be the name GitHub uses. main and produccion are not the same branch.') }}
+                            </p>
+                        </div>
+                        <div class="grid max-w-xl gap-4 sm:grid-cols-2">
+                            <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub App') }}"
+                                :disabled="! auth()->user()->can('update', $project)" :options="$odooGithubApps" />
+                            <x-forms.listbox canGate="update" :canResource="$project" id="odooRepositoryId" label="{{ __('Repository') }}"
+                                :disabled="$odooRepositories === [] || ! auth()->user()->can('update', $project)"
+                                :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <x-forms.button type="button" wire:click="loadOdooRepositories" canGate="update" :canResource="$project">
+                                {{ __('Load repositories') }}
+                            </x-forms.button>
+                            <x-forms.button type="button" wire:click="loadOdooBranches" canGate="update" :canResource="$project">
+                                {{ __('Load branches') }}
+                            </x-forms.button>
+                        </div>
+                        @foreach ($odooTrackedEnvironments as $environment)
+                            <div wire:key="odoo-branch-{{ $environment['id'] }}" class="max-w-sm">
+                                <label class="mb-1.5 block text-sm font-medium">{{ $environment['name'] }}</label>
+                                <p class="mb-2 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                    {{ strcasecmp($environment['name'], 'production') === 0
+                                        ? __('Category: production. Choose the GitHub branch for this environment.')
+                                        : __('Category: staging. The GitHub branch can be any branch in the repository.') }}
+                                </p>
+                                @if ($odooGithubBranches !== [])
+                                    <select wire:model="odooEnvironmentBranches.{{ $environment['id'] }}" class="input"
+                                        @disabled(! auth()->user()->can('update', $project))>
+                                        <option value="">{{ __('Choose a GitHub branch') }}</option>
+                                        @foreach ($odooGithubBranches as $branch)
+                                            <option value="{{ $branch }}">{{ $branch }}</option>
+                                        @endforeach
+                                    </select>
+                                @elseif (filled($odooEnvironmentBranches[$environment['id']] ?? null))
+                                    <p class="font-mono text-sm">{{ $odooEnvironmentBranches[$environment['id']] }}</p>
+                                @endif
+                            </div>
+                        @endforeach
+                        <div>
+                            <x-forms.button type="button" wire:click="saveOdooGit" canGate="update" :canResource="$project" isHighlighted>
+                                {{ __('Save GitHub branches') }}
+                            </x-forms.button>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </section>
+
         <section
             class="overflow-hidden rounded-[10px] border border-red-300 bg-red-50/80 dark:border-red-500/25 dark:bg-red-500/[0.06]">
             <div class="flex items-start justify-between gap-4 px-5 py-4">

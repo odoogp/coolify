@@ -60,13 +60,27 @@
     </x-application.settings-section>
 
     @if ($service->supportsOdooJupyter())
-        <x-application.settings-section title="{{ __('JupyterLab') }}"
-            description="{{ __('JupyterLab shares the addon volume of this Odoo instance. Redeploy after changing this. The token is stored as SERVICE_PASSWORD_JUPYTER. Upgrade the module in Odoo after editing addons.') }}">
-            <x-forms.listbox canGate="update" :canResource="$service" id="jupyterEnabled" label="{{ __('Enable JupyterLab') }}"
-                live onChange="instantSave" :disabled="! auth()->user()->can('update', $service)" :options="[
-                    ['value' => false, 'label' => __('Disabled')],
-                    ['value' => true, 'label' => __('Enabled')],
-                ]" />
+        <x-application.settings-section title="{{ __('Odoo') }}"
+            description="{{ __('Pick the official Odoo image here. You do not need to edit the container or the Compose file.') }}">
+            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                {{ __('Choose the version, then redeploy. PostgreSQL stays as it is. A major upgrade does not migrate the database: take a backup first.') }}
+            </p>
+            <div class="grid gap-4 lg:grid-cols-2">
+                <x-forms.listbox canGate="update" :canResource="$service" id="odooVersion" label="{{ __('Odoo version') }}"
+                    helper="{{ __('Uses the official odoo image. The running container changes only after you redeploy.') }}"
+                    live :disabled="! auth()->user()->can('update', $service)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+                <x-forms.listbox canGate="update" :canResource="$service" id="jupyterEnabled" label="{{ __('Enable JupyterLab') }}"
+                    helper="{{ __('JupyterLab shares the addon volume of this Odoo instance. Redeploy after changing this. The token is stored as SERVICE_PASSWORD_JUPYTER. Upgrade the module in Odoo after editing addons.') }}"
+                    live onChange="instantSave" :disabled="! auth()->user()->can('update', $service)" :options="[
+                        ['value' => false, 'label' => __('Disabled')],
+                        ['value' => true, 'label' => __('Enabled')],
+                    ]" />
+            </div>
+            @if ($image = \App\Support\OdooVersion::image((string) $service->docker_compose_raw))
+                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                    {{ __('Image that will be deployed') }}: <span class="font-mono text-neutral-800 dark:text-white">{{ $image }}</span>
+                </p>
+            @endif
         </x-application.settings-section>
     @endif
 

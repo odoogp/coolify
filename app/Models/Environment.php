@@ -6,6 +6,7 @@ use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(
@@ -69,6 +70,11 @@ class Environment extends BaseModel
             $this->mariadbs()->count() == 0 &&
             $this->mongodbs()->count() == 0 &&
             $this->services()->count() == 0;
+    }
+
+    public function odooBranch(): HasOne
+    {
+        return $this->hasOne(OdooEnvironmentBranch::class);
     }
 
     public function environment_variables()

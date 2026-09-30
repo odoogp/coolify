@@ -3,10 +3,16 @@
 namespace App\Models;
 
 use App\Services\AdminCreationQuota;
+use App\Support\OdooStaging;
+use App\Support\OdooVersion;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
+use RuntimeException;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(
@@ -69,6 +75,8 @@ class Project extends BaseModel
             ]);
         });
         static::deleting(function ($project) {
+            OdooEnvironmentBranch::query()->whereIn('environment_id', $project->environments()->pluck('id'))->delete();
+            $project->odooProfile()->delete();
             $project->environments()->delete();
             $project->settings()->delete();
             $shared_variables = $project->environment_variables();
@@ -91,6 +99,65 @@ class Project extends BaseModel
     public function settings()
     {
         return $this->hasOne(ProjectSetting::class);
+    }
+
+    public function odooProfile(): HasOne
+    {
+        return $this->hasOne(OdooProfile::class);
+    }
+
+    /**
+     * Save the Odoo profile. The first save also creates one empty staging
+     * environment when the project has none and the limit allows it.
+     * Does not create services, databases, volumes, or deployments.
+     */
+    public function enableOdoo(string $version, int $maxStagingEnvironments = 1, bool $unlimitedStagingEnvironments = false): OdooProfile
+    {
+        if (! in_array($version, OdooVersion::SUPPORTED, true)) {
+            throw new InvalidArgumentException('Unsupported Odoo version.');
+        }
+        if ($maxStagingEnvironments < 0) {
+            throw new InvalidArgumentException('Staging environment limit cannot be negative.');
+        }
+
+        return DB::transaction(function () use ($version, $maxStagingEnvironments, $unlimitedStagingEnvironments): OdooProfile {
+            $profile = $this->odooProfile()->updateOrCreate(
+                ['project_id' => $this->id],
+                [
+                    'odoo_version' => $version,
+                    'max_staging_environments' => $maxStagingEnvironments,
+                    'unlimited_staging_environments' => $unlimitedStagingEnvironments,
+                ],
+            );
+            $this->setRelation('odooProfile', $profile);
+
+            if (OdooStaging::stagingEnvironments($this)->isEmpty() && OdooStaging::canCreateStagingEnvironment($this)) {
+                $this->createNextStagingEnvironment();
+            }
+
+            return $profile;
+        });
+    }
+
+    public function canCreateStagingEnvironment(): bool
+    {
+        $this->loadMissing('odooProfile');
+
+        return OdooStaging::canCreateStagingEnvironment($this);
+    }
+
+    public function createNextStagingEnvironment(): Environment
+    {
+        $this->loadMissing('odooProfile');
+        if (! OdooStaging::canCreateStagingEnvironment($this)) {
+            throw new RuntimeException('Staging environment limit reached.');
+        }
+
+        return Environment::create([
+            'name' => OdooStaging::nextName($this),
+            'project_id' => $this->id,
+            'created_by' => $this->created_by,
+        ]);
     }
 
     public function team()
