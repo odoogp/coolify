@@ -238,6 +238,11 @@ class OdooJupyter
             'working_dir' => self::WORKSPACE,
             'restart' => 'always',
             'expose' => [self::LISTEN_PORT],
+            // The image healthcheck reads jovyan's runtime dir and stays unhealthy as UID 100.
+            // Traefik skips unhealthy containers, so the public URL is a 404.
+            'healthcheck' => [
+                'disable' => true,
+            ],
             'environment' => [
                 'SERVICE_URL_JUPYTER_'.self::LISTEN_PORT,
                 'JUPYTER_ENABLE_LAB=yes',
