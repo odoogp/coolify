@@ -31,9 +31,14 @@
             'left-1/2! right-auto! w-[calc(100vw-2rem)]! max-w-md! min-w-0! -translate-x-1/2' => $compact,
             'right-0! left-auto! min-w-60! max-w-96!' => !$fullWidth && !$compact,
         ])>
+        @if ($jupyterUrl)
+            <a class="{{ $linkItemClasses }}" target="_blank" href="{{ $jupyterUrl }}">
+                {{ __('Open Jupyter') }}
+            </a>
+        @endif
         @forelse ($links as $link)
             <a class="{{ $linkItemClasses }}" target="_blank" href="{{ $link }}">
-                <span class="min-w-0 truncate">{{ $link }}</span>
+                <span class="min-w-0 truncate">{{ $jupyterUrl && $loop->count === 1 ? __('Open Odoo') : $link }}</span>
             </a>
         @empty
             <div class="listbox-option justify-start! cursor-default!">{{ __('No links available') }}</div>

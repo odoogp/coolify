@@ -577,6 +577,68 @@ function fqdnLabelsForCaddy(string $network, string $uuid, Collection $domains, 
     return $labels->sort();
 }
 
+/**
+ * Container port Traefik should dial when the public URL does not name one.
+ * Short syntax keeps the last segment (`80:8069`, `127.0.0.1:80:8069`). Long syntax uses `target`.
+ */
+function containerListenPort(mixed $ports, mixed $expose = null): ?string
+{
+    foreach (collect($expose ?? []) as $port) {
+        if (is_numeric($port)) {
+            return (string) (int) $port;
+        }
+        if (is_string($port) && preg_match('/^(\d+)/', $port, $matches) === 1) {
+            return $matches[1];
+        }
+    }
+
+    foreach (collect($ports ?? []) as $port) {
+        if (is_numeric($port)) {
+            return (string) (int) $port;
+        }
+        if (is_array($port)) {
+            $target = data_get($port, 'target');
+            if (is_numeric($target)) {
+                return (string) (int) $target;
+            }
+        }
+        if (is_string($port)) {
+            $withoutProtocol = explode('/', $port, 2)[0];
+            $segments = explode(':', $withoutProtocol);
+            $containerPort = $segments[array_key_last($segments)];
+            if (is_numeric($containerPort)) {
+                return (string) (int) $containerPort;
+            }
+        }
+    }
+
+    return null;
+}
+
+/**
+ * parse_url() treats a scheme-less `host:port` as scheme=host, so the backend port is dropped.
+ */
+function proxyUrlFromDomain(string $domain): ?Url
+{
+    $domain = trim($domain);
+    if ($domain === '') {
+        return null;
+    }
+    if (! str_contains($domain, '://')) {
+        $domain = 'http://'.$domain;
+    }
+    try {
+        $url = Url::fromString($domain);
+    } catch (Throwable) {
+        return null;
+    }
+    if (blank($url->getHost())) {
+        return null;
+    }
+
+    return $url;
+}
+
 function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_https_enabled = false, $onlyPort = null, ?Collection $serviceLabels = null, ?bool $is_gzip_enabled = true, ?bool $is_stripprefix_enabled = true, ?string $service_name = null, bool $generate_unique_uuid = false, ?string $image = null, string $redirect_direction = 'both', bool $is_http_basic_auth_enabled = false, ?string $http_basic_auth_username = null, ?string $http_basic_auth_password = null, ?Collection $noindex_domains = null, bool $escape_redirect_replacement_for_compose = true)
 {
     $labels = collect([]);
@@ -628,7 +690,10 @@ function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_
                 $uuid = new_public_id();
             }
 
-            $url = Url::fromString($domain);
+            $url = proxyUrlFromDomain((string) $domain);
+            if ($url === null) {
+                continue;
+            }
             $host = $url->getHost();
             $path = $url->getPath();
             $schema = $url->getScheme();

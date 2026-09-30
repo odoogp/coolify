@@ -3,6 +3,7 @@
 namespace App\View\Components\Services;
 
 use App\Models\Service;
+use App\Support\OdooJupyter;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -12,10 +13,26 @@ class Links extends Component
 {
     public Collection $links;
 
+    public ?string $jupyterUrl = null;
+
     public function __construct(public Service $service, public bool $fullWidth = false, public bool $compact = false)
     {
         $this->links = collect([]);
-        $service->applications()->get()->map(function ($application) {
+        $applications = $service->applications()->get();
+        if ($service->jupyter_enabled && auth()->user()?->can('view', $service)) {
+            $jupyter = $applications->firstWhere('name', OdooJupyter::SERVICE_NAME);
+            if (filled($jupyter?->fqdn)) {
+                $this->jupyterUrl = getFqdnWithoutPort(firstDomainFromList($jupyter->fqdn));
+                $token = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTER')->first()?->value;
+                if (filled($token)) {
+                    $this->jupyterUrl .= '?token='.urlencode($token);
+                }
+            }
+        }
+        $applications->each(function ($application) {
+            if ($this->jupyterUrl && $application->name === OdooJupyter::SERVICE_NAME) {
+                return;
+            }
             $type = $application->serviceType();
             if ($type) {
                 $links = generateServiceSpecificFqdns($application);

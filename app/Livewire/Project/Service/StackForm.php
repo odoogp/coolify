@@ -32,6 +32,8 @@ class StackForm extends Component
 
     public ?bool $connectToDockerNetwork = null;
 
+    public bool $jupyterEnabled = false;
+
     protected function rules(): array
     {
         $baseRules = [
@@ -40,6 +42,7 @@ class StackForm extends Component
             'name' => ValidationPatterns::nameRules(),
             'description' => ValidationPatterns::descriptionRules(),
             'connectToDockerNetwork' => 'nullable',
+            'jupyterEnabled' => 'boolean',
         ];
 
         // Add dynamic field rules
@@ -79,6 +82,7 @@ class StackForm extends Component
             $this->service->docker_compose_raw = $this->dockerComposeRaw;
             $this->service->docker_compose = $this->dockerCompose;
             $this->service->connect_to_docker_network = $this->connectToDockerNetwork;
+            $this->service->jupyter_enabled = $this->jupyterEnabled;
         } else {
             // Sync FROM model (on load/refresh)
             $this->name = $this->service->name;
@@ -86,6 +90,7 @@ class StackForm extends Component
             $this->dockerComposeRaw = $this->service->docker_compose_raw;
             $this->dockerCompose = $this->service->docker_compose;
             $this->connectToDockerNetwork = $this->service->connect_to_docker_network;
+            $this->jupyterEnabled = (bool) $this->service->jupyter_enabled;
         }
     }
 

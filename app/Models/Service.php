@@ -33,6 +33,7 @@ use Symfony\Component\Yaml\Yaml;
         'destination_type' => ['type' => 'string', 'description' => 'Destination type.'],
         'destination_id' => ['type' => 'integer', 'description' => 'The unique identifier of the destination where the service is running.'],
         'connect_to_docker_network' => ['type' => 'boolean', 'description' => 'The flag to connect the service to the predefined Docker network.'],
+        'jupyter_enabled' => ['type' => 'boolean', 'description' => 'Whether an Odoo service also runs JupyterLab on its addon volume.'],
         'is_container_label_escape_enabled' => ['type' => 'boolean', 'description' => 'The flag to enable the container label escape.'],
         'is_container_label_readonly_enabled' => ['type' => 'boolean', 'description' => 'The flag to enable the container label readonly.'],
         'config_hash' => ['type' => 'string', 'description' => 'The hash of the service configuration.'],
@@ -55,6 +56,7 @@ class Service extends BaseModel
         'docker_compose_raw',
         'docker_compose',
         'connect_to_docker_network',
+        'jupyter_enabled',
         'service_type',
         'config_hash',
         'compose_parsing_version',
@@ -66,6 +68,13 @@ class Service extends BaseModel
     ];
 
     protected $appends = ['server_status', 'status'];
+
+    protected function casts(): array
+    {
+        return array_merge(parent::casts(), [
+            'jupyter_enabled' => 'boolean',
+        ]);
+    }
 
     /**
      * Sensitive fields hidden by default in serialized output (toArray/toJson).
@@ -1514,6 +1523,11 @@ class Service extends BaseModel
     public function requiresPort(): bool
     {
         return $this->getRequiredPort() !== null;
+    }
+
+    public function supportsOdooJupyter(): bool
+    {
+        return \App\Support\OdooJupyter::isOdooCompose((string) $this->docker_compose_raw);
     }
 
     public function applications()

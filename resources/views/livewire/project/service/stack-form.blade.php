@@ -59,6 +59,17 @@
             ]" />
     </x-application.settings-section>
 
+    @if ($service->supportsOdooJupyter())
+        <x-application.settings-section title="{{ __('JupyterLab') }}"
+            description="{{ __('JupyterLab shares the addon volume of this Odoo instance. Redeploy after changing this. The token is stored as SERVICE_PASSWORD_JUPYTER. Upgrade the module in Odoo after editing addons.') }}">
+            <x-forms.listbox canGate="update" :canResource="$service" id="jupyterEnabled" label="{{ __('Enable JupyterLab') }}"
+                live onChange="instantSave" :disabled="! auth()->user()->can('update', $service)" :options="[
+                    ['value' => false, 'label' => __('Disabled')],
+                    ['value' => true, 'label' => __('Enabled')],
+                ]" />
+        </x-application.settings-section>
+    @endif
+
     @if ($fields->count() > 0)
         <x-application.settings-section title="{{ __('Service configuration') }}"
             description="{{ __('Template-specific values exposed by this service.') }}">

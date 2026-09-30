@@ -3069,12 +3069,14 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                         $redirectDirection = in_array(data_get($savedService, 'redirect'), ['www', 'non-www', 'both'], true)
                             ? data_get($savedService, 'redirect')
                             : 'both';
+                        $proxyPort = $predefinedPort ?: containerListenPort($servicePorts, data_get($service, 'expose'));
                         if ($shouldGenerateLabelsExactly) {
                             switch ($resource->server->proxyType()) {
                                 case ProxyTypes::TRAEFIK->value:
                                     $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                                         uuid: $resource->uuid,
                                         domains: $fqdns,
+                                        onlyPort: $proxyPort,
                                         is_force_https_enabled: $savedService->isForceHttpsEnabled(),
                                         serviceLabels: $serviceLabels,
                                         is_gzip_enabled: $savedService->isGzipEnabled(),
@@ -3105,6 +3107,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                             $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                                 uuid: $resource->uuid,
                                 domains: $fqdns,
+                                onlyPort: $proxyPort,
                                 is_force_https_enabled: $savedService->isForceHttpsEnabled(),
                                 serviceLabels: $serviceLabels,
                                 is_gzip_enabled: $savedService->isGzipEnabled(),
@@ -3857,6 +3860,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                         $redirectDirection = in_array($composeRedirect, ['www', 'non-www', 'both'], true)
                             ? $composeRedirect
                             : 'both';
+                        $proxyPort = containerListenPort($servicePorts, data_get($service, 'expose'));
                         if ($shouldGenerateLabelsExactly) {
                             switch ($server->proxyType()) {
                                 case ProxyTypes::TRAEFIK->value:
@@ -3864,6 +3868,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                         fqdnLabelsForTraefik(
                                             uuid: $resource->uuid,
                                             domains: $fqdns,
+                                            onlyPort: $proxyPort,
                                             serviceLabels: $serviceLabels,
                                             generate_unique_uuid: $resource->build_pack === 'dockercompose',
                                             image: data_get($service, 'image'),
@@ -3897,6 +3902,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                 fqdnLabelsForTraefik(
                                     uuid: $resource->uuid,
                                     domains: $fqdns,
+                                    onlyPort: $proxyPort,
                                     serviceLabels: $serviceLabels,
                                     generate_unique_uuid: $resource->build_pack === 'dockercompose',
                                     image: data_get($service, 'image'),

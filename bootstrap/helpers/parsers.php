@@ -1359,6 +1359,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
             $redirectDirection = in_array($composeRedirect, ['www', 'non-www', 'both'], true)
                 ? $composeRedirect
                 : 'both';
+            $proxyPort = $predefinedPort ?: containerListenPort($ports, data_get($service, 'expose'));
             if (! $use_network_mode && (! $shouldGenerateLabelsExactly || $server->proxyType() === ProxyTypes::TRAEFIK->value)) {
                 $serviceLabels = addTraefikDockerNetworkLabel($serviceLabels, $baseNetwork->first());
             }
@@ -1368,6 +1369,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                         $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                             uuid: $labelUuid,
                             domains: $fqdns,
+                            onlyPort: $proxyPort,
                             is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                             serviceLabels: $serviceLabels,
                             is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -1399,6 +1401,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                     uuid: $labelUuid,
                     domains: $fqdns,
+                    onlyPort: $proxyPort,
                     is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                     serviceLabels: $serviceLabels,
                     is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -1549,6 +1552,9 @@ function serviceParser(Service $resource): Collection
     $compose = data_get($resource, 'docker_compose_raw');
     // Store original compose for later use to update docker_compose_raw with content removed
     $originalCompose = $compose;
+    if ($resource->jupyter_enabled && is_string($compose)) {
+        $compose = \App\Support\OdooJupyter::inject($compose);
+    }
     if (! $compose) {
         return collect([]);
     }
@@ -2631,6 +2637,7 @@ function serviceParser(Service $resource): Collection
         }
         if (! $isDatabase && $fqdns instanceof Collection && $fqdns->count() > 0) {
             $shouldGenerateLabelsExactly = $resource->server->settings->generate_exact_labels;
+            $proxyPort = $predefinedPort ?: containerListenPort(data_get($service, 'ports'), data_get($service, 'expose'));
             $uuid = $resource->uuid;
             $network = data_get($resource, 'destination.network');
             $redirectDirection = in_array(data_get($originalResource, 'redirect'), ['www', 'non-www', 'both'], true)
@@ -2645,6 +2652,7 @@ function serviceParser(Service $resource): Collection
                         $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                             uuid: $uuid,
                             domains: $fqdns,
+                            onlyPort: $proxyPort,
                             is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                             serviceLabels: $serviceLabels,
                             is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -2676,6 +2684,7 @@ function serviceParser(Service $resource): Collection
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                     uuid: $uuid,
                     domains: $fqdns,
+                    onlyPort: $proxyPort,
                     is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                     serviceLabels: $serviceLabels,
                     is_gzip_enabled: $originalResource->isGzipEnabled(),
