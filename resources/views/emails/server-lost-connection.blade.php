@@ -1,5 +1,5 @@
 <x-emails.layout>
-Coolify cannot connect to your server ({{ $name }}). Please check your server and make sure it is running.
+{{ product_name() }} cannot connect to your server ({{ $name }}). Please check your server and make sure it is running.
 
 {{ __('All automations & integrations are turned off!') }}
 

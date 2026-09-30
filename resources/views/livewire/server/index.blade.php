@@ -16,7 +16,7 @@
                     </a>
                 @endcan
             @endif
-            @can('createAnyResource')
+            @can('create', App\Models\Server::class)
                 <a href="{{ route('server.create') }}" {{ wireNavigate() }}
                     class="button w-fit shrink-0 whitespace-nowrap button-highlighted">
                     <x-reicon name="plus" class="size-3.5" />
@@ -81,9 +81,15 @@
         }
     }">
         @if ($servers->isEmpty())
-            <x-empty title="{{ __('No servers yet') }}"
-                description="{{ __('Add a server to deploy applications, databases, and services.') }}"
-                icon-name="servers" />
+            @can('create', App\Models\Server::class)
+                <x-empty title="{{ __('No servers yet') }}"
+                    description="{{ __('Add a server to deploy applications, databases, and services.') }}"
+                    icon-name="servers" />
+            @else
+                <x-empty title="{{ __('No servers assigned') }}"
+                    description="{{ __('No servers are assigned to this instance. Contact your provider to request access.') }}"
+                    icon-name="servers" />
+            @endcan
         @else
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="relative w-full sm:max-w-sm">

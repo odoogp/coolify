@@ -77,6 +77,7 @@ it('updates a local checkout without pulling the official image', function () {
         ->toContain('git fetch origin')
         ->toContain('git pull --ff-only origin "$BRANCH"')
         ->toContain('git status --porcelain')
+        ->toContain('git merge-base --is-ancestor HEAD "origin/${BRANCH}"')
         ->toContain('docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT"')
         ->toContain('coolify-custom:local')
         ->toContain('COOLIFY_PULL_POLICY="never"')
@@ -86,7 +87,20 @@ it('updates a local checkout without pulling the official image', function () {
         ->not->toContain('coollabsio/coolify')
         ->not->toContain('docker pull')
         ->not->toContain('down -v')
+        ->not->toContain('git reset --hard')
+        ->not->toContain('git clean')
         ->not->toContain('.env.production');
+});
+
+it('copies the local upgrade script into the production image', function () {
+    $dockerfile = file_get_contents(base_path('docker/production/Dockerfile'));
+
+    expect($dockerfile)
+        ->toContain('COPY --chown=www-data:www-data scripts ./scripts')
+        ->toContain('chmod 755 scripts/upgrade-local.sh');
+
+    expect(is_file(base_path('scripts/upgrade-local.sh')))->toBeTrue()
+        ->and(is_executable(base_path('scripts/upgrade-local.sh')))->toBeTrue();
 });
 
 it('parses the install scripts as bash', function () {

@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell title="{{ __('Coolify') }}" description="{{ __('Verify your identity to finish signing in.') }}">
+    <x-auth.shell title="{{ product_name() }}" description="{{ __('Verify your identity to finish signing in.') }}">
         <div class="flex flex-col gap-4" x-data="{
             showRecovery: false,
             submitAuthenticatorCode(event) {

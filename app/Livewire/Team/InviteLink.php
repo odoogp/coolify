@@ -111,7 +111,7 @@ class InviteLink extends Component
                     'team' => currentTeam()->name,
                     'invitation_link' => $link,
                 ]);
-                $mail->subject('You have been invited to '.currentTeam()->name.' on '.config('app.name').'.');
+                $mail->subject('You have been invited to '.currentTeam()->name.' on '.product_name().'.');
                 send_user_an_email($mail, $this->email);
                 $this->dispatch('success', __('Invitation sent via email.'));
                 $this->dispatch('refreshInvitations');

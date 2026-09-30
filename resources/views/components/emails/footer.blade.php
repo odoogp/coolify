@@ -1,6 +1,6 @@
 {{ Illuminate\Mail\Markdown::parse('---') }}
 
 Thank you,<br>
-{{ config('app.name') ?? 'Coolify' }}
+{{ product_name() }}
 
 {{ Illuminate\Mail\Markdown::parse('[Contact Support](https://coolify.io/docs/contact)') }}

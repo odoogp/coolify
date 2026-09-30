@@ -41,7 +41,7 @@ $criticalPackages = collect($updates)->filter(function ($update) {
 
 1. Review the available updates
 2. Plan maintenance window if critical packages are involved
-3. Apply updates through the Coolify dashboard
+3. Apply updates through the {{ product_name() }} dashboard
 4. Monitor services after updates are applied
 @else
 {{ __('Your server is up to date! No packages require updating at this time.') }}
@@ -49,5 +49,5 @@ $criticalPackages = collect($updates)->filter(function ($update) {
 
 ---
 
-You can manage server patches in your [Coolify Dashboard]({{ $server_url }}).
+You can manage server patches in your [{{ product_name() }} Dashboard]({{ $server_url }}).
 </x-emails.layout>

@@ -13,9 +13,9 @@
             primary-label="{{ __('Back to login') }}">
             <x-forms.collapsible title="{{ __('Using a reverse proxy or Cloudflare Tunnel?') }}" class="error-proxy-help">
                 <ul>
-                    <li>{{ __('Set your domain in') }} <strong>{{ __('Settings &rarr; FQDN') }}</strong> to match the URL you use to access Coolify.</li>
-                    <li>{{ __('Cloudflare users: disable') }} <strong>{{ __('Browser Integrity Check') }}</strong> and <strong>{{ __('Under Attack Mode') }}</strong> for your Coolify domain, as these can interrupt login sessions.</li>
-                    <li>{{ __('If you can still access Coolify via') }} <code>localhost</code>, log in there first to configure your FQDN.</li>
+                    <li>{{ __('Set your domain in') }} <strong>{{ __('Settings &rarr; FQDN') }}</strong> {{ product_text('to match the URL you use to access Coolify.') }}</li>
+                    <li>{{ __('Cloudflare users: disable') }} <strong>{{ __('Browser Integrity Check') }}</strong> {{ __('and') }} <strong>{{ __('Under Attack Mode') }}</strong> {{ product_text('for your Coolify domain, as these can interrupt login sessions.') }}</li>
+                    <li>{{ product_text('If you can still access Coolify via') }} <code>localhost</code>, {{ __('log in there first to configure your FQDN.') }}</li>
                 </ul>
             </x-forms.collapsible>
         </x-error-page>

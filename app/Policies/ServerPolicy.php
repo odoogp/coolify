@@ -28,7 +28,7 @@ class ServerPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isOwner();
     }
 
     /**
@@ -36,7 +36,7 @@ class ServerPolicy
      */
     public function update(User $user, Server $server): bool
     {
-        return $user->isAdminOfTeam($server->team_id);
+        return $user->isOwnerOfTeam($server->team_id);
     }
 
     /**
@@ -44,7 +44,7 @@ class ServerPolicy
      */
     public function delete(User $user, Server $server): bool
     {
-        return $user->isAdminOfTeam($server->team_id);
+        return $user->isOwnerOfTeam($server->team_id);
     }
 
     /**
@@ -68,7 +68,7 @@ class ServerPolicy
      */
     public function manageProxy(User $user, Server $server): bool
     {
-        return $user->isAdminOfTeam($server->team_id);
+        return $user->isOwnerOfTeam($server->team_id);
     }
 
     /**
@@ -76,7 +76,7 @@ class ServerPolicy
      */
     public function manageSentinel(User $user, Server $server): bool
     {
-        return $user->isAdminOfTeam($server->team_id);
+        return $user->isOwnerOfTeam($server->team_id);
     }
 
     /**
@@ -92,7 +92,7 @@ class ServerPolicy
      */
     public function manageCaCertificate(User $user, Server $server): bool
     {
-        return $user->isAdminOfTeam($server->team_id);
+        return $user->isOwnerOfTeam($server->team_id);
     }
 
     /**

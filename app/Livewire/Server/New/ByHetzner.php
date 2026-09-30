@@ -97,6 +97,7 @@ class ByHetzner extends Component
     public function mount(?string $selectedTokenUuid = null)
     {
         try {
+            $this->authorize('create', Server::class);
             $this->authorize('viewAny', CloudProviderToken::class);
             $this->loadTokens();
             $this->selectTokenFromUrl($selectedTokenUuid);

@@ -37,11 +37,11 @@
                 <div class="flex items-center gap-2 h-full shrink-0 border-r border-neutral-200 dark:border-white/[0.06] transition-[width] duration-200"
                     :class="collapsed ? 'w-16 justify-center px-0' : 'w-56 px-4'">
                     <div class="flex shrink-0 items-baseline gap-1.5 min-w-0">
-                        <a href="/" {{ wireNavigate() }} title="GPSH"
+                        <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
                             class="flex items-center hover:opacity-80 transition-opacity">
-                            <img x-show="collapsed" x-cloak src="/coolify-logo.svg" alt="GPSH"
+                            <img x-show="collapsed" x-cloak src="/gpsh-logo.svg" alt="{{ product_name() }}"
                                 class="size-5" />
-                            <span x-show="!collapsed" class="text-[15px] font-semibold tracking-tight text-black dark:text-white">GPSH</span>
+                            <span x-show="!collapsed" class="text-[15px] font-semibold tracking-tight text-black dark:text-white">{{ product_name() }}</span>
                         </a>
                         <x-version x-show="!collapsed"
                             class="!text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 dark:hover:text-fg hover:text-black" />
@@ -86,9 +86,9 @@
                         </div>
                         <div data-mobile-sidebar-brand
                             class="flex h-12 shrink-0 items-center gap-1.5 border-b border-neutral-200 px-4 dark:border-white/[0.06]">
-                            <a href="/" {{ wireNavigate() }} title="GPSH"
+                            <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
                                 class="text-[15px] font-semibold tracking-tight text-black transition-opacity hover:opacity-80 dark:text-white">
-                                GPSH
+                                {{ product_name() }}
                             </a>
                             <x-version class="!text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 hover:text-black dark:hover:text-fg" />
                         </div>
@@ -113,7 +113,7 @@
                 <div class="flex min-w-0 flex-1 items-center gap-2.5">
                     <a href="/"
                         class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 transition-opacity hover:opacity-80 dark:bg-white/[0.06]">
-                        <img src="/coolify-logo.svg" alt="GPSH" class="w-[18px] h-[18px]" />
+                        <img src="/gpsh-logo.svg" alt="{{ product_name() }}" class="w-[18px] h-[18px]" />
                     </a>
                     <div class="min-w-0" x-data="{ collapsed: false }">
                         <livewire:switch-team />
@@ -144,7 +144,7 @@
                 :class="[collapsed ? 'lg:ml-16' : 'lg:ml-56', sidebarReady ? 'transition-[margin] duration-200' : '']">
                 <div class="w-full" :class="pageWidth === 'centered' ? 'mx-auto max-w-[1400px]' : 'max-w-none'">
                     {{ $slot }}
-                    <footer class="mt-10 text-center text-[11px] text-neutral-400 dark:text-fg-faint">Coolify</footer>
+                    <footer class="mt-10 text-center text-[11px] text-neutral-400 dark:text-fg-faint">{{ product_name() }}</footer>
                 </div>
             </main>
         </div>

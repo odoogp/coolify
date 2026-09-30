@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Models\Application;
 use App\Models\Environment;
 use App\Models\Project;
+use App\Models\S3Storage;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\Team;
@@ -222,7 +223,11 @@ class GlobalSearch extends Component
         $user = auth()->user();
 
         // Quick Actions
-        if (in_array($type, ['server', 'storage', 'private-key'])) {
+        if (in_array($type, ['server', 'storage'], true)) {
+            return $user->can('create', $type === 'server' ? Server::class : S3Storage::class);
+        }
+
+        if ($type === 'private-key') {
             return $user->isAdmin() || $user->isOwner();
         }
 
@@ -925,8 +930,7 @@ class GlobalSearch extends Component
             ]);
         }
 
-        // Server - can be created if user is admin or owner
-        if ($user->isAdmin() || $user->isOwner()) {
+        if ($user->can('create', Server::class)) {
             $items->push([
                 'name' => 'Server',
                 'description' => 'Add a new server to deploy your applications',
@@ -948,8 +952,7 @@ class GlobalSearch extends Component
             ]);
         }
 
-        // Storage - can be created if user is admin or owner
-        if ($user->isAdmin() || $user->isOwner()) {
+        if ($user->can('create', S3Storage::class)) {
             $items->push([
                 'name' => 'S3 Storage',
                 'description' => 'Add S3 storage for backups and file uploads',

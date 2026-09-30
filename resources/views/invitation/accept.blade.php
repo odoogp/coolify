@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell title="{{ __('Coolify') }}" description="{{ __('Review your invitation to join a team.') }}">
+    <x-auth.shell title="{{ product_name() }}" description="{{ __('Review your invitation to join a team.') }}">
         <div class="flex flex-col gap-4">
             <div class="auth-guidance">
                 <x-reicon name="teams" class="mt-0.5 size-4 shrink-0" />

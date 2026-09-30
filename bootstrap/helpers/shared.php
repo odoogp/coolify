@@ -875,6 +875,16 @@ function is_coolify_local_build(): bool
     return $image === 'coolify-custom:local' || str_ends_with($image, '/coolify-custom:local');
 }
 
+function product_name(): string
+{
+    return 'GPSH';
+}
+
+function product_text(string $text): string
+{
+    return str_replace('Coolify', product_name(), __($text));
+}
+
 function isCloud(): bool
 {
     return ! config('constants.coolify.self_hosted');

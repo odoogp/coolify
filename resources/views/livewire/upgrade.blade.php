@@ -172,7 +172,7 @@
             </template>
         </div>
     @elseif ($fullButton)
-        <p class="text-sm text-neutral-600 dark:text-fg-dim">{{ __('Coolify is up to date.') }}</p>
+        <p class="text-sm text-neutral-600 dark:text-fg-dim">{{ __(':name is up to date.', ['name' => product_name()]) }}</p>
     @endif
 </div>
 

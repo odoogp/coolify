@@ -453,6 +453,11 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         return $role === 'admin' || $role === 'owner';
     }
 
+    public function isOwnerOfTeam(int $teamId): bool
+    {
+        return $this->roleInTeam($teamId) === 'owner';
+    }
+
     /**
      * Check if the user can access system resources (team_id=0)
      * Must be admin/owner of root team

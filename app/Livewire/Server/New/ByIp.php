@@ -44,6 +44,7 @@ class ByIp extends Component
 
     public function mount()
     {
+        $this->authorize('create', Server::class);
         $this->name = generate_random_name();
         $this->private_key_id = $this->private_keys->first()?->id;
     }

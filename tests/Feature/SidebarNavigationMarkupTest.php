@@ -33,11 +33,11 @@ it('initializes persisted sidebar state before enabling layout transitions', fun
         ->toContain(":class=\"[collapsed ? 'lg:ml-16' : 'lg:ml-56', sidebarReady ? 'transition-[margin] duration-200' : '']\"");
 });
 
-it('shows the coolify icon in the collapsed desktop brand slot', function () {
+it('shows the product icon in the collapsed desktop brand slot', function () {
     $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
     expect($layout)
-        ->toContain('x-show="collapsed" x-cloak src="/coolify-logo.svg" alt="{{ __(\'Coolify\') }}"')
+        ->toContain('x-show="collapsed" x-cloak src="/gpsh-logo.svg" alt="{{ product_name() }}"')
         ->not->toContain('>C</span>');
 });
 

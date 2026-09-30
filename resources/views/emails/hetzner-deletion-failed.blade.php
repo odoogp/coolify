@@ -6,7 +6,7 @@ Error:
 {{ $errorMessage }}
 </pre>
 
-{{ __('The server has been removed from Coolify, but may still exist in your Hetzner Cloud account.') }}
+{{ product_text('The server has been removed from Coolify, but may still exist in your Hetzner Cloud account.') }}
 
 {{ __('Please check your Hetzner Cloud console and manually delete the server if needed to avoid ongoing charges.') }}
 

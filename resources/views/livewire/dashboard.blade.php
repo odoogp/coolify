@@ -142,7 +142,11 @@
             </div>
 
             @if ($dashboardServers->isEmpty())
-                @if ($privateKeys->isEmpty())
+                @cannot('create', App\Models\Server::class)
+                    <x-empty title="{{ __('No servers assigned') }}"
+                        description="{{ __('No servers are assigned to this instance. Contact your provider to request access.') }}"
+                        icon-name="servers" size="sm" />
+                @elseif ($privateKeys->isEmpty())
                     <x-empty title="{{ __('A private key is required') }}"
                         description="{{ __('Add an SSH private key before connecting your first server.') }}"
                         icon-name="keys" size="sm">
@@ -160,7 +164,7 @@
                     <x-empty title="{{ __('No servers yet') }}"
                         description="{{ __('Connect infrastructure for your deployments.') }}"
                         icon-name="servers" size="sm">
-                        @can('createAnyResource')
+                        @can('create', App\Models\Server::class)
                             <x-slot:contents>
                                 <a href="{{ route('server.create') }}" {{ wireNavigate() }}
                                     class="button button-highlighted">

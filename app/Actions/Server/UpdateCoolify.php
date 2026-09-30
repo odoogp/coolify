@@ -222,7 +222,12 @@ class UpdateCoolify
      */
     private function localUpgradeScriptInstallCommands(): array
     {
-        $encoded = base64_encode((string) file_get_contents(base_path('scripts/upgrade-local.sh')));
+        $script = file_get_contents(base_path('scripts/upgrade-local.sh'));
+        if ($script === false) {
+            throw new \RuntimeException('Local upgrade script is missing from the application image.');
+        }
+
+        $encoded = base64_encode($script);
 
         return [
             "base64 -d > /data/coolify/source/upgrade-local.sh <<'COOLIFY_LOCAL_UPGRADE'",

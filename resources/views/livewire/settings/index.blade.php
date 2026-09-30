@@ -33,7 +33,7 @@
                     @endif
 
                     <x-forms.input canGate="update" :canResource="$settings" id="instance_name" label="{{ __('Name') }}"
-                        placeholder="{{ __('Coolify') }}" helper="{{ __('Custom name for this Coolify instance.') }}" />
+                        placeholder="{{ product_name() }}" helper="{{ product_text('Custom name for this Coolify instance.') }}" />
 
                     {{-- Use searchable-listbox so the label row (h-4) and control height match
                          sibling x-forms.input fields (Name). onChange auto-saves like before. --}}

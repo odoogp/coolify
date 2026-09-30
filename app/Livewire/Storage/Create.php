@@ -29,6 +29,11 @@ class Create extends Component
 
     public string $endpoint = '';
 
+    public function mount(): void
+    {
+        $this->authorize('create', S3Storage::class);
+    }
+
     public array $endpointParts = ['scheme' => 'https', 'host' => '', 'port' => '', 'path' => ''];
 
     public bool $endpointPartsChanged = false;

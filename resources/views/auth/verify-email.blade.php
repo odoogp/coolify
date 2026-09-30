@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell title="{{ __('Coolify') }}" description="{{ __('Verify your email address to activate your account.') }}">
+    <x-auth.shell title="{{ product_name() }}" description="{{ __('Verify your email address to activate your account.') }}">
         <div class="flex flex-col gap-4">
             <div class="auth-guidance">
                 <x-reicon name="mail" class="mt-0.5 size-4 shrink-0" />

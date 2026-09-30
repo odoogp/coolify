@@ -26,6 +26,9 @@ beforeEach(function () {
     $this->admin = User::factory()->create();
     $this->admin->teams()->attach($this->team, ['role' => 'admin']);
 
+    $this->owner = User::factory()->create();
+    $this->owner->teams()->attach($this->team, ['role' => 'owner']);
+
     $this->member = User::factory()->create();
     $this->member->teams()->attach($this->team, ['role' => 'member']);
 
@@ -51,8 +54,12 @@ beforeEach(function () {
 
 // --- Server Policy: update ---
 
-test('admin can update server', function () {
-    expect($this->admin->can('update', $this->server))->toBeTrue();
+test('admin cannot update server', function () {
+    expect($this->admin->can('update', $this->server))->toBeFalse();
+});
+
+test('owner can update server', function () {
+    expect($this->owner->can('update', $this->server))->toBeTrue();
 });
 
 test('member cannot update server', function () {
@@ -61,8 +68,12 @@ test('member cannot update server', function () {
 
 // --- Server Policy: delete ---
 
-test('admin can delete server', function () {
-    expect($this->admin->can('delete', $this->server))->toBeTrue();
+test('admin cannot delete server', function () {
+    expect($this->admin->can('delete', $this->server))->toBeFalse();
+});
+
+test('owner can delete server', function () {
+    expect($this->owner->can('delete', $this->server))->toBeTrue();
 });
 
 test('member cannot delete server', function () {
@@ -81,8 +92,12 @@ test('member can view server', function () {
 
 // --- Server Policy: manageProxy ---
 
-test('admin can manage proxy', function () {
-    expect($this->admin->can('manageProxy', $this->server))->toBeTrue();
+test('admin cannot manage proxy', function () {
+    expect($this->admin->can('manageProxy', $this->server))->toBeFalse();
+});
+
+test('owner can manage proxy', function () {
+    expect($this->owner->can('manageProxy', $this->server))->toBeTrue();
 });
 
 test('member cannot manage proxy', function () {
@@ -91,8 +106,12 @@ test('member cannot manage proxy', function () {
 
 // --- Server Policy: manageSentinel ---
 
-test('admin can manage sentinel', function () {
-    expect($this->admin->can('manageSentinel', $this->server))->toBeTrue();
+test('admin cannot manage sentinel', function () {
+    expect($this->admin->can('manageSentinel', $this->server))->toBeFalse();
+});
+
+test('owner can manage sentinel', function () {
+    expect($this->owner->can('manageSentinel', $this->server))->toBeTrue();
 });
 
 test('member cannot manage sentinel', function () {
@@ -101,8 +120,12 @@ test('member cannot manage sentinel', function () {
 
 // --- Server Policy: manageCaCertificate ---
 
-test('admin can manage CA certificate', function () {
-    expect($this->admin->can('manageCaCertificate', $this->server))->toBeTrue();
+test('admin cannot manage CA certificate', function () {
+    expect($this->admin->can('manageCaCertificate', $this->server))->toBeFalse();
+});
+
+test('owner can manage CA certificate', function () {
+    expect($this->owner->can('manageCaCertificate', $this->server))->toBeTrue();
 });
 
 test('member cannot manage CA certificate', function () {
@@ -121,8 +144,15 @@ test('member cannot view security', function () {
 
 // --- Server Policy: create ---
 
-test('admin can create server', function () {
+test('admin cannot create server', function () {
     $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    expect(auth()->user()->can('create', Server::class))->toBeFalse();
+});
+
+test('owner can create server', function () {
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     expect(auth()->user()->can('create', Server::class))->toBeTrue();
@@ -135,8 +165,8 @@ test('member cannot create server', function () {
     expect(auth()->user()->can('create', Server::class))->toBeFalse();
 });
 
-test('admin can access new server page', function () {
-    $this->actingAs($this->admin);
+test('owner can access new server page', function () {
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     $this->get(route('server.create'))
@@ -146,7 +176,7 @@ test('admin can access new server page', function () {
 });
 
 test('new server chooser lists providers before rendering a creation form', function () {
-    $this->actingAs($this->admin);
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     Livewire::test(ServerCreate::class)
@@ -164,7 +194,7 @@ test('new server chooser lists providers before rendering a creation form', func
 });
 
 test('new server chooser uses compact mobile provider cards', function () {
-    $this->actingAs($this->admin);
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     Livewire::test(ServerCreate::class)
@@ -186,7 +216,7 @@ test('new server chooser uses compact mobile provider cards', function () {
 });
 
 test('new server provider pages render the selected creation flow', function (string $type, string $heading) {
-    $this->actingAs($this->admin);
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     $response = $this->get(route('server.create.type', ['type' => $type]))
@@ -204,7 +234,7 @@ test('new server provider pages render the selected creation flow', function (st
 ]);
 
 test('new server provider pages do not show the new token action in the header', function (string $type, string $heading) {
-    $this->actingAs($this->admin);
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     $response = $this->get(route('server.create.type', ['type' => $type]))
@@ -220,7 +250,7 @@ test('new server provider pages do not show the new token action in the header',
 ]);
 
 test('new server provider pages show the new token action in the header when tokens exist', function (string $type, string $provider, string $heading, string $modalTitle) {
-    $this->actingAs($this->admin);
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     CloudProviderToken::factory()->create([
@@ -240,7 +270,7 @@ test('new server provider pages show the new token action in the header when tok
 ]);
 
 test('new server manual page does not show the new token action', function () {
-    $this->actingAs($this->admin);
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     $this->get(route('server.create.type', ['type' => 'manual']))
@@ -257,12 +287,28 @@ test('member cannot access new server page', function () {
         ->assertForbidden();
 });
 
-test('server index links admins to new server page', function () {
+test('admin cannot access new server page', function () {
     $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    $this->get(route('server.create'))
+        ->assertForbidden();
+});
+
+test('server index links owners to the new server page', function () {
+    $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     Livewire::test(ServerIndex::class)
         ->assertSee(route('server.create'));
+});
+
+test('server index does not link admins to the new server page', function () {
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(ServerIndex::class)
+        ->assertDontSee(route('server.create'));
 });
 
 test('server index does not link members to new server page', function () {

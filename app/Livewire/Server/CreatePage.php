@@ -3,6 +3,7 @@
 namespace App\Livewire\Server;
 
 use App\Models\CloudProviderToken;
+use App\Models\Server;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
@@ -22,6 +23,8 @@ class CreatePage extends Component
 
     public function mount(?string $type = null, ?string $token_uuid = null): void
     {
+        $this->authorize('create', Server::class);
+
         $this->type = $type;
         $this->token_uuid = $token_uuid;
         $this->tokenProvider = match ($type) {
