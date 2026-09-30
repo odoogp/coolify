@@ -341,6 +341,7 @@ class Change extends Component
                     $routeParameters = array_filter([
                         'environment_uuid' => data_get($parameters, 'environment_uuid'),
                         'project_uuid' => data_get($parameters, 'project_uuid'),
+                        'service_uuid' => data_get($parameters, 'service_uuid'),
                         'type' => data_get($parameters, 'type'),
                         'destination' => data_get($parameters, 'destination'),
                     ], fn ($value) => filled($value));

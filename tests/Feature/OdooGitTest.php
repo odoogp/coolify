@@ -370,3 +370,28 @@ it('does not ask for the branch or github while deploying', function () {
     expect(GithubApp::query()->where('team_id', $this->team->id)->count())->toBe(1)
         ->and($this->project->environments()->count())->toBe(3);
 });
+
+it('associates an existing repository with one environment and keeps the others free', function () {
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    $production = $this->project->environments()->where('name', 'production')->first();
+
+    OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main', 'develop'], $staging, 'develop');
+
+    expect($staging->fresh()->odooBranch->git_branch)->toBe('develop')
+        ->and($this->project->odooProfile->fresh()->git_repository)->toBe('acme/odoo')
+        ->and($production->fresh()->odooBranch)->toBeNull()
+        ->and(Application::query()->count())->toBe(0);
+
+    expect(fn () => OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main', 'develop'], $production, 'develop'))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('shows the repository choice on the odoo service page', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
+
+    expect($view)
+        ->toContain('New repository')
+        ->toContain('Existing repository')
+        ->toContain('associateOdooRepository')
+        ->not->toContain('Subscription Code');
+});

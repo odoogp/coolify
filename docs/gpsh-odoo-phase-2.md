@@ -4,7 +4,7 @@ GitHub no es obligatorio. El proyecto Odoo arranca y un entorno se puede lanzar 
 
 Sin repositorio, JupyterLab es el manejo de archivos y queda activo al crear o al arrancar el servicio Odoo. Los archivos son una sola carpeta: Odoo la lee en `/mnt/extra-addons` y JupyterLab abre la misma en `/workspace/addons`. No hay una copia aparte.
 
-Si más adelante se conecta GitHub, el primer lanzamiento con la cuenta crea un repositorio con el nombre del proyecto (`Mi Empresa` queda `mi-empresa`) y cada entorno pasa a ser una rama de ese repositorio (`production`, `staging-1`, `staging-2`). Esa sincronización entra en la misma carpeta de addons. No sustituye a Jupyter ni despliega un Service en ese paso. Cómo empujar el contenido que ya está en la carpeta hacia el repositorio nuevo queda para cuando se conecte: el gancho es el mismo volumen, no un segundo árbol.
+Si más adelante se conecta GitHub, se puede hacer desde el servicio que ya existe: repositorio nuevo, con el nombre del proyecto, o un repositorio que ya existe. En el segundo caso se cargan sus ramas y el entorno queda en la rama elegida. El primer lanzamiento con cuenta nueva crea el repositorio (`Mi Empresa` queda `mi-empresa`) y la rama con el nombre del entorno. Esa sincronización entra en la misma carpeta de addons. No sustituye a Jupyter ni despliega un Service en ese paso. Cómo empujar el contenido que ya está en la carpeta hacia el repositorio nuevo queda para cuando se conecte: el gancho es el mismo volumen, no un segundo árbol.
 
 La categoría (producción o staging) se elige al lanzar el entorno. No se pregunta otra vez en el botón de deploy. No se crea una Application en ese paso.
 

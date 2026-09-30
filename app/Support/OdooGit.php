@@ -148,6 +148,56 @@ class OdooGit
         });
     }
 
+    /**
+     * Point one existing environment at a branch that already exists in a repository.
+     *
+     * @param  list<string>  $githubBranches
+     */
+    public static function attachExisting(Project $project, GithubApp $githubApp, string $gitRepository, int $repositoryId, array $githubBranches, Environment $environment, string $branch): void
+    {
+        $profile = $project->odooProfile;
+        if ($profile === null) {
+            throw new InvalidArgumentException('Odoo is not enabled for this project.');
+        }
+        if ((int) $environment->project_id !== (int) $project->id || ! self::tracksBranch($environment)) {
+            throw new InvalidArgumentException('Only production and staging environments can track a GitHub branch.');
+        }
+        if ((int) $githubApp->team_id !== (int) $project->team_id && ! $githubApp->is_system_wide) {
+            throw new InvalidArgumentException('This GitHub App is not available to the project team.');
+        }
+        if (! preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $gitRepository)) {
+            throw new InvalidArgumentException('Invalid GitHub repository.');
+        }
+
+        $branch = trim($branch);
+        $githubBranches = array_values(array_unique(array_map(strval(...), $githubBranches)));
+        $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
+        if ($check->fails() || ! in_array($branch, $githubBranches, true)) {
+            throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
+        }
+
+        $taken = OdooEnvironmentBranch::query()
+            ->whereIn('environment_id', $project->environments()->pluck('id'))
+            ->where('git_branch', $branch)
+            ->where('environment_id', '!=', $environment->id)
+            ->exists();
+        if ($taken) {
+            throw new InvalidArgumentException('Each environment needs its own GitHub branch.');
+        }
+
+        DB::transaction(function () use ($profile, $githubApp, $gitRepository, $repositoryId, $environment, $branch): void {
+            $profile->update([
+                'github_app_id' => $githubApp->id,
+                'repository_id' => $repositoryId,
+                'git_repository' => $gitRepository,
+            ]);
+            OdooEnvironmentBranch::query()->updateOrCreate(
+                ['environment_id' => $environment->id],
+                ['git_branch' => $branch],
+            );
+        });
+    }
+
     public static function tracksBranch(Environment $environment): bool
     {
         return strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name);
@@ -405,16 +455,14 @@ class OdooGit
         }
     }
 
-    public static function beginConnect(Project $project): GithubApp
+    public static function beginConnect(Project $project, string $back = 'project.edit', array $parameters = []): GithubApp
     {
         Gate::authorize('createAnyResource');
 
         session([
             'from' => [
-                'back' => 'project.edit',
-                'parameters' => [
-                    'project_uuid' => $project->uuid,
-                ],
+                'back' => $back,
+                'parameters' => $parameters === [] ? ['project_uuid' => $project->uuid] : $parameters,
             ],
         ]);
         $githubApp = GithubApp::create([

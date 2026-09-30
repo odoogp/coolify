@@ -98,16 +98,73 @@
 
             <div class="min-w-0">
                 @if ($currentRoute === 'project.service.configuration')
-                    @if ($odooNeedsGithub)
+                    @if ($odooIsOdoo)
                         <section class="application-settings-section mb-6">
-                            <div class="application-settings-section-body flex flex-col gap-3">
-                                <p class="text-sm font-medium">{{ __('GitHub') }}</p>
-                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                    {{ __('GitHub is optional. Without it, JupyterLab shows the addon files. You can connect a repository later from the project settings.') }}
-                                </p>
+                            <div class="application-settings-section-body flex flex-col gap-4">
                                 <div>
-                                    <a class="button" href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}">{{ __('Connect GitHub') }}</a>
+                                    <p class="text-sm font-medium">{{ __('GitHub') }}</p>
+                                    <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('This project can use a new repository or one that already exists. The branches come from that repository. Without one, JupyterLab shows the addon files.') }}
+                                    </p>
                                 </div>
+                                @if (filled($project->odooProfile?->git_repository))
+                                    <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
+                                @endif
+                                @if (! $odooGithubConnected)
+                                    <div>
+                                        <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$service">
+                                            {{ __('Connect GitHub') }}
+                                        </x-forms.button>
+                                    </div>
+                                @else
+                                    <div class="flex flex-wrap gap-4 text-sm">
+                                        <label class="inline-flex items-center gap-2">
+                                            <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
+                                            {{ __('New repository') }}
+                                        </label>
+                                        <label class="inline-flex items-center gap-2">
+                                            <input type="radio" wire:model.live="odooRepoMode" value="existing" class="rounded-full">
+                                            {{ __('Existing repository') }}
+                                        </label>
+                                    </div>
+                                    @if (count($odooGithubApps) > 1)
+                                        <div class="max-w-sm">
+                                            <x-forms.listbox canGate="update" :canResource="$service" id="odooGithubAppId" label="{{ __('GitHub account') }}"
+                                                :options="$odooGithubApps" />
+                                        </div>
+                                    @endif
+                                    @if ($odooRepoMode === 'new')
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            {{ __('The repository is named after the project. This environment becomes a branch with the same name.') }}
+                                        </p>
+                                    @else
+                                        <div class="flex flex-wrap items-end gap-3">
+                                            <div class="max-w-sm flex-1">
+                                                <x-forms.listbox canGate="update" :canResource="$service" id="odooRepositoryId" label="{{ __('Repository') }}"
+                                                    :disabled="$odooRepositories === []"
+                                                    :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
+                                            </div>
+                                            <x-forms.button type="button" wire:click="loadOdooRepositories" canGate="update" :canResource="$service">
+                                                {{ __('Load repositories') }}
+                                            </x-forms.button>
+                                        </div>
+                                        @if ($odooGithubBranches !== [])
+                                            <div class="max-w-sm">
+                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-service-branch">{{ __('Branch') }}</label>
+                                                <select id="odoo-service-branch" wire:model="odooBranch" class="input">
+                                                    @foreach ($odooGithubBranches as $branch)
+                                                        <option value="{{ $branch }}">{{ $branch }}</option>
+                                                    @endforeach
+                                                </select>
+                                            </div>
+                                        @endif
+                                    @endif
+                                    <div>
+                                        <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
+                                            {{ __('Associate repository') }}
+                                        </x-forms.button>
+                                    </div>
+                                @endif
                             </div>
                         </section>
                     @endif

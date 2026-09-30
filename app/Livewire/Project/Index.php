@@ -15,7 +15,10 @@ class Index extends Component
         // Only load what the page renders. Servers/private keys were previously
         // hydrated into public Livewire state but never used by the view.
         $this->projects = Project::ownedByCurrentTeam()
-            ->with(['environments:id,uuid,name,project_id'])
+            ->with([
+                'environments:id,uuid,name,project_id',
+                'odooProfile:id,project_id,odoo_version,git_repository',
+            ])
             ->withCount([
                 'applications',
                 'services',
@@ -60,6 +63,10 @@ class Index extends Component
                     'href' => $project->navigateTo(),
                     'environmentCount' => $project->environments->count(),
                     'resourceCount' => $resourceCount,
+                    'odooVersion' => $project->odooProfile?->odoo_version,
+                    'odooStatus' => $project->odooProfile === null
+                        ? null
+                        : ($project->odooProfile->git_repository ?: 'JupyterLab'),
                     'settingsHref' => auth()->user()->can('update', $project)
                         ? route('project.edit', ['project_uuid' => $project->uuid])
                         : null,

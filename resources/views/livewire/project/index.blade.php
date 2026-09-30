@@ -122,6 +122,16 @@
                                         x-text="project.name"></h2>
                                     <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint"
                                         x-text="project.description || @js(__('No description'))"></p>
+                                    <dl x-cloak x-show="project.odooVersion" class="mt-3 space-y-1 text-[11px]">
+                                        <div class="flex items-center justify-between gap-3">
+                                            <dt class="text-neutral-500 dark:text-fg-faint">{{ __('Version') }}</dt>
+                                            <dd class="font-medium text-black dark:text-fg" x-text="project.odooVersion"></dd>
+                                        </div>
+                                        <div class="flex items-center justify-between gap-3">
+                                            <dt class="text-neutral-500 dark:text-fg-faint">{{ __('Status') }}</dt>
+                                            <dd class="truncate font-medium text-black dark:text-fg" x-text="project.odooStatus"></dd>
+                                        </div>
+                                    </dl>
                                 </div>
                             </div>
 

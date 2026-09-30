@@ -85,28 +85,34 @@ class OdooSummary extends Component
 
     public function render()
     {
-        $this->project->load('odooProfile', 'environments.odooBranch');
+        $this->project->load(['odooProfile', 'environments.odooBranch', 'environments.services']);
         $user = auth()->user();
         $rows = $this->project->odooProfile === null ? [] : $this->project->environments
             ->filter(fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name))
-            ->map(function (Environment $environment) use ($user): array {
+            ->map(function (Environment $environment): array {
                 $applicationId = $environment->odooBranch?->addons_application_id;
                 $latest = $applicationId === null ? null : ApplicationDeploymentQueue::query()
                     ->where('application_id', $applicationId)
                     ->latest('id')
                     ->first();
+                $service = $environment->services->first(fn ($service): bool => $service->supportsOdooJupyter());
 
                 return [
                     'id' => $environment->id,
                     'name' => $environment->name,
                     'domain' => $environment->odooBranch?->domain,
-                    'version' => $environment->odooBranch?->odoo_version,
+                    'version' => $environment->odooBranch?->odoo_version ?: $this->project->odooProfile?->odoo_version,
                     'workers' => $environment->odooBranch?->workers,
-                    'jupyter' => (bool) $environment->odooBranch?->jupyter_enabled,
+                    'jupyter' => (bool) $environment->odooBranch?->jupyter_enabled || ($service?->jupyter_enabled ?? false),
                     'addons_path' => $environment->odooBranch?->addons_path,
                     'branch' => $environment->odooBranch?->git_branch,
                     'status' => $latest?->status,
                     'staging' => OdooStaging::isStagingName($environment->name),
+                    'href' => $service === null ? null : route('project.service.configuration', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                    ]),
                 ];
             })
             ->values()
