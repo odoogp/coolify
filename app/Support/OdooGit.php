@@ -6,6 +6,8 @@ use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
+use App\Models\Service;
+use Illuminate\Support\Facades\Gate;
 use App\Rules\ValidGitBranch;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -151,8 +153,85 @@ class OdooGit
     }
 
     /**
+     * Odoo cannot start until this team has a GitHub App that finished installation.
+     * Other services never reach this check.
+     */
+    /**
+     * Every Odoo launch names its category. The owner is not exempt.
+     * Production stays the existing production environment. Staging stays
+     * put when it is already staging, and otherwise opens the next one.
+     */
+    public static function placeLaunch(Service $service, string $classification): void
+    {
+        if (! in_array($classification, ['production', 'staging'], true)) {
+            throw new InvalidArgumentException('Choose production or staging.');
+        }
+
+        $service->loadMissing('environment.project');
+        $project = $service->environment?->project;
+        if ($project === null) {
+            throw new RuntimeException('This Odoo service has no project.');
+        }
+
+        if ($classification === 'production') {
+            $environment = $project->environments()->get()->first(
+                fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
+            );
+            if (! $environment instanceof Environment) {
+                throw new RuntimeException('This project has no production environment.');
+            }
+        } elseif (OdooStaging::isStagingName((string) $service->environment?->name)) {
+            $environment = $service->environment;
+        } else {
+            $environment = $project->createNextStagingEnvironment();
+        }
+
+        if ((int) $service->environment_id !== (int) $environment->id) {
+            $service->environment_id = $environment->id;
+            $service->save();
+        }
+    }
+
+    public static function ensureLaunchAllowed(Service $service): void
+    {
+        if (! $service->supportsOdooJupyter()) {
+            return;
+        }
+
+        $service->loadMissing('environment.project');
+        $teamId = (int) $service->environment?->project?->team_id;
+        if (self::connectedApps($teamId)->isEmpty()) {
+            throw new RuntimeException('Connect a GitHub account before launching Odoo.');
+        }
+    }
+
+    public static function beginConnect(Project $project): GithubApp
+    {
+        Gate::authorize('createAnyResource');
+
+        session([
+            'from' => [
+                'back' => 'project.edit',
+                'parameters' => [
+                    'project_uuid' => $project->uuid,
+                ],
+            ],
+        ]);
+        $githubApp = GithubApp::create([
+            'name' => substr(generate_random_name(), 0, 30),
+            'api_url' => 'https://api.github.com',
+            'html_url' => 'https://github.com',
+            'custom_user' => 'git',
+            'custom_port' => 22,
+            'team_id' => $project->team_id,
+        ]);
+        session(['from' => session('from') + ['source_id' => $githubApp->id]]);
+
+        return $githubApp;
+    }
+
+    /**
      * A GitHub account is connected when the App is installed and has its private key.
-     * That is the same key and webhook the source screen already creates.
      *
      * @return Collection<int, GithubApp>
      */

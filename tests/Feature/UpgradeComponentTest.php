@@ -159,7 +159,7 @@ it('clears stale upgrade availability when current version is newer than cached 
     expect((bool) InstanceSettings::findOrFail(0)->new_version_available)->toBeFalse();
 });
 
-it('keeps the update log hidden until it is opened', function () {
+it('keeps the update steps hidden until they are opened', function () {
     config(['constants.coolify.version' => '4.0.0-beta.998']);
     InstanceSettings::forceCreate([
         'id' => 0,
@@ -171,32 +171,41 @@ it('keeps the update log hidden until it is opened', function () {
         ->andReturn(null);
 
     Livewire::test(Upgrade::class)
-        ->assertSet('showUpdateLog', false)
+        ->assertSet('showUpdateSteps', false)
         ->set('updateInProgress', true)
         ->set('currentVersion', '4.0.0-beta.998')
         ->set('latestVersion', '4.0.0-beta.999')
-        ->call('toggleUpdateLog')
-        ->assertSet('showUpdateLog', true)
+        ->call('toggleUpdateSteps')
+        ->assertSet('showUpdateSteps', true)
         ->assertSet('updateInProgress', true)
         ->assertSet('currentVersion', '4.0.0-beta.998')
         ->assertSet('latestVersion', '4.0.0-beta.999')
-        ->call('toggleUpdateLog')
-        ->assertSet('showUpdateLog', false)
+        ->call('toggleUpdateSteps')
+        ->assertSet('showUpdateSteps', false)
         ->assertSet('updateInProgress', true)
         ->assertSet('currentVersion', '4.0.0-beta.998')
         ->assertSet('latestVersion', '4.0.0-beta.999');
 });
 
-it('hides the update log without changing how the upgrade runs', function () {
+it('hides the update steps without changing how the upgrade runs', function () {
     $upgradeView = file_get_contents(resource_path('views/livewire/upgrade.blade.php'));
+    $progressView = file_get_contents(resource_path('views/components/upgrade-progress.blade.php'));
 
     expect($upgradeView)
-        ->toContain('showUpdateLog')
-        ->toContain('x-show="showUpdateLog"')
+        ->toContain('showUpdateSteps')
+        ->toContain('x-show="showUpdateSteps"')
         ->toContain('x-text="currentStatus"')
         ->toContain("this.\$wire.\$call('upgrade')")
         ->toContain('this.$wire.getUpgradeStatus()')
         ->toContain('Update in progress...')
-        ->toContain('Show log')
-        ->toContain('Hide log');
+        ->toContain('Show steps')
+        ->toContain('Hide steps')
+        ->not->toContain('upgrade-*.log');
+
+    expect($progressView)
+        ->toContain('Preparing update')
+        ->toContain('Fetching repository')
+        ->toContain('Building image')
+        ->toContain('Recreating Coolify')
+        ->toContain('Health check');
 });

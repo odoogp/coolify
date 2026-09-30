@@ -7,6 +7,7 @@ use App\Actions\Service\StartService;
 use App\Actions\Service\StopService;
 use App\Enums\ProcessStatus;
 use App\Models\Service;
+use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -27,6 +28,12 @@ class Heading extends Component
     public $docker_cleanup = true;
 
     public $title = 'Configuration';
+
+    public bool $odooAskClassification = false;
+
+    public ?string $pendingOdooLaunch = null;
+
+    private bool $odooClassificationChosen = false;
 
     public function mount()
     {
@@ -112,6 +119,12 @@ class Heading extends Component
     {
         try {
             $this->authorizeService('deploy');
+            if ($this->holdForOdooClassification('start')) {
+                return;
+            }
+            if ($redirect = $this->odooGithubConnectRedirect()) {
+                return $redirect;
+            }
             $activity = StartService::run($this->service, pullLatestImages: true);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
             $this->dispatch('activityMonitor', $activity->id);
@@ -124,6 +137,12 @@ class Heading extends Component
     {
         try {
             $this->authorizeService('deploy');
+            if ($this->holdForOdooClassification('force')) {
+                return;
+            }
+            if ($redirect = $this->odooGithubConnectRedirect()) {
+                return $redirect;
+            }
             $activities = Activity::where('properties->type_uuid', $this->service->uuid)
                 ->where(function ($q) {
                     $q->where('properties->status', ProcessStatus::IN_PROGRESS->value)
@@ -155,11 +174,17 @@ class Heading extends Component
     {
         try {
             $this->authorizeService('deploy');
+            if ($this->holdForOdooClassification('restart')) {
+                return;
+            }
             $this->checkDeployments();
             if ($this->isDeploymentProgress) {
                 $this->dispatch('error', __('There is a deployment in progress.'));
 
                 return;
+            }
+            if ($redirect = $this->odooGithubConnectRedirect()) {
+                return $redirect;
             }
             $activity = StartService::run($this->service, stopBeforeStart: true);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
@@ -173,11 +198,17 @@ class Heading extends Component
     {
         try {
             $this->authorizeService('deploy');
+            if ($this->holdForOdooClassification('pull')) {
+                return;
+            }
             $this->checkDeployments();
             if ($this->isDeploymentProgress) {
                 $this->dispatch('error', __('There is a deployment in progress.'));
 
                 return;
+            }
+            if ($redirect = $this->odooGithubConnectRedirect()) {
+                return $redirect;
             }
             $activity = StartService::run($this->service, pullLatestImages: true, stopBeforeStart: true);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
@@ -185,6 +216,57 @@ class Heading extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    public function classifyOdooLaunch(string $classification): mixed
+    {
+        try {
+            $this->authorizeService('deploy');
+            OdooGit::placeLaunch($this->service, $classification);
+            $this->service->refresh();
+            $this->odooAskClassification = false;
+            $launch = $this->pendingOdooLaunch ?? 'start';
+            $this->pendingOdooLaunch = null;
+            $this->odooClassificationChosen = true;
+
+            return match ($launch) {
+                'force' => $this->forceDeploy(),
+                'restart' => $this->restart(),
+                'pull' => $this->pullAndRestartEvent(),
+                default => $this->start(),
+            };
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
+    private function holdForOdooClassification(string $launch): bool
+    {
+        if ($this->odooClassificationChosen || ! $this->service->supportsOdooJupyter()) {
+            return false;
+        }
+
+        $this->pendingOdooLaunch = $launch;
+        $this->odooAskClassification = true;
+
+        return true;
+    }
+
+    private function odooGithubConnectRedirect(): mixed
+    {
+        if (! $this->service->supportsOdooJupyter()) {
+            return null;
+        }
+
+        $this->service->loadMissing('environment.project');
+        $project = $this->service->environment?->project;
+        if ($project === null || OdooGit::connectedApps((int) $project->team_id)->isNotEmpty()) {
+            return null;
+        }
+
+        $githubApp = OdooGit::beginConnect($project);
+
+        return redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
     }
 
     private function authorizeService(string $ability): void

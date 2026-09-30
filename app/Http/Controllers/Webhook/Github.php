@@ -638,8 +638,17 @@ class Github extends Controller
             $this->rejectInvalidGithubAppSetupState($request);
         }
 
-        $team_id = $request->user()?->currentTeam()?->id;
-        abort_unless(! is_null($team_id) && (int) data_get($payload, 'team_id') === $team_id, 403);
+        $user = $request->user();
+        $payloadTeamId = (int) data_get($payload, 'team_id');
+        $team_id = $user?->currentTeam()?->id;
+        if ($user && $team_id !== $payloadTeamId) {
+            $membership = $user->teams()->whereKey($payloadTeamId)->first();
+            if ($membership) {
+                refreshSession($membership);
+                $team_id = $membership->id;
+            }
+        }
+        abort_unless(! is_null($team_id) && $team_id === $payloadTeamId, 403);
 
         return GithubApp::whereKey(data_get($payload, 'github_app_id'))
             ->where('team_id', data_get($payload, 'team_id'))

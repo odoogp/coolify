@@ -23,7 +23,7 @@ class Upgrade extends Component
 
     public bool $fullButton = false;
 
-    public bool $showUpdateLog = false;
+    public bool $showUpdateSteps = false;
 
     protected $listeners = ['updateAvailable' => 'checkUpdate'];
 
@@ -87,9 +87,9 @@ class Upgrade extends Component
         $this->isUpgradeAvailable = (bool) data_get($settings, 'new_version_available', false);
     }
 
-    public function toggleUpdateLog(): void
+    public function toggleUpdateSteps(): void
     {
-        $this->showUpdateLog = ! $this->showUpdateLog;
+        $this->showUpdateSteps = ! $this->showUpdateSteps;
         $this->skipRender();
     }
 

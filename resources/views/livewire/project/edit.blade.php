@@ -151,15 +151,22 @@
                         </div>
                         @if (! $odooGithubConnected)
                             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('GitHub is connected when the Odoo service is created. If the account is already connected, it is reused. The deploy creates the key and the branch in the repository.') }}
+                                {{ __('Connect your GitHub account') }}
                             </p>
+                            <div>
+                                <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$project" isHighlighted>
+                                    {{ __('Connect GitHub') }}
+                                </x-forms.button>
+                            </div>
                         @else
-                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                            {{ __('This GitHub account is reused. Deploying the Odoo service creates the key and this environment branch in the repository.') }}
+                        <p class="text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
+                            {{ __('Connected to GitHub') }}
                         </p>
                         <div class="grid max-w-xl gap-4 sm:grid-cols-2">
-                            <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub App') }}"
-                                :disabled="! auth()->user()->can('update', $project)" :options="$odooGithubApps" />
+                            @if (count($odooGithubApps) > 1)
+                                <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub account') }}"
+                                    :disabled="! auth()->user()->can('update', $project)" :options="$odooGithubApps" />
+                            @endif
                             <x-forms.listbox canGate="update" :canResource="$project" id="odooRepositoryId" label="{{ __('Repository') }}"
                                 :disabled="$odooRepositories === [] || ! auth()->user()->can('update', $project)"
                                 :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />

@@ -333,18 +333,15 @@ class Change extends Component
                 } else {
                     $parameters = data_get(session('from'), 'parameters');
                     $back = data_get(session('from'), 'back');
-                    $environment_uuid = data_get($parameters, 'environment_uuid');
-                    $project_uuid = data_get($parameters, 'project_uuid');
-                    $type = data_get($parameters, 'type');
-                    $destination = data_get($parameters, 'destination');
                     session()->forget('from');
+                    $routeParameters = array_filter([
+                        'environment_uuid' => data_get($parameters, 'environment_uuid'),
+                        'project_uuid' => data_get($parameters, 'project_uuid'),
+                        'type' => data_get($parameters, 'type'),
+                        'destination' => data_get($parameters, 'destination'),
+                    ], fn ($value) => filled($value));
 
-                    return redirect()->route($back, [
-                        'environment_uuid' => $environment_uuid,
-                        'project_uuid' => $project_uuid,
-                        'type' => $type,
-                        'destination' => $destination,
-                    ]);
+                    return redirect()->route($back, $routeParameters);
                 }
             }
             $this->parameters = get_route_parameters();

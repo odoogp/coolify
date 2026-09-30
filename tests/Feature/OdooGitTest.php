@@ -1,8 +1,11 @@
 <?php
 
+use App\Actions\Service\StartService;
 use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\Edit;
+use App\Livewire\Project\Service\Heading;
+use App\Models\Service;
 use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\InstanceSettings;
@@ -124,17 +127,32 @@ it('does not let a member save github branches', function () {
         ->set('odooGithubAppId', $this->githubApp->id)
         ->set('odooRepositoryId', 99)
         ->call('saveOdooGit')
+        ->assertDispatched('error')
+        ->call('connectOdooGithub')
         ->assertDispatched('error');
 
     expect(OdooEnvironmentBranch::query()->count())->toBe(0)
         ->and(Application::query()->count())->toBe(0);
 });
 
-it('asks to sign in with github when the account is not connected', function () {
-    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+it('starts the github app install when the account is not connected', function () {
+    $component = Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->assertSet('odooGithubConnected', false)
-        ->assertSee('GitHub is connected when the Odoo service is created.')
-        ->assertDontSee('Connect GitHub');
+        ->assertSee('Connect your GitHub account')
+        ->assertSee('Connect GitHub')
+        ->call('connectOdooGithub');
+
+    $created = GithubApp::query()->where('team_id', $this->team->id)->latest('id')->first();
+
+    $component->assertRedirect(route('source.github.show', ['github_app_uuid' => $created->uuid]));
+
+    expect($created->id)->not->toBe($this->githubApp->id)
+        ->and($created->installation_id)->toBeNull()
+        ->and($created->private_key_id)->toBeNull()
+        ->and(session('from.back'))->toBe('project.edit')
+        ->and(session('from.source_id'))->toBe($created->id)
+        ->and(session('from.parameters.project_uuid'))->toBe($this->project->uuid)
+        ->and(Application::query()->count())->toBe(0);
 });
 
 it('reuses the github account that already has a key and a webhook', function () {
@@ -155,7 +173,8 @@ it('reuses the github account that already has a key and a webhook', function ()
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->assertSet('odooGithubConnected', true)
         ->assertSet('odooGithubAppId', $this->githubApp->id)
-        ->assertSee('This GitHub account is reused. Deploying the Odoo service creates the key and this environment branch in the repository.');
+        ->assertSee('Connected to GitHub')
+        ->assertDontSee('Connect GitHub');
 });
 
 it('marks only the matching github branch as updating when the webhook arrives', function () {
@@ -209,4 +228,53 @@ it('returns the branch to idle after the odoo restart finishes', function () {
     (new RestartOdooBranchJob($row->id))->handle();
 
     expect($row->fresh()->status)->toBe('idle');
+});
+
+it('refuses to launch odoo without a connected github account and still launches other services', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $odoo = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $other = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  ghost:\n    image: ghost:5\n",
+    ]);
+
+    expect(fn () => OdooGit::ensureLaunchAllowed($odoo))->toThrow(RuntimeException::class, 'Connect a GitHub account before launching Odoo.');
+    expect(fn () => OdooGit::ensureLaunchAllowed($other))->not->toThrow(RuntimeException::class);
+    expect(fn () => (new StartService)->handle($odoo))->toThrow(RuntimeException::class, 'Connect a GitHub account before launching Odoo.');
+});
+
+it('asks the owner to classify every odoo launch before connecting github', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $before = $this->project->environments()->count();
+    $odoo = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    $component = Livewire::test(Heading::class, [
+        'service' => $odoo,
+        'parameters' => [],
+        'query' => [],
+    ])->call('start')
+        ->assertSet('odooAskClassification', true)
+        ->assertSee('This Odoo instance must be production or staging.');
+
+    expect($odoo->fresh()->environment_id)->toBe($environment->id)
+        ->and($this->project->environments()->count())->toBe($before)
+        ->and(GithubApp::query()->where('team_id', $this->team->id)->count())->toBe(1);
+
+    $component->call('classifyOdooLaunch', 'staging');
+
+    $staging = $this->project->environments()->orderByDesc('id')->first();
+    $created = GithubApp::query()->where('team_id', $this->team->id)->latest('id')->first();
+
+    expect($odoo->fresh()->environment_id)->toBe($staging->id)
+        ->and($staging->name)->toStartWith('staging')
+        ->and($staging->created_by)->toBe($this->user->id)
+        ->and($staging->name)->not->toBe('production');
+
+    $component->assertRedirect(route('source.github.show', ['github_app_uuid' => $created->uuid]));
 });

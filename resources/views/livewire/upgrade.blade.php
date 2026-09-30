@@ -3,7 +3,7 @@
         currentVersion: @js($currentVersion),
         latestVersion: @js($latestVersion),
         devMode: @js($devMode),
-        showUpdateLog: @js($showUpdateLog)
+        showUpdateSteps: @js($showUpdateSteps)
     })">
     @if ($isUpgradeAvailable)
         <div :class="{ 'z-40': modalOpen }" class="relative w-auto h-auto">
@@ -72,13 +72,13 @@
                                     <div class="flex items-center justify-between gap-3">
                                         <span class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"
                                             x-text="updateSummary()"></span>
-                                        <button type="button" @click="toggleUpdateLog()"
+                                        <button type="button" @click="toggleUpdateSteps()"
                                             class="button shrink-0">
-                                            <span x-text="showUpdateLog ? @js(__('Hide log')) : @js(__('Show log'))"></span>
+                                            <span x-text="showUpdateSteps ? @js(__('Hide steps')) : @js(__('Show steps'))"></span>
                                         </button>
                                     </div>
 
-                                    <div x-show="showUpdateLog" x-cloak class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                                    <div x-show="showUpdateSteps" x-cloak class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                     <x-upgrade-progress />
 
                                     <div class="flex items-center justify-center gap-1.5 text-[12px]"
@@ -210,7 +210,8 @@
             serviceDown: false,
             instanceWentDown: false,
             devMode: config.devMode || false,
-            showUpdateLog: config.showUpdateLog || false,
+            showUpdateSteps: config.showUpdateSteps || false,
+            backendStep: 0,
             simulationInterval: null,
 
             updateSummary() {
@@ -224,9 +225,37 @@
                 return @js(__('Update in progress...'));
             },
 
-            toggleUpdateLog() {
-                this.showUpdateLog = !this.showUpdateLog;
-                this.$wire.toggleUpdateLog();
+            toggleUpdateSteps() {
+                this.showUpdateSteps = !this.showUpdateSteps;
+                this.$wire.toggleUpdateSteps();
+            },
+
+            stagePosition() {
+                if (this.upgradeComplete) {
+                    return 7;
+                }
+
+                const step = Number(this.backendStep) || 0;
+                if (step >= 6) {
+                    return 7;
+                }
+                if (step === 5) {
+                    return 6;
+                }
+                if (step === 4) {
+                    return 5;
+                }
+                if (step === 3) {
+                    return 4;
+                }
+                if (step === 2) {
+                    return 3;
+                }
+                if (step === 1) {
+                    return 2;
+                }
+
+                return 1;
             },
 
             simulateUpgrade() {
@@ -250,6 +279,7 @@
                 this.simulationInterval = setInterval(() => {
                     if (stepIndex < steps.length) {
                         this.currentStep = steps[stepIndex].step;
+                        this.backendStep = steps[stepIndex].step;
                         this.currentStatus = steps[stepIndex].status;
                         stepIndex++;
                     } else {
@@ -263,6 +293,7 @@
             confirmed() {
                 this.showProgress = true;
                 this.currentStep = 1;
+                this.backendStep = 0;
                 this.currentStatus = 'Starting upgrade...';
                 this.startTimer();
                 // Trigger server-side upgrade script via Livewire
@@ -318,6 +349,7 @@
                     if (!response.ok) {
                         this.instanceWentDown = true;
                         this.currentStep = 4;
+                        this.backendStep = 5;
                         this.currentStatus = this.getReviveStatusMessage(elapsedMinutes, this.healthCheckAttempts);
                         return;
                     }
@@ -360,6 +392,7 @@
                     console.error('Health check failed:', error);
                     this.instanceWentDown = true;
                     this.currentStep = 4;
+                    this.backendStep = 5;
                     this.currentStatus = this.getReviveStatusMessage(elapsedMinutes, this.healthCheckAttempts);
                 }
             },
@@ -380,6 +413,7 @@
 
             revive() {
                 this.currentStep = 4;
+                this.backendStep = 5;
                 console.log('Checking server\'s health...');
                 this.startHealthWatch();
             },
@@ -405,6 +439,7 @@
 
                 this.upgradeComplete = true;
                 this.currentStep = 5;
+                this.backendStep = 6;
                 this.currentStatus = `Successfully upgraded to ${this.latestVersion}`;
                 this.successCountdown = 3;
 
@@ -451,11 +486,13 @@
                 this.upgradeError = false;
                 this.currentStatus = '';
                 this.currentStep = 0;
+                this.backendStep = 0;
             },
 
             upgrade() {
                 if (this.checkUpgradeStatusInterval) return true;
                 this.currentStep = 1;
+                this.backendStep = 0;
                 this.currentStatus = 'Starting upgrade...';
                 this.serviceDown = false;
                 this.instanceWentDown = false;
@@ -469,6 +506,7 @@
                         this.livewireFailures = 0;
                         if (data.status === 'in_progress') {
                             this.currentStep = this.mapStepToUI(data.step);
+                            this.backendStep = Number(data.step) || 0;
                             this.currentStatus = data.message;
                         } else if (data.status === 'complete') {
                             this.showSuccess();
@@ -490,6 +528,7 @@
                             this.serviceDown = true;
                             this.instanceWentDown = true;
                             this.currentStep = 4;
+                            this.backendStep = 5;
                             this.currentStatus = 'Coolify is restarting with the new version...';
                             if (this.checkUpgradeStatusInterval) {
                                 clearInterval(this.checkUpgradeStatusInterval);

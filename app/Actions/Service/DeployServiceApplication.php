@@ -4,6 +4,7 @@ namespace App\Actions\Service;
 
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
+use App\Support\OdooGit;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Spatie\Activitylog\Contracts\Activity;
 
@@ -16,6 +17,7 @@ class DeployServiceApplication
     public function handle(ServiceApplication|ServiceDatabase $serviceApplication, bool $pullLatestImages = false, bool $forceRebuild = false): Activity
     {
         $service = $serviceApplication->service;
+        OdooGit::ensureLaunchAllowed($service);
         $composeServiceName = $serviceApplication->name;
 
         $service->parse();

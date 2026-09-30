@@ -1,4 +1,20 @@
 <nav wire:poll.10000ms="checkStatus" class="w-full max-w-none pb-4 md:pb-6 lg:pb-0">
+    @if ($odooAskClassification)
+        <div class="mb-4 rounded-lg border border-neutral-200 px-4 py-3 dark:border-white/[0.08]">
+            <p class="text-sm font-medium">{{ __('This Odoo instance must be production or staging.') }}</p>
+            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                {{ __('The choice is required for every launch, including the team owner. It classifies the instance for the user who launches it.') }}
+            </p>
+            <div class="mt-3 flex flex-wrap gap-2">
+                <x-forms.button type="button" wire:click="classifyOdooLaunch('production')" isHighlighted>
+                    {{ __('Production') }}
+                </x-forms.button>
+                <x-forms.button type="button" wire:click="classifyOdooLaunch('staging')">
+                    {{ __('Staging') }}
+                </x-forms.button>
+            </div>
+        </div>
+    @endif
     @php
         $servicePageItems = [
             [

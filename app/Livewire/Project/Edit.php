@@ -206,6 +206,26 @@ class Edit extends Component
             ->all();
     }
 
+    public function connectOdooGithub(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $githubApp = OdooGit::beginConnect($this->project);
+            redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function updatedOdooRepositoryId(): void
+    {
+        if (blank($this->odooRepositoryId)) {
+            return;
+        }
+
+        $this->loadOdooBranches();
+    }
+
     public function cloneProductionAsStaging(): void
     {
         try {
