@@ -63,6 +63,8 @@ class Configuration extends Component
 
     public string $odooGithubLogin = '';
 
+    public string $odooRepositoryQuery = '';
+
     public function render()
     {
         return view('livewire.project.service.configuration');
@@ -179,6 +181,7 @@ class Configuration extends Component
             $this->authorize('update', $this->service);
             $this->odooRepositories = OdooGit::repositories($this->odooGithubApp());
             $this->odooRepositoriesLoaded = true;
+            $this->odooGithubLogin = (string) ($this->odooRepositories[0]['owner'] ?? $this->odooGithubLogin);
             $this->odooGithubBranches = [];
             $this->odooBranch = '';
         } catch (InvalidArgumentException|RuntimeException $exception) {
@@ -187,6 +190,19 @@ class Configuration extends Component
             handleError($e, $this);
         }
         $this->odooRepositoriesLoading = false;
+    }
+
+    public function reloadOdooRepositories(): void
+    {
+        $this->odooRepositoriesLoaded = false;
+        $this->odooRepositoriesLoading = false;
+        $this->loadOdooRepositories();
+    }
+
+    public function pickOdooRepository(int $id): void
+    {
+        $this->odooRepositoryId = $id;
+        $this->updatedOdooRepositoryId();
     }
 
     public function updatedOdooRepositoryId(): void
@@ -267,14 +283,6 @@ class Configuration extends Component
             : [];
         if ($app instanceof GithubApp && auth()->id() !== null) {
             OdooGit::rememberForUser((int) auth()->id(), (int) $this->project->team_id, $app);
-            if ($this->odooGithubLogin === '') {
-                try {
-                    $this->odooGithubLogin = OdooGit::accountLogin($app);
-                } catch (RuntimeException $exception) {
-                    $this->dispatch('error', __($exception->getMessage()));
-                }
-            }
-            $this->loadOdooRepositories();
         }
         $profile = $this->project->odooProfile;
         if (filled($profile?->git_repository)) {

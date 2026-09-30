@@ -9,6 +9,7 @@ use App\Models\Project;
 use App\Models\Service;
 use App\Rules\ValidGitBranch;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
@@ -29,30 +30,43 @@ class OdooGit
     public static function repositories(GithubApp $app): array
     {
         $token = generateGithubInstallationToken($app);
-        $response = Http::GitHub($app->api_url, $token)
-            ->timeout(15)
-            ->get('/installation/repositories', ['per_page' => 100]);
-        if ($response->status() !== 200) {
-            throw new RuntimeException((string) ($response->json('message') ?: 'GitHub repositories could not be loaded.'));
-        }
-
+        $page = 1;
         $repositories = [];
-        foreach ($response->json('repositories') ?? [] as $repository) {
-            $owner = (string) data_get($repository, 'owner.login');
-            $name = (string) data_get($repository, 'name');
-            if ($owner === '' || $name === '') {
-                continue;
-            }
-            $repositories[] = [
-                'id' => (int) data_get($repository, 'id'),
-                'full_name' => $owner.'/'.$name,
-                'owner' => $owner,
-                'name' => $name,
-                'default_branch' => (string) (data_get($repository, 'default_branch') ?: 'main'),
-            ];
-        }
+        $total = 0;
 
-        // ponytail: one page, 100 repositories. A second page is the upgrade if an installation has more.
+        do {
+            $response = Http::GitHub($app->api_url, $token)
+                ->timeout(15)
+                ->get('/installation/repositories', [
+                    'per_page' => 100,
+                    'page' => $page,
+                ]);
+            if ($response->status() !== 200) {
+                if ($repositories !== []) {
+                    break;
+                }
+                throw new RuntimeException((string) ($response->json('message') ?: 'GitHub repositories could not be loaded.'));
+            }
+
+            $total = (int) $response->json('total_count');
+            foreach ($response->json('repositories') ?? [] as $repository) {
+                $owner = (string) data_get($repository, 'owner.login');
+                $name = (string) data_get($repository, 'name');
+                if ($owner === '' || $name === '') {
+                    continue;
+                }
+                $repositories[] = [
+                    'id' => (int) data_get($repository, 'id'),
+                    'full_name' => $owner.'/'.$name,
+                    'owner' => $owner,
+                    'name' => $name,
+                    'default_branch' => (string) (data_get($repository, 'default_branch') ?: 'main'),
+                ];
+            }
+            $page++;
+            // ponytail: five pages, 500 repositories. Another page is the upgrade if an installation has more.
+        } while (count($repositories) < $total && $page <= 5);
+
         return $repositories;
     }
 
@@ -68,7 +82,6 @@ class OdooGit
         do {
             $response = Http::GitHub($app->api_url, $token)
                 ->timeout(20)
-                ->retry(3, 200, throw: false)
                 ->get('/repos/'.$owner.'/'.$repo.'/branches', [
                     'per_page' => 100,
                     'page' => $page,
@@ -392,6 +405,11 @@ class OdooGit
 
     private static function installationAccount(GithubApp $githubApp): array
     {
+        $cached = Cache::get('github-installation-account:'.$githubApp->id);
+        if (is_array($cached) && filled($cached['login'] ?? null) && filled($cached['type'] ?? null)) {
+            return ['login' => (string) $cached['login'], 'type' => (string) $cached['type']];
+        }
+
         $jwt = generateGithubJwt($githubApp);
         $response = Http::withHeaders([
             'Authorization' => "Bearer {$jwt}",
@@ -407,7 +425,10 @@ class OdooGit
             throw new RuntimeException('GitHub could not read the connected account.');
         }
 
-        return ['login' => $login, 'type' => $type];
+        $account = ['login' => $login, 'type' => $type];
+        Cache::put('github-installation-account:'.$githubApp->id, $account, 3600);
+
+        return $account;
     }
 
     /**

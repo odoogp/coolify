@@ -128,15 +128,6 @@
                                             {{ __('Change account') }}
                                         </x-forms.button>
                                     </div>
-                                    @if ($odooRepositories !== [])
-                                        <ul class="max-w-sm text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            @foreach ($odooRepositories as $repository)
-                                                <li class="font-mono">{{ $repository['full_name'] }}</li>
-                                            @endforeach
-                                        </ul>
-                                    @elseif ($odooRepositoriesLoaded)
-                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('This GitHub account has no repositories.') }}</p>
-                                    @endif
                                     <div class="flex flex-wrap gap-4 text-sm">
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
@@ -152,14 +143,40 @@
                                             {{ __('The new repository is named :name. This environment becomes a branch with the same name.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
                                         </p>
                                     @else
-                                        <div class="max-w-sm" wire:key="odoo-repos-{{ count($odooRepositories) }}">
-                                            <x-forms.listbox canGate="update" :canResource="$service" id="odooRepositoryId" label="{{ __('Repository') }}"
-                                                onOpen="loadOdooRepositories"
-                                                emptyText="{{ $odooRepositoriesLoaded ? __('This GitHub account has no repositories.') : __('Loading repositories…') }}"
-                                                :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
-                                            <p wire:loading wire:target="odooRepoMode,loadOdooRepositories,odooGithubAppId" class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        <div class="max-w-sm space-y-2">
+                                            <div class="flex items-end gap-2">
+                                                <div class="min-w-0 flex-1">
+                                                    <label class="mb-1.5 block text-sm font-medium" for="odoo-repository-query">{{ __('Repository') }}</label>
+                                                    <input id="odoo-repository-query" type="search" wire:model.live.debounce.200ms="odooRepositoryQuery"
+                                                        placeholder="{{ __('Search repositories') }}" class="input">
+                                                </div>
+                                                <x-forms.button type="button" wire:click="reloadOdooRepositories" canGate="update" :canResource="$service">
+                                                    {{ __('Refresh repositories') }}
+                                                </x-forms.button>
+                                            </div>
+                                            <p wire:loading wire:target="reloadOdooRepositories,odooRepoMode" class="text-[12px] text-neutral-500 dark:text-fg-dim">
                                                 {{ __('Loading repositories…') }}
                                             </p>
+                                            @php
+                                                $repositoryQuery = strtolower($odooRepositoryQuery);
+                                                $repositoryMatches = collect($odooRepositories)
+                                                    ->filter(fn (array $repository): bool => $repositoryQuery === '' || str_contains(strtolower($repository['full_name']), $repositoryQuery))
+                                                    ->take(20);
+                                            @endphp
+                                            @if ($repositoryMatches->isNotEmpty())
+                                                <ul class="overflow-hidden rounded-lg border border-neutral-200 dark:border-white/[0.08]">
+                                                    @foreach ($repositoryMatches as $repository)
+                                                        <li>
+                                                            <button type="button" wire:click="pickOdooRepository({{ $repository['id'] }})"
+                                                                class="flex w-full items-center px-3 py-2 text-left font-mono text-[13px] hover:bg-neutral-100 dark:hover:bg-white/[0.06] {{ (int) $odooRepositoryId === (int) $repository['id'] ? 'bg-neutral-100 dark:bg-white/[0.06]' : '' }}">
+                                                                {{ $repository['full_name'] }}
+                                                            </button>
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
+                                            @elseif ($odooRepositoriesLoaded)
+                                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No matching repositories.') }}</p>
+                                            @endif
                                         </div>
                                         @if ($odooGithubBranches !== [])
                                             <div class="max-w-sm">
@@ -174,7 +191,7 @@
                                     @endif
                                     <div class="flex flex-wrap items-center gap-3">
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
-                                            {{ __('Associate repository') }}
+                                            {{ $odooRepoMode === 'new' ? __('Create repository') : __('Associate repository') }}
                                         </x-forms.button>
                                         <a href="{{ route('project.show', ['project_uuid' => $project->uuid]) }}" {{ wireNavigate() }}
                                             class="text-[13px] underline">

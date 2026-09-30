@@ -150,12 +150,20 @@ function encodeGithubPathSegment(string $segment): string
 
 function assertGithubClockInSync(string $apiUrl): void
 {
+    $key = 'github-clock-sync:'.sha1($apiUrl);
+    if (Cache::get($key) === true) {
+        return;
+    }
+
     static $syncedUntil = [];
     if (($syncedUntil[$apiUrl] ?? 0) > time()) {
         return;
     }
 
     $response = Http::get("{$apiUrl}/zen");
+    if (! $response->successful()) {
+        return;
+    }
     $serverTime = CarbonImmutable::now()->setTimezone('UTC');
     $githubTime = Carbon::parse($response->header('date'));
     $timeDiff = abs($serverTime->diffInSeconds($githubTime));
@@ -171,6 +179,7 @@ function assertGithubClockInSync(string $apiUrl): void
     }
 
     $syncedUntil[$apiUrl] = time() + 60;
+    Cache::put($key, true, 1800);
 }
 
 function generateGithubToken(GithubApp $source, string $type)
@@ -220,9 +229,17 @@ function generateGithubInstallationToken(GithubApp $source)
         return $cache[$id]['token'];
     }
 
+    $stored = Cache::get('github-installation-token:'.$id);
+    if (is_string($stored) && $stored !== '') {
+        $cache[$id] = ['token' => $stored, 'until' => time() + 600];
+
+        return $stored;
+    }
+
     $token = generateGithubToken($source, 'installation');
-    // ponytail: one installation token per app for 10 minutes. GitHub tokens last an hour; a worker past this ceiling just asks again.
+    // ponytail: one installation token per app for 50 minutes, shared across requests. GitHub tokens last an hour.
     $cache[$id] = ['token' => $token, 'until' => time() + 600];
+    Cache::put('github-installation-token:'.$id, $token, 3000);
 
     return $token;
 }

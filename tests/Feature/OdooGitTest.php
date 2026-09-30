@@ -2,6 +2,7 @@
 
 use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
+use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Service\Heading;
 use App\Models\Service;
@@ -393,7 +394,8 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('New repository')
         ->toContain('Existing repository')
         ->toContain('associateOdooRepository')
-        ->toContain('onOpen="loadOdooRepositories"')
+        ->toContain('odooRepositoryQuery')
+        ->toContain('reloadOdooRepositories')
         ->not->toContain('Load repositories')
         ->not->toContain('Subscription Code');
 });
@@ -527,4 +529,78 @@ it('loads one page of repositories and shows the github error', function () {
     expect($repositories)->toHaveCount(1)
         ->and($repositories[0]['full_name'])->toBe('acme/odoo')
         ->and($pages)->toHaveCount(1);
+});
+
+it('creates the project repository without registering another github app', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-existing-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    OdooGit::rememberForUser($this->user->id, $this->team->id, $this->githubApp);
+    \Illuminate\Support\Facades\Cache::flush();
+
+    $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+        $url = $request->url();
+        $method = strtoupper($request->method());
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/app/installations/')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'account' => ['login' => 'acme', 'type' => 'Organization'],
+            ], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/orgs/acme/repos')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'id' => 44,
+                'full_name' => 'acme/cliente-dos',
+                'default_branch' => 'main',
+            ], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/main')) {
+            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'abc123']], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/git/refs')) {
+            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/production'], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+        }
+        if (str_contains($url, '/repos/acme/')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'id' => 44,
+                'full_name' => 'acme/cliente-dos',
+                'default_branch' => 'main',
+            ], 200, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    $before = GithubApp::query()->count();
+    Livewire::test(AddEmpty::class)
+        ->set('name', 'Cliente Dos')
+        ->set('description', 'demo')
+        ->set('service', 'odoo')
+        ->set('odooVersion', '20')
+        ->set('connectGithub', true)
+        ->call('submit')
+        ->assertRedirect();
+
+    $project = Project::query()->where('name', 'Cliente Dos')->first();
+    expect(GithubApp::query()->count())->toBe($before)
+        ->and($project->odooProfile->git_repository)->toBe('acme/cliente-dos')
+        ->and($project->odooProfile->github_app_id)->toBe($this->githubApp->id);
 });

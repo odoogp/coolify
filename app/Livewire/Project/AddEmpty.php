@@ -3,6 +3,7 @@
 namespace App\Livewire\Project;
 
 use App\Models\EnvironmentVariable;
+use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
 use App\Models\Project;
 use App\Models\Service;
@@ -69,18 +70,23 @@ class AddEmpty extends Component
             }
 
             if ($this->service === 'odoo' && $this->connectGithub) {
-                $parameters = [
-                    'project_uuid' => $project->uuid,
-                    'environment_uuid' => $productionEnvironment->uuid,
-                ];
-                $back = 'project.resource.index';
-                if ($created instanceof Service) {
-                    $parameters['service_uuid'] = $created->uuid;
-                    $back = 'project.service.configuration';
-                }
-                $githubApp = OdooGit::beginConnect($project, $back, $parameters);
+                $githubApp = OdooGit::userApp((int) $project->team_id, auth()->id());
+                if ($githubApp instanceof GithubApp) {
+                    OdooGit::launchEnvironment($project, $githubApp, 'production');
+                } else {
+                    $parameters = [
+                        'project_uuid' => $project->uuid,
+                        'environment_uuid' => $productionEnvironment->uuid,
+                    ];
+                    $back = 'project.resource.index';
+                    if ($created instanceof Service) {
+                        $parameters['service_uuid'] = $created->uuid;
+                        $back = 'project.service.configuration';
+                    }
+                    $githubApp = OdooGit::beginConnect($project, $back, $parameters);
 
-                return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+                    return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+                }
             }
 
             if ($created instanceof Service) {
