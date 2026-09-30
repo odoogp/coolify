@@ -6,6 +6,15 @@
 
     <x-creation-quota :quota="$creationQuota" />
 
+    <x-forms.listbox id="service" label="{{ __('Service') }}" live :options="$serviceOptions" />
+
+    @if ($service === 'odoo')
+        <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}"
+            :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+        <x-forms.checkbox id="connectGithub" label="{{ __('Connect GitHub') }}"
+            helper="{{ __('You can leave this off. JupyterLab then shows the addon files, and a repository can be connected later.') }}" />
+    @endif
+
     <p
         class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-dim">
         {{ __('A production environment will be created automatically.') }}

@@ -1,8 +1,10 @@
 <?php
 
+use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Team\Member as TeamMember;
 use App\Models\Environment;
+use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\InstanceSettings;
 use App\Models\OdooProfile;
@@ -289,4 +291,40 @@ it('removes the odoo profile when the project is deleted', function () {
     $this->project->delete();
 
     expect(OdooProfile::query()->where('project_id', $projectId)->exists())->toBeFalse();
+});
+
+it('asks for the odoo version and github while creating the project', function () {
+    Livewire::test(AddEmpty::class)
+        ->assertSee('Service')
+        ->assertDontSee('Connect GitHub')
+        ->set('name', 'Cliente Odoo')
+        ->set('description', 'demo')
+        ->set('service', 'odoo')
+        ->assertSee('Odoo version')
+        ->assertSee('Connect GitHub')
+        ->set('odooVersion', '20')
+        ->set('connectGithub', false)
+        ->call('submit')
+        ->assertRedirect();
+
+    $project = Project::query()->where('name', 'Cliente Odoo')->first();
+    expect($project->odooProfile->odoo_version)->toBe('20')
+        ->and($project->environments()->pluck('name')->all())->toBe(['production']);
+
+    $before = GithubApp::query()->count();
+    Livewire::test(AddEmpty::class)
+        ->set('name', 'Cliente Git')
+        ->set('description', 'demo')
+        ->set('service', 'odoo')
+        ->set('odooVersion', '19')
+        ->set('connectGithub', true)
+        ->call('submit')
+        ->assertRedirect();
+
+    $connected = Project::query()->where('name', 'Cliente Git')->first();
+    expect($connected->odooProfile->odoo_version)->toBe('19')
+        ->and(session('from.back'))->toBe('project.resource.index')
+        ->and(session('from.parameters.project_uuid'))->toBe($connected->uuid)
+        ->and(GithubApp::query()->count())->toBe($before + 1)
+        ->and(Application::query()->count())->toBe(0);
 });

@@ -1,6 +1,6 @@
 # GPSH — Fase 2: GitHub opcional, Jupyter si no hay repositorio
 
-GitHub no es obligatorio. El proyecto Odoo arranca y un entorno se puede lanzar sin cuenta conectada. Conectar GitHub, en Ajustes del proyecto → Odoo, sigue abriendo el registro existente de la GitHub App. Se puede saltar. Una fila sin `installation_id` no cuenta como conectada. No se pide `app_id`, `installation_id` ni la llave privada.
+GitHub no es obligatorio. En el asistente de un proyecto nuevo se elige el servicio. Si es Odoo, ahí mismo se elige la versión 17–20 y se puede conectar GitHub. Si se deja apagado, el proyecto igual se crea y JupyterLab muestra los archivos. Conectar GitHub abre el registro existente de la GitHub App. Se puede saltar. Una fila sin `installation_id` no cuenta como conectada. No se pide `app_id`, `installation_id` ni la llave privada.
 
 Sin repositorio, JupyterLab es el manejo de archivos y queda activo al crear o al arrancar el servicio Odoo. Los archivos son una sola carpeta: Odoo la lee en `/mnt/extra-addons` y JupyterLab abre la misma en `/workspace/addons`. No hay una copia aparte.
 
