@@ -2,7 +2,7 @@
 
 return [
     'coolify' => [
-        'version' => env('COOLIFY_VERSION') ?: '4.3.11',
+        'version' => ($version = env('COOLIFY_VERSION')) && $version !== 'local' ? $version : '4.3.12',
         'helper_version' => '1.0.15',
         'realtime_version' => '1.0.17',
         'railpack_version' => '0.23.0',
@@ -23,7 +23,7 @@ return [
 
     'urls' => [
         'docs' => 'https://coolify.io/docs',
-        'contact' => 'https://coolify.io/docs/contact',
+        'contact' => 'https://getdte.com.sv',
     ],
 
     'services' => [

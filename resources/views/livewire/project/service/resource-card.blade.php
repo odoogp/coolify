@@ -64,7 +64,7 @@
         @if (str($resource->status)->contains('running'))
             @can('update', $service)
                 <x-modal-confirmation
-                    :title="$isApplication ? @js(__('Confirm Service Application Restart?')) : @js(__('Confirm Service Database Restart?'))"
+                    :title="$isApplication ? __('Confirm Service Application Restart?') : __('Confirm Service Database Restart?')"
                     buttonTitle="Restart" submitAction="restart" :actions="$isApplication
                         ? ['The selected service application will be unavailable during the restart.']
                         : ['This service database will be unavailable during the restart.']"
