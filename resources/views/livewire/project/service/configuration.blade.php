@@ -103,7 +103,7 @@
                             <div class="application-settings-section-body flex flex-col gap-3">
                                 <p class="text-sm font-medium">{{ __('GitHub') }}</p>
                                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                    {{ __('Connect GitHub from the project settings. The repository belongs to the project, and each environment keeps its own branch.') }}
+                                    {{ __('GitHub is optional. Without it, JupyterLab shows the addon files. You can connect a repository later from the project settings.') }}
                                 </p>
                                 <div>
                                     <a class="button" href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}">{{ __('Connect GitHub') }}</a>

@@ -1,6 +1,5 @@
 <?php
 
-use App\Actions\Service\StartService;
 use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\Edit;
@@ -34,6 +33,7 @@ beforeEach(function () {
 
     $this->project = Project::factory()->create(['team_id' => $this->team->id]);
     $this->project->enableOdoo('20', 3, false);
+    $this->project->createNextStagingEnvironment();
     $this->project->createNextStagingEnvironment();
 
     $this->githubApp = GithubApp::create([
@@ -140,7 +140,8 @@ it('starts the github app install when the account is not connected', function (
         ->assertSet('odooGithubConnected', false)
         ->assertSee('Connect your GitHub account')
         ->assertSee('Connect GitHub')
-        ->assertDontSee('Launch environment')
+        ->assertSee('Launch environment')
+        ->assertSee('JupyterLab')
         ->call('connectOdooGithub');
 
     $created = GithubApp::query()->where('team_id', $this->team->id)->latest('id')->first();
@@ -175,9 +176,9 @@ it('reuses the github account that already has a key and a webhook', function ()
         ->assertSet('odooGithubConnected', true)
         ->assertSet('odooGithubAppId', $this->githubApp->id)
         ->assertSee('Connected to GitHub')
-        ->assertSee('Choose a repository before selecting a branch.')
-        ->assertSee('No branch yet')
-        ->assertDontSee('Launch environment')
+        ->assertSee('The first launch creates the GitHub repository. The branch name is the environment name.')
+        ->assertSee('Launch environment')
+        ->assertSee('JupyterLab')
         ->assertDontSee('Connect GitHub');
 });
 
@@ -234,63 +235,121 @@ it('returns the branch to idle after the odoo restart finishes', function () {
     expect($row->fresh()->status)->toBe('idle');
 });
 
-it('refuses to launch odoo without a connected github account and still launches other services', function () {
+it('keeps jupyter on when odoo starts without a repository', function () {
     $environment = $this->project->environments()->where('name', 'production')->first();
     $odoo = Service::factory()->create([
         'environment_id' => $environment->id,
         'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+        'jupyter_enabled' => false,
     ]);
     $other = Service::factory()->create([
         'environment_id' => $environment->id,
         'docker_compose_raw' => "services:\n  ghost:\n    image: ghost:5\n",
+        'jupyter_enabled' => false,
     ]);
 
-    expect(fn () => OdooGit::ensureLaunchAllowed($odoo))->toThrow(RuntimeException::class, 'Connect a GitHub account before launching Odoo.');
-    expect(fn () => OdooGit::ensureLaunchAllowed($other))->not->toThrow(RuntimeException::class);
-    expect(fn () => (new StartService)->handle($odoo))->toThrow(RuntimeException::class, 'Connect a GitHub account before launching Odoo.');
+    OdooGit::ensureLaunchAllowed($odoo);
+    OdooGit::ensureLaunchAllowed($other);
+
+    expect($odoo->fresh()->jupyter_enabled)->toBeTrue()
+        ->and($other->fresh()->jupyter_enabled)->toBeFalse();
 });
 
-it('launches the environment with its branch before anything is deployed', function () {
+it('launches an environment without github and leaves the addon files to jupyter', function () {
     $before = $this->project->environments()->count();
 
-    $staging = OdooGit::launchEnvironment(
-        $this->project,
-        $this->githubApp,
-        'acme/odoo',
-        99,
-        ['main', 'develop'],
-        'staging',
-        'develop',
-    );
+    $staging = OdooGit::launchLocalEnvironment($this->project, 'staging');
 
     expect($staging->name)->toBe('staging-1')
-        ->and($staging->fresh()->odooBranch->git_branch)->toBe('develop')
+        ->and($staging->odooBranch)->toBeNull()
         ->and($staging->services()->count())->toBe(0)
         ->and($this->project->environments()->count())->toBe($before)
-        ->and($this->project->odooProfile->fresh()->git_repository)->toBe('acme/odoo');
+        ->and($this->project->odooProfile->git_repository)->toBeNull()
+        ->and(Application::query()->count())->toBe(0);
+});
 
-    $production = OdooGit::launchEnvironment(
-        $this->project,
-        $this->githubApp,
-        'acme/odoo',
-        99,
-        ['main', 'develop'],
-        'production',
-        'main',
-    );
+it('creates the project repository and makes each environment its own branch', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-github-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    $this->project->update(['name' => 'Mi Empresa']);
+    $before = $this->project->environments()->count();
+
+    \Illuminate\Support\Facades\Http::fake(function ($request) {
+        $url = $request->url();
+        $method = strtoupper($request->method());
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/app/installations/')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'account' => ['login' => 'acme', 'type' => 'Organization'],
+            ], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/orgs/acme/repos')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'id' => 99,
+                'full_name' => 'acme/mi-empresa',
+                'default_branch' => 'main',
+            ], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/main')) {
+            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'abc123']], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/git/refs')) {
+            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/created'], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+        }
+        if (str_contains($url, '/repos/acme/')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'id' => 99,
+                'full_name' => 'acme/mi-empresa',
+                'default_branch' => 'main',
+            ], 200, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    $staging = OdooGit::launchEnvironment($this->project, $this->githubApp, 'staging');
+
+    expect(OdooGit::repositoryName($this->project))->toBe('mi-empresa')
+        ->and($staging->name)->toBe('staging-1')
+        ->and($staging->fresh()->odooBranch->git_branch)->toBe('staging-1')
+        ->and($staging->services()->count())->toBe(0)
+        ->and($this->project->environments()->count())->toBe($before)
+        ->and($this->project->odooProfile->fresh()->git_repository)->toBe('acme/mi-empresa')
+        ->and(Application::query()->count())->toBe(0);
+
+    $production = OdooGit::launchEnvironment($this->project, $this->githubApp, 'production');
+    $secondStaging = OdooGit::launchEnvironment($this->project, $this->githubApp, 'staging');
 
     expect($production->name)->toBe('production')
-        ->and($production->fresh()->odooBranch->git_branch)->toBe('main');
+        ->and($production->fresh()->odooBranch->git_branch)->toBe('production')
+        ->and($secondStaging->name)->toBe('staging-2')
+        ->and($secondStaging->fresh()->odooBranch->git_branch)->toBe('staging-2')
+        ->and($this->project->environments()->count())->toBe($before);
 
-    expect(fn () => OdooGit::launchEnvironment(
-        $this->project,
-        $this->githubApp,
-        'acme/odoo',
-        99,
-        ['main', 'develop'],
-        'staging',
-        'main',
-    ))->toThrow(InvalidArgumentException::class);
+    $created = \Illuminate\Support\Facades\Http::recorded(
+        fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/orgs/acme/repos')
+    );
+    expect($created)->toHaveCount(1)
+        ->and($created[0][0]->data()['name'])->toBe('mi-empresa');
 });
 
 it('does not ask for the branch or github while deploying', function () {

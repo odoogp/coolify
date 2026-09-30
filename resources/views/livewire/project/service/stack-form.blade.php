@@ -70,12 +70,15 @@
                     helper="{{ __('Uses the official odoo image. The running container changes only after you redeploy.') }}"
                     live :disabled="! auth()->user()->can('update', $service)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
                 <x-forms.listbox canGate="update" :canResource="$service" id="jupyterEnabled" label="{{ __('Enable JupyterLab') }}"
-                    helper="{{ __('JupyterLab shares the addon volume of this Odoo instance. Redeploy after changing this. The token is stored as SERVICE_PASSWORD_JUPYTER. Upgrade the module in Odoo after editing addons.') }}"
+                    helper="{{ blank($service->environment?->project?->odooProfile?->git_repository) ? __('Without a repository, JupyterLab is the file manager. It opens the same addon folder Odoo uses.') : __('JupyterLab shares the addon volume of this Odoo instance. Redeploy after changing this. The token is stored as SERVICE_PASSWORD_JUPYTER. Upgrade the module in Odoo after editing addons.') }}"
                     live onChange="instantSave" :disabled="! auth()->user()->can('update', $service)" :options="[
                         ['value' => false, 'label' => __('Disabled')],
                         ['value' => true, 'label' => __('Enabled')],
                     ]" />
             </div>
+            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                {{ __('Addon files are one folder. Odoo reads /mnt/extra-addons. JupyterLab opens the same folder at /workspace/addons.') }}
+            </p>
             @if ($image = \App\Support\OdooVersion::image((string) $service->docker_compose_raw))
                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                     {{ __('Image that will be deployed') }}: <span class="font-mono text-neutral-800 dark:text-white">{{ $image }}</span>

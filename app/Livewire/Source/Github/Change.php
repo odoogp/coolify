@@ -82,6 +82,8 @@ class Change extends Component
 
     public bool $isConnected = false;
 
+    public bool $forOdooProject = false;
+
     private bool $shouldDeriveApiUrlAfterHtmlUrlUpdate = false;
 
     protected function rules(): array
@@ -305,6 +307,8 @@ class Change extends Component
         try {
             $github_app_uuid = request()->github_app_uuid;
             $this->github_app = GithubApp::ownedByCurrentTeam()->whereUuid($github_app_uuid)->firstOrFail();
+            $this->forOdooProject = data_get(session('from'), 'back') === 'project.edit'
+                && (int) data_get(session('from'), 'source_id') === (int) $this->github_app->id;
             $this->github_app->makeVisible(['client_secret', 'webhook_secret']);
             $this->privateKeys = PrivateKey::ownedByCurrentTeamCached();
 

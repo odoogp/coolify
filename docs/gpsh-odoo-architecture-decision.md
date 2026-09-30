@@ -276,7 +276,7 @@ Actions nuevos, finos, llamados por la UI y por la API futura:
 
 UI, más adelante, no ahora:
 
-- alta: elegir `GithubApp`, repo, dos ramas que existan, versión de Odoo
+- alta: GitHub opcional; sin repositorio, JupyterLab sobre la carpeta de addons; si se conecta, repositorio con el nombre del proyecto y cada entorno como rama
 - proyecto: production y staging, cada uno con deploy, logs (la cola actual), backup y dominio
 - botones separados: sync de rama, clone de datos
 - el inventario de servidores no se mueve

@@ -107,22 +107,17 @@
             <div class="application-settings-section-header">
                 <div>
                     <h2>{{ __('Odoo') }}</h2>
-                    <p>{{ __('Turn this project into an Odoo client. The first staging environment is created empty when none exists. Nothing is deployed.') }}</p>
+                    <p>{{ __('GitHub is optional. Without it, JupyterLab stays on and shows the addon files. Connecting later creates a repository named after the project, and each environment becomes a branch of that same folder.') }}</p>
                 </div>
             </div>
             <div class="application-settings-section-body flex flex-col gap-4">
+                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                    {{ __('How many staging environments you can launch is set on your user by the team owner. It is not a limit of this project.') }}
+                </p>
                 <div class="max-w-sm">
                     <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
                         :disabled="! auth()->user()->can('update', $project)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
                 </div>
-                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                    {{ __('How many staging environments you can launch is set on your user by the team owner. It is not a limit of this project.') }}
-                </p>
-                @if ($project->odooProfile && $odooStagingIsEmpty)
-                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                        {{ __('Staging is empty. No database, filestore, or addons are deployed yet.') }}
-                    </p>
-                @endif
                 <div class="flex flex-wrap gap-2">
                     <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
                         {{ $project->odooProfile ? __('Save Odoo settings') : __('Enable Odoo') }}
@@ -130,77 +125,57 @@
                 </div>
                 @if ($project->odooProfile)
                     <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-                        <div>
-                            <p class="text-sm font-medium">{{ __('GitHub') }}</p>
-                            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('The environment stays named production or staging. The branch must be the name GitHub uses. main and produccion are not the same branch.') }}
-                            </p>
-                        </div>
                         @if (! $odooGithubConnected)
                             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                 {{ __('Connect your GitHub account') }}
+                                {{ __('You can skip this. JupyterLab is the file manager until you connect.') }}
                             </p>
                             <div>
-                                <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$project" isHighlighted>
+                                <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$project">
                                     {{ __('Connect GitHub') }}
                                 </x-forms.button>
                             </div>
                         @else
-                        <p class="text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
-                            {{ __('Connected to GitHub') }}
-                        </p>
-                        <div class="grid max-w-xl gap-4 sm:grid-cols-2">
+                            <p class="text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
+                                {{ __('Connected to GitHub') }}
+                            </p>
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                @if (filled($project->odooProfile->git_repository))
+                                    {{ __('Repository') }}: <span class="font-mono">{{ $project->odooProfile->git_repository }}</span>
+                                @else
+                                    {{ __('The first launch creates the GitHub repository. The branch name is the environment name.') }}
+                                @endif
+                            </p>
                             @if (count($odooGithubApps) > 1)
-                                <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub account') }}"
-                                    :disabled="! auth()->user()->can('update', $project)" :options="$odooGithubApps" />
+                                <div class="max-w-sm">
+                                    <x-forms.listbox canGate="update" :canResource="$project" id="odooGithubAppId" label="{{ __('GitHub account') }}"
+                                        :disabled="! auth()->user()->can('update', $project)" :options="$odooGithubApps" />
+                                </div>
                             @endif
-                            <x-forms.listbox canGate="update" :canResource="$project" id="odooRepositoryId" label="{{ __('Repository') }}"
-                                :disabled="$odooRepositories === [] || ! auth()->user()->can('update', $project)"
-                                :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
+                        @endif
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Addon files are one folder. Odoo reads /mnt/extra-addons. JupyterLab opens the same folder at /workspace/addons.') }}
+                        </p>
+                        <div class="max-w-sm">
+                            <label class="mb-1.5 block text-sm font-medium" for="odoo-launch-category">{{ __('Category') }}</label>
+                            <select id="odoo-launch-category" wire:model="odooLaunchCategory" class="input"
+                                @disabled(! auth()->user()->can('update', $project))>
+                                <option value="production">{{ __('Production') }}</option>
+                                <option value="staging">{{ __('Staging') }}</option>
+                            </select>
                         </div>
                         <div>
-                            <x-forms.button type="button" wire:click="loadOdooRepositories" canGate="update" :canResource="$project">
-                                {{ __('Load repositories') }}
+                            <x-forms.button type="button" wire:click="launchOdooEnvironment" canGate="update" :canResource="$project" isHighlighted>
+                                {{ __('Launch environment') }}
                             </x-forms.button>
                         </div>
-                        @if ($odooGithubBranches === [])
-                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('Choose a repository before selecting a branch.') }}
-                            </p>
-                        @else
-                            <div class="grid max-w-xl gap-4 sm:grid-cols-2">
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-medium" for="odoo-launch-category">{{ __('Category') }}</label>
-                                    <select id="odoo-launch-category" wire:model="odooLaunchCategory" class="input"
-                                        @disabled(! auth()->user()->can('update', $project))>
-                                        <option value="production">{{ __('Production') }}</option>
-                                        <option value="staging">{{ __('Staging') }}</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="mb-1.5 block text-sm font-medium" for="odoo-launch-branch">{{ __('Branch') }}</label>
-                                    <select id="odoo-launch-branch" wire:model="odooLaunchBranch" class="input"
-                                        @disabled(! auth()->user()->can('update', $project))>
-                                        <option value="">{{ __('Choose a GitHub branch') }}</option>
-                                        @foreach ($odooGithubBranches as $branch)
-                                            <option value="{{ $branch }}">{{ $branch }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <x-forms.button type="button" wire:click="launchOdooEnvironment" canGate="update" :canResource="$project" isHighlighted>
-                                    {{ __('Launch environment') }}
-                                </x-forms.button>
-                            </div>
-                        @endif
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <p class="text-sm font-medium">{{ __('Production') }}</p>
                                 @foreach ($odooTrackedEnvironments as $environment)
                                     @continue(strcasecmp($environment['name'], 'production') !== 0)
                                     <p wire:key="odoo-panel-{{ $environment['id'] }}" class="mt-2 font-mono text-sm">
-                                        {{ $odooEnvironmentBranches[$environment['id']] ?? __('No branch yet') }}
+                                        {{ $odooEnvironmentBranches[$environment['id']] ?? __('JupyterLab') }}
                                     </p>
                                 @endforeach
                             </div>
@@ -210,12 +185,11 @@
                                     @continue(strcasecmp($environment['name'], 'production') === 0)
                                     <p wire:key="odoo-panel-{{ $environment['id'] }}" class="mt-2 text-sm">
                                         <span class="font-medium">{{ $environment['name'] }}</span>
-                                        <span class="font-mono">{{ $odooEnvironmentBranches[$environment['id']] ?? __('No branch yet') }}</span>
+                                        <span class="font-mono">{{ $odooEnvironmentBranches[$environment['id']] ?? __('JupyterLab') }}</span>
                                     </p>
                                 @endforeach
                             </div>
                         </div>
-                        @endif
                     </div>
                 @endif
             </div>

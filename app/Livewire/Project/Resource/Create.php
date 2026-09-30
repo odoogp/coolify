@@ -104,6 +104,8 @@ class Create extends Component
                         if ($savedCompose !== null) {
                             $service_payload['docker_compose_raw'] = $savedCompose;
                         }
+                        $environment->loadMissing('project.odooProfile');
+                        $service_payload['jupyter_enabled'] = blank($environment->project?->odooProfile?->git_repository);
                     }
                     $service = new Service($service_payload);
                     $service->save();

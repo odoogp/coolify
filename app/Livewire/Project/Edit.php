@@ -45,8 +45,6 @@ class Edit extends Component
 
     public string $odooLaunchCategory = 'staging';
 
-    public string $odooLaunchBranch = '';
-
     /** @var list<array{value: int, label: string}> */
     public array $odooGithubApps = [];
 
@@ -161,6 +159,8 @@ class Edit extends Component
             $this->dispatch('success', __('Odoo profile saved. Nothing was deployed.'));
         } catch (ValidationException $exception) {
             throw $exception;
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -234,28 +234,25 @@ class Edit extends Component
     {
         try {
             $this->authorize('update', $this->project);
-            if (! $this->odooGithubConnected) {
-                throw new InvalidArgumentException('Connect a GitHub account before launching an environment.');
+            if ($this->odooGithubConnected) {
+                $environment = OdooGit::launchEnvironment(
+                    $this->project,
+                    $this->odooGithubApp(),
+                    $this->odooLaunchCategory,
+                );
+                $message = __('Environment :name launched on :branch.', [
+                    'name' => $environment->name,
+                    'branch' => $environment->name,
+                ]);
+            } else {
+                $environment = OdooGit::launchLocalEnvironment($this->project, $this->odooLaunchCategory);
+                $message = __('Environment :name is ready. JupyterLab shows its addon files until a repository is connected.', [
+                    'name' => $environment->name,
+                ]);
             }
-            $branch = $this->odooLaunchBranch;
-            $repository = $this->selectedOdooRepository(refresh: true);
-            $branches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
-            $environment = OdooGit::launchEnvironment(
-                $this->project,
-                $this->odooGithubApp(),
-                $repository['full_name'],
-                (int) $repository['id'],
-                $branches,
-                $this->odooLaunchCategory,
-                $branch,
-            );
-            $this->odooLaunchBranch = '';
             $this->project->refresh();
             $this->syncOdooState();
-            $this->dispatch('success', __('Environment :name launched on :branch.', [
-                'name' => $environment->name,
-                'branch' => $branch,
-            ]));
+            $this->dispatch('success', $message);
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {

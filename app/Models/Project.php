@@ -107,9 +107,8 @@ class Project extends BaseModel
     }
 
     /**
-     * Save the Odoo profile. The first save also creates one empty staging
-     * environment when the project has none and the limit allows it.
-     * Does not create services, databases, volumes, or deployments.
+     * Save the Odoo profile. Does not create environments, services, or deployments.
+     * An environment is created later, when it is launched as a GitHub branch.
      */
     public function enableOdoo(string $version, int $maxStagingEnvironments = 1, bool $unlimitedStagingEnvironments = false): OdooProfile
     {
@@ -130,10 +129,6 @@ class Project extends BaseModel
                 ],
             );
             $this->setRelation('odooProfile', $profile);
-
-            if (OdooStaging::stagingEnvironments($this)->isEmpty() && OdooStaging::canCreateStagingEnvironment($this)) {
-                $this->createNextStagingEnvironment();
-            }
 
             return $profile;
         });

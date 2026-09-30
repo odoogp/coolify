@@ -39,25 +39,29 @@ it('does not create an odoo profile or staging when a normal project is created'
     expect($this->project->environments()->pluck('name')->all())->toBe(['production']);
 });
 
-it('enables an odoo profile and an empty first staging environment without deploying', function () {
+it('starts an odoo project without a github account', function () {
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->set('odooVersion', '20')
         ->call('enableOdoo')
         ->assertHasNoErrors()
         ->assertDispatched('success');
 
+    expect($this->project->odooProfile()->first())->not->toBeNull()
+        ->and($this->project->odooProfile()->first()->odoo_version)->toBe('20')
+        ->and($this->project->environments()->pluck('name')->all())->toBe(['production']);
+});
+
+it('saves an odoo profile without creating an environment or deploying', function () {
+    $this->project->enableOdoo('20');
+
     $profile = $this->project->odooProfile()->first();
-    $staging = $this->project->environments()->where('name', 'staging-1')->first();
 
     expect($profile)->not->toBeNull()
         ->and($profile->odoo_version)->toBe('20')
         ->and($profile->max_staging_environments)->toBe(1)
         ->and($profile->unlimited_staging_environments)->toBeFalse()
-        ->and($staging)->not->toBeNull()
-        ->and($staging->isEmpty())->toBeTrue()
-        ->and($staging->services()->count())->toBe(0)
-        ->and(OdooStaging::stagingEnvironments($this->project)->pluck('name')->all())->toBe(['staging-1'])
-        ->and($this->project->environments()->orderBy('name')->pluck('name')->all())->toBe(['production', 'staging-1']);
+        ->and($this->project->services()->count())->toBe(0)
+        ->and($this->project->environments()->pluck('name')->all())->toBe(['production']);
 });
 
 it('does not count production as a staging environment', function () {
@@ -66,6 +70,7 @@ it('does not count production as a staging environment', function () {
     $this->actingAs($admin);
 
     $this->project->enableOdoo('18');
+    $this->project->createNextStagingEnvironment();
 
     expect(OdooStaging::stagingEnvironments($this->project)->pluck('name')->all())->toBe(['staging-1']);
     expect($this->project->canCreateStagingEnvironment())->toBeFalse();
@@ -82,7 +87,7 @@ it('updates the odoo version without creating another staging environment', func
         ->assertHasNoErrors();
 
     expect($this->project->odooProfile()->first()->odoo_version)->toBe('19');
-    expect(OdooStaging::stagingEnvironments($this->project)->count())->toBe(1);
+    expect(OdooStaging::stagingEnvironments($this->project)->count())->toBe(0);
 });
 
 it('reuses an existing staging environment and does not create another', function () {
@@ -104,6 +109,7 @@ it('rejects a staging environment past the user limit on every project', functio
     $admin->teams()->attach($this->team, ['role' => 'admin', 'max_staging_branches' => 1]);
     $this->actingAs($admin);
     $this->project->enableOdoo('18', 5, true);
+    $this->project->createNextStagingEnvironment();
 
     expect($this->project->canCreateStagingEnvironment())->toBeFalse();
     expect(fn () => $this->project->createNextStagingEnvironment())->toThrow(RuntimeException::class);
@@ -123,7 +129,7 @@ it('allows more staging environments when the user has no staging limit', functi
     $this->project->createNextStagingEnvironment();
     $this->project->createNextStagingEnvironment();
 
-    expect(OdooStaging::stagingEnvironments($this->project)->count())->toBe(3);
+    expect(OdooStaging::stagingEnvironments($this->project)->count())->toBe(2);
     expect($this->project->canCreateStagingEnvironment())->toBeTrue();
 });
 
@@ -138,7 +144,6 @@ it('clones production into one staging and keeps a single production', function 
     expect($this->project->environments()->orderBy('name')->pluck('name')->all())->toBe([
         'production',
         'staging-1',
-        'staging-2',
     ]);
     expect($this->project->services()->count())->toBe(0);
 });
@@ -148,6 +153,7 @@ it('does not create a staging when the user limit is already full', function () 
     $admin->teams()->attach($this->team, ['role' => 'admin', 'max_staging_branches' => 1]);
     $this->actingAs($admin);
     $this->project->enableOdoo('18');
+    $this->project->createNextStagingEnvironment();
 
     expect(fn () => $this->project->cloneProductionAsStaging())->toThrow(\RuntimeException::class);
     expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);

@@ -95,9 +95,9 @@ En la pantalla del servicio, si el compose es Odoo, hay un selector de versión 
 
 ## 3. Qué extender
 
-- **Project / Environment.** El perfil Odoo guarda la versión y el tope de stagings. Cada environment (`production` o `staging`) apunta a una rama cuyo nombre es el de GitHub, no un alias. No copiar `name`, `team_id` ni `uuid` a otro modelo.
-- **Alta de proyecto.** Al marcar un proyecto como Odoo, crear el primer environment de staging vacío si no hay ninguno (`staging-1`, o reutilizar un `staging` ya existente). El perfil dice cuántos stagings se permiten. Cada uno tendrá después su propio Service, Postgres y volúmenes. Nada compartido entre ellos.
-- **Git de addons.** El repo del cliente no sustituye la imagen `odoo`. El deploy de la Application (o un checkout al volumen) tiene que terminar en el volumen `extra-addons` de ese environment. Production escucha la rama configurada; staging, la otra. Nombres de rama libres, validados contra el repo.
+- **Project / Environment.** El perfil Odoo guarda la versión. GitHub es opcional. Sin repositorio, JupyterLab muestra la carpeta de addons. Si se conecta, el repositorio se crea con el nombre del proyecto y cada environment es una rama. No copiar `name`, `team_id` ni `uuid` a otro modelo.
+- **Alta de proyecto.** Activar Odoo solo guarda el perfil. GitHub se puede saltar. Sin repositorio, JupyterLab queda activo. El entorno se crea al lanzarlo.
+- **Git de addons.** Sin repositorio, los archivos viven en la carpeta que JupyterLab abre. Si más adelante se conecta GitHub, el repositorio se crea con el nombre del proyecto y cada environment es una rama (`production`, `staging-1`, `staging-2`). El checkout entra en esa misma carpeta, no en otra.
 - **Webhook.** No registrar otro webhook. Asociar cada ambiente a la misma `GithubApp` y dejar que el evento existente dispare el deploy del recurso cuya `git_branch` coincide.
 - **Backup Odoo.** Un coordinador que programe el backup de la base y el del volumen de filestore, guarde las dos ejecuciones bajo un mismo identificador y se niegue a restaurar solo una. El almacenamiento sigue siendo el de Coolify.
 - **Policies.** Permisos finos (`staging.deploy`, `backup.restore`) como abilities encima del rol de team, no como un segundo sistema de usuarios. Owner conserva servidores y S3. Member no los gana.
@@ -148,7 +148,7 @@ Project "Cliente A"          (team, nombre, descripción)
 
 Production y staging no comparten base, volumen, filestore, dominio ni secrets. El aislamiento sale de crear dos environments con dos services, que es lo que Coolify ya hace cuando los recursos viven en environments distintos.
 
-GitHub no se vuelve a autenticar. El team conecta un `GithubApp` (instalación, no el OAuth de login). El usuario elige repo y dos ramas. Cada environment queda suscrito a su rama por el webhook que la App ya tiene.
+GitHub no se vuelve a autenticar y no es obligatorio. Sin `GithubApp`, JupyterLab es el manejo de la carpeta de addons. Si el team conecta la App, el primer entorno con esa cuenta crea un repositorio con el nombre del proyecto y cada environment es una rama. El webhook que la App ya tiene distingue el push por esa rama.
 
 ## 7. Riesgos
 
@@ -166,8 +166,8 @@ Cada fase sale con tests, una migration reversible si hay tablas, y una nota cor
 
 | Fase | Entrega | No incluye |
 | --- | --- | --- |
-| 1 | Hecha: perfil `odoo_profiles` (versión 17–20, límite de stagings o ilimitado). El primer staging vacío se crea si no hay ninguno. Puede haber varios (`staging` legado, `staging-1`, `staging-2`…). No crea services. Nota en `docs/gpsh-odoo-phase-1.md`. | Git, backups |
-| 2 | Hecha: `GithubApp`, repositorio y una rama de GitHub por environment (`production` y cada staging). El nombre guardado es el de GitHub. Nota en `docs/gpsh-odoo-phase-2.md`. | Sync de ramas, deploy |
+| 1 | Hecha: perfil `odoo_profiles` (versión 17–20). No crea environments al activar. El cupo de staging es del usuario. Nota en `docs/gpsh-odoo-phase-1.md`. | Git, backups |
+| 2 | Hecha: GitHub es opcional. Sin repositorio, JupyterLab queda activo y muestra la carpeta de addons (`/mnt/extra-addons` y `/workspace/addons` son la misma). Si se conecta, el lanzamiento crea el repositorio con el nombre del proyecto y cada environment es una rama. Nota en `docs/gpsh-odoo-phase-2.md`. | Empujar la carpeta ya escrita hacia el repo nuevo |
 | 3 | Dos services aislados, dominios distintos, webhook de la App disparando la rama correcta | Clone de base |
 | 4 | Historial de deploy reutilizando la cola o el deploy de service, con el mismo estado | UI de miembro completa |
 | 5 | Backup coordinado database+filestore y restore que exige los dos | Clone production→staging |
@@ -177,4 +177,4 @@ Cada fase sale con tests, una migration reversible si hay tablas, y una nota cor
 | 9 | API que llama a los mismos actions | — |
 | 10 | Tests de permiso (member no crea server ni S3; staging no escribe en production) | — |
 
-Los documentos `docs/gpsh-projects.md`, `gpsh-github.md`, `gpsh-production-staging.md`, `gpsh-backups.md`, `gpsh-permissions.md`, `gpsh-odoo.md` y `gpsh-api.md` se escriben con la fase que los vuelve ciertos. Este archivo es el mapa de la fase 0. La decisión de Git → extra-addons está en `docs/gpsh-odoo-architecture-decision.md`. La fase 1 crea el perfil y permite varios environments de staging, con un límite. La fase 2 asocia cada environment a una rama real de GitHub. Las fases 3 a 10 están en `docs/gpsh-odoo-phases-3-10.md`.
+Los documentos `docs/gpsh-projects.md`, `gpsh-github.md`, `gpsh-production-staging.md`, `gpsh-backups.md`, `gpsh-permissions.md`, `gpsh-odoo.md` y `gpsh-api.md` se escriben con la fase que los vuelve ciertos. Este archivo es el mapa de la fase 0. La decisión de Git → extra-addons está en `docs/gpsh-odoo-architecture-decision.md`. La fase 1 crea el perfil. La fase 2 deja GitHub opcional: sin repositorio manda JupyterLab sobre la carpeta de addons; si se conecta, crea el repositorio con el nombre del proyecto y hace de cada environment una rama. Las fases 3 a 10 están en `docs/gpsh-odoo-phases-3-10.md`.

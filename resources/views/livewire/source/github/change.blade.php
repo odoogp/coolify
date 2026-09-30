@@ -314,7 +314,7 @@
 
                             <button type="button"
                                 class="button mt-auto w-full justify-center button-highlighted"
-                                x-on:click.prevent="createGithubApp(webhookEndpoint, useCustomWebhookEndpoint, customWebhookEndpoint, {{ Illuminate\Support\Js::from($preview_deployment_permissions) }}, {{ Illuminate\Support\Js::from($administration) }})">
+                                x-on:click.prevent="createGithubApp(webhookEndpoint, useCustomWebhookEndpoint, customWebhookEndpoint, {{ Illuminate\Support\Js::from($preview_deployment_permissions) }}, {{ Illuminate\Support\Js::from($administration) }}, {{ Illuminate\Support\Js::from($forOdooProject) }})">
                                 {{ __('Register with GitHub') }}
                             </button>
                         </div>
@@ -354,7 +354,7 @@
 
         <script>
             function createGithubApp(webhook_endpoint, use_custom_webhook_endpoint, custom_webhook_endpoint,
-                preview_deployment_permissions, administration) {
+                preview_deployment_permissions, administration, forOdooProject) {
                 const {
                     organization,
                     html_url
@@ -391,8 +391,11 @@
                     default_permissions.pull_requests = 'write';
                     default_events.push('pull_request');
                 }
-                if (administration) {
+                if (administration || forOdooProject) {
                     default_permissions.administration = 'write';
+                }
+                if (forOdooProject) {
+                    default_permissions.contents = 'write';
                 }
 
                 const data = {

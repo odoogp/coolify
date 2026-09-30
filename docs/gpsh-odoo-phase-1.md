@@ -22,7 +22,7 @@ Siguen siendo `Environment`. No hay un modelo `OdooStagingEnvironment`.
 
 Un staging es un environment del proyecto cuyo nombre es `staging` o `staging-N`. `production` no cuenta.
 
-Al activar Odoo, si no hay ninguno y el límite lo permite, se crea `staging-1` vacío. No se despliega un Service, ni Postgres, ni volúmenes.
+Activar Odoo solo guarda el perfil. No crea un staging vacío. El entorno se crea al lanzarlo. GitHub es opcional: sin repositorio, JupyterLab queda activo y muestra los archivos de addons. El detalle está en `docs/gpsh-odoo-phase-2.md`.
 
 Si ya existe `staging`, se reutiliza y no se renombra. El siguiente que se cree se llama `staging-2`.
 
