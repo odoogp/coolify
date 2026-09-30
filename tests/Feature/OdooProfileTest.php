@@ -189,6 +189,18 @@ it('does not let a member enable or change odoo settings', function () {
     expect($this->project->environments()->where('name', 'staging-1')->exists())->toBeFalse();
     expect($member->can('create', Server::class))->toBeFalse();
     expect($member->can('create', S3Storage::class))->toBeFalse();
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->call('enableOdoo')
+        ->assertDispatched('error')
+        ->call('cloneProductionAsStaging')
+        ->assertDispatched('error')
+        ->call('loadOdooRepositories')
+        ->assertDispatched('error')
+        ->call('loadOdooBranches')
+        ->assertDispatched('error')
+        ->call('saveOdooGit')
+        ->assertDispatched('error');
 });
 
 it('removes the odoo profile when the project is deleted', function () {

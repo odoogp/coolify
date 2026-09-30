@@ -158,3 +158,45 @@ it('clears stale upgrade availability when current version is newer than cached 
 
     expect((bool) InstanceSettings::findOrFail(0)->new_version_available)->toBeFalse();
 });
+
+it('keeps the update log hidden until it is opened', function () {
+    config(['constants.coolify.version' => '4.0.0-beta.998']);
+    InstanceSettings::forceCreate([
+        'id' => 0,
+        'new_version_available' => false,
+    ]);
+    Cache::shouldReceive('remember')
+        ->once()
+        ->with('coolify:versions:all', 3600, Mockery::type(Closure::class))
+        ->andReturn(null);
+
+    Livewire::test(Upgrade::class)
+        ->assertSet('showUpdateLog', false)
+        ->set('updateInProgress', true)
+        ->set('currentVersion', '4.0.0-beta.998')
+        ->set('latestVersion', '4.0.0-beta.999')
+        ->call('toggleUpdateLog')
+        ->assertSet('showUpdateLog', true)
+        ->assertSet('updateInProgress', true)
+        ->assertSet('currentVersion', '4.0.0-beta.998')
+        ->assertSet('latestVersion', '4.0.0-beta.999')
+        ->call('toggleUpdateLog')
+        ->assertSet('showUpdateLog', false)
+        ->assertSet('updateInProgress', true)
+        ->assertSet('currentVersion', '4.0.0-beta.998')
+        ->assertSet('latestVersion', '4.0.0-beta.999');
+});
+
+it('hides the update log without changing how the upgrade runs', function () {
+    $upgradeView = file_get_contents(resource_path('views/livewire/upgrade.blade.php'));
+
+    expect($upgradeView)
+        ->toContain('showUpdateLog')
+        ->toContain('x-show="showUpdateLog"')
+        ->toContain('x-text="currentStatus"')
+        ->toContain("this.\$wire.\$call('upgrade')")
+        ->toContain('this.$wire.getUpgradeStatus()')
+        ->toContain('Update in progress...')
+        ->toContain('Show log')
+        ->toContain('Hide log');
+});

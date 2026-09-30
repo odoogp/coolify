@@ -130,8 +130,7 @@ class StackForm extends Component
             $this->submit();
         } catch (\Throwable $e) {
             $this->odooVersion = OdooVersion::current((string) $this->service->docker_compose_raw);
-
-            return handleError($e, $this);
+            handleError($e, $this);
         } finally {
             $this->applyingOdooVersion = false;
         }

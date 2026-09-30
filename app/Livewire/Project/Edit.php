@@ -169,7 +169,7 @@ class Edit extends Component
         } catch (ValidationException $exception) {
             throw $exception;
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            handleError($e, $this);
         }
     }
 
@@ -222,7 +222,7 @@ class Edit extends Component
         } catch (RuntimeException $e) {
             $this->dispatch('error', __($e->getMessage()));
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            handleError($e, $this);
         }
     }
 
@@ -235,7 +235,7 @@ class Edit extends Component
         } catch (InvalidArgumentException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            handleError($e, $this);
         }
     }
 
@@ -257,7 +257,7 @@ class Edit extends Component
         } catch (InvalidArgumentException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            handleError($e, $this);
         }
     }
 
@@ -282,7 +282,7 @@ class Edit extends Component
         } catch (InvalidArgumentException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            handleError($e, $this);
         }
     }
 

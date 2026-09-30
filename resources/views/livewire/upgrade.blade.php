@@ -2,7 +2,8 @@
     x-init="$wire.checkUpdate" x-data="upgradeModal({
         currentVersion: @js($currentVersion),
         latestVersion: @js($latestVersion),
-        devMode: @js($devMode)
+        devMode: @js($devMode),
+        showUpdateLog: @js($showUpdateLog)
     })">
     @if ($isUpgradeAvailable)
         <div :class="{ 'z-40': modalOpen }" class="relative w-auto h-auto">
@@ -68,6 +69,16 @@
                             {{-- Progress View --}}
                             <template x-if="showProgress">
                                 <div class="flex flex-col gap-4">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"
+                                            x-text="updateSummary()"></span>
+                                        <button type="button" @click="toggleUpdateLog()"
+                                            class="button shrink-0">
+                                            <span x-text="showUpdateLog ? @js(__('Hide log')) : @js(__('Show log'))"></span>
+                                        </button>
+                                    </div>
+
+                                    <div x-show="showUpdateLog" x-cloak class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                     <x-upgrade-progress />
 
                                     <div class="flex items-center justify-center gap-1.5 text-[12px]"
@@ -100,6 +111,7 @@
                                         </template>
                                         <span x-text="currentStatus"
                                             class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"></span>
+                                    </div>
                                     </div>
 
                                     <template x-if="upgradeComplete">
@@ -198,7 +210,24 @@
             serviceDown: false,
             instanceWentDown: false,
             devMode: config.devMode || false,
+            showUpdateLog: config.showUpdateLog || false,
             simulationInterval: null,
+
+            updateSummary() {
+                if (this.upgradeError) {
+                    return @js(__('Update failed.'));
+                }
+                if (this.upgradeComplete) {
+                    return @js(__('Update completed successfully.'));
+                }
+
+                return @js(__('Update in progress...'));
+            },
+
+            toggleUpdateLog() {
+                this.showUpdateLog = !this.showUpdateLog;
+                this.$wire.toggleUpdateLog();
+            },
 
             simulateUpgrade() {
                 if (!this.devMode) return;
