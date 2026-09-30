@@ -103,6 +103,24 @@ class OdooJupyter
             $source.':'.self::WORKSPACE,
         ];
 
+        foreach ($services as $name => &$service) {
+            if (! is_array($service)) {
+                continue;
+            }
+            $image = strtolower((string) ($service['image'] ?? ''));
+            $isOdoo = $name === 'odoo'
+                || str_starts_with($image, 'odoo:')
+                || str_contains($image, '/odoo:');
+            if (! $isOdoo) {
+                continue;
+            }
+            $command = $service['command'] ?? null;
+            if (! array_key_exists('command', $service) || $command === null || $command === '' || $command === [] || $command === 'odoo') {
+                $service['command'] = 'odoo --http-interface=0.0.0.0';
+            }
+        }
+        unset($service);
+
         return $services;
     }
 

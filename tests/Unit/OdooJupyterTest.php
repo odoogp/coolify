@@ -121,6 +121,60 @@ test('the odoo checkbox and jupyter port stay behind the existing service checks
     expect(OdooJupyter::proxyPort('odoo', '8069'))->toBe('8069');
 });
 
+test('odoo without a custom command listens on every container interface', function () {
+    $services = [
+        'odoo' => [
+            'image' => 'odoo:18',
+            'volumes' => ['svc_odoo-extra-addons:/mnt/extra-addons'],
+        ],
+        'odoo-worker' => [
+            'image' => 'myregistry.example/odoo:18',
+            'command' => 'odoo',
+            'volumes' => ['svc_odoo-extra-addons:/mnt/extra-addons'],
+        ],
+        'odoo-blank' => [
+            'image' => 'odoo:17',
+            'command' => '',
+            'volumes' => ['svc_odoo-extra-addons:/mnt/extra-addons'],
+        ],
+        'postgresql' => [
+            'image' => 'postgres:16-alpine',
+            'command' => 'postgres',
+        ],
+        'jupyter' => [
+            'image' => OdooJupyter::IMAGE,
+            'volumes' => ['odoo-extra-addons:/workspace/addons'],
+        ],
+    ];
+
+    $aligned = OdooJupyter::alignParsedServices($services);
+
+    expect($aligned['odoo']['command'])->toBe('odoo --http-interface=0.0.0.0');
+    expect($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0');
+    expect($aligned['odoo-blank']['command'])->toBe('odoo --http-interface=0.0.0.0');
+    expect($aligned['postgresql']['command'])->toBe('postgres');
+    expect($aligned['jupyter']['volumes'])->toBe(['svc_odoo-extra-addons:/workspace/addons']);
+});
+
+test('a custom odoo command is left unchanged', function () {
+    $services = [
+        'odoo' => [
+            'image' => 'odoo:18',
+            'command' => 'odoo --workers=2 --http-interface=127.0.0.1',
+            'volumes' => ['svc_odoo-extra-addons:/mnt/extra-addons'],
+        ],
+        'jupyter' => [
+            'image' => OdooJupyter::IMAGE,
+            'volumes' => ['keep:/workspace/addons'],
+        ],
+    ];
+
+    $aligned = OdooJupyter::alignParsedServices($services);
+
+    expect($aligned['odoo']['command'])->toBe('odoo --workers=2 --http-interface=127.0.0.1');
+    expect($aligned['jupyter']['volumes'])->toBe(['svc_odoo-extra-addons:/workspace/addons']);
+});
+
 test('jupyter uses the volume name the service parser already assigned to odoo', function () {
     $services = [
         'odoo' => [
