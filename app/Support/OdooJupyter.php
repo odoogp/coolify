@@ -234,10 +234,13 @@ class OdooJupyter
     {
         return [
             'image' => self::IMAGE,
-            'user' => '100:101',
+            // Root only long enough to give the addon directory to Odoo's user.
+            // setpriv drops to 100:101 before Jupyter starts.
+            'user' => '0:0',
             'working_dir' => self::WORKSPACE,
             'restart' => 'always',
             'expose' => [self::LISTEN_PORT],
+            'entrypoint' => ['tini', '-g', '--', 'bash', '-c'],
             // The image healthcheck reads jovyan's runtime dir and stays unhealthy as UID 100.
             // Traefik skips unhealthy containers, so the public URL is a 404.
             'healthcheck' => [
@@ -252,7 +255,7 @@ class OdooJupyter
                 'JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime',
                 'JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTER}',
             ],
-            'command' => 'jupyter lab --ServerApp.token=${SERVICE_PASSWORD_JUPYTER} --ServerApp.root_dir='.self::WORKSPACE.' --ip=0.0.0.0 --allow-root --no-browser',
+            'command' => 'chown -R 100:101 '.self::WORKSPACE.' && exec setpriv --reuid=100 --regid=101 --clear-groups jupyter lab --ServerApp.token=${SERVICE_PASSWORD_JUPYTER} --ServerApp.root_dir='.self::WORKSPACE.' --ip=0.0.0.0 --allow-root --no-browser',
             'volumes' => [
                 $volumeSource.':'.self::WORKSPACE,
             ],
