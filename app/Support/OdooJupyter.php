@@ -66,6 +66,43 @@ class OdooJupyter
         return Yaml::dump($yaml, 8, 2);
     }
 
+    public static function launchCommand(): string
+    {
+        return <<<'BASH'
+set -e
+python3 - <<'PY'
+import os, time, psycopg2
+host = os.environ.get("HOST", "postgresql")
+user = os.environ["USER"]
+password = os.environ["PASSWORD"]
+database = os.environ["ODOO_DATABASE"]
+conn = None
+for _ in range(30):
+    try:
+        conn = psycopg2.connect(host=host, user=user, password=password, dbname="postgres")
+        break
+    except Exception:
+        time.sleep(2)
+if conn is None:
+    raise SystemExit("PostgreSQL is not ready")
+conn.autocommit = True
+cur = conn.cursor()
+cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (database,))
+open("/tmp/odoo-db-exists", "w").write("1" if cur.fetchone() else "0")
+PY
+args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode)
+if [ "$(cat /tmp/odoo-db-exists)" != "1" ]; then
+  odoo "${args[@]}" --without-demo=all -d "$ODOO_DATABASE" -i base --stop-after-init
+  odoo shell -d "$ODOO_DATABASE" --no-http "${args[@]}" <<'PY'
+import os
+env.ref("base.user_admin").write({"password": os.environ["ODOO_ADMIN_PASSWORD"]})
+env.cr.commit()
+PY
+fi
+exec odoo "${args[@]}" -d "$ODOO_DATABASE"
+BASH;
+    }
+
     /**
      * The service parser rewrites named volumes and relative binds.
      * Jupyter must keep the source Odoo ends up mounting, not a second volume.
@@ -73,8 +110,47 @@ class OdooJupyter
      * @param  array<string, mixed>  $services
      * @return array<string, mixed>
      */
-    public static function alignParsedServices(array $services): array
+    public static function alignParsedServices(array $services, ?string $database = null): array
     {
+        foreach ($services as $name => &$service) {
+            if (! is_array($service)) {
+                continue;
+            }
+            $image = strtolower((string) ($service['image'] ?? ''));
+            $isOdoo = $name === 'odoo'
+                || str_starts_with($image, 'odoo:')
+                || str_contains($image, '/odoo:');
+            if (! $isOdoo) {
+                continue;
+            }
+            $command = $service['command'] ?? null;
+            $defaultCommand = ! array_key_exists('command', $service) || $command === null || $command === '' || $command === [] || $command === 'odoo';
+            if (! $defaultCommand) {
+                continue;
+            }
+            if ($database !== null && $database !== '' && $name === 'odoo') {
+                $service['entrypoint'] = ['bash', '-lc'];
+                $service['command'] = self::launchCommand();
+                $environment = $service['environment'] ?? [];
+                if ($environment instanceof \Illuminate\Support\Collection) {
+                    $environment = $environment->all();
+                }
+                if (! is_array($environment)) {
+                    $environment = [];
+                }
+                if (array_is_list($environment)) {
+                    $environment[] = 'ODOO_DATABASE='.$database;
+                } else {
+                    $environment['ODOO_DATABASE'] = $database;
+                }
+                $service['environment'] = $environment;
+
+                continue;
+            }
+            $service['command'] = 'odoo --http-interface=0.0.0.0';
+        }
+        unset($service);
+
         if (! isset($services[self::SERVICE_NAME]) || ! is_array($services[self::SERVICE_NAME])) {
             return $services;
         }
@@ -102,24 +178,6 @@ class OdooJupyter
         $services[self::SERVICE_NAME]['volumes'] = [
             $source.':'.self::WORKSPACE,
         ];
-
-        foreach ($services as $name => &$service) {
-            if (! is_array($service)) {
-                continue;
-            }
-            $image = strtolower((string) ($service['image'] ?? ''));
-            $isOdoo = $name === 'odoo'
-                || str_starts_with($image, 'odoo:')
-                || str_contains($image, '/odoo:');
-            if (! $isOdoo) {
-                continue;
-            }
-            $command = $service['command'] ?? null;
-            if (! array_key_exists('command', $service) || $command === null || $command === '' || $command === [] || $command === 'odoo') {
-                $service['command'] = 'odoo --http-interface=0.0.0.0';
-            }
-        }
-        unset($service);
 
         return $services;
     }

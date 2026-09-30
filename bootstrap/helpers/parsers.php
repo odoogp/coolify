@@ -1567,6 +1567,7 @@ function serviceParser(Service $resource): Collection
     if ($resource->jupyter_enabled && is_string($compose)) {
         $compose = \App\Support\OdooJupyter::inject($compose);
     }
+    \App\Support\OdooGit::useHttps($resource);
     if (! $compose) {
         return collect([]);
     }
@@ -1821,8 +1822,9 @@ function serviceParser(Service $resource): Collection
                 $isServiceApplication = $savedService instanceof ServiceApplication;
 
                 if ($isServiceApplication && blank($savedService->fqdn)) {
-                    $fqdn = generateFqdn(server: $server, random: "$fqdnFor-$uuid", parserVersion: $resource->compose_parsing_version);
-                    $url = generateUrl($server, "$fqdnFor-$uuid");
+                    $odooHttps = str_starts_with(strtolower((string) $fqdnFor), 'odoo');
+                    $fqdn = generateFqdn(server: $server, random: "$fqdnFor-$uuid", forceHttps: $odooHttps, parserVersion: $resource->compose_parsing_version);
+                    $url = generateUrl(server: $server, random: "$fqdnFor-$uuid", forceHttps: $odooHttps);
                 } elseif ($isServiceApplication) {
                     // FQDN may be a comma-separated list; use the first entry (same as updateCompose).
                     $firstFqdn = firstDomainFromList($savedService->fqdn);
@@ -1934,8 +1936,9 @@ function serviceParser(Service $resource): Collection
                 $command = parseCommandFromMagicEnvVariable($key);
                 if ($command->value() === 'FQDN') {
                     $fqdnFor = $key->after('SERVICE_FQDN_')->lower()->value();
-                    $fqdn = generateFqdn(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", parserVersion: $resource->compose_parsing_version);
-                    $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid");
+                    $odooHttps = str_starts_with(strtolower((string) $fqdnFor), 'odoo');
+                    $fqdn = generateFqdn(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps, parserVersion: $resource->compose_parsing_version);
+                    $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
                     // Also check if a port-suffixed version exists (e.g., SERVICE_FQDN_UMAMI_3000)
@@ -1979,8 +1982,9 @@ function serviceParser(Service $resource): Collection
 
                 } elseif ($command->value() === 'URL') {
                     $urlFor = $key->after('SERVICE_URL_')->lower()->value();
-                    $url = generateUrl(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid");
-                    $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", parserVersion: $resource->compose_parsing_version);
+                    $odooHttps = str_starts_with(strtolower((string) $urlFor), 'odoo');
+                    $url = generateUrl(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps);
+                    $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps, parserVersion: $resource->compose_parsing_version);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
                     // Also check if a port-suffixed version exists (e.g., SERVICE_URL_DASHBOARD_6791)
@@ -2776,7 +2780,8 @@ function serviceParser(Service $resource): Collection
 
         $parsedServices->put($serviceName, $payload);
     }
-    $parsedServices = collect(\App\Support\OdooJupyter::alignParsedServices(convertToArray($parsedServices)));
+    $odooDatabase = \App\Support\OdooGit::databaseName($resource);
+    $parsedServices = collect(\App\Support\OdooJupyter::alignParsedServices(convertToArray($parsedServices), $odooDatabase));
     $topLevel->put('services', $parsedServices);
 
     $customOrder = ['services', 'volumes', 'networks', 'configs', 'secrets'];

@@ -21,6 +21,7 @@ class StartService
     {
         OdooGit::ensureLaunchAllowed($service);
         OdooGit::cloneIntoService($service);
+        OdooGit::prepareInstance($service);
         $service->parse();
         if ($this->shouldStopBeforeStarting($pullLatestImages, $stopBeforeStart)) {
             StopService::run(service: $service, dockerCleanup: false);

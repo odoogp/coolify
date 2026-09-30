@@ -6,6 +6,7 @@ use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Service\Heading;
 use App\Models\Service;
+use App\Models\ServiceApplication;
 use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\InstanceSettings;
@@ -397,7 +398,9 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('odooRepositoryQuery')
         ->toContain('reloadOdooRepositories')
         ->not->toContain('Load repositories')
-        ->not->toContain('Subscription Code');
+        ->not->toContain('Subscription Code')
+        ->not->toContain('odoo-service-branch')
+        ->not->toContain('Clone to staging');
 });
 
 it('clones the repository branch into the addon volume jupyter shows', function () {
@@ -614,4 +617,52 @@ it('creates the project repository without registering another github app', func
     expect(GithubApp::query()->count())->toBe($before)
         ->and($project->odooProfile->git_repository)->toBe('acme/cliente-dos')
         ->and($project->odooProfile->github_app_id)->toBe($this->githubApp->id);
+});
+
+it('names the database after the project and the branch', function () {
+    $this->project->update(['name' => 'Mi Empresa']);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    expect(OdooGit::databaseName($service))->toBe('mi_empresa_production');
+
+    OdooEnvironmentBranch::query()->create([
+        'environment_id' => $production->id,
+        'git_branch' => 'staging-2',
+    ]);
+
+    expect(OdooGit::databaseName($service->fresh()))->toBe('mi_empresa_staging_2');
+});
+
+it('refuses a repository already used by another project', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main'], $production, 'main');
+
+    $other = Project::factory()->create(['team_id' => $this->team->id, 'name' => 'Otro']);
+    $other->enableOdoo('20');
+    $otherProduction = $other->environments()->where('name', 'production')->first();
+
+    expect(fn () => OdooGit::attachExisting($other, $this->githubApp, 'acme/odoo', 99, ['main'], $otherProduction, 'main'))
+        ->toThrow(InvalidArgumentException::class, 'That repository is already used by another project.');
+});
+
+it('turns an existing odoo link into https', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $application = ServiceApplication::factory()->create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'http://odoo.example.test',
+    ]);
+
+    expect(OdooGit::useHttps($service))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://odoo.example.test')
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
 });

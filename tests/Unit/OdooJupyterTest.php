@@ -277,3 +277,24 @@ YAML;
 
     expect($jupyter['volumes'])->toBe(['./addons:/workspace/addons']);
 });
+
+test('an odoo service starts one database with https proxy mode and an admin user', function () {
+    $services = [
+        'odoo' => [
+            'image' => 'odoo:20',
+            'command' => 'odoo',
+        ],
+        'odoo-worker' => [
+            'image' => 'odoo:20',
+        ],
+    ];
+
+    $aligned = OdooJupyter::alignParsedServices($services, 'mi_empresa_staging_1');
+
+    expect($aligned['odoo']['entrypoint'])->toBe(['bash', '-lc'])
+        ->and($aligned['odoo']['command'])->toContain('--proxy-mode')
+        ->and($aligned['odoo']['command'])->toContain('base.user_admin')
+        ->and($aligned['odoo']['command'])->toContain('--http-interface=0.0.0.0')
+        ->and($aligned['odoo']['environment'])->toBe(['ODOO_DATABASE=mi_empresa_staging_1'])
+        ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0');
+});

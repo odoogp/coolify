@@ -3655,5 +3655,20 @@
     "Only production and staging environments can track a GitHub branch.": "Solo los ambientes production y staging pueden seguir una rama de GitHub.",
     "Odoo profile saved. Nothing was deployed.": "Perfil de Odoo guardado. No se desplegó nada.",
     "Staging is empty. No database, filestore, or addons are deployed yet.": "Staging está vacío. Todavía no hay base de datos, filestore ni addons.",
-    "This Odoo image cannot be changed from here. Edit the Compose file.": "Esta imagen de Odoo no se puede cambiar desde aquí. Edítala en el Compose."
+    "This Odoo image cannot be changed from here. Edit the Compose file.": "Esta imagen de Odoo no se puede cambiar desde aquí. Edítala en el Compose.",
+    "That repository is already used by another project.": "Ese repositorio ya está asociado a otro proyecto.",
+    "This environment uses branch :branch. Cloning creates the next staging branch on its own.": "Este entorno usa la rama :branch. El clonado crea solo la siguiente rama de staging.",
+    "Database :database. The public link uses HTTPS. Sign in as admin.": "Base de datos :database. El enlace público usa HTTPS. Entra como admin.",
+    "Password: :password.": "Contraseña: :password.",
+    "The administrator password appears here after the instance starts.": "La contraseña del administrador aparece aquí cuando la instancia arranca.",
+    "The branch is :branch. It is chosen for you. A clone later creates the next staging branch.": "La rama es :branch. Se elige sola. Un clonado después crea la siguiente rama de staging.",
+    "Starting Odoo on branch :branch. The destination of a clone is always a new staging environment.": "Arrancando Odoo en la rama :branch. El destino de un clonado es siempre un staging nuevo.",
+    "Odoo is starting on :branch. The link uses HTTPS. Database :database. Sign in as admin.": "Odoo está arrancando en :branch. El enlace usa HTTPS. Base de datos :database. Entra como admin.",
+    "HTTPS is being applied to the Odoo link. Sign in as admin when it finishes.": "Se está aplicando HTTPS al enlace de Odoo. Entra como admin cuando termine.",
+    "Selected: :name": "Seleccionado: :name",
+    "This creates staging :name from production and starts Odoo. It does not create another production.": "Esto crea el staging :name desde producción y arranca Odoo. No crea otra producción.",
+    "Creating the staging and starting Odoo. The destination is a new staging environment.": "Creando el staging y arrancando Odoo. El destino es un entorno staging nuevo.",
+    "Create staging": "Crear staging",
+    "Creating the staging…": "Creando el staging…",
+    "Click a row to select it. The only clone action creates a staging environment from production.": "Haz clic en una fila para seleccionarla. La única acción de clonar crea un staging desde producción."
 }

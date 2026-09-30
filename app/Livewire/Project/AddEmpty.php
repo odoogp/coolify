@@ -75,6 +75,7 @@ class AddEmpty extends Component
                     OdooGit::launchEnvironment($project, $githubApp, 'production');
                     if ($created instanceof Service) {
                         OdooGit::cloneIntoService($created);
+                        OdooGit::startIfPossible($created);
                     }
                 } else {
                     $parameters = [
@@ -90,6 +91,10 @@ class AddEmpty extends Component
 
                     return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
                 }
+            }
+
+            if ($created instanceof Service && $this->service === 'odoo' && ! $this->connectGithub) {
+                OdooGit::startIfPossible($created);
             }
 
             if ($created instanceof Service) {

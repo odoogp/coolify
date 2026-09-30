@@ -5,8 +5,10 @@ namespace App\Support;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
+use App\Models\OdooProfile;
 use App\Models\Project;
 use App\Models\Service;
+use App\Models\ServiceApplication;
 use App\Rules\ValidGitBranch;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -114,6 +116,7 @@ class OdooGit
         if (! preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $gitRepository)) {
             throw new InvalidArgumentException('Invalid GitHub repository.');
         }
+        self::assertRepositoryFree($gitRepository, (int) $project->id);
 
         $githubBranches = array_values(array_unique(array_map(strval(...), $githubBranches)));
         $environments = $project->environments()->get()->keyBy('id');
@@ -181,12 +184,17 @@ class OdooGit
         if (! preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $gitRepository)) {
             throw new InvalidArgumentException('Invalid GitHub repository.');
         }
+        self::assertRepositoryFree($gitRepository, (int) $project->id);
 
         $branch = trim($branch);
         $githubBranches = array_values(array_unique(array_map(strval(...), $githubBranches)));
         $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
-        if ($check->fails() || ! in_array($branch, $githubBranches, true)) {
-            throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
+        if ($check->fails()) {
+            throw new InvalidArgumentException('The GitHub branch name is invalid.');
+        }
+        if (! in_array($branch, $githubBranches, true)) {
+            [$owner, $name] = self::splitRepository($gitRepository);
+            self::ensureBranch($githubApp, $owner, $name, $branch);
         }
 
         $taken = OdooEnvironmentBranch::query()
@@ -353,13 +361,122 @@ class OdooGit
         } else {
             $account = self::installationAccount($githubApp);
             $name = self::repositoryName($project);
+            self::assertRepositoryFree($account['login'].'/'.$name, (int) $project->id);
             $repository = self::createRepository($githubApp, $account['type'], $account['login'], $name, (string) $project->name);
             [$owner, $name] = self::splitRepository($repository['full_name']);
         }
 
+        self::assertRepositoryFree($repository['full_name'], (int) $project->id);
         self::ensureBranch($githubApp, $owner, $name, $branch);
 
         return $repository;
+    }
+
+    public static function databaseName(Service $service): ?string
+    {
+        if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+            return null;
+        }
+
+        $service->loadMissing('environment.project', 'environment.odooBranch');
+        $project = Str::slug((string) $service->environment?->project?->name, '_');
+        $branch = Str::slug((string) ($service->environment?->odooBranch?->git_branch ?: $service->environment?->name ?: 'production'), '_');
+        $name = trim($project.'_'.$branch, '_');
+        $name = preg_replace('/[^a-z0-9_]/', '', $name) ?? '';
+        if ($name === '' || ! ctype_alpha($name[0])) {
+            $name = 'odoo_'.$name;
+        }
+
+        return substr(rtrim($name, '_'), 0, 63);
+    }
+
+    public static function prepareInstance(Service $service): void
+    {
+        $database = self::databaseName($service);
+        if ($database === null) {
+            return;
+        }
+
+        self::rememberVariable($service, 'ODOO_DATABASE', $database, true);
+        if ($service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->doesntExist()) {
+            self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', Str::password(20, symbols: false), false);
+        }
+    }
+
+    public static function useHttps(Service $service): bool
+    {
+        if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+            return false;
+        }
+
+        $changed = false;
+        foreach ($service->applications()->get() as $application) {
+            if (! $application instanceof ServiceApplication || ! self::isOdooApplication($application)) {
+                continue;
+            }
+            $fqdn = (string) $application->fqdn;
+            if (str_starts_with($fqdn, 'http://')) {
+                $application->fqdn = 'https://'.substr($fqdn, strlen('http://'));
+                $changed = true;
+            }
+            if (! $application->is_force_https_enabled) {
+                $application->is_force_https_enabled = true;
+                $changed = true;
+            }
+            if ($application->isDirty()) {
+                $application->save();
+            }
+        }
+
+        return $changed;
+    }
+
+    public static function startIfPossible(Service $service): void
+    {
+        $service->refresh();
+        if ($service->server?->isFunctional()) {
+            \App\Actions\Service\StartService::dispatch($service);
+        }
+    }
+
+    private static function assertRepositoryFree(string $gitRepository, int $projectId): void
+    {
+        $taken = OdooProfile::query()
+            ->where('git_repository', $gitRepository)
+            ->where('project_id', '!=', $projectId)
+            ->exists();
+        if ($taken) {
+            throw new InvalidArgumentException('That repository is already used by another project.');
+        }
+    }
+
+    private static function isOdooApplication(ServiceApplication $application): bool
+    {
+        $name = strtolower((string) $application->name);
+        $image = strtolower((string) $application->image);
+
+        return $name === 'odoo' || str_starts_with($image, 'odoo:') || str_contains($image, '/odoo:');
+    }
+
+    private static function rememberVariable(Service $service, string $key, string $value, bool $overwrite): void
+    {
+        $existing = $service->environment_variables()->where('key', $key)->first();
+        if ($existing !== null && ! $overwrite) {
+            return;
+        }
+        if ($existing !== null) {
+            $existing->value = $value;
+            $existing->save();
+
+            return;
+        }
+
+        $service->environment_variables()->create([
+            'key' => $key,
+            'value' => $value,
+            'is_preview' => false,
+            'is_runtime' => true,
+        ]);
     }
 
     /**

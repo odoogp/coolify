@@ -129,13 +129,8 @@
             @if ($selectedEnvironment)
                 <div
                     class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
-                    <p class="truncate text-[13px] font-semibold">{{ $selectedEnvironment->name }}</p>
+                    <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
                     <div class="flex flex-wrap items-center gap-2">
-                        @if (strcasecmp($selectedEnvironment->name, 'production') === 0 && $project->odooProfile)
-                            <button type="button" class="button button-highlighted" wire:click="$set('showCloneWizard', true)">
-                                {{ __('Clone') }}
-                            </button>
-                        @endif
                         @can('delete', $selectedEnvironment)
                             <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
                                 :key="'delete-environment-'.$selectedEnvironment->id" />
@@ -145,7 +140,9 @@
                 @if ($showCloneWizard)
                     <div
                         class="mb-3 space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                        <p class="text-[13px] font-medium">{{ __('Clone production into a new staging environment.') }}</p>
+                        <p class="text-[13px] font-medium">
+                            {{ __('This creates staging :name from production and starts Odoo. It does not create another production.', ['name' => \App\Support\OdooStaging::nextName($project)]) }}
+                        </p>
                         <label class="flex items-center gap-2 text-[13px]">
                             <input type="radio" wire:model="cloneAddons" value="copy" class="rounded-full">
                             {{ __('Copy addons') }}
@@ -161,8 +158,12 @@
                                 {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
                             @endif
                         </p>
-                        <button type="button" class="button button-highlighted" wire:click="cloneToStaging">
-                            {{ __('Clone') }}
+                        <p wire:loading wire:target="cloneToStaging" class="text-[13px] font-medium">
+                            {{ __('Creating the staging and starting Odoo. The destination is a new staging environment.') }}
+                        </p>
+                        <button type="button" class="button button-highlighted" wire:click="cloneToStaging" wire:loading.attr="disabled" wire:target="cloneToStaging">
+                            <span wire:loading.remove wire:target="cloneToStaging">{{ __('Create staging') }}</span>
+                            <span wire:loading wire:target="cloneToStaging">{{ __('Creating the staging…') }}</span>
                         </button>
                     </div>
                 @endif
@@ -219,6 +220,11 @@
                     storage-key="coolify.page-size.project-environments" :options="[12, 24, 48, 96]" />
             </div>
 
+            @if ($project->odooProfile)
+                <p class="mb-2 text-[13px] text-neutral-500 dark:text-fg-dim">
+                    {{ __('Click a row to select it. The only clone action creates a staging environment from production.') }}
+                </p>
+            @endif
             <div x-show="viewMode === 'table'"
                 class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
                 <div
@@ -235,6 +241,9 @@
                         :class="selected === environment.uuid ? 'bg-neutral-100 dark:bg-white/[0.06]' : ''"
                         x-on:click="$wire.selectEnvironment(environment.uuid)">
                         <div class="flex min-w-0 items-center gap-3">
+                            <span class="flex size-4 shrink-0 items-center justify-center rounded-full border"
+                                :class="selected === environment.uuid ? 'border-accent bg-accent' : 'border-neutral-300 dark:border-white/20'"
+                                aria-hidden="true"></span>
                             <div
                                 class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-fg-dim">
                                 <x-reicon name="layers" class="size-4" />

@@ -94,6 +94,13 @@ class Configuration extends Component
             $project->loadMissing('odooProfile');
             $this->odooIsOdoo = $this->service->supportsOdooJupyter();
             $this->syncOdooGithub();
+            if ($this->odooIsOdoo && OdooGit::useHttps($this->service)) {
+                $this->service->unsetRelation('applications');
+                if ($this->service->server?->isFunctional()) {
+                    OdooGit::startIfPossible($this->service);
+                    $this->dispatch('success', __('HTTPS is being applied to the Odoo link. Sign in as admin when it finishes.'));
+                }
+            }
             $this->applications = $this->service->applications->sort();
             $this->databases = $this->service->databases->sort();
         } catch (\Throwable $e) {
@@ -241,16 +248,18 @@ class Configuration extends Component
                 $classification = OdooStaging::isStagingName($this->environment->name) ? 'staging' : 'production';
                 $environment = OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
                 OdooGit::cloneIntoService($this->service);
+                OdooGit::startIfPossible($this->service);
                 $this->syncOdooGithub();
-                $this->dispatch('success', __('Environment :name launched on :branch.', [
-                    'name' => $environment->name,
+                $this->dispatch('success', __('Odoo is starting on :branch. The link uses HTTPS. Database :database. Sign in as admin.', [
                     'branch' => $environment->name,
+                    'database' => (string) OdooGit::databaseName($this->service),
                 ]));
 
                 return;
             }
 
             $repository = $this->selectedOdooRepository();
+            $branch = $this->environment->name;
             $branches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
             OdooGit::attachExisting(
                 $this->project,
@@ -259,12 +268,14 @@ class Configuration extends Component
                 (int) $repository['id'],
                 $branches,
                 $this->environment,
-                $this->odooBranch,
+                $branch,
             );
             OdooGit::cloneIntoService($this->service);
+            OdooGit::startIfPossible($this->service);
             $this->syncOdooGithub();
-            $this->dispatch('success', __('Repository associated. This environment uses :branch.', [
-                'branch' => $this->odooBranch,
+            $this->dispatch('success', __('Odoo is starting on :branch. The link uses HTTPS. Database :database. Sign in as admin.', [
+                'branch' => $branch,
+                'database' => (string) OdooGit::databaseName($this->service),
             ]));
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));

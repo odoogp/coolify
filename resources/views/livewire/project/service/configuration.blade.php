@@ -107,8 +107,24 @@
                                         {{ __('This project can use a new repository or one that already exists. The branches come from that repository. Without one, JupyterLab shows the addon files.') }}
                                     </p>
                                 </div>
+                                @php
+                                    $odooBranchName = $environment->odooBranch?->git_branch ?: $environment->name;
+                                    $odooDatabaseName = \App\Support\OdooGit::databaseName($service);
+                                    $odooAdminPassword = $service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->first()?->value;
+                                @endphp
+                                <p class="text-[13px]">
+                                    {{ __('Database :database. The public link uses HTTPS. Sign in as admin.', ['database' => $odooDatabaseName]) }}
+                                    @if (filled($odooAdminPassword))
+                                        {{ __('Password: :password.', ['password' => $odooAdminPassword]) }}
+                                    @else
+                                        {{ __('The administrator password appears here after the instance starts.') }}
+                                    @endif
+                                </p>
                                 @if (filled($project->odooProfile?->git_repository))
                                     <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
+                                    <p class="text-[13px]">
+                                        {{ __('This environment uses branch :branch. Cloning creates the next staging branch on its own.', ['branch' => $odooBranchName]) }}
+                                    </p>
                                 @endif
                                 @if (! $odooGithubConnected)
                                     <div>
@@ -128,6 +144,10 @@
                                             {{ __('Change account') }}
                                         </x-forms.button>
                                     </div>
+                                    @if (blank($project->odooProfile?->git_repository))
+                                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('The branch is :branch. It is chosen for you. A clone later creates the next staging branch.', ['branch' => $environment->name]) }}
+                                    </p>
                                     <div class="flex flex-wrap gap-4 text-sm">
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
@@ -178,26 +198,16 @@
                                                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No matching repositories.') }}</p>
                                             @endif
                                         </div>
-                                        @if ($odooGithubBranches !== [])
-                                            <div class="max-w-sm">
-                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-service-branch">{{ __('Branch') }}</label>
-                                                <select id="odoo-service-branch" wire:model="odooBranch" class="input">
-                                                    @foreach ($odooGithubBranches as $branch)
-                                                        <option value="{{ $branch }}">{{ $branch }}</option>
-                                                    @endforeach
-                                                </select>
-                                            </div>
-                                        @endif
                                     @endif
                                     <div class="flex flex-wrap items-center gap-3">
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
                                             {{ $odooRepoMode === 'new' ? __('Create repository') : __('Associate repository') }}
                                         </x-forms.button>
-                                        <a href="{{ route('project.show', ['project_uuid' => $project->uuid]) }}" {{ wireNavigate() }}
-                                            class="text-[13px] underline">
-                                            {{ __('Clone to staging') }}
-                                        </a>
+                                        <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
+                                            {{ __('Starting Odoo on branch :branch. The destination of a clone is always a new staging environment.', ['branch' => $environment->name]) }}
+                                        </p>
                                     </div>
+                                    @endif
                                 @endif
                             </div>
                         </section>

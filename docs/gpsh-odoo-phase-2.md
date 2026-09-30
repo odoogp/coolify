@@ -8,7 +8,11 @@ Si más adelante se conecta GitHub, se puede hacer desde el servicio que ya exis
 
 La categoría (producción o staging) se elige al lanzar el entorno. No se pregunta otra vez en el botón de deploy. No se crea una Application en ese paso.
 
-Dentro del proyecto hay una sola lista de entornos. Al elegir uno, el panel tiene eliminar y, si es producción, clonar. El asistente pregunta si el staging nuevo copia los addons o nace sin módulos. El clonado copia el servicio de producción al staging y lo despliega con los mismos logs de arranque. Con GitHub, copiar crea otra rama del mismo repositorio a partir de la rama de producción; no reutiliza esa rama. Esa rama se muestra mientras despliega. Sin repositorio, el staging lleva el mismo servicio y los addons siguen en Jupyter de producción hasta que haya repositorio.
+Dentro del proyecto hay una sola lista. Una fila se selecciona con un clic; el único botón de clonado está en la cabecera y dice que el destino es un staging. Mientras corre, la pantalla dice que está creando ese staging y lanzando Odoo. El asistente pregunta si el staging nuevo copia los addons o nace sin módulos. El clonado elige la rama (el nombre del staging) solo, copia el servicio de producción y lo despliega con los mismos logs. Con GitHub, copiar crea otra rama del mismo repositorio a partir de la rama de producción; no reutiliza esa rama. Sin repositorio, el staging lleva el mismo servicio y los addons siguen en Jupyter de producción hasta que haya repositorio.
+
+Un repositorio de GitHub no puede quedar en dos proyectos. La rama del entorno es el nombre del entorno; no se elige en un desplegable. Crear o asociar el repositorio lanza la instancia en ese mismo paso.
+
+La base se llama con el slug del proyecto, un guion bajo y el slug de la rama (`mi_empresa_staging_1`). El enlace público de Odoo sale en HTTPS y Odoo arranca con `--proxy-mode`. La primera vez se crea la base y el usuario `admin`; la contraseña queda en la pantalla del servicio.
 
 La GitHub App que abre Conectar GitHub se llama `gpsh`. Si ese nombre ya está en el equipo, el siguiente es `gpsh-2`. Esa instalación queda en el usuario que la conectó (`team_user.github_app_id`). La pantalla muestra el login de GitHub de esa cuenta y sus repositorios, no la lista de apps. Se puede cambiar la cuenta; el cambio se guarda en el mismo usuario. El repositorio nuevo se llama como el proyecto, en slug, y el manifiesto de esa conexión pide permiso para crearlo.
 
