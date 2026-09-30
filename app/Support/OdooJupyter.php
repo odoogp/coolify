@@ -7,26 +7,29 @@ use Symfony\Component\Yaml\Yaml;
 /**
  * Optional JupyterLab service for an Odoo compose stack.
  *
- * The notebook shares the named volume (or relative bind) that the Odoo
- * service already mounts on a path containing "addon". It does not copy
- * that tree and it does not receive host paths, the Docker socket, or
- * instance data directories.
+ * Jupyter mounts the same addon source Odoo already uses:
+ * that source on /mnt/extra-addons, and the same source on /workspace/addons.
+ * It does not copy files and it does not receive the Docker socket,
+ * Odoo config, PostgreSQL, or the instance data directory.
  */
 class OdooJupyter
 {
-    public const IMAGE = 'quay.io/jupyter/base-notebook:python-3.12';
+    public const IMAGE = 'jupyter/datascience-notebook:latest';
 
     public const SERVICE_NAME = 'jupyter';
 
     public const WORKSPACE = '/workspace/addons';
 
-    /**
-     * Used only when the addon directory is still owned by root and has no files.
-     * The running notebook adopts the directory owner; it does not stay root.
-     */
-    public const FALLBACK_UID = '101';
+    public const LISTEN_PORT = '8888';
 
-    public const FALLBACK_GID = '101';
+    public static function proxyPort(string $serviceName, ?string $detected): ?string
+    {
+        if ($serviceName === self::SERVICE_NAME) {
+            return self::LISTEN_PORT;
+        }
+
+        return $detected;
+    }
 
     public static function isOdooCompose(string $compose): bool
     {
@@ -52,7 +55,7 @@ class OdooJupyter
             return $compose;
         }
 
-        $source = self::addonVolumeSource($odoo);
+        $source = self::addonVolumeSource($odoo['volumes'] ?? []);
         if ($source === null) {
             return $compose;
         }
@@ -64,8 +67,8 @@ class OdooJupyter
     }
 
     /**
-     * The service parser renames named volumes to "{uuid}_{slug}".
-     * Jupyter must use that resolved source, the one Odoo actually mounts.
+     * The service parser rewrites named volumes and relative binds.
+     * Jupyter must keep the source Odoo ends up mounting, not a second volume.
      *
      * @param  array<string, mixed>  $services
      * @return array<string, mixed>
@@ -91,8 +94,8 @@ class OdooJupyter
             return $services;
         }
 
-        $source = self::resolvedAddonSource($odoo['volumes'] ?? []);
-        if ($source === null || ! self::resolvedSourceIsShareable($source)) {
+        $source = self::addonVolumeSource($odoo['volumes'] ?? []);
+        if ($source === null) {
             return $services;
         }
 
@@ -126,26 +129,25 @@ class OdooJupyter
     }
 
     /**
-     * @param  array<string, mixed>  $odoo
+     * Last addon mount wins: Docker hides an earlier mount on the same path.
+     *
+     * @param  array<int, mixed>  $volumes
      */
-    private static function addonVolumeSource(array $odoo): ?string
+    private static function addonVolumeSource(array $volumes): ?string
     {
-        foreach ($odoo['volumes'] ?? [] as $volume) {
+        $source = null;
+        foreach ($volumes as $volume) {
             $parsed = self::parseVolume($volume);
-            if ($parsed === null) {
+            if ($parsed === null || ! str_contains(strtolower($parsed['target']), 'addon')) {
                 continue;
             }
-            if (! str_contains(strtolower($parsed['target']), 'addon')) {
+            if (! self::sourceIsShareable($parsed['source'])) {
                 continue;
             }
-            if (! self::sourceIsSafe($parsed['source'])) {
-                continue;
-            }
-
-            return $parsed['source'];
+            $source = $parsed['source'];
         }
 
-        return null;
+        return $source;
     }
 
     /**
@@ -155,7 +157,7 @@ class OdooJupyter
     {
         if (is_string($volume)) {
             $parts = explode(':', $volume);
-            if (count($parts) < 2) {
+            if (count($parts) < 2 || $parts[0] === '' || $parts[1] === '') {
                 return null;
             }
 
@@ -181,26 +183,26 @@ class OdooJupyter
         ];
     }
 
-    private static function sourceIsSafe(string $source): bool
+    private static function sourceIsShareable(string $source): bool
     {
         $source = str_replace('\\', '/', trim($source));
         $lower = strtolower($source);
         if ($source === '' || $source === '/' || str_contains($source, '..')) {
             return false;
         }
-        if (str_contains($lower, 'docker.sock')) {
+        if (str_contains($lower, 'docker.sock') || str_starts_with($lower, '/var/run')) {
             return false;
         }
         if ($lower === '/root' || str_starts_with($lower, '/root/')) {
             return false;
         }
-        if (str_starts_with($lower, '/data/coolify')) {
+        if ($lower === '/etc/odoo' || str_starts_with($lower, '/etc/odoo/')) {
             return false;
         }
-        if (str_starts_with($lower, '/var/run')) {
+        if ($lower === '/data/coolify' || $lower === '/data/coolify/') {
             return false;
         }
-        if (str_starts_with($source, '/')) {
+        if (preg_match('#/services/[^/]+$#', $lower) === 1) {
             return false;
         }
 
@@ -214,93 +216,20 @@ class OdooJupyter
     {
         return [
             'image' => self::IMAGE,
-            // Root only until gosu drops to the addon directory owner.
-            'user' => '0:0',
             'working_dir' => self::WORKSPACE,
-            'restart' => 'unless-stopped',
-            'expose' => ['8888'],
-            'entrypoint' => ['/bin/bash', '-c'],
+            'restart' => 'always',
+            'expose' => [self::LISTEN_PORT],
             'environment' => [
-                'SERVICE_URL_JUPYTER_8888',
+                'SERVICE_URL_JUPYTER_'.self::LISTEN_PORT,
+                'JUPYTER_ENABLE_LAB=yes',
+                'JUPYTER_CONFIG_DIR=/home/jovyan/.jupyter',
                 'JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTER}',
-                'HOME=/tmp',
-                'JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime',
-                'JUPYTER_DATA_DIR=/tmp/jupyter-data',
-                'JUPYTER_CONFIG_DIR=/tmp/jupyter-config',
             ],
-            'command' => self::startupScript(),
+            'command' => 'jupyter lab --ServerApp.token=${SERVICE_PASSWORD_JUPYTER} --ip=0.0.0.0 --allow-root --no-browser',
             'volumes' => [
                 $volumeSource.':'.self::WORKSPACE,
             ],
         ];
-    }
-
-    public static function startupScript(): string
-    {
-        $target = self::WORKSPACE;
-        $uid = self::FALLBACK_UID;
-        $gid = self::FALLBACK_GID;
-
-        return <<<BASH
-set -euo pipefail
-target={$target}
-uid=\$(stat -c '%u' "\$target")
-gid=\$(stat -c '%g' "\$target")
-if [ "\$uid" = "0" ]; then
-  sample=\$(find "\$target" -mindepth 1 -maxdepth 2 -printf '%u:%g\\n' 2>/dev/null | head -n 1 || true)
-  if [ -n "\$sample" ]; then
-    uid=\${sample%%:*}
-    gid=\${sample##*:}
-  fi
-fi
-if [ "\$uid" = "0" ]; then
-  uid={$uid}
-  gid={$gid}
-fi
-mkdir -p "\$JUPYTER_RUNTIME_DIR" "\$JUPYTER_DATA_DIR" "\$JUPYTER_CONFIG_DIR"
-chown "\$uid:\$gid" "\$JUPYTER_RUNTIME_DIR" "\$JUPYTER_DATA_DIR" "\$JUPYTER_CONFIG_DIR"
-exec gosu "\$uid:\$gid" start-notebook.py --ServerApp.root_dir="\$target"
-BASH;
-    }
-
-    /**
-     * @param  array<int, mixed>  $volumes
-     */
-    private static function resolvedAddonSource(array $volumes): ?string
-    {
-        foreach ($volumes as $volume) {
-            $parsed = self::parseVolume($volume);
-            if ($parsed === null) {
-                continue;
-            }
-            if (! str_contains(strtolower($parsed['target']), 'addon')) {
-                continue;
-            }
-
-            return $parsed['source'];
-        }
-
-        return null;
-    }
-
-    private static function resolvedSourceIsShareable(string $source): bool
-    {
-        $source = str_replace('\\', '/', trim($source));
-        $lower = strtolower($source);
-        if ($source === '' || $source === '/' || str_contains($source, '..') || str_contains($lower, 'docker.sock')) {
-            return false;
-        }
-        if ($lower === '/root' || str_starts_with($lower, '/root/')) {
-            return false;
-        }
-        if ($lower === '/data/coolify' || $lower === '/data/coolify/') {
-            return false;
-        }
-        if (str_starts_with($lower, '/var/run')) {
-            return false;
-        }
-
-        return true;
     }
 
     /**

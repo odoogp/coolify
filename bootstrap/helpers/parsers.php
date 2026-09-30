@@ -2649,7 +2649,10 @@ function serviceParser(Service $resource): Collection
         }
         if (! $isDatabase && $fqdns instanceof Collection && $fqdns->count() > 0) {
             $shouldGenerateLabelsExactly = $resource->server->settings->generate_exact_labels;
-            $proxyPort = $predefinedPort ?: containerListenPort(data_get($service, 'ports'), data_get($service, 'expose'));
+            $proxyPort = \App\Support\OdooJupyter::proxyPort(
+                (string) $serviceName,
+                $predefinedPort ?: containerListenPort(data_get($service, 'ports'), data_get($service, 'expose')),
+            );
             $uuid = $resource->uuid;
             $network = data_get($resource, 'destination.network');
             $redirectDirection = in_array(data_get($originalResource, 'redirect'), ['www', 'non-www', 'both'], true)

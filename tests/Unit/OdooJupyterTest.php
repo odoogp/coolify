@@ -26,15 +26,28 @@ test('jupyter is injected only for an odoo stack and shares the addon volume', f
 
     $parsed = Yaml::parse(OdooJupyter::inject(odooCompose()));
     $jupyter = $parsed['services']['jupyter'];
+    $odoo = $parsed['services']['odoo'];
 
-    expect($jupyter['image'])->toBe(OdooJupyter::IMAGE);
-    expect($jupyter['command'])->toContain('exec gosu');
-    expect($jupyter['command'])->toContain("stat -c '%u'");
+    expect($jupyter['image'])->toBe('jupyter/datascience-notebook:latest');
+    expect($jupyter['working_dir'])->toBe('/workspace/addons');
+    expect($jupyter['restart'])->toBe('always');
+    expect($jupyter['command'])->toBe('jupyter lab --ServerApp.token=${SERVICE_PASSWORD_JUPYTER} --ip=0.0.0.0 --allow-root --no-browser');
     expect($jupyter['volumes'])->toBe(['odoo-extra-addons:/workspace/addons']);
+    expect($odoo['volumes'])->toContain('odoo-extra-addons:/mnt/extra-addons');
     expect((string) $jupyter['expose'][0])->toBe('8888');
     expect($jupyter['environment'])->toContain('SERVICE_URL_JUPYTER_8888');
+    expect($jupyter['environment'])->toContain('JUPYTER_ENABLE_LAB=yes');
+    expect($jupyter['environment'])->toContain('JUPYTER_CONFIG_DIR=/home/jovyan/.jupyter');
     expect($jupyter['environment'])->toContain('JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTER}');
-    expect(implode("\n", $jupyter['environment']))->not->toContain('docker.sock');
+    expect($jupyter)->not->toHaveKey('user');
+    expect($jupyter)->not->toHaveKey('entrypoint');
+    expect($jupyter)->not->toHaveKey('networks');
+    expect(json_encode($jupyter))->not->toContain('$target');
+    expect(json_encode($jupyter))->not->toContain('$uid');
+    expect(json_encode($jupyter))->not->toContain('$gid');
+    expect(json_encode($jupyter))->not->toContain('JUPYTER_RUNTIME_DIR');
+    expect(json_encode($jupyter))->not->toContain('gosu');
+    expect(json_encode($jupyter))->not->toContain('docker.sock');
 });
 
 test('injecting twice does not add a second jupyter service', function () {
@@ -65,6 +78,7 @@ services:
       - '/var/run/docker.sock:/var/run/docker.sock'
       - '/data/coolify:/data/coolify'
       - '/root:/root'
+      - '/etc/odoo:/etc/odoo'
       - 'odoo-extra-addons:/mnt/extra-addons'
       - 'postgresql-data:/var/lib/postgresql/data'
 YAML;
@@ -76,23 +90,25 @@ YAML;
     expect($rendered)->not->toContain('docker.sock');
     expect($rendered)->not->toContain('/data/coolify');
     expect($rendered)->not->toContain('/root');
+    expect($rendered)->not->toContain('/etc/odoo');
     expect($rendered)->not->toContain('postgresql-data');
     expect($rendered)->not->toContain('privileged');
 });
 
-test('an absolute host addon path is not shared with jupyter', function () {
+test('jupyter does not mount the coolify data root or the whole service directory', function () {
     $compose = <<<'YAML'
 services:
   odoo:
     image: 'odoo:18'
     volumes:
-      - '/opt/odoo/custom-addons:/mnt/extra-addons'
+      - '/data/coolify:/mnt/extra-addons'
+      - '/root/addons:/mnt/extra-addons'
 YAML;
 
     expect(OdooJupyter::inject($compose))->toBe($compose);
 });
 
-test('the odoo checkbox and open action stay behind the existing service checks', function () {
+test('the odoo checkbox and jupyter port stay behind the existing service checks', function () {
     $root = dirname(__DIR__, 2);
     $form = file_get_contents($root.'/resources/views/livewire/project/service/stack-form.blade.php');
     $parser = file_get_contents($root.'/bootstrap/helpers/parsers.php');
@@ -100,7 +116,9 @@ test('the odoo checkbox and open action stay behind the existing service checks'
     expect($form)->toContain('supportsOdooJupyter()');
     expect($form)->toContain('canGate="update"');
     expect($parser)->toContain('if ($resource->jupyter_enabled && is_string($compose))');
-    expect($parser)->toContain('onlyPort: $proxyPort');
+    expect($parser)->toContain('OdooJupyter::proxyPort');
+    expect(OdooJupyter::proxyPort('jupyter', '80'))->toBe('8888');
+    expect(OdooJupyter::proxyPort('odoo', '8069'))->toBe('8069');
 });
 
 test('jupyter uses the volume name the service parser already assigned to odoo', function () {
@@ -129,6 +147,24 @@ test('jupyter uses the volume name the service parser already assigned to odoo',
     expect(json_encode($jupyter))->not->toContain('odoo-web-data');
 });
 
+test('jupyter adopts the bind the parser already gave the odoo addon path', function () {
+    $services = [
+        'odoo' => [
+            'image' => 'odoo:18',
+            'volumes' => [
+                '/data/coolify/services/abc/addons:/mnt/extra-addons',
+            ],
+        ],
+        'jupyter' => [
+            'image' => OdooJupyter::IMAGE,
+            'volumes' => ['./addons:/workspace/addons'],
+        ],
+    ];
+
+    expect(OdooJupyter::alignParsedServices($services)['jupyter']['volumes'])
+        ->toBe(['/data/coolify/services/abc/addons:/workspace/addons']);
+});
+
 test('jupyter does not adopt the docker socket or the coolify data root', function () {
     $services = [
         'odoo' => [
@@ -150,10 +186,26 @@ services:
   odoo:
     image: 'odoo:18'
     volumes:
-      - './custom_addons:/mnt/extra-addons'
+      - './addons:/mnt/extra-addons'
+YAML;
+
+    $parsed = Yaml::parse(OdooJupyter::inject($compose));
+
+    expect($parsed['services']['odoo']['volumes'])->toBe(['./addons:/mnt/extra-addons']);
+    expect($parsed['services']['jupyter']['volumes'])->toBe(['./addons:/workspace/addons']);
+});
+
+test('the last addon mount is the one jupyter shares', function () {
+    $compose = <<<'YAML'
+services:
+  odoo:
+    image: 'odoo:18'
+    volumes:
+      - 'odoo-extra-addons:/mnt/extra-addons'
+      - './addons:/mnt/extra-addons'
 YAML;
 
     $jupyter = Yaml::parse(OdooJupyter::inject($compose))['services']['jupyter'];
 
-    expect($jupyter['volumes'])->toBe(['./custom_addons:/workspace/addons']);
+    expect($jupyter['volumes'])->toBe(['./addons:/workspace/addons']);
 });
