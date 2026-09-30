@@ -358,6 +358,18 @@ function parseDockerVolumeString(string $volumeString): array
     ];
 }
 
+/**
+ * Attach coolify-proxy to the service network. "already exists" is success;
+ * any other failure stays in the deployment log instead of a silent 502.
+ */
+function coolifyProxyNetworkConnectCommand(string $network): string
+{
+    $quoted = escapeshellarg($network);
+    $format = '{{range $n, $cfg := .NetworkSettings.Networks}}{{$n}} {{end}}';
+
+    return 'docker network connect '.$quoted.' coolify-proxy || docker inspect -f '.escapeshellarg($format).' coolify-proxy | grep -qw '.$quoted;
+}
+
 function addTraefikDockerNetworkLabel(Collection $labels, string $network): Collection
 {
     $hasUserDefinedNetwork = $labels->contains(
@@ -2761,6 +2773,7 @@ function serviceParser(Service $resource): Collection
 
         $parsedServices->put($serviceName, $payload);
     }
+    $parsedServices = collect(\App\Support\OdooJupyter::alignParsedServices(convertToArray($parsedServices)));
     $topLevel->put('services', $parsedServices);
 
     $customOrder = ['services', 'volumes', 'networks', 'configs', 'secrets'];

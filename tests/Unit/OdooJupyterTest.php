@@ -28,7 +28,8 @@ test('jupyter is injected only for an odoo stack and shares the addon volume', f
     $jupyter = $parsed['services']['jupyter'];
 
     expect($jupyter['image'])->toBe(OdooJupyter::IMAGE);
-    expect($jupyter['user'])->toBe('100:101');
+    expect($jupyter['command'])->toContain('exec gosu');
+    expect($jupyter['command'])->toContain("stat -c '%u'");
     expect($jupyter['volumes'])->toBe(['odoo-extra-addons:/workspace/addons']);
     expect((string) $jupyter['expose'][0])->toBe('8888');
     expect($jupyter['environment'])->toContain('SERVICE_URL_JUPYTER_8888');
@@ -100,6 +101,47 @@ test('the odoo checkbox and open action stay behind the existing service checks'
     expect($form)->toContain('canGate="update"');
     expect($parser)->toContain('if ($resource->jupyter_enabled && is_string($compose))');
     expect($parser)->toContain('onlyPort: $proxyPort');
+});
+
+test('jupyter uses the volume name the service parser already assigned to odoo', function () {
+    $services = [
+        'odoo' => [
+            'image' => 'odoo:18',
+            'volumes' => [
+                'svc_odoo-web-data:/var/lib/odoo',
+                'svc_odoo-extra-addons:/mnt/extra-addons',
+            ],
+        ],
+        'postgresql' => [
+            'image' => 'postgres:16-alpine',
+            'volumes' => ['svc_postgresql-data:/var/lib/postgresql/data'],
+        ],
+        'jupyter' => [
+            'image' => OdooJupyter::IMAGE,
+            'volumes' => ['odoo-extra-addons:/workspace/addons'],
+        ],
+    ];
+
+    $jupyter = OdooJupyter::alignParsedServices($services)['jupyter'];
+
+    expect($jupyter['volumes'])->toBe(['svc_odoo-extra-addons:/workspace/addons']);
+    expect(json_encode($jupyter))->not->toContain('postgresql-data');
+    expect(json_encode($jupyter))->not->toContain('odoo-web-data');
+});
+
+test('jupyter does not adopt the docker socket or the coolify data root', function () {
+    $services = [
+        'odoo' => [
+            'image' => 'odoo:18',
+            'volumes' => ['/var/run/docker.sock:/mnt/extra-addons'],
+        ],
+        'jupyter' => [
+            'image' => OdooJupyter::IMAGE,
+            'volumes' => ['keep-me:/workspace/addons'],
+        ],
+    ];
+
+    expect(OdooJupyter::alignParsedServices($services)['jupyter']['volumes'])->toBe(['keep-me:/workspace/addons']);
 });
 
 test('a relative addon bind is shared with jupyter', function () {

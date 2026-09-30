@@ -33,6 +33,15 @@ test('a scheme-less host and port is not parsed as the scheme', function () {
     expect($labels)->toContain('traefik.http.services.http-0-odoo-service.loadbalancer.server.port=8069');
 });
 
+test('attaching the proxy to a service network is not hidden when it fails', function () {
+    $command = coolifyProxyNetworkConnectCommand('svc-uuid');
+
+    expect($command)->toContain("docker network connect 'svc-uuid' coolify-proxy");
+    expect($command)->toContain('docker inspect');
+    expect($command)->toContain('grep -qw');
+    expect($command)->not->toContain('|| true');
+});
+
 test('container listen port uses the compose target, not the published host port', function () {
     expect(containerListenPort(['8080:8069']))->toBe('8069');
     expect(containerListenPort([['target' => 8069, 'published' => 8080]]))->toBe('8069');
