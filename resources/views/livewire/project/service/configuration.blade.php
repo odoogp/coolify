@@ -117,6 +117,26 @@
                                         </x-forms.button>
                                     </div>
                                 @else
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <p class="text-[13px]">
+                                            {{ __('GitHub account :login, linked to :user.', [
+                                                'login' => $odooGithubLogin !== '' ? $odooGithubLogin : __('this account'),
+                                                'user' => auth()->user()->email,
+                                            ]) }}
+                                        </p>
+                                        <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$service">
+                                            {{ __('Change account') }}
+                                        </x-forms.button>
+                                    </div>
+                                    @if ($odooRepositories !== [])
+                                        <ul class="max-w-sm text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            @foreach ($odooRepositories as $repository)
+                                                <li class="font-mono">{{ $repository['full_name'] }}</li>
+                                            @endforeach
+                                        </ul>
+                                    @elseif ($odooRepositoriesLoaded)
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('This GitHub account has no repositories.') }}</p>
+                                    @endif
                                     <div class="flex flex-wrap gap-4 text-sm">
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
@@ -127,26 +147,19 @@
                                             {{ __('Existing repository') }}
                                         </label>
                                     </div>
-                                    @if (count($odooGithubApps) > 1)
-                                        <div class="max-w-sm">
-                                            <x-forms.listbox canGate="update" :canResource="$service" id="odooGithubAppId" label="{{ __('GitHub account') }}"
-                                                :options="$odooGithubApps" />
-                                        </div>
-                                    @endif
                                     @if ($odooRepoMode === 'new')
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             {{ __('The new repository is named :name. This environment becomes a branch with the same name.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
                                         </p>
                                     @else
-                                        <div class="flex flex-wrap items-end gap-3">
-                                            <div class="max-w-sm flex-1">
-                                                <x-forms.listbox canGate="update" :canResource="$service" id="odooRepositoryId" label="{{ __('Repository') }}"
-                                                    :disabled="$odooRepositories === []"
-                                                    :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
-                                            </div>
-                                            <x-forms.button type="button" wire:click="loadOdooRepositories" canGate="update" :canResource="$service">
-                                                {{ __('Load repositories') }}
-                                            </x-forms.button>
+                                        <div class="max-w-sm" wire:key="odoo-repos-{{ count($odooRepositories) }}">
+                                            <x-forms.listbox canGate="update" :canResource="$service" id="odooRepositoryId" label="{{ __('Repository') }}"
+                                                onOpen="loadOdooRepositories"
+                                                emptyText="{{ $odooRepositoriesLoaded ? __('This GitHub account has no repositories.') : __('Loading repositories…') }}"
+                                                :options="collect($odooRepositories)->map(fn (array $repository) => ['value' => $repository['id'], 'label' => $repository['full_name']])->all()" />
+                                            <p wire:loading wire:target="odooRepoMode,loadOdooRepositories,odooGithubAppId" class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                {{ __('Loading repositories…') }}
+                                            </p>
                                         </div>
                                         @if ($odooGithubBranches !== [])
                                             <div class="max-w-sm">
@@ -159,10 +172,14 @@
                                             </div>
                                         @endif
                                     @endif
-                                    <div>
+                                    <div class="flex flex-wrap items-center gap-3">
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
                                             {{ __('Associate repository') }}
                                         </x-forms.button>
+                                        <a href="{{ route('project.show', ['project_uuid' => $project->uuid]) }}" {{ wireNavigate() }}
+                                            class="text-[13px] underline">
+                                            {{ __('Clone to staging') }}
+                                        </a>
                                     </div>
                                 @endif
                             </div>

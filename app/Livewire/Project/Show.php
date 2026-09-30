@@ -89,6 +89,17 @@ class Show extends Component
         }
     }
 
+    public function openCloneWizard(): void
+    {
+        $production = $this->project->environments->first(
+            fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
+        );
+        if ($production instanceof Environment) {
+            $this->selectedEnvironmentUuid = $production->uuid;
+        }
+        $this->showCloneWizard = true;
+    }
+
     public function selectEnvironment(string $uuid): void
     {
         $this->selectedEnvironmentUuid = $uuid;

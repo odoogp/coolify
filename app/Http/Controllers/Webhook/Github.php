@@ -581,6 +581,10 @@ class Github extends Controller
         $github_app->installation_id = $installation_id;
         $github_app->save();
 
+        if (data_get(session('from'), 'odoo') && auth()->id() !== null) {
+            OdooGit::rememberForUser((int) auth()->id(), (int) $github_app->team_id, $github_app);
+        }
+
         return redirect()->route('source.github.show', ['github_app_uuid' => $github_app->uuid]);
     }
 

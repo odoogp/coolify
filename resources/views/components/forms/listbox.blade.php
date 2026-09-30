@@ -9,6 +9,7 @@
     'emptyText' => 'No options available.',
     'live' => false,
     'onChange' => null, // optional $wire method to call after a selection
+    'onOpen' => null, // optional $wire method when the list opens empty
     'onChangeArgs' => null, // optional arguments followed by the selected value
     'wire' => true, // false = purely client-side value (no Livewire binding)
     'value' => null, // initial value when wire=false
@@ -85,6 +86,11 @@
         toggle() {
             this.open = !this.open;
             this.positioned = false;
+            if (this.open && this.options.length === 0) {
+                @if ($onOpen)
+                    this.$wire.{{ $onOpen }}();
+                @endif
+            }
             if (this.open && @js($portal)) {
                 this.$nextTick(() => requestAnimationFrame(() => this.positionPanel()));
             }

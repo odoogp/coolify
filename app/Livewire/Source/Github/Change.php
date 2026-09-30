@@ -307,7 +307,7 @@ class Change extends Component
         try {
             $github_app_uuid = request()->github_app_uuid;
             $this->github_app = GithubApp::ownedByCurrentTeam()->whereUuid($github_app_uuid)->firstOrFail();
-            $this->forOdooProject = data_get(session('from'), 'back') === 'project.edit'
+            $this->forOdooProject = (bool) data_get(session('from'), 'odoo')
                 && (int) data_get(session('from'), 'source_id') === (int) $this->github_app->id;
             $this->github_app->makeVisible(['client_secret', 'webhook_secret']);
             $this->privateKeys = PrivateKey::ownedByCurrentTeamCached();

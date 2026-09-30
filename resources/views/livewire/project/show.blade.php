@@ -15,6 +15,12 @@
 
             @can('update', $project)
                 <div class="flex w-fit shrink-0 items-center gap-2">
+                    @if ($project->odooProfile)
+                        <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
+                            {{ __('Clone to staging') }}
+                        </button>
+                    @endif
+
                     <a href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button"

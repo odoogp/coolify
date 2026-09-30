@@ -393,12 +393,24 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('New repository')
         ->toContain('Existing repository')
         ->toContain('associateOdooRepository')
+        ->toContain('onOpen="loadOdooRepositories"')
+        ->not->toContain('Load repositories')
         ->not->toContain('Subscription Code');
 });
 
-it('names a new github app after the product', function () {
-    expect(OdooGit::beginConnect($this->project)->name)->toBe('gpsh')
+it('names a new github app after the product and keeps it on the user', function () {
+    $app = OdooGit::beginConnect($this->project);
+
+    expect($app->name)->toBe('gpsh')
+        ->and(session('from.odoo'))->toBeTrue()
         ->and(OdooGit::beginConnect($this->project)->name)->toBe('gpsh-2');
+
+    OdooGit::rememberForUser($this->user->id, $this->team->id, $app);
+
+    expect(\Illuminate\Support\Facades\DB::table('team_user')
+        ->where('user_id', $this->user->id)
+        ->where('team_id', $this->team->id)
+        ->value('github_app_id'))->toBe($app->id);
 });
 
 it('clones the production branch onto a different branch and asks github for one token', function () {
@@ -450,4 +462,69 @@ it('clones the production branch onto a different branch and asks github for one
         ->and($posted[0][0]->data()['ref'])->toBe('refs/heads/staging-3')
         ->and($posted[0][0]->data()['sha'])->toBe('prodsha')
         ->and($tokens->count())->toBeLessThan(2);
+});
+
+it('loads one page of repositories and shows the github error', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-repos-key',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+
+    $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+        $url = $request->url();
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/installation/repositories')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Bad credentials'], 401, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    expect(fn () => OdooGit::repositories($this->githubApp))->toThrow(RuntimeException::class, 'Bad credentials');
+
+    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+        $url = $request->url();
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/installation/repositories')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'total_count' => 1,
+                'repositories' => [[
+                    'id' => 7,
+                    'name' => 'odoo',
+                    'default_branch' => 'main',
+                    'owner' => ['login' => 'acme'],
+                ]],
+            ], 200, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    $repositories = OdooGit::repositories($this->githubApp);
+    $pages = \Illuminate\Support\Facades\Http::recorded(
+        fn ($request) => str_contains($request->url(), '/installation/repositories')
+    );
+
+    expect($repositories)->toHaveCount(1)
+        ->and($repositories[0]['full_name'])->toBe('acme/odoo')
+        ->and($pages)->toHaveCount(1);
 });

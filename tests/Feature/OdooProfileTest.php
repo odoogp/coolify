@@ -335,6 +335,7 @@ it('lists environments once and clones production into one staging', function ()
     $production = $this->project->environments()->where('name', 'production')->first();
     expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
         ->not->toContain('project.odoo-summary')
+        ->toContain('openCloneWizard')
         ->toContain('cloneToStaging');
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])

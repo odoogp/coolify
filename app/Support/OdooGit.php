@@ -29,30 +29,30 @@ class OdooGit
     public static function repositories(GithubApp $app): array
     {
         $token = generateGithubInstallationToken($app);
-        $page = 1;
+        $response = Http::GitHub($app->api_url, $token)
+            ->timeout(15)
+            ->get('/installation/repositories', ['per_page' => 100]);
+        if ($response->status() !== 200) {
+            throw new RuntimeException((string) ($response->json('message') ?: 'GitHub repositories could not be loaded.'));
+        }
+
         $repositories = [];
-        $total = 0;
-
-        do {
-            $batch = loadRepositoryByPage($app, $token, $page);
-            $total = (int) ($batch['total_count'] ?? 0);
-            foreach ($batch['repositories'] ?? [] as $repository) {
-                $owner = (string) data_get($repository, 'owner.login');
-                $name = (string) data_get($repository, 'name');
-                if ($owner === '' || $name === '') {
-                    continue;
-                }
-                $repositories[] = [
-                    'id' => (int) data_get($repository, 'id'),
-                    'full_name' => $owner.'/'.$name,
-                    'owner' => $owner,
-                    'name' => $name,
-                    'default_branch' => (string) (data_get($repository, 'default_branch') ?: 'main'),
-                ];
+        foreach ($response->json('repositories') ?? [] as $repository) {
+            $owner = (string) data_get($repository, 'owner.login');
+            $name = (string) data_get($repository, 'name');
+            if ($owner === '' || $name === '') {
+                continue;
             }
-            $page++;
-        } while (count($repositories) < $total && $page <= 50);
+            $repositories[] = [
+                'id' => (int) data_get($repository, 'id'),
+                'full_name' => $owner.'/'.$name,
+                'owner' => $owner,
+                'name' => $name,
+                'default_branch' => (string) (data_get($repository, 'default_branch') ?: 'main'),
+            ];
+        }
 
+        // ponytail: one page, 100 repositories. A second page is the upgrade if an installation has more.
         return $repositories;
     }
 
@@ -352,6 +352,44 @@ class OdooGit
     /**
      * @return array{login: string, type: string}
      */
+    public static function accountLogin(GithubApp $githubApp): string
+    {
+        return self::installationAccount($githubApp)['login'];
+    }
+
+    public static function userApp(int $teamId, ?int $userId): ?GithubApp
+    {
+        $connected = self::connectedApps($teamId);
+        if ($userId !== null) {
+            $id = DB::table('team_user')
+                ->where('user_id', $userId)
+                ->where('team_id', $teamId)
+                ->value('github_app_id');
+            if ($id !== null) {
+                $match = $connected->firstWhere('id', (int) $id);
+                if ($match instanceof GithubApp) {
+                    return $match;
+                }
+            }
+        }
+
+        if ($connected->isEmpty()) {
+            return null;
+        }
+
+        return $connected->count() === 1
+            ? $connected->first()
+            : $connected->sortByDesc('id')->first();
+    }
+
+    public static function rememberForUser(int $userId, int $teamId, GithubApp $githubApp): void
+    {
+        DB::table('team_user')
+            ->where('user_id', $userId)
+            ->where('team_id', $teamId)
+            ->update(['github_app_id' => $githubApp->id]);
+    }
+
     private static function installationAccount(GithubApp $githubApp): array
     {
         $jwt = generateGithubJwt($githubApp);
@@ -389,6 +427,10 @@ class OdooGit
         $id = (int) data_get($created, 'data.id');
         $fullName = (string) data_get($created, 'data.full_name');
         if ($id === 0 || $fullName === '') {
+            $message = strtolower((string) data_get($created, 'data.message', ''));
+            if (str_contains($message, 'resource not accessible') || str_contains($message, 'upgrade')) {
+                throw new RuntimeException('This GitHub account cannot create repositories. Change the account and accept permission to create them.');
+            }
             $existing = githubApi($githubApp, '/repos/'.rawurlencode($owner).'/'.rawurlencode($name), 'get', null, false);
             $id = (int) data_get($existing, 'data.id');
             $fullName = (string) data_get($existing, 'data.full_name');
@@ -487,6 +529,7 @@ class OdooGit
         session([
             'from' => [
                 'back' => $back,
+                'odoo' => true,
                 'parameters' => $parameters === [] ? ['project_uuid' => $project->uuid] : $parameters,
             ],
         ]);

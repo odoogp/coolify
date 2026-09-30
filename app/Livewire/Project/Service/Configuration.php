@@ -51,11 +51,17 @@ class Configuration extends Component
 
     public array $odooRepositories = [];
 
+    public bool $odooRepositoriesLoaded = false;
+
+    public bool $odooRepositoriesLoading = false;
+
     public ?int $odooRepositoryId = null;
 
     public array $odooGithubBranches = [];
 
     public string $odooBranch = '';
+
+    public string $odooGithubLogin = '';
 
     public function render()
     {
@@ -143,11 +149,36 @@ class Configuration extends Component
         }
     }
 
+    public function updatedOdooRepoMode(): void
+    {
+        if ($this->odooRepoMode === 'existing') {
+            $this->loadOdooRepositories();
+        }
+    }
+
+    public function updatedOdooGithubAppId(): void
+    {
+        $this->odooRepositories = [];
+        $this->odooRepositoriesLoaded = false;
+        $this->odooRepositoriesLoading = false;
+        $this->odooGithubBranches = [];
+        $this->odooBranch = '';
+        if ($this->odooRepoMode === 'existing') {
+            $this->loadOdooRepositories();
+        }
+    }
+
     public function loadOdooRepositories(): void
     {
+        if ($this->odooRepositoriesLoaded || $this->odooRepositoriesLoading) {
+            return;
+        }
+
+        $this->odooRepositoriesLoading = true;
         try {
             $this->authorize('update', $this->service);
             $this->odooRepositories = OdooGit::repositories($this->odooGithubApp());
+            $this->odooRepositoriesLoaded = true;
             $this->odooGithubBranches = [];
             $this->odooBranch = '';
         } catch (InvalidArgumentException|RuntimeException $exception) {
@@ -155,6 +186,7 @@ class Configuration extends Component
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
+        $this->odooRepositoriesLoading = false;
     }
 
     public function updatedOdooRepositoryId(): void
@@ -201,7 +233,7 @@ class Configuration extends Component
                 return;
             }
 
-            $repository = $this->selectedOdooRepository(refresh: true);
+            $repository = $this->selectedOdooRepository();
             $branches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
             OdooGit::attachExisting(
                 $this->project,
@@ -226,14 +258,25 @@ class Configuration extends Component
     private function syncOdooGithub(): void
     {
         $this->odooIsOdoo = $this->service->supportsOdooJupyter();
-        $connected = OdooGit::connectedApps((int) $this->project->team_id);
-        $this->odooGithubConnected = $connected->isNotEmpty();
+        $app = OdooGit::userApp((int) $this->project->team_id, auth()->id());
+        $this->odooGithubConnected = $app instanceof GithubApp;
         $this->odooNeedsGithub = $this->odooIsOdoo && ! $this->odooGithubConnected;
-        $this->odooGithubApps = $connected
-            ->map(fn (GithubApp $app): array => ['value' => $app->id, 'label' => $app->name])
-            ->all();
+        $this->odooGithubAppId = $app?->id;
+        $this->odooGithubApps = $app instanceof GithubApp
+            ? [['value' => $app->id, 'label' => $app->name]]
+            : [];
+        if ($app instanceof GithubApp && auth()->id() !== null) {
+            OdooGit::rememberForUser((int) auth()->id(), (int) $this->project->team_id, $app);
+            if ($this->odooGithubLogin === '') {
+                try {
+                    $this->odooGithubLogin = OdooGit::accountLogin($app);
+                } catch (RuntimeException $exception) {
+                    $this->dispatch('error', __($exception->getMessage()));
+                }
+            }
+            $this->loadOdooRepositories();
+        }
         $profile = $this->project->odooProfile;
-        $this->odooGithubAppId = $profile?->github_app_id ?: ($connected->count() === 1 ? $connected->first()->id : $this->odooGithubAppId);
         if (filled($profile?->git_repository)) {
             $this->odooRepoMode = 'existing';
             $this->odooRepositoryId = $profile->repository_id;

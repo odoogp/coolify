@@ -4,13 +4,13 @@ GitHub no es obligatorio. En el asistente de un proyecto nuevo se elige el servi
 
 Sin repositorio, JupyterLab es el manejo de archivos y queda activo al crear o al arrancar el servicio Odoo. Los archivos son una sola carpeta: Odoo la lee en `/mnt/extra-addons` y JupyterLab abre la misma en `/workspace/addons`. No hay una copia aparte.
 
-Si más adelante se conecta GitHub, se puede hacer desde el servicio que ya existe: repositorio nuevo, con el nombre del proyecto, o un repositorio que ya existe. En el segundo caso se cargan sus ramas y el entorno queda en la rama elegida. El primer lanzamiento con cuenta nueva crea el repositorio (`Mi Empresa` queda `mi-empresa`) y la rama con el nombre del entorno. Esa sincronización entra en la misma carpeta de addons. No sustituye a Jupyter ni despliega un Service en ese paso. Cómo empujar el contenido que ya está en la carpeta hacia el repositorio nuevo queda para cuando se conecte: el gancho es el mismo volumen, no un segundo árbol.
+Si más adelante se conecta GitHub, se puede hacer desde el servicio que ya existe: repositorio nuevo, con el nombre del proyecto, o un repositorio que ya existe. Al elegir uno existente, el selector pide una sola página de repositorios de esa instalación y, al elegir uno, sus ramas. El entorno queda en la rama elegida. El primer lanzamiento con cuenta nueva crea el repositorio (`Mi Empresa` queda `mi-empresa`) y la rama con el nombre del entorno. Esa sincronización entra en la misma carpeta de addons. No sustituye a Jupyter ni despliega un Service en ese paso. Cómo empujar el contenido que ya está en la carpeta hacia el repositorio nuevo queda para cuando se conecte: el gancho es el mismo volumen, no un segundo árbol.
 
 La categoría (producción o staging) se elige al lanzar el entorno. No se pregunta otra vez en el botón de deploy. No se crea una Application en ese paso.
 
 Dentro del proyecto hay una sola lista de entornos. Al elegir uno, el panel tiene eliminar y, si es producción, clonar. El asistente pregunta si el staging nuevo copia los addons o nace sin módulos. Con GitHub, copiar crea otra rama del mismo repositorio a partir de la rama de producción; no reutiliza esa rama. Sin repositorio, el staging queda vacío y los addons siguen en Jupyter de producción.
 
-La GitHub App que abre Conectar GitHub se llama `gpsh`. Si ese nombre ya está en el equipo, el siguiente es `gpsh-2`. El repositorio nuevo se llama como el proyecto, en slug.
+La GitHub App que abre Conectar GitHub se llama `gpsh`. Si ese nombre ya está en el equipo, el siguiente es `gpsh-2`. Esa instalación queda en el usuario que la conectó (`team_user.github_app_id`). La pantalla muestra el login de GitHub de esa cuenta y sus repositorios, no la lista de apps. Se puede cambiar la cuenta; el cambio se guarda en el mismo usuario. El repositorio nuevo se llama como el proyecto, en slug, y el manifiesto de esa conexión pide permiso para crearlo.
 
 ## Qué se guarda
 
