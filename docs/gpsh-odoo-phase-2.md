@@ -12,7 +12,7 @@ Dentro del proyecto hay una sola lista. Una fila se selecciona con un clic; el �
 
 Un repositorio de GitHub no puede quedar en dos proyectos. La rama del entorno es el nombre del entorno; no se elige en un desplegable. Crear o asociar el repositorio lanza la instancia en ese mismo paso.
 
-La base se llama con el slug del proyecto, un guion bajo y el slug de la rama (`mi_empresa_staging_1`). El enlace público de Odoo sale en HTTPS y Odoo arranca con `--proxy-mode`. La primera vez se crea la base y el usuario `admin`; la contraseña queda en la pantalla del servicio.
+La base se llama con el slug del proyecto, un guion bajo y el slug de la rama (`mi_empresa_staging_1`). El enlace público de Odoo sale en `https://` sin el puerto 8069, para que Traefik lo publique en el 443 y pida el certificado a Let's Encrypt. Hasta que ese certificado queda guardado, el navegador ve el certificado temporal de Traefik y la página se marca insegura. En el servicio, Comprobar certificado dice si Let's Encrypt ya lo aplicó a esa URL. Odoo arranca con `--proxy-mode`. La primera vez se crea la base y el usuario `admin`; la contraseña queda en la pantalla del servicio.
 
 La GitHub App que abre Conectar GitHub se llama `gpsh`. Si ese nombre ya está en el equipo, el siguiente es `gpsh-2`. Esa instalación queda en el usuario que la conectó (`team_user.github_app_id`). La pantalla muestra el login de GitHub de esa cuenta y sus repositorios, no la lista de apps. Se puede cambiar la cuenta; el cambio se guarda en el mismo usuario. El repositorio nuevo se llama como el proyecto, en slug, y el manifiesto de esa conexión pide permiso para crearlo.
 

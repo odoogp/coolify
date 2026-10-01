@@ -112,6 +112,21 @@
                                     $odooDatabaseName = \App\Support\OdooGit::databaseName($service);
                                     $odooAdminPassword = $service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->first()?->value;
                                 @endphp
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <p class="text-[13px]">
+                                        @if ($odooCertificateMessage !== '')
+                                            {{ $odooCertificateMessage }}
+                                        @else
+                                            {{ __('Traefik asks Let\'s Encrypt for the certificate when this instance is deployed.') }}
+                                        @endif
+                                    </p>
+                                    <x-forms.button type="button" wire:click="checkOdooCertificate" canGate="update" :canResource="$service">
+                                        {{ __('Check certificate') }}
+                                    </x-forms.button>
+                                    <p wire:loading wire:target="checkOdooCertificate" class="text-[13px]">
+                                        {{ __('Checking whether the certificate is applied to the URL…') }}
+                                    </p>
+                                </div>
                                 <p class="text-[13px]">
                                     {{ __('Database :database. The public link uses HTTPS. Sign in as admin.', ['database' => $odooDatabaseName]) }}
                                     @if (filled($odooAdminPassword))

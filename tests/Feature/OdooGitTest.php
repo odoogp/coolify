@@ -659,10 +659,12 @@ it('turns an existing odoo link into https', function () {
         'service_id' => $service->id,
         'name' => 'odoo',
         'image' => 'odoo:20',
-        'fqdn' => 'http://odoo.example.test',
+        'fqdn' => 'http://odoo.example.test:8069',
     ]);
 
     expect(OdooGit::useHttps($service))->toBeTrue()
         ->and($application->fresh()->fqdn)->toBe('https://odoo.example.test')
-        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue()
+        ->and(OdooGit::classifyCertificateIssuer('TRAEFIK DEFAULT CERT', 'TRAEFIK DEFAULT CERT', ''))->toBe('pending')
+        ->and(OdooGit::classifyCertificateIssuer('R10', 'odoo.example.test', "Let's Encrypt"))->toBe('applied');
 });

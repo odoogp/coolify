@@ -3670,5 +3670,12 @@
     "Creating the staging and starting Odoo. The destination is a new staging environment.": "Creando el staging y arrancando Odoo. El destino es un entorno staging nuevo.",
     "Create staging": "Crear staging",
     "Creating the staging…": "Creando el staging…",
-    "Click a row to select it. The only clone action creates a staging environment from production.": "Haz clic en una fila para seleccionarla. La única acción de clonar crea un staging desde producción."
+    "Click a row to select it. The only clone action creates a staging environment from production.": "Haz clic en una fila para seleccionarla. La única acción de clonar crea un staging desde producción.",
+    "This Odoo service has no public URL yet.": "Este servicio de Odoo todavía no tiene una URL pública.",
+    "Let's Encrypt already issued the certificate for :url.": "Let's Encrypt ya emitió el certificado para :url.",
+    "Could not connect to :url on port 443. The certificate cannot be confirmed yet.": "No se pudo conectar a :url por el puerto 443. El certificado todavía no se puede confirmar.",
+    "Traefik is still serving its temporary certificate for :url. It asks Let's Encrypt when the service is deployed. The browser shows the page as insecure until this check says the certificate is applied. Port 80 of the proxy must reach this server.": "Traefik sigue sirviendo su certificado temporal para :url. Lo pide a Let's Encrypt al desplegar el servicio. El navegador muestra la página como insegura hasta que esta comprobación diga que el certificado ya está aplicado. El puerto 80 del proxy tiene que llegar a este servidor.",
+    "Traefik asks Let's Encrypt for the certificate when this instance is deployed.": "Traefik pide el certificado a Let's Encrypt cuando se despliega esta instancia.",
+    "Check certificate": "Comprobar certificado",
+    "Checking whether the certificate is applied to the URL…": "Comprobando si el certificado ya está aplicado a la URL…"
 }

@@ -414,9 +414,12 @@ class OdooGit
             if (! $application instanceof ServiceApplication || ! self::isOdooApplication($application)) {
                 continue;
             }
-            $fqdn = (string) $application->fqdn;
-            if (str_starts_with($fqdn, 'http://')) {
-                $application->fqdn = 'https://'.substr($fqdn, strlen('http://'));
+            $fqdn = collect(explode(',', (string) $application->fqdn))
+                ->map(fn (string $domain): string => self::httpsUrl(trim($domain)))
+                ->filter()
+                ->implode(',');
+            if ($fqdn !== (string) $application->fqdn) {
+                $application->fqdn = $fqdn;
                 $changed = true;
             }
             if (! $application->is_force_https_enabled) {
@@ -429,6 +432,146 @@ class OdooGit
         }
 
         return $changed;
+    }
+
+    /**
+     * @return array{url: string, status: string, message: string}
+     */
+    public static function certificateStatus(Service $service): array
+    {
+        $application = $service->applications()->get()->first(
+            fn ($application): bool => $application instanceof ServiceApplication && self::isOdooApplication($application)
+        );
+        $url = $application instanceof ServiceApplication
+            ? self::httpsUrl(firstDomainFromList((string) $application->fqdn))
+            : '';
+        if ($url === '' || parse_url($url, PHP_URL_HOST) === null) {
+            return [
+                'url' => '',
+                'status' => 'missing',
+                'message' => 'This Odoo service has no public URL yet.',
+            ];
+        }
+
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        if (self::acmeHasCertificate($service, $host)) {
+            return [
+                'url' => $url,
+                'status' => 'applied',
+                'message' => 'Let\'s Encrypt already issued the certificate for :url.',
+            ];
+        }
+
+        $parsed = self::peerCertificate($host);
+        if ($parsed === null) {
+            return [
+                'url' => $url,
+                'status' => 'unreachable',
+                'message' => 'Could not connect to :url on port 443. The certificate cannot be confirmed yet.',
+            ];
+        }
+
+        $issuerCn = (string) ($parsed['issuer']['CN'] ?? '');
+        $subjectCn = (string) ($parsed['subject']['CN'] ?? '');
+        $issuerOrg = (string) ($parsed['issuer']['O'] ?? '');
+        if (self::classifyCertificateIssuer($issuerCn, $subjectCn, $issuerOrg) === 'applied') {
+            return [
+                'url' => $url,
+                'status' => 'applied',
+                'message' => 'Let\'s Encrypt already issued the certificate for :url.',
+            ];
+        }
+
+        return [
+            'url' => $url,
+            'status' => 'pending',
+            'message' => 'Traefik is still serving its temporary certificate for :url. It asks Let\'s Encrypt when the service is deployed. The browser shows the page as insecure until this check says the certificate is applied. Port 80 of the proxy must reach this server.',
+        ];
+    }
+
+    public static function classifyCertificateIssuer(string $issuerCn, string $subjectCn, string $issuerOrg): string
+    {
+        $issuer = strtolower($issuerCn.' '.$issuerOrg);
+        if ($issuerCn === '' && $issuerOrg === '') {
+            return 'pending';
+        }
+        if (str_contains($issuer, 'traefik') || str_contains($issuer, 'default cert') || ($issuerCn !== '' && $issuerCn === $subjectCn)) {
+            return 'pending';
+        }
+
+        return 'applied';
+    }
+
+    public static function httpsUrl(string $fqdn): string
+    {
+        $fqdn = trim($fqdn);
+        if ($fqdn === '') {
+            return '';
+        }
+        if (! str_contains($fqdn, '://')) {
+            $fqdn = 'https://'.$fqdn;
+        }
+        $parts = parse_url($fqdn);
+        if (! is_array($parts) || empty($parts['host'])) {
+            return 'https://'.preg_replace('#^https?://#', '', $fqdn);
+        }
+        $path = ($parts['path'] ?? '') === '/' ? '' : (string) ($parts['path'] ?? '');
+
+        return 'https://'.$parts['host'].$path;
+    }
+
+    private static function acmeHasCertificate(Service $service, string $host): bool
+    {
+        if (! preg_match('/^[a-z0-9.-]+$/', $host)) {
+            return false;
+        }
+        $server = $service->server;
+        if ($server === null || ! $server->isFunctional()) {
+            return false;
+        }
+
+        $needle = escapeshellarg('"main":"'.$host.'"');
+        $needleSpaced = escapeshellarg('"main": "'.$host.'"');
+        try {
+            $output = instant_remote_process([
+                "if docker exec coolify-proxy grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null; then echo applied; else echo pending; fi",
+            ], $server, false);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return str_contains((string) $output, 'applied');
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function peerCertificate(string $host): ?array
+    {
+        $context = stream_context_create([
+            'ssl' => [
+                'capture_peer_cert' => true,
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'SNI_enabled' => true,
+                'peer_name' => $host,
+            ],
+        ]);
+        $errno = 0;
+        $errstr = '';
+        $client = @stream_socket_client('ssl://'.$host.':443', $errno, $errstr, 4, STREAM_CLIENT_CONNECT, $context);
+        if ($client === false) {
+            return null;
+        }
+        $params = stream_context_get_params($client);
+        fclose($client);
+        $certificate = $params['options']['ssl']['peer_certificate'] ?? null;
+        if (! is_resource($certificate) && ! $certificate instanceof \OpenSSLCertificate) {
+            return null;
+        }
+        $parsed = openssl_x509_parse($certificate);
+
+        return is_array($parsed) ? $parsed : null;
     }
 
     public static function startIfPossible(Service $service): void

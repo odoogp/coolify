@@ -65,6 +65,10 @@ class Configuration extends Component
 
     public string $odooRepositoryQuery = '';
 
+    public string $odooCertificateStatus = '';
+
+    public string $odooCertificateMessage = '';
+
     public function render()
     {
         return view('livewire.project.service.configuration');
@@ -101,10 +105,24 @@ class Configuration extends Component
                     $this->dispatch('success', __('HTTPS is being applied to the Odoo link. Sign in as admin when it finishes.'));
                 }
             }
+            if ($this->odooIsOdoo) {
+                $this->checkOdooCertificate();
+            }
             $this->applications = $this->service->applications->sort();
             $this->databases = $this->service->databases->sort();
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        }
+    }
+
+    public function checkOdooCertificate(): void
+    {
+        try {
+            $status = OdooGit::certificateStatus($this->service);
+            $this->odooCertificateStatus = $status['status'];
+            $this->odooCertificateMessage = __($status['message'], ['url' => $status['url']]);
+        } catch (\Throwable $e) {
+            handleError($e, $this);
         }
     }
 
