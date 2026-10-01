@@ -92,7 +92,7 @@
                                         class="invisible absolute inset-0 size-4 rounded-sm" />
                                 </span>
                             @endif
-                            <a href="{{ data_get($app ?? null, 'name') === 'odoo' ? route('project.service.odoo.enter', ['project_uuid' => request()->route('project_uuid'), 'environment_uuid' => request()->route('environment_uuid'), 'service_uuid' => request()->route('service_uuid')]) : getFqdnWithoutPort($row['url']) }}" target="_blank"
+                            <a href="{{ data_get($app ?? null, 'name') === 'odoo' ? route('project.service.odoo.enter', ['project_uuid' => $service->environment->project->uuid, 'environment_uuid' => $service->environment->uuid, 'service_uuid' => $service->uuid]) : getFqdnWithoutPort($row['url']) }}" target="_blank"
                                 class="min-w-0 flex-1 text-[13px] text-black underline decoration-neutral-300 underline-offset-2 hover:decoration-coollabs sm:truncate dark:text-fg dark:decoration-white/20 dark:hover:decoration-warning"
                                 title="{{ $row['url'] }}">
                                 {{ $row['url'] }}

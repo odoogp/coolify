@@ -134,7 +134,7 @@
                                     @endif
                                 </p>
                                 <div>
-                                    <a class="button" target="_blank" href="{{ route('project.service.odoo.enter', ['project_uuid' => request()->route('project_uuid'), 'environment_uuid' => request()->route('environment_uuid'), 'service_uuid' => request()->route('service_uuid')]) }}">
+                                    <a class="button" target="_blank" href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid, 'service_uuid' => $service->uuid]) }}">
                                         {{ __('Open Odoo') }}
                                     </a>
                                 </div>

@@ -400,7 +400,9 @@ it('shows the repository choice on the odoo service page', function () {
         ->not->toContain('Load repositories')
         ->not->toContain('Subscription Code')
         ->not->toContain('odoo-service-branch')
-        ->not->toContain('Clone to staging');
+        ->not->toContain('Clone to staging')
+        ->toContain('$project->uuid')
+        ->not->toContain("request()->route('project_uuid')");
 });
 
 it('clones the repository branch into the addon volume jupyter shows', function () {
