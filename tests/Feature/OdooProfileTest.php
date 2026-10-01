@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\CloneOdooStagingJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Show;
@@ -18,6 +19,8 @@ use App\Models\User;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooStaging;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 
@@ -399,6 +402,53 @@ it('does not create a staging environment when the branch is already used', func
         ->assertDispatched('error');
 
     expect($this->project->environments()->pluck('name')->all())->toBe(['production']);
+});
+
+it('opens an odoo environment directly on its service', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'name' => 'odoo-production',
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+        'server_id' => null,
+    ]);
+
+    $html = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])->html();
+
+    expect($html)->toContain('/service/'.$service->uuid);
+});
+
+it('lets the root owner clone staging when the queue has no session', function () {
+    $rootTeam = Team::factory()->make(['name' => 'Root']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+
+    $root = User::factory()->make([
+        'name' => 'Root',
+        'email' => 'root-owner@example.test',
+    ]);
+    $root->id = 0;
+    $root->save();
+    $root->teams()->attach($rootTeam->id, ['role' => 'owner']);
+
+    $project = Project::factory()->create(['team_id' => $rootTeam->id, 'created_by' => $root->id]);
+    $project->enableOdoo('20');
+    $production = $project->environments()->where('name', 'production')->first();
+
+    Auth::logout();
+
+    (new CloneOdooStagingJob(
+        $project->id,
+        $production->uuid,
+        'staging-1',
+        'empty',
+        'odoo-clone-root',
+        0,
+    ))->handle();
+
+    expect(Cache::get('odoo-clone-root')['error'] ?? null)->toBeNull()
+        ->and($project->environments()->pluck('name')->sort()->values()->all())->toBe(['production', 'staging-1']);
 });
 
 it('sends an odoo project away from the generic resource catalog', function () {

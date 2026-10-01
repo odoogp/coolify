@@ -275,21 +275,22 @@ class Show extends Component
                 ])->sum();
 
                 $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+                $serviceHref = $service instanceof Service
+                    ? route('project.service.configuration', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                    ])
+                    : null;
 
                 return [
                     'uuid' => $environment->uuid,
                     'name' => $environment->name,
                     'description' => $environment->description,
                     'branch' => $environment->odooBranch?->git_branch,
-                    'serviceHref' => $service instanceof Service
-                        ? route('project.service.configuration', [
-                            'project_uuid' => $this->project->uuid,
-                            'environment_uuid' => $environment->uuid,
-                            'service_uuid' => $service->uuid,
-                        ])
-                        : null,
+                    'serviceHref' => $serviceHref,
                     'resourceCount' => $resourceCount,
-                    'href' => route('project.resource.index', [
+                    'href' => $serviceHref ?? route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
                     ]),

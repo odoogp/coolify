@@ -8,6 +8,7 @@ use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Models\Service;
+use App\Models\User;
 use App\Support\OdooGit;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -39,11 +40,16 @@ class CloneOdooStagingJob implements ShouldQueue
 
     public function handle(): void
     {
-        $alreadyAuthenticated = (int) auth()->id() === $this->userId;
-        if (! $alreadyAuthenticated && ! Auth::onceUsingId($this->userId)) {
-            $this->progress(1, error: 'Clone starts from the production environment.');
+        $currentId = auth()->id();
+        $alreadyAuthenticated = $currentId !== null && (int) $currentId === $this->userId;
+        if (! $alreadyAuthenticated) {
+            $user = User::query()->whereKey($this->userId)->first();
+            if (! $user instanceof User) {
+                $this->progress(1, error: 'Clone starts from the production environment.');
 
-            return;
+                return;
+            }
+            Auth::setUser($user);
         }
 
         $staging = null;

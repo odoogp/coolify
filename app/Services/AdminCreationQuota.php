@@ -497,12 +497,16 @@ class AdminCreationQuota
      */
     public function canLaunchStaging(User $user, int $teamId): bool
     {
+        if ($user->isInstanceOwner() || $user->isOwnerOfTeam($teamId)) {
+            return true;
+        }
+
         $membership = $this->membership($user->id, $teamId);
         if ($membership === null || $membership->role === Role::MEMBER->value) {
             return false;
         }
 
-        if ($membership->role === Role::OWNER->value || $membership->max_staging_branches === null) {
+        if ($membership->max_staging_branches === null) {
             return true;
         }
 
