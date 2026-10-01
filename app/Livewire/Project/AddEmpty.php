@@ -7,6 +7,7 @@ use App\Models\EnvironmentVariable;
 use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
 use App\Models\Project;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
@@ -34,6 +35,8 @@ class AddEmpty extends Component
     public string $odooVersion = '18';
 
     public bool $connectGithub = true;
+
+    public ?string $serverId = null;
 
     public bool $launchRunning = false;
 
@@ -73,7 +76,7 @@ class AddEmpty extends Component
             $created = null;
             $project = null;
             $productionEnvironment = null;
-            $githubApp = null;
+            $destination = $this->service === '' ? null : $this->destinationForLaunch();
 
             DB::beginTransaction();
             try {
@@ -89,20 +92,27 @@ class AddEmpty extends Component
                     $project->enableOdoo($this->odooVersion);
                     $project->refresh();
                 }
-                if ($this->service !== '') {
-                    $created = $this->createChosenService($project, $productionEnvironment);
-                }
-                if ($this->service === 'odoo' && $this->connectGithub) {
-                    $githubApp = OdooGit::installedApp((int) $project->team_id, auth()->id());
-                    if ($githubApp instanceof GithubApp) {
-                        OdooGit::launchEnvironment($project, $githubApp, 'production');
-                    }
+                if ($destination !== null) {
+                    $created = $this->createChosenService($project, $productionEnvironment, $destination);
                 }
                 DB::commit();
             } catch (\Throwable $exception) {
                 DB::rollBack();
 
                 throw $exception;
+            }
+
+            $githubApp = $this->service === 'odoo' && $this->connectGithub
+                ? OdooGit::installedApp((int) $project->team_id, auth()->id())
+                : null;
+
+            if ($this->service === 'odoo' && $this->connectGithub && $githubApp instanceof GithubApp && $created instanceof Service) {
+                return redirect()->route('project.service.configuration', [
+                    'project_uuid' => $project->uuid,
+                    'environment_uuid' => $productionEnvironment->uuid,
+                    'service_uuid' => $created->uuid,
+                    'launch' => 'choose',
+                ]);
             }
 
             if ($this->service === 'odoo' && $this->connectGithub && ! $githubApp instanceof GithubApp) {
@@ -204,14 +214,58 @@ class AddEmpty extends Component
                 ->prepend(['value' => '', 'label' => __('No service yet')])
                 ->values()
                 ->all(),
+            'serverOptions' => $this->launchServers()
+                ->map(fn (Server $server): array => ['value' => (string) $server->id, 'label' => $server->name])
+                ->values()
+                ->all(),
         ]);
     }
 
-    private function createChosenService(Project $project, $environment): ?Service
+    /**
+     * @return \Illuminate\Support\Collection<int, Server>
+     */
+    private function launchServers()
     {
-        $destination = StandaloneDocker::ownedByCurrentTeam()->first()
-            ?? SwarmDocker::ownedByCurrentTeam()->first();
-        if ($destination === null || $environment === null) {
+        $user = auth()->user();
+
+        return Server::ownedByCurrentTeam()->orderBy('name')->get()
+            ->filter(function (Server $server) use ($user): bool {
+                if ((int) $server->id !== 0) {
+                    return true;
+                }
+
+                return $user?->canLaunchOnInstanceServer() ?? false;
+            })
+            ->values();
+    }
+
+    private function destinationForLaunch(): StandaloneDocker|SwarmDocker|null
+    {
+        $servers = $this->launchServers();
+        if ($servers->isEmpty()) {
+            return null;
+        }
+
+        if ($this->serverId === null || $this->serverId === '') {
+            throw new RuntimeException(__('Choose a server.'));
+        }
+
+        $server = $servers->firstWhere('id', (int) $this->serverId);
+        if (! $server instanceof Server) {
+            throw new RuntimeException(__('Choose a server.'));
+        }
+
+        $destination = $server->standaloneDockers()->first() ?? $server->swarmDockers()->first();
+        if ($destination === null) {
+            throw new RuntimeException(__('This server has no Docker destination.'));
+        }
+
+        return $destination;
+    }
+
+    private function createChosenService(Project $project, $environment, StandaloneDocker|SwarmDocker $destination): ?Service
+    {
+        if ($environment === null) {
             return null;
         }
 

@@ -1319,6 +1319,36 @@ BASH;
         return $githubApp;
     }
 
+    /**
+     * After GitHub returns, the project asks whether to launch production
+     * on a new repository or to search an existing one.
+     */
+    public static function resumeLaunchRedirect(): ?\Illuminate\Http\RedirectResponse
+    {
+        $from = session('from');
+        if (! is_array($from) || ! data_get($from, 'odoo')) {
+            return null;
+        }
+
+        $back = data_get($from, 'back');
+        if (! is_string($back) || $back === '') {
+            return null;
+        }
+
+        $parameters = data_get($from, 'parameters');
+        session()->forget('from');
+        $routeParameters = array_filter([
+            'environment_uuid' => data_get($parameters, 'environment_uuid'),
+            'project_uuid' => data_get($parameters, 'project_uuid'),
+            'service_uuid' => data_get($parameters, 'service_uuid'),
+            'type' => data_get($parameters, 'type'),
+            'destination' => data_get($parameters, 'destination'),
+            'launch' => 'choose',
+        ], fn ($value) => filled($value));
+
+        return redirect()->route($back, $routeParameters);
+    }
+
     private static function appName(int $teamId): string
     {
         $base = self::configuredAppName();

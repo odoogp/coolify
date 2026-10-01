@@ -436,8 +436,8 @@ it('shows the repository choice on the odoo service page', function () {
     $view = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
 
     expect($view)
-        ->toContain('New repository')
-        ->toContain('Existing repository')
+        ->toContain('Launch production on a new repository')
+        ->toContain('Use an existing repository')
         ->toContain('associateOdooRepository')
         ->toContain('Open on GitHub')
         ->toContain('odooAccountChanged')
@@ -510,7 +510,29 @@ it('starts a new odoo project in stages and reuses an installed github app', fun
         ->and(OdooGit::installedApp($this->team->id, $this->user->id)?->is($this->githubApp))->toBeTrue()
         ->and(file_get_contents(app_path('Jobs/LaunchOdooProjectJob.php')))->toContain('StartService::run')
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Starting the containers')
+        ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('serverId')
         ->and(file_get_contents(resource_path('views/livewire/settings/index.blade.php')))->toContain('github_app_icon');
+});
+
+it('returns from github to the project so the repository can be chosen', function () {
+    session([
+        'from' => [
+            'odoo' => true,
+            'back' => 'project.service.configuration',
+            'source_id' => 4,
+            'parameters' => [
+                'project_uuid' => 'project-uuid',
+                'environment_uuid' => 'environment-uuid',
+                'service_uuid' => 'service-uuid',
+            ],
+        ],
+    ]);
+
+    $response = OdooGit::resumeLaunchRedirect();
+
+    expect(session('from'))->toBeNull()
+        ->and($response->getTargetUrl())->toContain('launch=choose')
+        ->and($response->getTargetUrl())->toContain('service-uuid');
 });
 
 it('names a new github app after the product and keeps it on the user', function () {
@@ -770,11 +792,11 @@ it('creates the project repository without registering another github app', func
 
     $project = Project::query()->where('name', 'Cliente Dos')->first();
     expect(GithubApp::query()->count())->toBe($before)
-        ->and($project->odooProfile->git_repository)->toBe('acme/cliente-dos')
-        ->and($project->odooProfile->github_app_id)->toBe($this->githubApp->id);
+        ->and($project->odooProfile->git_repository)->toBeNull()
+        ->and($project->odooProfile->github_app_id)->toBeNull();
 });
 
-it('does not keep a project when github limits creation', function () {
+it('keeps the project and waits to choose a repository when github is already connected', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
     $privateKey = \App\Models\PrivateKey::create([
@@ -819,10 +841,12 @@ it('does not keep a project when github limits creation', function () {
         ->set('odooVersion', '20')
         ->set('connectGithub', true)
         ->call('submit')
-        ->assertDispatched('error');
+        ->assertRedirect();
 
-    expect(Project::query()->where('name', 'No Debe Quedar')->exists())->toBeFalse()
-        ->and(Project::query()->count())->toBe($before);
+    $project = Project::query()->where('name', 'No Debe Quedar')->first();
+    expect($project)->not->toBeNull()
+        ->and($project->odooProfile->git_repository)->toBeNull()
+        ->and(Project::query()->count())->toBe($before + 1);
 });
 
 it('names the database after the project and the branch', function () {

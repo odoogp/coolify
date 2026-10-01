@@ -151,6 +151,26 @@ test('admin cannot create server', function () {
     expect(auth()->user()->can('create', Server::class))->toBeFalse();
 });
 
+test('admin can create a server when that permission is enabled', function () {
+    $this->admin->teams()->updateExistingPivot($this->team->id, ['can_add_servers' => true]);
+    $this->admin->unsetRelation('teams');
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    expect(auth()->user()->can('create', Server::class))->toBeTrue()
+        ->and(auth()->user()->canLaunchOnInstanceServer())->toBeFalse();
+});
+
+test('admin can launch on the instance server when that permission is enabled', function () {
+    $this->admin->teams()->updateExistingPivot($this->team->id, ['can_launch_on_instance_server' => true]);
+    $this->admin->unsetRelation('teams');
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    expect(auth()->user()->canLaunchOnInstanceServer())->toBeTrue()
+        ->and(auth()->user()->can('create', Server::class))->toBeFalse();
+});
+
 test('owner can create server', function () {
     $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
@@ -159,10 +179,16 @@ test('owner can create server', function () {
 });
 
 test('member cannot create server', function () {
+    $this->member->teams()->updateExistingPivot($this->team->id, [
+        'can_add_servers' => true,
+        'can_launch_on_instance_server' => true,
+    ]);
+    $this->member->unsetRelation('teams');
     $this->actingAs($this->member);
     session(['currentTeam' => $this->team]);
 
-    expect(auth()->user()->can('create', Server::class))->toBeFalse();
+    expect(auth()->user()->can('create', Server::class))->toBeFalse()
+        ->and(auth()->user()->canLaunchOnInstanceServer())->toBeFalse();
 });
 
 test('owner can access new server page', function () {

@@ -583,6 +583,10 @@ class Github extends Controller
 
         if (data_get(session('from'), 'odoo') && auth()->id() !== null) {
             OdooGit::rememberForUser((int) auth()->id(), (int) $github_app->team_id, $github_app);
+            $redirect = OdooGit::resumeLaunchRedirect();
+            if ($redirect !== null) {
+                return $redirect;
+            }
         }
 
         return redirect()->route('source.github.show', ['github_app_uuid' => $github_app->uuid]);

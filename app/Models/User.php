@@ -291,7 +291,7 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 
     public function teams()
     {
-        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities');
+        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities', 'can_add_servers', 'can_launch_on_instance_server');
     }
 
     public function changelogReads()
@@ -463,6 +463,37 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
     public function isOwnerOfTeam(int $teamId): bool
     {
         return $this->roleInTeam($teamId) === 'owner';
+    }
+
+    public function canAddServers(): bool
+    {
+        if ($this->isOwner()) {
+            return true;
+        }
+
+        return $this->isAdmin() && $this->teamFlag('can_add_servers');
+    }
+
+    /**
+     * The server where this GPSH instance is installed is the localhost row, id 0.
+     */
+    public function canLaunchOnInstanceServer(): bool
+    {
+        if ($this->isOwner()) {
+            return true;
+        }
+
+        return $this->isAdmin() && $this->teamFlag('can_launch_on_instance_server');
+    }
+
+    private function teamFlag(string $column): bool
+    {
+        $team = $this->currentTeam();
+        if ($team === null) {
+            return false;
+        }
+
+        return (bool) data_get($this->teams->firstWhere('id', $team->id), 'pivot.'.$column);
     }
 
     /**

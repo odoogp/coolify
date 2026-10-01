@@ -1,4 +1,35 @@
 <div>
+    @if ($launchRunning || $launchError)
+        <div @if ($launchRunning) wire:poll.2s="refreshLaunchProgress" @endif
+            class="fixed inset-0 z-99 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+            <div class="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                <h2 class="text-base font-semibold">
+                    {{ $launchError ? __('The project could not be started.') : __('Creating the project') }}
+                </h2>
+                <ul class="mt-4 flex flex-col gap-2">
+                    @foreach ([
+                        1 => __('Creating the project'),
+                        2 => __('Starting the containers'),
+                        3 => __('Checking HTTPS'),
+                        4 => __('Done'),
+                    ] as $stepNumber => $label)
+                        <li @class([
+                            'flex items-center gap-2 text-[13px] leading-5',
+                            'text-emerald-600 dark:text-emerald-400' => $launchStep > $stepNumber,
+                            'text-neutral-900 dark:text-fg' => $launchStep === $stepNumber,
+                            'text-neutral-500 dark:text-fg-dim' => $launchStep < $stepNumber,
+                        ])>
+                            <span>{{ $label }}</span>
+                        </li>
+                    @endforeach
+                </ul>
+                @if ($launchError)
+                    <p class="mt-4 text-[13px] text-red-500">{{ __($launchError) }}</p>
+                    <button type="button" class="button mt-4" wire:click="dismissLaunchError">{{ __('Close') }}</button>
+                @endif
+            </div>
+        </div>
+    @endif
     <x-slot:title>
         {{ data_get_str($service, 'name')->limit(10) }} > Configuration | Coolify
     </x-slot>
@@ -235,17 +266,19 @@
                                         </p>
                                     @else
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            {{ __('Choose the GitHub branch for this environment. It can differ from the environment name.') }}
+                                            {{ $awaitingRepositoryChoice
+                                                ? __('GitHub is connected. Launch production on a new repository, or search an existing one.')
+                                                : __('Choose the GitHub branch for this environment. It can differ from the environment name.') }}
                                         </p>
                                     @endif
                                     <div class="flex flex-wrap gap-4 text-sm">
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
-                                            {{ __('New repository') }}
+                                            {{ __('Launch production on a new repository') }}
                                         </label>
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="existing" class="rounded-full">
-                                            {{ __('Existing repository') }}
+                                            {{ __('Use an existing repository') }}
                                         </label>
                                     </div>
                                     @if ($odooRepoMode === 'new')
@@ -306,7 +339,7 @@
                                     @endif
                                     <div class="flex flex-wrap items-center gap-3">
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
-                                            {{ $odooRepoMode === 'new' ? __('Create repository') : __('Associate repository') }}
+                                            {{ $odooRepoMode === 'new' ? __('Launch production') : __('Associate repository') }}
                                         </x-forms.button>
                                         <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
                                             {{ __('Starting Odoo.') }}

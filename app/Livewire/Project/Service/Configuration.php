@@ -2,12 +2,14 @@
 
 namespace App\Livewire\Project\Service;
 
+use App\Jobs\LaunchOdooProjectJob;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Support\OdooGit;
 use App\Support\OdooStaging;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
 use Livewire\Component;
 use RuntimeException;
@@ -69,6 +71,16 @@ class Configuration extends Component
 
     public bool $odooAccountChanged = false;
 
+    public bool $awaitingRepositoryChoice = false;
+
+    public bool $launchRunning = false;
+
+    public int $launchStep = 0;
+
+    public ?string $launchError = null;
+
+    public ?string $launchKey = null;
+
     public string $odooCertificateStatus = '';
 
     public string $odooCertificateMessage = '';
@@ -105,10 +117,12 @@ class Configuration extends Component
             $environment->loadMissing('odooBranch');
             $this->odooIsOdoo = $this->service->supportsOdooJupyter();
             $this->syncOdooGithub();
-            if ($this->odooAccountChanged) {
+            $this->awaitingRepositoryChoice = request()->query('launch') === 'choose'
+                && blank($project->odooProfile?->git_repository);
+            if ($this->odooAccountChanged || $this->awaitingRepositoryChoice) {
                 $this->odooPanel = 'github';
             }
-            if ($this->odooIsOdoo && OdooGit::useHttps($this->service)) {
+            if ($this->odooIsOdoo && ! $this->awaitingRepositoryChoice && OdooGit::useHttps($this->service)) {
                 $this->service->unsetRelation('applications');
                 if ($this->service->server?->isFunctional()) {
                     OdooGit::startIfPossible($this->service);
@@ -342,15 +356,9 @@ class Configuration extends Component
 
             if ($this->odooRepoMode === 'new') {
                 $classification = OdooStaging::isStagingName($this->environment->name) ? 'staging' : 'production';
-                $environment = OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
-                $environment->load('odooBranch');
-                OdooGit::cloneIntoService($this->service);
-                OdooGit::startIfPossible($this->service);
+                OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
                 $this->syncOdooGithub();
-                $this->dispatch('success', __('Odoo is starting on :branch. The link uses HTTPS. Database :database. Sign in as admin.', [
-                    'branch' => (string) ($environment->odooBranch?->git_branch ?: $environment->name),
-                    'database' => (string) OdooGit::databaseName($this->service),
-                ]));
+                $this->startPlannedLaunch();
 
                 return;
             }
@@ -370,18 +378,57 @@ class Configuration extends Component
                 $this->environment,
                 $branch,
             );
-            OdooGit::cloneIntoService($this->service);
-            OdooGit::startIfPossible($this->service);
             $this->syncOdooGithub();
-            $this->dispatch('success', __('Odoo is starting on :branch. The link uses HTTPS. Database :database. Sign in as admin.', [
-                'branch' => $branch,
-                'database' => (string) OdooGit::databaseName($this->service),
-            ]));
+            $this->startPlannedLaunch();
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
+    }
+
+    public function refreshLaunchProgress(): void
+    {
+        if (! is_string($this->launchKey) || $this->launchKey === '') {
+            return;
+        }
+
+        $status = Cache::get($this->launchKey);
+        if (! is_array($status)) {
+            return;
+        }
+
+        $this->launchStep = (int) ($status['step'] ?? 1);
+        $this->launchError = is_string($status['error'] ?? null) ? $status['error'] : null;
+        $redirect = $status['redirect'] ?? null;
+        if (($status['done'] ?? false) === true && is_array($redirect) && is_string($redirect['name'] ?? null)) {
+            $this->launchRunning = false;
+            $parameters = is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
+            $this->redirectRoute($redirect['name'], $parameters);
+        }
+    }
+
+    public function dismissLaunchError(): void
+    {
+        $this->launchRunning = false;
+        $this->launchError = null;
+        $this->launchStep = 0;
+    }
+
+    private function startPlannedLaunch(): void
+    {
+        OdooGit::cloneIntoService($this->service);
+        $this->launchKey = 'launch-odoo-'.$this->service->uuid;
+        Cache::put($this->launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
+        LaunchOdooProjectJob::dispatch(
+            $this->service->id,
+            $this->launchKey,
+            (int) auth()->id(),
+        );
+        $this->launchStep = 1;
+        $this->launchError = null;
+        $this->launchRunning = true;
+        $this->awaitingRepositoryChoice = false;
     }
 
     private function syncOdooGithub(): void

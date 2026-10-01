@@ -34,6 +34,10 @@ class Member extends Component
 
     public mixed $githubAppId = null;
 
+    public bool $canAddServers = false;
+
+    public bool $canLaunchOnInstanceServer = false;
+
     /** @var list<string> */
     public array $odooAbilities = [];
 
@@ -52,6 +56,8 @@ class Member extends Component
         $this->maxStagingBranches = $this->quotaInput(data_get($pivot, 'max_staging_branches'));
         $this->maxServices = $this->quotaInput(data_get($pivot, 'max_services'));
         $this->githubAppId = data_get($pivot, 'github_app_id');
+        $this->canAddServers = (bool) data_get($pivot, 'can_add_servers');
+        $this->canLaunchOnInstanceServer = (bool) data_get($pivot, 'can_launch_on_instance_server');
         $raw = data_get($pivot, 'odoo_abilities');
         $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
         $this->odooAbilities = is_array($decoded) ? OdooAbilities::onlyGrantable(array_map('strval', $decoded)) : [];
@@ -100,6 +106,8 @@ class Member extends Component
                 'max_staging_branches' => $this->maxStagingBranches,
                 'max_services' => $this->maxServices,
                 'github_app_id' => $this->githubAppId,
+                'can_add_servers' => $this->canAddServers,
+                'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
             ]);
             Cache::forget('user:'.$this->member->id.':team:'.$teamId);
             Cache::forget('team:'.$this->member->id);

@@ -109,6 +109,9 @@
             <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}"
                 helper="{{ __('The GitHub account this user uses when launching Odoo.') }}"
                 :options="$githubApps" />
+            <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
+            <x-forms.checkbox id="canLaunchOnInstanceServer"
+                label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
             <div class="flex items-end">
                 <x-forms.button type="submit" defaultClass="button button-highlighted">
                     {{ __('Save limits') }}

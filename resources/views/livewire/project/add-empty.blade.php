@@ -54,6 +54,12 @@
 
     <x-forms.listbox id="service" label="{{ __('Service') }}" live :options="$serviceOptions" />
 
+    @if ($service !== '' && $serverOptions !== [])
+        <x-forms.listbox id="serverId" label="{{ __('Server') }}"
+            helper="{{ __('Choose the server where this instance will run.') }}"
+            :options="$serverOptions" />
+    @endif
+
     @if ($service === 'odoo')
         <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}"
             :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />

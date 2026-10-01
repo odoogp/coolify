@@ -4,6 +4,7 @@ namespace App\Livewire\Source\Github;
 
 use App\Jobs\GithubAppPermissionJob;
 use App\Models\GithubApp;
+use App\Support\OdooGit;
 use App\Models\PrivateKey;
 use App\Rules\SafeExternalUrl;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -332,8 +333,13 @@ class Change extends Component
             }
             if ($this->github_app->installation_id && session('from')) {
                 $source_id = data_get(session('from'), 'source_id');
-                if (! $source_id || $this->github_app->id !== $source_id) {
+                if (! $source_id || (int) $this->github_app->id !== (int) $source_id) {
                     session()->forget('from');
+                } elseif (data_get(session('from'), 'odoo')) {
+                    $redirect = OdooGit::resumeLaunchRedirect();
+                    if ($redirect !== null) {
+                        return $redirect;
+                    }
                 } else {
                     $parameters = data_get(session('from'), 'parameters');
                     $back = data_get(session('from'), 'back');
