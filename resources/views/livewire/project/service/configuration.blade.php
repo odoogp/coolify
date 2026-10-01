@@ -128,13 +128,36 @@
                                     </p>
                                 </div>
                                 <p class="text-[13px]">
-                                    {{ __('Database :database. The public link uses HTTPS. Sign in as admin.', ['database' => $odooDatabaseName]) }}
+                                    {{ __('Database :database. The link opens the admin session over HTTPS.', ['database' => $odooDatabaseName]) }}
                                     @if (filled($odooAdminPassword))
                                         {{ __('Password: :password.', ['password' => $odooAdminPassword]) }}
-                                    @else
-                                        {{ __('The administrator password appears here after the instance starts.') }}
                                     @endif
                                 </p>
+                                <div>
+                                    <a class="button" target="_blank" href="{{ route('project.service.odoo.enter', ['project_uuid' => request()->route('project_uuid'), 'environment_uuid' => request()->route('environment_uuid'), 'service_uuid' => request()->route('service_uuid')]) }}">
+                                        {{ __('Open Odoo') }}
+                                    </a>
+                                </div>
+                                @php
+                                    $odooDisabledDatabases = collect($odooDatabases)->where('disabled', true)->pluck('name');
+                                @endphp
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <p class="text-[13px] font-medium">{{ __('Disabled databases') }}</p>
+                                        <x-forms.button type="button" wire:click="listOdooDatabases" canGate="view" :canResource="$service">
+                                            {{ __('List databases') }}
+                                        </x-forms.button>
+                                    </div>
+                                    @if ($odooDisabledDatabases->isEmpty())
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No disabled databases.') }}</p>
+                                    @else
+                                        <ul class="list-disc pl-5 text-[13px]">
+                                            @foreach ($odooDisabledDatabases as $odooDisabledDatabase)
+                                                <li class="font-mono">{{ $odooDisabledDatabase }}</li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </div>
                                 @if (filled($project->odooProfile?->git_repository))
                                     <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
                                     <p class="text-[13px]">

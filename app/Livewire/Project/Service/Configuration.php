@@ -69,6 +69,8 @@ class Configuration extends Component
 
     public string $odooCertificateMessage = '';
 
+    public array $odooDatabases = [];
+
     public function render()
     {
         return view('livewire.project.service.configuration');
@@ -107,11 +109,21 @@ class Configuration extends Component
             }
             if ($this->odooIsOdoo) {
                 $this->checkOdooCertificate();
+                $this->listOdooDatabases();
             }
             $this->applications = $this->service->applications->sort();
             $this->databases = $this->service->databases->sort();
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        }
+    }
+
+    public function listOdooDatabases(): void
+    {
+        try {
+            $this->odooDatabases = OdooGit::databaseList($this->service);
+        } catch (\Throwable $e) {
+            handleError($e, $this);
         }
     }
 

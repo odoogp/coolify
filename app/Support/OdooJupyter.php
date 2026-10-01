@@ -72,10 +72,42 @@ class OdooJupyter
         return str_replace('$', '$$', <<<'BASH'
 python3 - <<'PY' || true
 import os, time
+from pathlib import Path
 host = os.environ.get("HOST", "postgresql")
 user = os.environ.get("USER") or ""
 password = os.environ.get("PASSWORD") or ""
 database = os.environ.get("ODOO_DATABASE") or ""
+root = Path("/mnt/extra-addons/gpsh_autoconnect")
+try:
+    (root / "controllers").mkdir(parents=True, exist_ok=True)
+    (root / "__manifest__.py").write_text("{'name': 'GPSH connect', 'version': '1.0', 'depends': ['web'], 'installable': True}\n")
+    (root / "__init__.py").write_text("from . import controllers\n")
+    (root / "controllers" / "__init__.py").write_text("from . import enter\n")
+    (root / "controllers" / "enter.py").write_text(
+        "import hmac, os\n"
+        "from odoo import http\n"
+        "from odoo.http import request\n"
+        "class GpshEnter(http.Controller):\n"
+        "    @http.route('/gpsh/enter', type='http', auth='none', csrf=False, sitemap=False)\n"
+        "    def enter(self, token=None, **kwargs):\n"
+        "        expected = os.environ.get('ODOO_LOGIN_TOKEN') or ''\n"
+        "        given = token or ''\n"
+        "        if not expected or len(given) != len(expected) or not hmac.compare_digest(given, expected):\n"
+        "            return request.redirect('/web/login')\n"
+        "        db = os.environ.get('ODOO_DATABASE') or ''\n"
+        "        password = os.environ.get('ODOO_ADMIN_PASSWORD') or 'admin'\n"
+        "        try:\n"
+        "            import odoo.release\n"
+        "            if int(odoo.release.version_info[0]) >= 18:\n"
+        "                request.session.authenticate(db, {'login': 'admin', 'password': password, 'type': 'password'})\n"
+        "            else:\n"
+        "                request.session.authenticate(db, 'admin', password)\n"
+        "        except Exception:\n"
+        "            return request.redirect('/web/login')\n"
+        "        return request.redirect('/odoo')\n"
+    )
+except Exception:
+    pass
 if not database or not user or not password:
     raise SystemExit(0)
 def connect(name):
@@ -92,24 +124,91 @@ for _ in range(30):
         break
     except Exception:
         time.sleep(2)
-if conn is None:
-    raise SystemExit(0)
-conn.autocommit = True
-cur = conn.cursor()
-cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (database,))
-open("/tmp/odoo-db-exists", "w").write("1" if cur.fetchone() else "0")
+ready = False
+if conn is not None:
+    conn.autocommit = True
+    cur = conn.cursor()
+    cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (database,))
+    if cur.fetchone():
+        try:
+            other = connect(database)
+            check = other.cursor()
+            check.execute("SELECT 1 FROM information_schema.tables WHERE table_name='ir_module_module'")
+            ready = check.fetchone() is not None
+            other.close()
+        except Exception:
+            ready = False
+open("/tmp/odoo-db-ready", "w").write("1" if ready else "0")
 PY
 args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode)
-if [ ! -f /tmp/odoo-db-exists ] || [ "$(cat /tmp/odoo-db-exists)" != "1" ]; then
-  odoo "${args[@]}" --without-demo=all -d "$ODOO_DATABASE" -i base --stop-after-init || true
-  odoo shell -d "$ODOO_DATABASE" --no-http --db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" <<'PY' || true
+load=(--db-filter="^${ODOO_DATABASE}$")
+modules=base
+if [ -f /mnt/extra-addons/gpsh_autoconnect/__manifest__.py ]; then
+  load+=(--load=base,web,gpsh_autoconnect)
+  modules=base,gpsh_autoconnect
+fi
+if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
+  odoo "${args[@]}" "${load[@]}" --without-demo=all -d "$ODOO_DATABASE" -i "$modules" --stop-after-init || true
+fi
+odoo shell -d "$ODOO_DATABASE" --no-http --db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" <<'PY' || true
 import os
+url = (os.environ.get("COOLIFY_URL") or "").split(",")[0].strip().rstrip("/")
+if url.startswith("http://"):
+    url = "https://" + url[len("http://"):]
+elif url and not url.startswith("https://"):
+    url = "https://" + url
+icp = env["ir.config_parameter"].sudo()
+if url:
+    icp.set_param("web.base.url", url)
+    icp.set_param("web.base.url.freeze", "True")
 env.ref("base.user_admin").write({"password": os.environ.get("ODOO_ADMIN_PASSWORD") or "admin"})
+module = env["ir.module.module"].search([("name", "=", "gpsh_autoconnect")], limit=1)
+if not module:
+    env["ir.module.module"].update_list()
+    module = env["ir.module.module"].search([("name", "=", "gpsh_autoconnect")], limit=1)
+if module and module.state != "installed":
+    module.button_immediate_install()
 env.cr.commit()
 PY
-fi
-odoo "${args[@]}" -d "$ODOO_DATABASE" || exec odoo --http-interface=0.0.0.0 --proxy-mode
+exec odoo "${args[@]}" "${load[@]}" -d "$ODOO_DATABASE"
 BASH);
+    }
+
+    /**
+     * Traefik talks to Odoo over HTTP. Without this header Odoo rebuilds links as http:// and the browser leaves HTTPS.
+     *
+     * @param  array<int|string, mixed>|Collection<int|string, mixed>  $labels
+     * @return array<int|string, mixed>
+     */
+    public static function forwardedProtoLabels(array|\Illuminate\Support\Collection $labels): array
+    {
+        if ($labels instanceof \Illuminate\Support\Collection) {
+            $labels = $labels->all();
+        }
+        $header = 'traefik.http.middlewares.gpsh-forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto=https';
+        $found = false;
+        foreach ($labels as $index => $label) {
+            if (! is_string($label) || ! str_contains($label, 'routers.https-') || ! str_contains($label, '.middlewares=')) {
+                continue;
+            }
+            $found = true;
+            if (! str_contains($label, 'gpsh-forwarded-proto')) {
+                $labels[$index] = $label.',gpsh-forwarded-proto';
+            }
+        }
+        if (! in_array($header, $labels, true)) {
+            $labels[] = $header;
+        }
+        if (! $found) {
+            foreach ($labels as $label) {
+                if (! is_string($label) || ! preg_match('/^traefik\.http\.routers\.(https-[^=]+)\.tls=true$/', $label, $matches)) {
+                    continue;
+                }
+                $labels[] = 'traefik.http.routers.'.$matches[1].'.middlewares=gpsh-forwarded-proto';
+            }
+        }
+
+        return $labels;
     }
 
     /**
@@ -157,6 +256,7 @@ BASH);
                     $environment['ODOO_DATABASE'] = $database;
                 }
                 $service['environment'] = $environment;
+                $service['labels'] = self::forwardedProtoLabels($service['labels'] ?? []);
 
                 continue;
             }

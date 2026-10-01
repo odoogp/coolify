@@ -667,4 +667,18 @@ it('turns an existing odoo link into https', function () {
         ->and($application->fresh()->is_force_https_enabled)->toBeTrue()
         ->and(OdooGit::classifyCertificateIssuer('TRAEFIK DEFAULT CERT', 'TRAEFIK DEFAULT CERT', ''))->toBe('pending')
         ->and(OdooGit::classifyCertificateIssuer('R10', 'odoo.example.test', "Let's Encrypt"))->toBe('applied');
+
+    $this->project->update(['name' => 'Mi Empresa']);
+    OdooGit::prepareInstance($service);
+
+    expect(OdooGit::enterUrl($service->fresh()))->toStartWith('https://odoo.example.test/gpsh/enter?token=')
+        ->and(OdooGit::databaseList($service->fresh()))->toBe([
+            ['name' => 'mi_empresa_production', 'disabled' => false],
+        ]);
+
+    $this->get(route('project.service.odoo.enter', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+        'service_uuid' => $service->uuid,
+    ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
 });

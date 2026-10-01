@@ -401,6 +401,66 @@ class OdooGit
         if ($service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->doesntExist()) {
             self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', Str::password(20, symbols: false), false);
         }
+        if ($service->environment_variables()->where('key', 'ODOO_LOGIN_TOKEN')->doesntExist()) {
+            self::rememberVariable($service, 'ODOO_LOGIN_TOKEN', Str::password(40, symbols: false), false);
+        }
+    }
+
+    public static function enterUrl(Service $service): string
+    {
+        $application = $service->applications()->get()->first(
+            fn ($application): bool => $application instanceof ServiceApplication && self::isOdooApplication($application)
+        );
+        $base = $application instanceof ServiceApplication
+            ? self::httpsUrl(firstDomainFromList((string) $application->fqdn))
+            : '';
+        $token = (string) $service->environment_variables()->where('key', 'ODOO_LOGIN_TOKEN')->first()?->value;
+        if ($base === '' || $token === '') {
+            return $base;
+        }
+
+        return $base.'/gpsh/enter?token='.urlencode($token);
+    }
+
+    /**
+     * Databases on this instance's Postgres. A row is disabled when it is not the instance database or it rejects connections.
+     *
+     * @return array<int, array{name: string, disabled: bool}>
+     */
+    public static function databaseList(Service $service): array
+    {
+        $active = self::databaseName($service);
+        $fallback = $active === null ? [] : [['name' => $active, 'disabled' => false]];
+        $server = $service->server;
+        if ($active === null || $server === null || ! $server->isFunctional()) {
+            return $fallback;
+        }
+
+        $command = 'docker exec '.escapeshellarg('postgresql-'.$service->uuid).' sh -c '.escapeshellarg('psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT datname || \'|\' || datallowconn FROM pg_database WHERE NOT datistemplate AND datname <> \'postgres\' ORDER BY 1"');
+        try {
+            $output = instant_remote_process([$command], $server, false);
+        } catch (\Throwable) {
+            return $fallback;
+        }
+
+        $rows = [];
+        foreach (preg_split("/\r\n|\n|\r/", (string) $output) ?: [] as $line) {
+            $line = trim($line);
+            if (! str_contains($line, '|')) {
+                continue;
+            }
+            [$name, $allowed] = array_pad(explode('|', $line, 2), 2, '');
+            $name = trim($name);
+            if ($name === '' || ! preg_match('/^[a-zA-Z0-9_-]+$/', $name)) {
+                continue;
+            }
+            $rows[] = [
+                'name' => $name,
+                'disabled' => $name !== $active || ! in_array(strtolower(trim($allowed)), ['t', 'true', '1'], true),
+            ];
+        }
+
+        return $rows === [] ? $fallback : $rows;
     }
 
     public static function useHttps(Service $service): bool

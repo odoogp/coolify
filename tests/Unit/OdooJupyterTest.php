@@ -296,10 +296,30 @@ test('an odoo service starts one database with https proxy mode and an admin use
     expect($aligned['odoo']['entrypoint'])->toBe(['bash', '-c'])
         ->and($command)->toContain('--proxy-mode')
         ->and($command)->toContain('base.user_admin')
+        ->and($command)->toContain('web.base.url')
+        ->and($command)->toContain('gpsh_autoconnect')
+        ->and($command)->toContain('gpsh/enter')
+        ->and($command)->toContain('--db-filter')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('$$ODOO_DATABASE')
-        ->and($command)->toContain('exec odoo --http-interface=0.0.0.0 --proxy-mode')
+        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" -d "$$ODOO_DATABASE"')
         ->and(str_replace('$$', '', $command))->not->toContain('$')
         ->and($aligned['odoo']['environment'])->toBe(['ODOO_DATABASE=mi_empresa_staging_1'])
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0');
+});
+
+test('an odoo https router tells odoo the browser used https', function () {
+    $aligned = OdooJupyter::alignParsedServices([
+        'odoo' => [
+            'image' => 'odoo:20',
+            'command' => 'odoo',
+            'labels' => [
+                'traefik.http.routers.https-0-uuid-odoo.middlewares=gzip',
+                'traefik.http.routers.https-0-uuid-odoo.tls=true',
+            ],
+        ],
+    ], 'mi_empresa_production');
+
+    expect($aligned['odoo']['labels'])->toContain('traefik.http.routers.https-0-uuid-odoo.middlewares=gzip,gpsh-forwarded-proto')
+        ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto=https');
 });
