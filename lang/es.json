@@ -3621,6 +3621,7 @@
     "Odoo is updating": "Odoo se está actualizando",
     "Odoo update failed": "La actualización de Odoo falló",
     "Show log": "Mostrar log",
+    "Waiting for the upgrade log…": "Esperando el log de actualización…",
     "Hide log": "Ocultar log",
     "Show steps": "Mostrar etapas",
     "Hide steps": "Ocultar etapas",

@@ -200,6 +200,10 @@ it('hides the update steps without changing how the upgrade runs', function () {
         ->toContain('Update in progress...')
         ->toContain('Show steps')
         ->toContain('Hide steps')
+        ->toContain('Show log')
+        ->toContain('Hide log')
+        ->toContain('showUpgradeLog')
+        ->toContain('this.$wire.upgradeLog()')
         ->not->toContain('upgrade-*.log');
 
     expect($progressView)

@@ -72,10 +72,14 @@
                                     <div class="flex items-center justify-between gap-3">
                                         <span class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"
                                             x-text="updateSummary()"></span>
-                                        <button type="button" @click="toggleUpdateSteps()"
-                                            class="button shrink-0">
-                                            <span x-text="showUpdateSteps ? @js(__('Hide steps')) : @js(__('Show steps'))"></span>
-                                        </button>
+                                        <div class="flex shrink-0 gap-2">
+                                            <button type="button" @click="toggleUpdateSteps()" class="button">
+                                                <span x-text="showUpdateSteps ? @js(__('Hide steps')) : @js(__('Show steps'))"></span>
+                                            </button>
+                                            <button type="button" @click="toggleUpgradeLog()" class="button">
+                                                <span x-text="showUpgradeLog ? @js(__('Hide log')) : @js(__('Show log'))"></span>
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div x-show="showUpdateSteps" x-cloak class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
@@ -113,6 +117,9 @@
                                             class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"></span>
                                     </div>
                                     </div>
+
+                                    <pre x-show="showUpgradeLog" x-cloak x-ref="upgradeLogView" x-text="upgradeLogText()"
+                                        class="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-50 p-3 font-mono text-[11px] leading-4 text-neutral-800 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-fg"></pre>
 
                                     <template x-if="upgradeComplete">
                                         <div class="flex flex-col items-center gap-3">
@@ -211,6 +218,8 @@
             instanceWentDown: false,
             devMode: config.devMode || false,
             showUpdateSteps: config.showUpdateSteps || false,
+            showUpgradeLog: false,
+            upgradeLog: '',
             backendStep: 0,
             simulationInterval: null,
 
@@ -228,6 +237,35 @@
             toggleUpdateSteps() {
                 this.showUpdateSteps = !this.showUpdateSteps;
                 this.$wire.toggleUpdateSteps();
+            },
+
+            toggleUpgradeLog() {
+                this.showUpgradeLog = !this.showUpgradeLog;
+                if (this.showUpgradeLog) {
+                    this.refreshUpgradeLog();
+                }
+            },
+
+            upgradeLogText() {
+                return this.upgradeLog !== '' ? this.upgradeLog : @js(__('Waiting for the upgrade log…'));
+            },
+
+            async refreshUpgradeLog() {
+                try {
+                    const data = await this.$wire.upgradeLog();
+                    const next = data && data.text ? data.text : '';
+                    if (next === this.upgradeLog) {
+                        return;
+                    }
+                    this.upgradeLog = next;
+                    this.$nextTick(() => {
+                        const view = this.$refs.upgradeLogView;
+                        if (view) {
+                            view.scrollTop = view.scrollHeight;
+                        }
+                    });
+                } catch (e) {
+                }
             },
 
             stagePosition() {
@@ -292,6 +330,7 @@
 
             confirmed() {
                 this.showProgress = true;
+                this.showUpgradeLog = true;
                 this.currentStep = 1;
                 this.backendStep = 0;
                 this.currentStatus = 'Starting upgrade...';
@@ -300,6 +339,7 @@
                 this.$wire.$call('upgrade');
                 // Start client-side status polling
                 this.upgrade();
+                this.refreshUpgradeLog();
                 // Prevent accidental navigation during upgrade
                 this.beforeUnloadHandler = (event) => {
                     event.preventDefault();
@@ -515,6 +555,9 @@
                         } else if (data.status === 'none' && this.instanceWentDown) {
                             this.revive();
                             await this.probeHealth();
+                        }
+                        if (this.showUpgradeLog) {
+                            await this.refreshUpgradeLog();
                         }
                     } catch (error) {
                         this.livewireFailures++;

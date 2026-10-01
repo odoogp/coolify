@@ -146,4 +146,34 @@ class Upgrade extends Component
             targetVersion: $this->latestVersion !== '' ? $this->latestVersion : get_latest_version_of_coolify(),
         );
     }
+
+    /**
+     * @return array{text: string}
+     */
+    public function upgradeLog(): array
+    {
+        if (auth()->user()?->currentTeam()?->id !== 0) {
+            return ['text' => ''];
+        }
+
+        $server = Server::find(0);
+        if (! $server) {
+            return ['text' => ''];
+        }
+
+        try {
+            $text = instant_remote_process([
+                'bash -c '.escapeshellarg('tail -n 120 "$(ls -1t /data/coolify/source/upgrade-*.log 2>/dev/null | head -n 1)" 2>/dev/null || true'),
+            ], $server, false, timeout: 15);
+        } catch (\Throwable) {
+            return ['text' => ''];
+        }
+
+        $text = (string) $text;
+        if (strlen($text) > 20000) {
+            $text = substr($text, -20000);
+        }
+
+        return ['text' => $text];
+    }
 }
