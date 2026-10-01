@@ -193,8 +193,7 @@ class OdooGit
             throw new InvalidArgumentException('The GitHub branch name is invalid.');
         }
         if (! in_array($branch, $githubBranches, true)) {
-            [$owner, $name] = self::splitRepository($gitRepository);
-            self::ensureBranch($githubApp, $owner, $name, $branch);
+            throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
         }
 
         $taken = OdooEnvironmentBranch::query()
@@ -233,8 +232,8 @@ class OdooGit
     }
 
     /**
-     * Creates the project repository on the first launch, then the branch named
-     * after the environment. Nothing is deployed.
+     * Creates the project repository on the first launch.
+     * Production stores the repository default branch. Staging stores its own branch.
      */
     public static function launchEnvironment(Project $project, GithubApp $githubApp, string $classification): Environment
     {
@@ -247,10 +246,15 @@ class OdooGit
         }
 
         [$environment, $branch, $createStaging] = self::resolveLaunchTarget($project, $classification);
-        $repository = self::ensureRepositoryAndBranch($githubApp, $project, $branch);
+        if ($classification === 'production') {
+            $repository = self::ensureRepositoryAndBranch($githubApp, $project, null);
+            $branch = $repository['default_branch'];
+        } else {
+            $repository = self::ensureRepositoryAndBranch($githubApp, $project, $branch);
+        }
 
         return DB::transaction(function () use ($project, $profile, $githubApp, $repository, $branch, $createStaging, $environment): Environment {
-            $environment = self::persistLaunchTarget($project, $branch, $createStaging, $environment);
+            $environment = self::persistLaunchTarget($project, $createStaging, $environment);
 
             $profile->update([
                 'github_app_id' => $githubApp->id,
@@ -334,22 +338,22 @@ class OdooGit
         return [$environment, $branch, $createStaging];
     }
 
-    private static function persistLaunchTarget(Project $project, string $branch, bool $createStaging, ?Environment $environment): Environment
+    private static function persistLaunchTarget(Project $project, bool $createStaging, ?Environment $environment): Environment
     {
         if ($createStaging) {
             $environment = $project->createNextStagingEnvironment();
         }
-        if (! $environment instanceof Environment || $environment->name !== $branch) {
-            throw new RuntimeException('The environment name does not match the GitHub branch.');
+        if (! $environment instanceof Environment) {
+            throw new RuntimeException('This project has no production environment.');
         }
 
         return $environment;
     }
 
     /**
-     * @return array{full_name: string, id: int}
+     * @return array{full_name: string, id: int, default_branch: string}
      */
-    public static function ensureRepositoryAndBranch(GithubApp $githubApp, Project $project, string $branch): array
+    public static function ensureRepositoryAndBranch(GithubApp $githubApp, Project $project, ?string $branch): array
     {
         $profile = $project->odooProfile;
         if (filled($profile?->git_repository) && filled($profile?->repository_id)) {
@@ -367,9 +371,12 @@ class OdooGit
         }
 
         self::assertRepositoryFree($repository['full_name'], (int) $project->id);
-        self::ensureBranch($githubApp, $owner, $name, $branch);
+        $default = self::defaultBranch($githubApp, $owner, $name);
+        if ($branch !== null && $branch !== '') {
+            self::ensureBranch($githubApp, $owner, $name, $branch);
+        }
 
-        return $repository;
+        return $repository + ['default_branch' => $default];
     }
 
     public static function databaseName(Service $service): ?string
@@ -378,9 +385,9 @@ class OdooGit
             return null;
         }
 
-        $service->loadMissing('environment.project', 'environment.odooBranch');
+        $service->loadMissing('environment.project');
         $project = Str::slug((string) $service->environment?->project?->name, '_');
-        $branch = Str::slug((string) ($service->environment?->odooBranch?->git_branch ?: $service->environment?->name ?: 'production'), '_');
+        $branch = Str::slug((string) ($service->environment?->name ?: 'production'), '_');
         $name = trim($project.'_'.$branch, '_');
         $name = preg_replace('/[^a-z0-9_]/', '', $name) ?? '';
         if ($name === '' || ! ctype_alpha($name[0])) {
@@ -420,6 +427,126 @@ class OdooGit
     public static function runtimeValue(Service $service, string $key): string
     {
         return (string) $service->environment_variables()->where('key', $key)->first()?->value;
+    }
+
+    public static function copyProductionData(Service $source, Service $target): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        $server = $target->server;
+        if ($server === null || ! $server->isFunctional()) {
+            return;
+        }
+
+        instant_remote_process([self::copyProductionDataCommand($source, $target)], $server);
+    }
+
+    public static function copyProductionDataCommand(Service $source, Service $target): string
+    {
+        $source->loadMissing('environment');
+        $target->loadMissing('environment');
+        if (strcasecmp((string) $source->environment?->name, 'production') !== 0) {
+            throw new RuntimeException('The database copy starts from production.');
+        }
+        if (! OdooStaging::isStagingName((string) $target->environment?->name)) {
+            throw new RuntimeException('Only a staging database is neutralized.');
+        }
+        if ((string) $source->uuid === (string) $target->uuid) {
+            throw new RuntimeException('The database copy refused to write production.');
+        }
+
+        $sourceDatabase = self::runtimeValue($source, 'ODOO_DATABASE') ?: (string) self::databaseName($source);
+        $targetDatabase = self::runtimeValue($target, 'ODOO_DATABASE') ?: (string) self::databaseName($target);
+        foreach (['source database' => $sourceDatabase, 'staging database' => $targetDatabase] as $label => $name) {
+            if (preg_match('/^[a-z0-9_]+$/', $name) !== 1) {
+                throw new RuntimeException('The '.$label.' name is invalid.');
+            }
+        }
+        if ($sourceDatabase === $targetDatabase) {
+            throw new RuntimeException('The database copy refused to write production.');
+        }
+
+        $sourceUser = self::runtimeValue($source, 'SERVICE_USER_POSTGRES');
+        $targetUser = self::runtimeValue($target, 'SERVICE_USER_POSTGRES');
+        $sourcePassword = self::runtimeValue($source, 'SERVICE_PASSWORD_POSTGRES');
+        $targetPassword = self::runtimeValue($target, 'SERVICE_PASSWORD_POSTGRES');
+        foreach ([$sourceUser, $targetUser] as $user) {
+            if (preg_match('/^[A-Za-z0-9_]+$/', $user) !== 1) {
+                throw new RuntimeException('The staging database cannot be copied without the Postgres credentials.');
+            }
+        }
+        if ($sourcePassword === '' || $targetPassword === '') {
+            throw new RuntimeException('The staging database cannot be copied without the Postgres credentials.');
+        }
+        foreach ([$source->uuid, $target->uuid] as $uuid) {
+            if (preg_match('/^[A-Za-z0-9]+$/', (string) $uuid) !== 1) {
+                throw new RuntimeException('The database copy refused to write production.');
+            }
+        }
+        if ($source->server_id !== null && $target->server_id !== null && (int) $source->server_id !== (int) $target->server_id) {
+            throw new RuntimeException('The staging copy needs production and staging on the same server.');
+        }
+        if (preg_match('/image:\s*(odoo:[0-9]+(?:\.[0-9]+)?)/', (string) $target->docker_compose_raw, $matches) !== 1) {
+            throw new RuntimeException('The staging database cannot be neutralized without the Odoo image.');
+        }
+
+        $sourceVolume = OdooAddons::filestoreVolume($source);
+        $targetVolume = OdooAddons::filestoreVolume($target);
+        if ($sourceVolume === $targetVolume) {
+            throw new RuntimeException('The database copy refused to write production.');
+        }
+
+        $url = self::publicHttpsUrl($target);
+        $urlSql = 'true';
+        if (preg_match('#^https://[A-Za-z0-9.-]+$#', $url) === 1) {
+            $sql = "UPDATE ir_config_parameter SET value='{$url}' WHERE key='web.base.url'; "
+                ."INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) SELECT 'web.base.url', '{$url}', 1, 1, NOW(), NOW() WHERE NOT EXISTS (SELECT 1 FROM ir_config_parameter WHERE key='web.base.url'); "
+                ."UPDATE ir_config_parameter SET value='True' WHERE key='web.base.url.freeze'; "
+                ."INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) SELECT 'web.base.url.freeze', 'True', 1, 1, NOW(), NOW() WHERE NOT EXISTS (SELECT 1 FROM ir_config_parameter WHERE key='web.base.url.freeze');";
+            $urlSql = 'docker exec -e PGPASSWORD="$(printf \'%s\' \''.base64_encode($targetPassword).'\' | base64 -d)" postgresql-'.$target->uuid
+                .' psql -U '.$targetUser.' -d '.$targetDatabase.' -v ON_ERROR_STOP=1 -c '.escapeshellarg($sql);
+        }
+
+        $script = <<<'BASH'
+set -eu
+dump=__DUMP__
+docker stop __DST_ODOO__ >/dev/null 2>&1 || true
+trap 'status=$?; rm -f "$dump"; if [ "$status" -ne 0 ]; then docker start __DST_ODOO__ >/dev/null 2>&1 || true; fi; exit "$status"' EXIT
+docker exec -e PGPASSWORD="$(printf '%s' '__SRC_PW__' | base64 -d)" __SRC_PG__ pg_dump -U __SRC_USER__ --no-owner --no-acl __SRC_DB__ > "$dump"
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ psql -U __DST_USER__ -d postgres -v ON_ERROR_STOP=1 -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '__DST_DB__' AND pid <> pg_backend_pid();"
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ dropdb --if-exists -U __DST_USER__ __DST_DB__
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ createdb -U __DST_USER__ __DST_DB__
+docker exec -i -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ psql -U __DST_USER__ -d __DST_DB__ -v ON_ERROR_STOP=1 < "$dump"
+docker volume create __DST_VOLUME__
+docker run --rm -v __SRC_VOLUME__:/source:ro -v __DST_VOLUME__:/target alpine sh -c 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; chown -R 101:101 /target || true'
+__URL_SQL__
+docker run --rm --network container:__DST_PG__ --entrypoint odoo __IMAGE__ neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
+docker start __DST_ODOO__
+BASH;
+
+        $script = str_replace(
+            ['__SRC_PG__', '__DST_PG__', '__DST_ODOO__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__SRC_VOLUME__', '__DST_VOLUME__', '__IMAGE__', '__URL_SQL__'],
+            [
+                'postgresql-'.$source->uuid,
+                'postgresql-'.$target->uuid,
+                'odoo-'.$target->uuid,
+                $sourceUser,
+                $targetUser,
+                $sourceDatabase,
+                $targetDatabase,
+                base64_encode($sourcePassword),
+                base64_encode($targetPassword),
+                '/tmp/gpsh-clone-'.$target->uuid.'.sql',
+                $sourceVolume,
+                $targetVolume,
+                $matches[1],
+                $urlSql,
+            ],
+            $script,
+        );
+
+        return 'bash -c '.escapeshellarg($script);
     }
 
     public static function enterUrl(Service $service): string
@@ -835,6 +962,14 @@ class OdooGit
         }
 
         return [$parts[0], $parts[1]];
+    }
+
+    private static function defaultBranch(GithubApp $githubApp, string $owner, string $name): string
+    {
+        $details = githubApi($githubApp, '/repos/'.rawurlencode($owner).'/'.rawurlencode($name));
+        $default = (string) data_get($details, 'data.default_branch', 'main');
+
+        return $default !== '' ? $default : 'main';
     }
 
     private static function ensureBranch(GithubApp $githubApp, string $owner, string $name, string $branch): void

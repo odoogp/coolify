@@ -171,24 +171,45 @@
                                 <div>
                                     <p class="text-sm font-medium">{{ __('GitHub') }}</p>
                                     <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
-                                        {{ __('The branch has the same name as this environment. If that branch is already in the repository, it is used. A push updates the addon folder.') }}
+                                        {{ __('The environment name and the GitHub branch are stored separately. A push updates the addon folder.') }}
                                     </p>
                                 </div>
                                 @if (filled($project->odooProfile?->git_repository))
                                     @php
+                                        $githubBranch = (string) ($environment->odooBranch?->git_branch ?? '');
                                         $odooGithubUrl = \App\Support\OdooGit::repositoryUrl(
                                             (string) $project->odooProfile->git_repository,
-                                            (string) ($environment->odooBranch?->git_branch ?: $environment->name),
+                                            $githubBranch,
                                         );
                                     @endphp
                                     <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
-                                    <p class="text-[13px]">
-                                        {{ __('Branch :branch.', ['branch' => $environment->odooBranch?->git_branch ?: $environment->name]) }}
-                                    </p>
+                                    <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
+                                    @if ($githubBranch !== '')
+                                        <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
+                                    @endif
                                     @if ($odooGithubUrl !== '')
                                         <a class="button w-fit" href="{{ $odooGithubUrl }}" target="_blank" rel="noopener noreferrer">
                                             {{ __('Open on GitHub') }}
                                         </a>
+                                    @endif
+                                    @if ($odooGithubConnected && ! $odooAccountChanged)
+                                        @if ($odooGithubBranches === [])
+                                            <x-forms.button type="button" wire:click="loadLinkedOdooBranches" canGate="update" :canResource="$service">
+                                                {{ __('Change branch') }}
+                                            </x-forms.button>
+                                        @else
+                                            <div class="max-w-sm space-y-2">
+                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-linked-branch">{{ __('GitHub branch') }}</label>
+                                                <select id="odoo-linked-branch" wire:model="odooBranch" class="input">
+                                                    @foreach ($odooGithubBranches as $branchName)
+                                                        <option value="{{ $branchName }}">{{ $branchName }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <x-forms.button type="button" wire:click="saveLinkedOdooBranch" canGate="update" :canResource="$service">
+                                                    {{ __('Save GitHub branch') }}
+                                                </x-forms.button>
+                                            </div>
+                                        @endif
                                     @endif
                                 @endif
                                 @if (! $odooGithubConnected)
@@ -216,7 +237,7 @@
                                         </p>
                                     @else
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            {{ __('The branch is :branch. An existing repository keeps that branch when it is already there.', ['branch' => $environment->name]) }}
+                                            {{ __('Choose the GitHub branch for this environment. It can differ from the environment name.') }}
                                         </p>
                                     @endif
                                     <div class="flex flex-wrap gap-4 text-sm">
@@ -231,7 +252,11 @@
                                     </div>
                                     @if ($odooRepoMode === 'new')
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            {{ __('The new repository is named :name. This environment becomes a branch with the same name.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
+                                            @if (strcasecmp($environment->name, 'production') === 0)
+                                                {{ __('The new repository is named :name. This environment tracks its default branch.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
+                                            @else
+                                                {{ __('The new repository is named :name. This environment gets the branch :branch.', ['name' => \App\Support\OdooGit::repositoryName($project), 'branch' => $environment->name]) }}
+                                            @endif
                                         </p>
                                     @else
                                         <div class="max-w-sm space-y-2">
@@ -268,16 +293,16 @@
                                             @elseif ($odooRepositoriesLoaded)
                                                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No matching repositories.') }}</p>
                                             @endif
-                                            @if ($odooAccountChanged && $odooGithubBranches !== [])
-                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-account-branch">{{ __('Branch') }}</label>
+                                            @if ($odooGithubBranches !== [])
+                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-account-branch">{{ __('GitHub branch') }}</label>
                                                 <select id="odoo-account-branch" wire:model="odooBranch" class="input">
                                                     @foreach ($odooGithubBranches as $branchName)
                                                         <option value="{{ $branchName }}">{{ $branchName }}</option>
                                                     @endforeach
                                                 </select>
-                                                @if (! in_array((string) ($environment->odooBranch?->git_branch ?: $environment->name), $odooGithubBranches, true))
+                                                @if (filled($environment->odooBranch?->git_branch) && ! in_array((string) $environment->odooBranch->git_branch, $odooGithubBranches, true))
                                                     <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                                        {{ __('The branch :branch is not on this repository. Choose another branch.', ['branch' => $environment->odooBranch?->git_branch ?: $environment->name]) }}
+                                                        {{ __('The branch :branch is not on this repository. Choose another branch.', ['branch' => $environment->odooBranch->git_branch]) }}
                                                     </p>
                                                 @endif
                                             @endif

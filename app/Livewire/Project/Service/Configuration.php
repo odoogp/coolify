@@ -268,12 +268,58 @@ class Configuration extends Component
             $repository = $this->selectedOdooRepository();
             $this->environment->loadMissing('odooBranch');
             $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
-            $current = (string) ($this->environment->odooBranch?->git_branch ?: $this->environment->name);
-            $this->odooBranch = in_array($current, $this->odooGithubBranches, true)
-                ? $current
+            $stored = (string) ($this->environment->odooBranch?->git_branch ?? '');
+            $this->odooBranch = in_array($stored, $this->odooGithubBranches, true)
+                ? $stored
                 : (in_array($repository['default_branch'], $this->odooGithubBranches, true)
                     ? $repository['default_branch']
                     : (string) ($this->odooGithubBranches[0] ?? ''));
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function loadLinkedOdooBranches(): void
+    {
+        try {
+            $this->authorize('update', $this->service);
+            [$owner, $name] = $this->linkedRepository();
+            $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $owner, $name);
+            $stored = (string) ($this->environment->odooBranch?->git_branch ?? '');
+            $this->odooBranch = in_array($stored, $this->odooGithubBranches, true)
+                ? $stored
+                : (string) ($this->odooGithubBranches[0] ?? '');
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function saveLinkedOdooBranch(): void
+    {
+        try {
+            $this->authorize('update', $this->service);
+            $profile = $this->project->odooProfile;
+            [$owner, $name] = $this->linkedRepository();
+            $branches = $this->odooGithubBranches !== []
+                ? $this->odooGithubBranches
+                : OdooGit::branchNames($this->odooGithubApp(), $owner, $name);
+            $branch = trim($this->odooBranch);
+            OdooGit::attachExisting(
+                $this->project,
+                $this->odooGithubApp(),
+                (string) $profile->git_repository,
+                (int) $profile->repository_id,
+                $branches,
+                $this->environment,
+                $branch,
+            );
+            $this->environment->unsetRelation('odooBranch');
+            $this->environment->load('odooBranch');
+            $this->dispatch('success', __('GitHub branch :branch.', ['branch' => $branch]));
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
@@ -297,11 +343,12 @@ class Configuration extends Component
             if ($this->odooRepoMode === 'new') {
                 $classification = OdooStaging::isStagingName($this->environment->name) ? 'staging' : 'production';
                 $environment = OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
+                $environment->load('odooBranch');
                 OdooGit::cloneIntoService($this->service);
                 OdooGit::startIfPossible($this->service);
                 $this->syncOdooGithub();
                 $this->dispatch('success', __('Odoo is starting on :branch. The link uses HTTPS. Database :database. Sign in as admin.', [
-                    'branch' => $environment->name,
+                    'branch' => (string) ($environment->odooBranch?->git_branch ?: $environment->name),
                     'database' => (string) OdooGit::databaseName($this->service),
                 ]));
 
@@ -310,8 +357,8 @@ class Configuration extends Component
 
             $repository = $this->selectedOdooRepository();
             $branches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
-            $branch = $this->odooAccountChanged ? trim($this->odooBranch) : $this->environment->name;
-            if ($this->odooAccountChanged && ! in_array($branch, $branches, true)) {
+            $branch = trim($this->odooBranch);
+            if (! in_array($branch, $branches, true)) {
                 throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
             }
             OdooGit::attachExisting(
@@ -364,6 +411,20 @@ class Configuration extends Component
             $this->odooRepoMode = 'existing';
             $this->odooRepositoryId = $profile->repository_id;
         }
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function linkedRepository(): array
+    {
+        $repository = (string) $this->project->odooProfile?->git_repository;
+        $parts = explode('/', $repository, 2);
+        if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
+            throw new InvalidArgumentException('Choose a repository.');
+        }
+
+        return [$parts[0], $parts[1]];
     }
 
     private function odooGithubApp(): GithubApp

@@ -19,6 +19,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
+use RuntimeException;
 
 uses(RefreshDatabase::class);
 
@@ -342,7 +343,7 @@ it('creates the project repository and makes each environment its own branch', f
     $secondStaging = OdooGit::launchEnvironment($this->project, $this->githubApp, 'staging');
 
     expect($production->name)->toBe('production')
-        ->and($production->fresh()->odooBranch->git_branch)->toBe('production')
+        ->and($production->fresh()->odooBranch->git_branch)->toBe('main')
         ->and($secondStaging->name)->toBe('staging-2')
         ->and($secondStaging->fresh()->odooBranch->git_branch)->toBe('staging-2')
         ->and($this->project->environments()->count())->toBe($before);
@@ -419,9 +420,21 @@ it('clones the repository branch into the addon volume jupyter shows', function 
 });
 
 it('opens the working repository on github', function () {
-    expect(OdooGit::repositoryUrl('acme/odoo', 'main'))->toBe('https://github.com/acme/odoo/tree/main')
+    $production = $this->project->environments()->where('name', 'production')->first();
+    OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main'], $production, 'main');
+
+    expect($production->fresh()->name)->toBe('production')
+        ->and($production->fresh()->odooBranch->git_branch)->toBe('main')
+        ->and(OdooGit::repositoryUrl('acme/odoo', $production->fresh()->odooBranch->git_branch))->toBe('https://github.com/acme/odoo/tree/main')
         ->and(OdooGit::repositoryUrl('acme/odoo', 'feature/pay'))->toBe('https://github.com/acme/odoo/tree/feature/pay')
-        ->and(OdooGit::repositoryUrl('not a repo', 'main'))->toBe('');
+        ->and(OdooGit::repositoryUrl('not a repo', 'main'))->toBe('')
+        ->and(file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php')))
+        ->toContain('GitHub branch :branch.')
+        ->toContain('loadLinkedOdooBranches')
+        ->not->toContain('git_branch ?: $environment->name');
+
+    expect(fn () => OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main'], $production, 'production'))
+        ->toThrow(InvalidArgumentException::class, 'Use the branch name from GitHub, not the environment name.');
 });
 
 it('lets an admin change the github account and keeps members out', function () {
@@ -711,10 +724,11 @@ it('names the database after the project and the branch', function () {
 
     OdooEnvironmentBranch::query()->create([
         'environment_id' => $production->id,
-        'git_branch' => 'staging-2',
+        'git_branch' => 'main',
     ]);
 
-    expect(OdooGit::databaseName($service->fresh()))->toBe('mi_empresa_staging_2');
+    expect(OdooGit::databaseName($service->fresh()))->toBe('mi_empresa_production')
+        ->and($production->fresh()->odooBranch->git_branch)->toBe('main');
 });
 
 it('refuses a repository already used by another project', function () {
@@ -761,4 +775,70 @@ it('turns an existing odoo link into https', function () {
         'environment_uuid' => $production->uuid,
         'service_uuid' => $service->uuid,
     ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
+});
+
+it('copies the production database and files into staging and neutralizes only that copy', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    $compose = "services:\n  odoo:\n    image: odoo:20\n";
+    $source = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => $compose,
+    ]);
+    $target = Service::factory()->create([
+        'environment_id' => $staging->id,
+        'docker_compose_raw' => $compose,
+    ]);
+    $sourcePassword = "s3cret\$quote'";
+    $targetPassword = 'staging-secret';
+    $source->environment_variables()->createMany([
+        ['key' => 'ODOO_DATABASE', 'value' => 'acme_production', 'is_preview' => false],
+        ['key' => 'SERVICE_USER_POSTGRES', 'value' => 'odoo', 'is_preview' => false],
+        ['key' => 'SERVICE_PASSWORD_POSTGRES', 'value' => $sourcePassword, 'is_preview' => false],
+    ]);
+    $target->environment_variables()->createMany([
+        ['key' => 'ODOO_DATABASE', 'value' => 'acme_staging_1', 'is_preview' => false],
+        ['key' => 'SERVICE_USER_POSTGRES', 'value' => 'odoo', 'is_preview' => false],
+        ['key' => 'SERVICE_PASSWORD_POSTGRES', 'value' => $targetPassword, 'is_preview' => false],
+    ]);
+    ServiceApplication::factory()->create([
+        'service_id' => $target->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://staging.example.test',
+    ]);
+
+    $command = OdooGit::copyProductionDataCommand($source, $target);
+
+    expect($command)->toContain('pg_dump')
+        ->toContain('postgresql-'.$source->uuid)
+        ->toContain('acme_production')
+        ->toContain('--no-owner')
+        ->toContain($source->uuid.'_odoo-web-data:/source:ro')
+        ->toContain($target->uuid.'_odoo-web-data:/target')
+        ->toContain('filestore/acme_production')
+        ->toContain('filestore/acme_staging_1')
+        ->toContain('dropdb')
+        ->toContain('acme_staging_1')
+        ->toContain('neutralize -d acme_staging_1')
+        ->toContain('--network container:postgresql-'.$target->uuid)
+        ->toContain('--db_host=127.0.0.1')
+        ->toContain('odoo:20')
+        ->toContain('https://staging.example.test')
+        ->toContain('docker stop odoo-'.$target->uuid)
+        ->toContain('docker start odoo-'.$target->uuid)
+        ->toContain(base64_encode($sourcePassword))
+        ->not->toContain($sourcePassword)
+        ->not->toContain('docker stop odoo-'.$source->uuid)
+        ->not->toContain('docker stop postgresql-'.$source->uuid)
+        ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('OdooGit::copyProductionData');
+
+    $target->environment_variables()->where('key', 'ODOO_DATABASE')->first()->update(['value' => 'acme_production']);
+    expect(fn () => OdooGit::copyProductionDataCommand($source->fresh(), $target->fresh()))
+        ->toThrow(RuntimeException::class, 'The database copy refused to write production.');
+
+    $target->environment()->associate($production);
+    $target->save();
+    expect(fn () => OdooGit::copyProductionDataCommand($source->fresh(), $target->fresh()))
+        ->toThrow(RuntimeException::class, 'Only a staging database is neutralized.');
 });

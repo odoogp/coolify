@@ -346,6 +346,7 @@ it('lists environments once and clones production into one staging', function ()
         ->toContain('Copying the service')
         ->toContain('Cloning the branch')
         ->toContain('Checking HTTPS')
+        ->toContain('neutralizes that copy')
         ->toContain('refreshCloneProgress');
     expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
         ->toContain('installOdoo')
