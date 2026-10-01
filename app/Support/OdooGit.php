@@ -509,30 +509,37 @@ set -eu
 dump=__DUMP__
 pick() {
   service_id="$1"
-  kind="$2"
-  ids=$(docker ps -q --filter "label=coolify.serviceId=${service_id}")
-  if [ -z "$ids" ]; then
-    ids=$(docker ps -aq --filter "label=coolify.serviceId=${service_id}")
-  fi
+  project="$2"
+  kind="$3"
+  ids="$(docker ps -aq --filter "label=com.docker.compose.project=${project}"; docker ps -aq --filter "label=coolify.serviceId=${service_id}")"
+  running=""
+  stopped=""
   for id in $ids; do
-    image=$(docker inspect --format '{{.Config.Image}}' "$id" | tr '[:upper:]' '[:lower:]')
-    case "$kind:$image" in
-      postgres:*postgres*)
-        printf '%s\n' "$id"
-        return 0
-        ;;
-      odoo:odoo:*|odoo:*/odoo:*)
-        printf '%s\n' "$id"
-        return 0
-        ;;
-    esac
+    image=$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    name=$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    subtype=$(docker inspect --format '{{ index .Config.Labels "coolify.service.subType" }}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    state=$(docker inspect --format '{{.State.Running}}' "$id" 2>/dev/null || true)
+    match=0
+    if [ "$kind" = "postgres" ]; then
+      case "$image$name" in *postgres*) match=1 ;; esac
+      if [ "$subtype" = "database" ]; then match=1; fi
+    fi
+    if [ "$kind" = "odoo" ]; then
+      case "$image" in odoo:*|*/odoo:*) match=1 ;; esac
+      case "$name" in *odoo*) case "$name" in *jupyter*) ;; *) match=1 ;; esac ;; esac
+    fi
+    if [ "$match" -eq 1 ]; then
+      if [ "$state" = "true" ]; then running="$id"; else [ -n "$stopped" ] || stopped="$id"; fi
+    fi
   done
+  if [ -n "$running" ]; then printf '%s\n' "$running"; return 0; fi
+  if [ -n "$stopped" ]; then printf '%s\n' "$stopped"; return 0; fi
   return 1
 }
-src_pg=$(pick __SRC_ID__ postgres || true)
-dst_pg=$(pick __DST_ID__ postgres || true)
-src_odoo=$(pick __SRC_ID__ odoo || true)
-dst_odoo=$(pick __DST_ID__ odoo || true)
+src_pg=$(pick __SRC_ID__ __SRC_UUID__ postgres || true)
+dst_pg=$(pick __DST_ID__ __DST_UUID__ postgres || true)
+src_odoo=$(pick __SRC_ID__ __SRC_UUID__ odoo || true)
+dst_odoo=$(pick __DST_ID__ __DST_UUID__ odoo || true)
 if [ -z "$src_pg" ]; then echo "The database container of the service being cloned was not found." >&2; exit 1; fi
 if [ -z "$dst_pg" ]; then echo "The database container of the new staging service was not found." >&2; exit 1; fi
 if [ -z "$src_odoo" ]; then echo "The Odoo container of the service being cloned was not found." >&2; exit 1; fi
@@ -560,10 +567,12 @@ docker start "$dst_odoo"
 BASH;
 
         $script = str_replace(
-            ['__SRC_ID__', '__DST_ID__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__URL_SQL__'],
+            ['__SRC_ID__', '__DST_ID__', '__SRC_UUID__', '__DST_UUID__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__URL_SQL__'],
             [
                 (string) $source->id,
                 (string) $target->id,
+                $source->uuid,
+                $target->uuid,
                 $sourceUser,
                 $targetUser,
                 $sourceDatabase,

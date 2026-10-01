@@ -811,10 +811,12 @@ it('copies the production database and files into staging and neutralizes only t
     $command = OdooGit::copyProductionDataCommand($source, $target);
 
     expect($command)->toContain('pg_dump')
+        ->toContain('label=com.docker.compose.project='.$source->uuid)
+        ->toContain('label=com.docker.compose.project='.$target->uuid)
         ->toContain('label=coolify.serviceId='.$source->id)
         ->toContain('label=coolify.serviceId='.$target->id)
-        ->toContain('postgres:*postgres*')
-        ->toContain('odoo:odoo:*')
+        ->toContain('docker ps -aq')
+        ->toContain('*postgres*')
         ->toContain('acme_production')
         ->toContain('--no-owner')
         ->toContain(':/source:ro')
