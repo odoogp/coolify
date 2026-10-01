@@ -812,6 +812,61 @@ BASH;
     }
 
     /**
+     * One remote command. HTTPS starts only after Odoo, PostgreSQL and Jupyter are running.
+     */
+    public static function containersReadyCommand(Service $service): string
+    {
+        $uuid = (string) $service->uuid;
+        $serviceId = (string) $service->id;
+        if (preg_match('/^[A-Za-z0-9]+$/', $uuid) !== 1 || preg_match('/^[1-9][0-9]*$/', $serviceId) !== 1) {
+            throw new RuntimeException('The staging service did not start.');
+        }
+
+        $script = <<<'BASH'
+set -eu
+project=__UUID__
+service_id=__ID__
+need_jupyter=__JUPYTER__
+ready=0
+for i in $(seq 1 60); do
+  ids="$(docker ps -q --filter "label=com.docker.compose.project=${project}"; docker ps -q --filter "label=coolify.serviceId=${service_id}")"
+  pg=0
+  oo=0
+  ju=0
+  for id in $ids; do
+    image=$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    name=$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    subtype=$(docker inspect --format '{{ index .Config.Labels "coolify.service.subType" }}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    case "$image$name" in *postgres*) pg=1 ;; esac
+    if [ "$subtype" = "database" ]; then pg=1; fi
+    case "$image$name" in *jupyter*) ju=1 ;; esac
+    case "$image" in odoo:*|*/odoo:*) oo=1 ;; esac
+    case "$name" in *odoo*) case "$name" in *jupyter*) ;; *) oo=1 ;; esac ;; esac
+  done
+  if [ "$pg" = 1 ] && [ "$oo" = 1 ] && { [ "$need_jupyter" != 1 ] || [ "$ju" = 1 ]; }; then
+    echo "The service containers are running."
+    ready=1
+    break
+  fi
+  echo "Waiting until the service containers are running."
+  sleep 5
+done
+if [ "$ready" != 1 ]; then
+  echo "The staging containers are not running yet."
+  exit 1
+fi
+BASH;
+
+        $script = str_replace(
+            ['__UUID__', '__ID__', '__JUPYTER__'],
+            [$uuid, $serviceId, $service->jupyter_enabled ? '1' : '0'],
+            $script,
+        );
+
+        return 'bash -c '.escapeshellarg($script);
+    }
+
+    /**
      * One remote command. The deploy stays running until this host has a real certificate and Odoo answers.
      */
     public static function httpsReadyCommand(string $host): ?string

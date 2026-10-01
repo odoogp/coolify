@@ -46,6 +46,10 @@ class StartService
         $commands[] = 'echo Starting service.';
         $commands[] = "docker compose --project-directory {$workdir} -f {$workdir}/docker-compose.yml --project-name {$service->uuid} up -d --remove-orphans --force-recreate --build";
         $commands[] = coolifyProxyNetworkConnectCommand($service->uuid);
+        if ($service->supportsOdooJupyter()) {
+            $commands[] = "echo 'Waiting until the service containers are running.'";
+            $commands[] = OdooGit::containersReadyCommand($service);
+        }
         $host = parse_url(OdooGit::publicHttpsUrl($service), PHP_URL_HOST);
         $httpsReady = is_string($host) && $service->supportsOdooJupyter() ? OdooGit::httpsReadyCommand($host) : null;
         if ($httpsReady !== null) {

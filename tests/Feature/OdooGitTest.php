@@ -835,7 +835,9 @@ it('copies the production database and files into staging and neutralizes only t
         ->not->toContain('postgresql-'.$source->uuid)
         ->not->toContain('postgresql-'.$target->uuid)
         ->not->toContain('service=postgresql')
-        ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('OdooGit::copyProductionData');
+        ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('waitForServiceStart')
+        ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('OdooGit::copyProductionData')
+        ->and(file_get_contents(app_path('Actions/Service/StartService.php')))->toContain('containersReadyCommand');
 
     $target->environment_variables()->where('key', 'ODOO_DATABASE')->first()->update(['value' => 'acme_production']);
     expect(fn () => OdooGit::copyProductionDataCommand($source->fresh(), $target->fresh()))

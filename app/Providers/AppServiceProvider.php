@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Filesystem\ResilientFilesystem;
 use App\Models\PersonalAccessToken;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\App;
@@ -17,6 +18,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(StripeClient::class, fn () => new StripeClient(config('subscription.stripe_api_key')));
+        $this->app->extend('files', fn ($files, $app) => new ResilientFilesystem);
     }
 
     public function boot(): void

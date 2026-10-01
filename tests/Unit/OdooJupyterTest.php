@@ -336,6 +336,24 @@ test('an odoo https router tells odoo the browser used https', function () {
         ->and($aligned['odoo']['labels'])->toContain('traefik.http.routers.http-0-uuid-odoo.middlewares=redirect-to-https');
 });
 
+test('the odoo deploy waits until its containers are running before https', function () {
+    $service = new \App\Models\Service;
+    $service->forceFill([
+        'id' => 15,
+        'uuid' => 'abc123',
+        'jupyter_enabled' => true,
+    ]);
+
+    $command = \App\Support\OdooGit::containersReadyCommand($service);
+
+    expect($command)->toStartWith('bash -c ')
+        ->and($command)->toContain('label=com.docker.compose.project=abc123')
+        ->and($command)->toContain('label=coolify.serviceId=15')
+        ->and($command)->toContain('need_jupyter=1')
+        ->and($command)->toContain('seq 1 60')
+        ->and($command)->toContain('The service containers are running.');
+});
+
 test('the odoo deploy waits until https answers', function () {
     $command = \App\Support\OdooGit::httpsReadyCommand('odoo.example.test');
 

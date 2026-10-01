@@ -2,7 +2,9 @@
 
 namespace App\Jobs;
 
+use App\Actions\CoolifyTask\RunRemoteProcess;
 use App\Actions\Service\StartService;
+use App\Enums\ProcessStatus;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
@@ -17,6 +19,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 class CloneOdooStagingJob implements ShouldQueue
@@ -95,7 +99,8 @@ class CloneOdooStagingJob implements ShouldQueue
             $this->progress(4);
             $started = true;
             if ($copied instanceof Service && $copied->server?->isFunctional()) {
-                StartService::run($copied, pullLatestImages: false);
+                $activity = StartService::run($copied, pullLatestImages: false);
+                $this->waitForServiceStart($activity);
                 $original = $production->services()->get()->first(
                     fn (Service $service): bool => $service->supportsOdooJupyter()
                 );
@@ -166,6 +171,38 @@ class CloneOdooStagingJob implements ShouldQueue
         }
 
         return $copy;
+    }
+
+    private function waitForServiceStart(mixed $activity): void
+    {
+        if (! $activity instanceof Activity) {
+            throw new RuntimeException('The staging service did not start.');
+        }
+
+        $deadline = time() + 3600;
+        while (time() < $deadline) {
+            $activity->refresh();
+            $status = (string) $activity->getExtraProperty('status');
+            if ($status === ProcessStatus::FINISHED->value) {
+                return;
+            }
+            if (in_array($status, [ProcessStatus::ERROR->value, ProcessStatus::KILLED->value, ProcessStatus::CANCELLED->value], true)) {
+                throw new RuntimeException($this->startFailureMessage($activity));
+            }
+            sleep(3);
+        }
+
+        throw new RuntimeException('The staging service did not start.');
+    }
+
+    private function startFailureMessage(Activity $activity): string
+    {
+        $line = collect(preg_split('/\R/', RunRemoteProcess::decodeOutput($activity)) ?: [])
+            ->map(fn ($line): string => trim((string) $line))
+            ->filter(fn (string $line): bool => $line !== '')
+            ->last();
+
+        return is_string($line) && $line !== '' ? $line : 'The staging service did not start.';
     }
 
     /**
