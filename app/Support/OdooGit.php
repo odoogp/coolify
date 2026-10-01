@@ -488,10 +488,10 @@ class OdooGit
             throw new RuntimeException('The staging copy needs production and staging on the same server.');
         }
 
-        $sourceVolume = OdooAddons::filestoreVolume($source);
-        $targetVolume = OdooAddons::filestoreVolume($target);
-        if ($sourceVolume === $targetVolume) {
-            throw new RuntimeException('The database copy refused to write production.');
+        foreach ([$source->workdir(), $target->workdir()] as $directory) {
+            if (preg_match('#^/data/coolify/services/[A-Za-z0-9]+$#', $directory) !== 1) {
+                throw new RuntimeException('The staging database cannot be copied.');
+            }
         }
 
         $url = self::publicHttpsUrl($target);
@@ -501,35 +501,59 @@ class OdooGit
                 ."INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) SELECT 'web.base.url', '{$url}', 1, 1, NOW(), NOW() WHERE NOT EXISTS (SELECT 1 FROM ir_config_parameter WHERE key='web.base.url'); "
                 ."UPDATE ir_config_parameter SET value='True' WHERE key='web.base.url.freeze'; "
                 ."INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) SELECT 'web.base.url.freeze', 'True', 1, 1, NOW(), NOW() WHERE NOT EXISTS (SELECT 1 FROM ir_config_parameter WHERE key='web.base.url.freeze');";
-            $urlSql = 'docker exec -e PGPASSWORD="$(printf \'%s\' \''.base64_encode($targetPassword).'\' | base64 -d)" postgresql-'.$target->uuid
-                .' psql -U '.$targetUser.' -d '.$targetDatabase.' -v ON_ERROR_STOP=1 -c '.escapeshellarg($sql);
+            $urlSql = 'docker exec -e PGPASSWORD="$(printf \'%s\' \''.base64_encode($targetPassword).'\' | base64 -d)" "$dst_pg" psql -U '.$targetUser.' -d '.$targetDatabase.' -v ON_ERROR_STOP=1 -c '.escapeshellarg($sql);
         }
 
         $script = <<<'BASH'
 set -eu
 dump=__DUMP__
-docker stop __DST_ODOO__ >/dev/null 2>&1 || true
-trap 'status=$?; rm -f "$dump"; if [ "$status" -ne 0 ]; then docker start __DST_ODOO__ >/dev/null 2>&1 || true; fi; exit "$status"' EXIT
-docker exec -e PGPASSWORD="$(printf '%s' '__SRC_PW__' | base64 -d)" __SRC_PG__ pg_dump -U __SRC_USER__ --no-owner --no-acl __SRC_DB__ > "$dump"
-docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ psql -U __DST_USER__ -d postgres -v ON_ERROR_STOP=1 -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '__DST_DB__' AND pid <> pg_backend_pid();"
-docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ dropdb --if-exists -U __DST_USER__ __DST_DB__
-docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ createdb -U __DST_USER__ __DST_DB__
-docker exec -i -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG__ psql -U __DST_USER__ -d __DST_DB__ -v ON_ERROR_STOP=1 < "$dump"
-docker volume create __DST_VOLUME__
-docker run --rm -v __SRC_VOLUME__:/source:ro -v __DST_VOLUME__:/target alpine sh -c 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; chown -R 101:101 /target || true'
+cid() {
+  dir="$1"
+  project="$2"
+  service="$3"
+  id=$(docker compose --project-directory "$dir" --project-name "$project" ps -aq "$service" 2>/dev/null | head -n 1 || true)
+  if [ -z "$id" ]; then
+    id=$(docker ps -aq --filter "label=com.docker.compose.project=${project}" --filter "label=com.docker.compose.service=${service}" | head -n 1 || true)
+  fi
+  if [ -z "$id" ]; then
+    echo "The ${service} container for this environment is not running." >&2
+    exit 1
+  fi
+  printf '%s\n' "$id"
+}
+src_pg=$(cid __SRC_DIR__ __SRC_UUID__ postgresql)
+dst_pg=$(cid __DST_DIR__ __DST_UUID__ postgresql)
+src_odoo=$(cid __SRC_DIR__ __SRC_UUID__ odoo)
+dst_odoo=$(cid __DST_DIR__ __DST_UUID__ odoo)
+docker start "$src_pg" >/dev/null
+docker start "$dst_pg" >/dev/null
+docker stop "$dst_odoo" >/dev/null 2>&1 || true
+trap 'status=$?; rm -f "$dump"; if [ "$status" -ne 0 ]; then docker start "$dst_odoo" >/dev/null 2>&1 || true; fi; exit "$status"' EXIT
+docker exec -e PGPASSWORD="$(printf '%s' '__SRC_PW__' | base64 -d)" "$src_pg" pg_dump -U __SRC_USER__ --no-owner --no-acl __SRC_DB__ > "$dump"
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" psql -U __DST_USER__ -d postgres -v ON_ERROR_STOP=1 -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '__DST_DB__' AND pid <> pg_backend_pid();"
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" dropdb --if-exists -U __DST_USER__ __DST_DB__
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" createdb -U __DST_USER__ __DST_DB__
+docker exec -i -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" psql -U __DST_USER__ -d __DST_DB__ -v ON_ERROR_STOP=1 < "$dump"
+src_vol=$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/var/lib/odoo" }}{{ .Name }}{{ end }}{{ end }}' "$src_odoo")
+dst_vol=$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/var/lib/odoo" }}{{ .Name }}{{ end }}{{ end }}' "$dst_odoo")
+if [ -z "$src_vol" ] || [ -z "$dst_vol" ] || [ "$src_vol" = "$dst_vol" ]; then
+  echo "The database copy refused to write production." >&2
+  exit 1
+fi
+docker run --rm -v "$src_vol":/source:ro -v "$dst_vol":/target alpine sh -c 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; chown -R 101:101 /target || true'
 __URL_SQL__
-image=$(docker inspect --format '{{.Image}}' __SRC_ODOO__)
-docker run --pull never --rm --network container:__DST_PG__ --entrypoint odoo "$image" neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
-docker start __DST_ODOO__
+image=$(docker inspect --format '{{.Image}}' "$src_odoo")
+docker run --pull never --rm --network "container:$dst_pg" --entrypoint odoo "$image" neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
+docker start "$dst_odoo"
 BASH;
 
         $script = str_replace(
-            ['__SRC_PG__', '__DST_PG__', '__SRC_ODOO__', '__DST_ODOO__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__SRC_VOLUME__', '__DST_VOLUME__', '__URL_SQL__'],
+            ['__SRC_DIR__', '__DST_DIR__', '__SRC_UUID__', '__DST_UUID__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__URL_SQL__'],
             [
-                'postgresql-'.$source->uuid,
-                'postgresql-'.$target->uuid,
-                'odoo-'.$source->uuid,
-                'odoo-'.$target->uuid,
+                $source->workdir(),
+                $target->workdir(),
+                $source->uuid,
+                $target->uuid,
                 $sourceUser,
                 $targetUser,
                 $sourceDatabase,
@@ -537,8 +561,6 @@ BASH;
                 base64_encode($sourcePassword),
                 base64_encode($targetPassword),
                 '/tmp/gpsh-clone-'.$target->uuid.'.sql',
-                $sourceVolume,
-                $targetVolume,
                 $urlSql,
             ],
             $script,
