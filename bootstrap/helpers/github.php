@@ -209,6 +209,9 @@ function generateGithubToken(GithubApp $source, string $type)
 
             if (! $response->successful()) {
                 $error = data_get($response->json(), 'message', 'no error message found');
+                if (githubRateLimited((string) $error)) {
+                    throw new RuntimeException('GitHub is limiting requests. Wait a few minutes and try again.');
+                }
                 if ($error === 'Not Found') {
                     $error = 'Repository not found. Is it moved or deleted?';
                 }
@@ -249,6 +252,11 @@ function generateGithubJwt(GithubApp $source)
     return generateGithubToken($source, 'jwt');
 }
 
+function githubRateLimited(?string $message): bool
+{
+    return is_string($message) && preg_match('/rate limit/i', $message) === 1;
+}
+
 function githubApi(?GithubApp $source, string $endpoint, string $method = 'get', ?array $data = null, bool $throwError = true)
 {
     if (is_null($source)) {
@@ -272,6 +280,9 @@ function githubApi(?GithubApp $source, string $endpoint, string $method = 'get',
 
     if (! $response->successful() && $throwError) {
         $errorMessage = data_get($response->json(), 'message', 'no error message found');
+        if (githubRateLimited((string) $errorMessage)) {
+            throw new RuntimeException('GitHub is limiting requests. Wait a few minutes and try again.');
+        }
         $remainingCalls = $response->header('X-RateLimit-Remaining');
         $detail = 'GitHub API call failed: '.$errorMessage;
         if (filled($remainingCalls)) {

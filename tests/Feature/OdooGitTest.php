@@ -271,6 +271,49 @@ it('launches an environment without github and leaves the addon files to jupyter
         ->and(Application::query()->count())->toBe(0);
 });
 
+it('stops when github is rate limited instead of calling the api again', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-github-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    $this->project->update(['name' => 'Mi Empresa']);
+
+    $urls = [];
+    \Illuminate\Support\Facades\Http::fake(function ($request) use (&$urls) {
+        $urls[] = $request->url();
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($request->url(), '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($request->url(), '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($request->url(), '/app/installations/')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'account' => ['login' => 'acme', 'type' => 'Organization'],
+            ], 200, $date);
+        }
+        if (strtoupper($request->method()) === 'POST' && str_contains($request->url(), '/orgs/acme/repos')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected'], 500, $date);
+    });
+
+    expect(fn () => OdooGit::launchEnvironment($this->project, $this->githubApp, 'production'))
+        ->toThrow(RuntimeException::class, 'GitHub is limiting requests. Wait a few minutes and try again.');
+
+    expect(collect($urls)->contains(fn (string $url): bool => str_contains($url, '/repos/acme/')))->toBeFalse();
+});
+
 it('creates the project repository and makes each environment its own branch', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
