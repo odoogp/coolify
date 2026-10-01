@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project;
 
+use App\Jobs\LaunchOdooProjectJob;
 use App\Models\EnvironmentVariable;
 use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
@@ -33,6 +34,14 @@ class AddEmpty extends Component
     public string $odooVersion = '18';
 
     public bool $connectGithub = true;
+
+    public bool $launchRunning = false;
+
+    public int $launchStep = 0;
+
+    public ?string $launchError = null;
+
+    public ?string $launchKey = null;
 
     protected function rules(): array
     {
@@ -84,7 +93,7 @@ class AddEmpty extends Component
                     $created = $this->createChosenService($project, $productionEnvironment);
                 }
                 if ($this->service === 'odoo' && $this->connectGithub) {
-                    $githubApp = OdooGit::userApp((int) $project->team_id, auth()->id());
+                    $githubApp = OdooGit::installedApp((int) $project->team_id, auth()->id());
                     if ($githubApp instanceof GithubApp) {
                         OdooGit::launchEnvironment($project, $githubApp, 'production');
                     }
@@ -111,13 +120,22 @@ class AddEmpty extends Component
                 return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
             }
 
-            if ($created instanceof Service && $this->service === 'odoo' && $this->connectGithub) {
-                OdooGit::cloneIntoService($created);
-                OdooGit::startIfPossible($created);
-            }
+            if ($created instanceof Service && $this->service === 'odoo') {
+                if ($githubApp instanceof GithubApp) {
+                    OdooGit::cloneIntoService($created);
+                }
+                $this->launchKey = 'launch-odoo-'.$created->uuid;
+                Cache::put($this->launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
+                LaunchOdooProjectJob::dispatch(
+                    $created->id,
+                    $this->launchKey,
+                    (int) auth()->id(),
+                );
+                $this->launchStep = 1;
+                $this->launchError = null;
+                $this->launchRunning = true;
 
-            if ($created instanceof Service && $this->service === 'odoo' && ! $this->connectGithub) {
-                OdooGit::startIfPossible($created);
+                return;
             }
 
             if ($created instanceof Service) {
@@ -137,6 +155,34 @@ class AddEmpty extends Component
 
             return handleError($e, $this);
         }
+    }
+
+    public function refreshLaunchProgress(): void
+    {
+        if (! is_string($this->launchKey) || $this->launchKey === '') {
+            return;
+        }
+
+        $status = Cache::get($this->launchKey);
+        if (! is_array($status)) {
+            return;
+        }
+
+        $this->launchStep = (int) ($status['step'] ?? 1);
+        $this->launchError = is_string($status['error'] ?? null) ? $status['error'] : null;
+        $redirect = $status['redirect'] ?? null;
+        if (($status['done'] ?? false) === true && is_array($redirect) && is_string($redirect['name'] ?? null)) {
+            $this->launchRunning = false;
+            $parameters = is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
+            $this->redirectRoute($redirect['name'], $parameters);
+        }
+    }
+
+    public function dismissLaunchError(): void
+    {
+        $this->launchRunning = false;
+        $this->launchError = null;
+        $this->launchStep = 0;
     }
 
     public function render()

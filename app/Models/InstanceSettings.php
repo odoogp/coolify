@@ -57,6 +57,8 @@ class InstanceSettings extends Model
         'avatar_storage_type',
         'avatar_s3_storage_id',
         'is_dashboard_force_https_enabled',
+        'github_app_name',
+        'github_app_icon',
     ];
 
     protected $hidden = [

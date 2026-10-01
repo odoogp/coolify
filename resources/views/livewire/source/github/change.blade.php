@@ -312,6 +312,11 @@
                                 ]"
                                 helper="{{ __('Write access lets Coolify post deployment status and links on pull requests.') }}" />
 
+                            @if (is_string(instanceSettings()->github_app_icon ?? null) && instanceSettings()->github_app_icon !== '')
+                                <img src="{{ instanceSettings()->github_app_icon }}" alt="{{ instanceSettings()->github_app_name }}"
+                                    class="size-10 rounded-md border border-neutral-200 object-cover dark:border-white/10">
+                            @endif
+
                             <button type="button"
                                 class="button mt-auto w-full justify-center button-highlighted"
                                 x-on:click.prevent="createGithubApp(webhookEndpoint, useCustomWebhookEndpoint, customWebhookEndpoint, {{ Illuminate\Support\Js::from($preview_deployment_permissions) }}, {{ Illuminate\Support\Js::from($administration) }}, {{ Illuminate\Support\Js::from($forOdooProject) }})">

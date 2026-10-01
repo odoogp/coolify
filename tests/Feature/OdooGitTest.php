@@ -495,10 +495,28 @@ it('lets an admin change the github account and keeps members out', function () 
     expect(fn () => OdooGit::beginConnect($this->project))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
 });
 
+it('starts a new odoo project in stages and reuses an installed github app', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-installed-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update(['private_key_id' => $privateKey->id, 'webhook_secret' => null]);
+
+    expect(OdooGit::configuredAppName())->toBe('gpsh1')
+        ->and(OdooGit::installedApp($this->team->id, $this->user->id)?->is($this->githubApp))->toBeTrue()
+        ->and(file_get_contents(app_path('Jobs/LaunchOdooProjectJob.php')))->toContain('StartService::run')
+        ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Starting the containers')
+        ->and(file_get_contents(resource_path('views/livewire/settings/index.blade.php')))->toContain('github_app_icon');
+});
+
 it('names a new github app after the product and keeps it on the user', function () {
     $app = OdooGit::beginConnect($this->project);
 
-    expect($app->name)->toBe('gpsh')
+    expect($app->name)->toBe('gpsh1')
         ->and(session('from.odoo'))->toBeTrue()
         ->and(OdooGit::beginConnect($this->project)->is($app))->toBeTrue()
         ->and(GithubApp::query()->where('team_id', $this->team->id)->where('name', 'like', 'gpsh%')->count())->toBe(1);

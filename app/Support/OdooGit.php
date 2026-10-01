@@ -964,6 +964,48 @@ BASH;
         return 'https://github.com/'.$repository.'/tree/'.$encoded;
     }
 
+    public static function installedApp(int $teamId, ?int $userId): ?GithubApp
+    {
+        $app = self::userApp($teamId, $userId);
+        if ($app instanceof GithubApp) {
+            return $app;
+        }
+
+        $installed = GithubApp::query()
+            ->where(function ($query) use ($teamId) {
+                $query->where('team_id', $teamId)->orWhere('is_system_wide', true);
+            })
+            ->whereNotNull('app_id')
+            ->whereNotNull('installation_id')
+            ->whereNotNull('private_key_id')
+            ->latest('id')
+            ->get();
+        if ($userId !== null) {
+            $id = DB::table('team_user')
+                ->where('user_id', $userId)
+                ->where('team_id', $teamId)
+                ->value('github_app_id');
+            if ($id !== null) {
+                $match = $installed->firstWhere('id', (int) $id);
+                if ($match instanceof GithubApp) {
+                    return $match;
+                }
+            }
+        }
+
+        return $installed->first();
+    }
+
+    public static function configuredAppName(): string
+    {
+        $stored = instanceSettings()->github_app_name ?? null;
+        $raw = is_string($stored) && $stored !== '' ? $stored : 'gpsh1';
+        $name = strtolower((string) preg_replace('/[^a-z0-9-]/i', '', $raw));
+        $name = trim($name, '-');
+
+        return $name !== '' ? substr($name, 0, 34) : 'gpsh1';
+    }
+
     public static function userApp(int $teamId, ?int $userId): ?GithubApp
     {
         $connected = self::connectedApps($teamId);
@@ -1279,7 +1321,7 @@ BASH;
 
     private static function appName(int $teamId): string
     {
-        $base = str(product_name())->lower()->toString();
+        $base = self::configuredAppName();
         $name = $base;
         $suffix = 2;
         while (GithubApp::query()->where('team_id', $teamId)->where('name', $name)->exists()) {

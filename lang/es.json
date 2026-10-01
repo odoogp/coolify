@@ -3750,5 +3750,13 @@
     "This environment only runs Odoo.": "Este ambiente solo ejecuta Odoo.",
     "Install Odoo": "Instalar Odoo",
     "No server is available for this Odoo service.": "No hay un servidor disponible para este servicio de Odoo.",
-    "Odoo has no compose template for this version.": "Odoo no tiene plantilla de Compose para esta versión."
+    "Odoo has no compose template for this version.": "Odoo no tiene plantilla de Compose para esta versión.",
+    "Creating the project": "Creando el proyecto",
+    "Starting the containers": "Arrancando los contenedores",
+    "Checking HTTPS": "Comprobando HTTPS",
+    "The project could not be started.": "No se pudo iniciar el proyecto.",
+    "GitHub App name": "Nombre de la app de GitHub",
+    "GitHub App icon": "Icono de la app de GitHub",
+    "Name used the next time GPSH registers its GitHub App. An app that is already installed is reused.": "Nombre que se usa la próxima vez que GPSH registre su app de GitHub. Si la app ya está instalada, se reutiliza.",
+    "Image URL. GPSH shows it on the GitHub connection. After registering, upload the same image as the app logo on GitHub.": "URL de la imagen. GPSH la muestra en la conexión con GitHub. Después de registrarla, sube la misma imagen como logo de la app en GitHub."
 }

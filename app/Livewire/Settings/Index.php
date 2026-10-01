@@ -44,6 +44,12 @@ class Index extends Component
     #[Validate(['nullable', 'string', 'max:128', 'regex:/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/'])]
     public ?string $dev_helper_version = null;
 
+    #[Validate(['required', 'string', 'max:34', 'regex:/^[A-Za-z0-9][A-Za-z0-9-]{0,33}$/'])]
+    public string $github_app_name = 'gpsh1';
+
+    #[Validate('nullable|string|max:2048|url')]
+    public ?string $github_app_icon = null;
+
     public array $domainConflicts = [];
 
     public bool $showDomainConflictModal = false;
@@ -79,6 +85,10 @@ class Index extends Component
         $this->public_ipv6 = $this->settings->public_ipv6;
         $this->instance_timezone = $this->settings->instance_timezone;
         $this->dev_helper_version = $this->settings->dev_helper_version;
+        $this->github_app_name = is_string($this->settings->github_app_name) && $this->settings->github_app_name !== ''
+            ? $this->settings->github_app_name
+            : 'gpsh1';
+        $this->github_app_icon = $this->settings->github_app_icon;
     }
 
     #[Computed]
@@ -103,6 +113,8 @@ class Index extends Component
         $this->settings->public_ipv6 = $this->public_ipv6;
         $this->settings->instance_timezone = $this->instance_timezone;
         $this->settings->dev_helper_version = $this->dev_helper_version;
+        $this->settings->github_app_name = $this->github_app_name;
+        $this->settings->github_app_icon = $this->github_app_icon !== '' ? $this->github_app_icon : null;
         if ($isSave) {
             $this->settings->save();
             $this->dispatch('success', __('Settings updated!'));
@@ -140,6 +152,10 @@ class Index extends Component
             // Trim FQDN to remove leading/trailing whitespace before validation
             if ($this->fqdn) {
                 $this->fqdn = trim($this->fqdn);
+            }
+
+            if ($this->github_app_icon === '') {
+                $this->github_app_icon = null;
             }
 
             $this->validate();
