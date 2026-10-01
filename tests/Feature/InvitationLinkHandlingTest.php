@@ -3,6 +3,8 @@
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\CheckForcePasswordReset;
 use App\Http\Middleware\DecideWhatToDoWithUser;
+use App\Livewire\ForcePasswordReset;
+use Livewire\Livewire;
 use App\Models\InstanceSettings;
 use App\Models\Team;
 use App\Models\TeamInvitation;
@@ -210,6 +212,28 @@ it('keeps the invited user authenticated after rotating the temporary password w
 
     $user->refresh();
     expect(Hash::check($password, $user->password))->toBeFalse();
+});
+
+it('keeps the invited user signed in after they set a password', function () {
+    $this->withMiddleware([CheckForcePasswordReset::class, DecideWhatToDoWithUser::class]);
+    Config::set('session.driver', 'database');
+
+    [$team, $user, $password, $token] = createInvitationLinkFixture();
+    $user->teams()->attach($team->id, ['role' => 'admin']);
+
+    $this->post(route('auth.link.accept'), ['token' => $token])
+        ->assertRedirect(route('dashboard'));
+
+    Livewire::test(ForcePasswordReset::class)
+        ->set('password', 'Newpassword1')
+        ->set('password_confirmation', 'Newpassword1')
+        ->call('submit')
+        ->assertRedirect(route('dashboard'));
+
+    $this->assertAuthenticatedAs($user);
+    $this->get(route('dashboard'))->assertSuccessful();
+    expect($user->fresh()->force_password_reset)->toBeFalse()
+        ->and($user->fresh()->hasVerifiedEmail())->toBeTrue();
 });
 
 it('rejects a magic link when the stored invitation token differs', function () {

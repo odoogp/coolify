@@ -482,11 +482,18 @@ class AdminCreationQuota
             ->where('added_by', $userId)
             ->count();
 
+        $memberEmails = DB::table('users')
+            ->join('team_user', 'team_user.user_id', '=', 'users.id')
+            ->where('team_user.team_id', $teamId)
+            ->pluck('users.email')
+            ->map(fn ($email): string => strtolower((string) $email));
+
         $pending = TeamInvitation::query()
             ->where('team_id', $teamId)
             ->where('invited_by', $userId)
             ->get()
-            ->reject(fn (TeamInvitation $invitation): bool => $invitation->hasExpired())
+            ->reject(fn (TeamInvitation $invitation): bool => $invitation->hasExpired()
+                || $memberEmails->contains(strtolower($invitation->email)))
             ->count();
 
         return $accepted + $pending;

@@ -149,11 +149,11 @@ if (app()->environment(['local', 'testing'])) {
     })->where('code', '[0-9]{3}')->name('dev.error-preview');
 }
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware(['throttle:force-password-reset'])->group(function () {
-        Route::get('/force-password-reset', ForcePasswordReset::class)->name('auth.force-password-reset');
-    });
+Route::middleware(['auth', 'throttle:force-password-reset'])->group(function () {
+    Route::get('/force-password-reset', ForcePasswordReset::class)->name('auth.force-password-reset');
+});
 
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/', Dashboard::class)->name('dashboard');
     Route::get('/admin', AdminIndex::class)->name('admin.index');
     Route::get('/onboarding', BoardingIndex::class)->name('onboarding');

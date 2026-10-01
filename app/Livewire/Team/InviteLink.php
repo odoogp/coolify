@@ -97,14 +97,21 @@ class InviteLink extends Component
                 }
             }
 
+            $team = currentTeam();
             $invitation = app(AdminCreationQuota::class)->createInvitation(auth()->user(), [
-                'team_id' => currentTeam()->id,
+                'team_id' => $team->id,
                 'uuid' => $uuid,
                 'email' => $this->email,
                 'role' => $this->role,
                 'link' => $link,
                 'via' => $sendEmail ? 'email' : 'link',
             ]);
+            if (! $user->teams()->where('teams.id', $team->id)->exists()) {
+                $user->teams()->attach($team->id, [
+                    'role' => $this->role,
+                    'added_by' => auth()->id(),
+                ]);
+            }
             if ($sendEmail) {
                 $mail = new MailMessage;
                 $mail->view('emails.invitation-link', [
@@ -114,13 +121,11 @@ class InviteLink extends Component
                 $mail->subject('You have been invited to '.currentTeam()->name.' on '.product_name().'.');
                 send_user_an_email($mail, $this->email);
                 $this->dispatch('success', __('Invitation sent via email.'));
-                $this->dispatch('refreshInvitations');
-
-                return;
             } else {
                 $this->dispatch('success', __('Invitation link generated.'));
-                $this->dispatch('refreshInvitations');
             }
+            $this->dispatch('refreshInvitations');
+            $this->dispatch('reloadWindow');
         } catch (AdminCreationQuotaExceeded $e) {
             return handleError(error: $e, livewire: $this);
         } catch (\Throwable $e) {

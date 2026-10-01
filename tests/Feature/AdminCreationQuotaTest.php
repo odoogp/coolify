@@ -418,7 +418,9 @@ test('an invited admin stays on the assigned team and cannot create another', fu
 
     $invitee = User::query()->where('email', 'client@example.com')->first();
 
-    expect($invitee->teams()->count())->toBe(0)
+    expect($invitee->teams()->count())->toBe(1)
+        ->and($invitee->teams()->first()->id)->toBe($this->team->id)
+        ->and($invitee->teams()->first()->pivot->role)->toBe('admin')
         ->and($invitee->can('create', Team::class))->toBeFalse();
 
     $this->actingAs($invitee);

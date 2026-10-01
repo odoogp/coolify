@@ -139,6 +139,7 @@ class Controller extends BaseController
 
             $user->forceFill([
                 'password' => Hash::make(Str::random(64)),
+                'email_verified_at' => $user->email_verified_at ?? now(),
             ])->save();
             $invitation->delete();
 

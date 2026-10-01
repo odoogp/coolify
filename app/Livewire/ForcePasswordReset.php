@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use DanHarrin\LivewireRateLimiting\WithRateLimiting;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
@@ -47,10 +48,15 @@ class ForcePasswordReset extends Component
         try {
             $this->rateLimit(10);
             $this->validate();
-            auth()->user()->fill([
+            $user = auth()->user();
+            $team = $user->currentTeam() ?? $user->teams()->first();
+            $user->forceFill([
                 'password' => Hash::make($this->password),
                 'force_password_reset' => false,
+                'email_verified_at' => $user->email_verified_at ?? now(),
             ])->save();
+            Auth::login($user);
+            session(['currentTeam' => $team]);
 
             return redirect()->route('dashboard');
         } catch (\Throwable $e) {

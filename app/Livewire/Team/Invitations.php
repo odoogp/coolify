@@ -24,7 +24,8 @@ class Invitations extends Component
             $invitation = TeamInvitation::ownedByCurrentTeam()->findOrFail($invitation_id);
             DB::transaction(function () use ($invitation): void {
                 $user = User::whereEmail($invitation->email)->first();
-                if (filled($user)) {
+                if ($user instanceof User) {
+                    $user->teams()->detach($invitation->team_id);
                     $user->deleteIfNotVerifiedAndForcePasswordReset();
                 }
 
