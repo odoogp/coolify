@@ -311,6 +311,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and(str_replace('$$', '', $command))->not->toContain('$')
         ->and($aligned['odoo']['environment'])->toBe(['ODOO_DATABASE=mi_empresa_staging_1'])
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0')
+        ->and($aligned['odoo']['healthcheck'])->toBe(['disable' => true])
         ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/_odoo/paas/connect?token=tokentokentoken');
 });
 
@@ -330,4 +331,15 @@ test('an odoo https router tells odoo the browser used https', function () {
     expect($aligned['odoo']['labels'])->toContain('traefik.http.routers.https-0-uuid-odoo.middlewares=gzip,gpsh-forwarded-proto')
         ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto=https')
         ->and($aligned['odoo']['labels'])->toContain('traefik.http.routers.http-0-uuid-odoo.middlewares=redirect-to-https');
+});
+
+test('the odoo deploy waits until https answers', function () {
+    $command = \App\Support\OdooGit::httpsReadyCommand('odoo.example.test');
+
+    expect($command)->toStartWith('bash -c ')
+        ->and($command)->toContain('odoo.example.test')
+        ->and($command)->toContain('seq 1 120')
+        ->and($command)->toContain('no available server')
+        ->and($command)->toContain('grep -qi encrypt')
+        ->and(\App\Support\OdooGit::httpsReadyCommand('not a host'))->toBeNull();
 });

@@ -294,9 +294,8 @@ BASH));
                 // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
                 $service['entrypoint'] = ['bash', '-c'];
                 $service['command'] = [self::launchCommand($database, $url, $token, $password)];
-                if (is_array($service['healthcheck'] ?? null)) {
-                    $service['healthcheck']['start_period'] = '180s';
-                }
+                // The image healthcheck fails for the whole base install. Traefik then has no server and answers "no available server".
+                $service['healthcheck'] = ['disable' => true];
                 $environment = $service['environment'] ?? [];
                 if ($environment instanceof \Illuminate\Support\Collection) {
                     $environment = $environment->all();
