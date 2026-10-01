@@ -8,12 +8,12 @@ use App\Models\OdooEnvironmentBranch;
 use App\Models\OdooProfile;
 use App\Models\Project;
 use App\Models\Service;
+use App\Models\User;
 use App\Models\ServiceApplication;
 use App\Rules\ValidGitBranch;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -715,6 +715,22 @@ class OdooGit
         return self::installationAccount($githubApp)['login'];
     }
 
+    public static function repositoryUrl(string $repository, string $branch): string
+    {
+        if (! preg_match('#^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$#', $repository)) {
+            return '';
+        }
+
+        $branch = trim($branch);
+        if ($branch === '' || preg_match('/^[a-zA-Z0-9\-_\/.]+$/', $branch) !== 1) {
+            return 'https://github.com/'.$repository;
+        }
+
+        $encoded = implode('/', array_map(rawurlencode(...), explode('/', $branch)));
+
+        return 'https://github.com/'.$repository.'/tree/'.$encoded;
+    }
+
     public static function userApp(int $teamId, ?int $userId): ?GithubApp
     {
         $connected = self::connectedApps($teamId);
@@ -983,7 +999,10 @@ class OdooGit
 
     public static function beginConnect(Project $project, string $back = 'project.edit', array $parameters = []): GithubApp
     {
-        Gate::authorize('createAnyResource');
+        $user = auth()->user();
+        if (! $user instanceof User || ! $user->isAdminOfTeam((int) $project->team_id)) {
+            abort(403);
+        }
 
         session([
             'from' => [

@@ -447,7 +447,11 @@ it('lets the root owner clone staging when the queue has no session', function (
         0,
     ))->handle();
 
-    expect(Cache::get('odoo-clone-root')['error'] ?? null)->toBeNull()
+    $status = Cache::get('odoo-clone-root');
+
+    expect($status['error'] ?? null)->toBeNull()
+        ->and($status['redirect']['name'] ?? null)->toBe('project.show')
+        ->and($status['url'] ?? null)->toBeNull()
         ->and($project->environments()->pluck('name')->sort()->values()->all())->toBe(['production', 'staging-1']);
 });
 

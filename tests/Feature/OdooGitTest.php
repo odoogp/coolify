@@ -395,6 +395,8 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('New repository')
         ->toContain('Existing repository')
         ->toContain('associateOdooRepository')
+        ->toContain('Open on GitHub')
+        ->toContain('odooAccountChanged')
         ->toContain('odooRepositoryQuery')
         ->toContain('reloadOdooRepositories')
         ->not->toContain('Load repositories')
@@ -414,6 +416,27 @@ it('clones the repository branch into the addon volume jupyter shows', function 
         ->and($script)->toContain('svc_odoo-extra-addons')
         ->and($script)->toContain('alpine/git')
         ->and($script)->toContain('/addons');
+});
+
+it('opens the working repository on github', function () {
+    expect(OdooGit::repositoryUrl('acme/odoo', 'main'))->toBe('https://github.com/acme/odoo/tree/main')
+        ->and(OdooGit::repositoryUrl('acme/odoo', 'feature/pay'))->toBe('https://github.com/acme/odoo/tree/feature/pay')
+        ->and(OdooGit::repositoryUrl('not a repo', 'main'))->toBe('');
+});
+
+it('lets an admin change the github account and keeps members out', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin']);
+    $this->actingAs($admin);
+    session(['currentTeam' => $this->team]);
+
+    expect(OdooGit::beginConnect($this->project)->team_id)->toBe($this->team->id);
+
+    $member = User::factory()->create();
+    $member->teams()->attach($this->team, ['role' => 'member']);
+    $this->actingAs($member);
+
+    expect(fn () => OdooGit::beginConnect($this->project))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
 });
 
 it('names a new github app after the product and keeps it on the user', function () {

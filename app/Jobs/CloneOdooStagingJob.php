@@ -98,14 +98,19 @@ class CloneOdooStagingJob implements ShouldQueue
                 StartService::run($copied, pullLatestImages: true);
             }
 
-            $url = $copied instanceof Service
-                ? route('project.service.configuration', [
-                    'project_uuid' => $project->uuid,
-                    'environment_uuid' => $staging->uuid,
-                    'service_uuid' => $copied->uuid,
-                ])
-                : route('project.show', ['project_uuid' => $project->uuid]);
-            $this->progress(5, done: true, url: $url);
+            $this->progress(5, done: true, redirect: $copied instanceof Service
+                ? [
+                    'name' => 'project.service.configuration',
+                    'parameters' => [
+                        'project_uuid' => $project->uuid,
+                        'environment_uuid' => $staging->uuid,
+                        'service_uuid' => $copied->uuid,
+                    ],
+                ]
+                : [
+                    'name' => 'project.show',
+                    'parameters' => ['project_uuid' => $project->uuid],
+                ]);
         } catch (Throwable $exception) {
             if ($staging instanceof Environment && ! $started) {
                 try {
@@ -170,13 +175,16 @@ class CloneOdooStagingJob implements ShouldQueue
             ->all();
     }
 
-    private function progress(int $step, bool $done = false, ?string $error = null, ?string $url = null): void
+    /**
+     * @param  array{name: string, parameters: array<string, string>}|null  $redirect
+     */
+    private function progress(int $step, bool $done = false, ?string $error = null, ?array $redirect = null): void
     {
         Cache::put($this->cacheKey, [
             'step' => $step,
             'done' => $done,
             'error' => $error,
-            'url' => $url,
+            'redirect' => $redirect,
         ], now()->addMinutes(30));
     }
 }

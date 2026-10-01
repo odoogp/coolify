@@ -3583,6 +3583,8 @@
     "Clone": "Clonar",
     "Clone to staging": "Clonar a staging",
     "Change account": "Cambiar cuenta",
+    "This GitHub account is not the one linked to the repository. Associate a new repository, or choose an existing repository and a branch.": "Esta cuenta de GitHub no es la del repositorio. Asocia un repositorio nuevo, o elige uno existente y una rama.",
+    "The branch :branch is not on this repository. Choose another branch.": "La rama :branch no está en este repositorio. Elige otra rama.",
     "Create repository": "Crear repositorio",
     "Deploying branch :branch": "Desplegando la rama :branch",
     "GitHub branch :branch": "Rama de GitHub :branch",

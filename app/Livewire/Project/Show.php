@@ -197,12 +197,32 @@ class Show extends Component
 
             return;
         }
-        if (($status['done'] ?? false) && filled($status['url'] ?? null)) {
-            Cache::forget($this->cloneCacheKey());
-            $this->cloneRunning = false;
+        if ($status['done'] ?? false) {
+            $redirect = $this->cloneRedirect($status);
+            if ($redirect !== null) {
+                Cache::forget($this->cloneCacheKey());
+                $this->cloneRunning = false;
 
-            return redirect()->to((string) $status['url']);
+                return $redirect;
+            }
         }
+    }
+
+    private function cloneRedirect(array $status): mixed
+    {
+        $redirect = $status['redirect'] ?? null;
+        $name = is_array($redirect) ? (string) ($redirect['name'] ?? '') : '';
+        $parameters = is_array($redirect) && is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
+        if (in_array($name, ['project.service.configuration', 'project.show'], true)) {
+            return redirectRoute($this, $name, $parameters);
+        }
+
+        $path = parse_url((string) ($status['url'] ?? ''), PHP_URL_PATH);
+        if (is_string($path) && str_starts_with($path, '/project/')) {
+            return redirect()->to($path);
+        }
+
+        return null;
     }
 
     /**
