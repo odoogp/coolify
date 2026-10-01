@@ -113,28 +113,14 @@ try:
         "            try:\n"
         "                with odoo.modules.registry.Registry(DATABASE).cursor() as cr:\n"
         "                    env = odoo.api.Environment(cr, None, {})\n"
-        "                    request.session.authenticate(env, credential)\n"
-        "                    request.session.db = DATABASE\n"
         "                    try:\n"
-        "                        request._save_session()\n"
-        "                    except Exception:\n"
-        "                        try:\n"
-        "                            from odoo.http.session import save_session\n"
-        "                            save_session(request, env)\n"
-        "                        except Exception:\n"
-        "                            pass\n"
-        "                return True\n"
-        "            except Exception:\n"
-        "                pass\n"
-        "            try:\n"
-        "                request.session.authenticate(DATABASE, credential)\n"
-        "                request.session.db = DATABASE\n"
-        "                return True\n"
-        "            except Exception:\n"
-        "                pass\n"
-        "            try:\n"
-        "                request.session.authenticate(DATABASE, 'admin', secret)\n"
-        "                request.session.db = DATABASE\n"
+        "                        from odoo.http.session import authenticate, save_session\n"
+        "                        authenticate(request.session, env, credential)\n"
+        "                        request.session.db = DATABASE\n"
+        "                        save_session(request, env)\n"
+        "                    except ImportError:\n"
+        "                        request.session.authenticate(DATABASE, credential)\n"
+        "                        request.session.db = DATABASE\n"
         "                return True\n"
         "            except Exception:\n"
         "                return False\n"
@@ -210,12 +196,29 @@ if database and user and dbpass:
             cur.execute("UPDATE ir_config_parameter SET value=%s WHERE key=%s", (value, key))
             if cur.rowcount == 0:
                 cur.execute("INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) VALUES (%s, %s, 1, 1, NOW(), NOW())", (key, value))
-    try:
-        from passlib.context import CryptContext
-        cur.execute("UPDATE res_users SET password=%s WHERE login=%s", (CryptContext(schemes=["pbkdf2_sha512"]).hash(password), "admin"))
-    except Exception:
-        pass
     conn.close()
+PY
+python3 - <<'PY' || true
+import os
+url = "__ODOO_URL__"
+password = "__ODOO_PASSWORD__" or "admin"
+database = "__ODOO_DB__"
+host = os.environ.get("HOST", "postgresql")
+user = os.environ.get("USER") or ""
+dbpass = os.environ.get("PASSWORD") or ""
+port = os.environ.get("PORT", "5432")
+if not database or not user or not dbpass:
+    raise SystemExit(0)
+import odoo
+odoo.tools.config.parse_config(["-c", "/etc/odoo/odoo.conf", "--db_host", host, "--db_port", port, "--db_user", user, "--db_password", dbpass, "-d", database])
+registry = odoo.modules.registry.Registry(database)
+with registry.cursor() as cr:
+    env = odoo.api.Environment(cr, odoo.SUPERUSER_ID, {})
+    if url:
+        env["ir.config_parameter"].sudo().set_param("web.base.url", url)
+        env["ir.config_parameter"].sudo().set_param("web.base.url.freeze", "True")
+    env.ref("base.user_admin").sudo().write({"password": password})
+    cr.commit()
 PY
 exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
 BASH));
@@ -307,7 +310,21 @@ BASH));
                     $environment['ODOO_DATABASE'] = $database;
                 }
                 $service['environment'] = $environment;
-                $service['labels'] = self::forwardedProtoLabels($service['labels'] ?? []);
+                $labels = self::forwardedProtoLabels($service['labels'] ?? []);
+                if ($token !== '') {
+                    foreach ($labels as $index => $label) {
+                        if (! is_string($label) || ! str_contains($label, 'traefik.http.routers.https-') || ! str_contains($label, '.middlewares=')) {
+                            continue;
+                        }
+                        if (! str_contains($label, 'gpsh-enter')) {
+                            $labels[$index] = $label.',gpsh-enter';
+                        }
+                    }
+                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.regex=^https://([^/]+)/?$$';
+                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/gpsh/enter?token='.$token;
+                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.permanent=false';
+                }
+                $service['labels'] = $labels;
 
                 continue;
             }
