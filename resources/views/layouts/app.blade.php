@@ -147,6 +147,12 @@
                     <footer class="mt-10 text-center text-[11px] text-neutral-400 dark:text-fg-faint">{{ product_name() }}</footer>
                 </div>
             </main>
+            @php
+                $supportNumber = preg_replace('/\D+/', '', (string) (instanceSettings()->whatsapp_support_number ?? ''));
+            @endphp
+            @if ($supportNumber !== '')
+                <x-whatsapp-support :number="$supportNumber" />
+            @endif
         </div>
     @endauth
 @endsection

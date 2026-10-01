@@ -3772,5 +3772,18 @@
     "Use an existing repository": "Usar un repositorio existente",
     "Launch production": "Lanzar producción",
     "Search services": "Buscar servicios",
-    "No matching service": "Ningún servicio coincide"
+    "No matching service": "Ningún servicio coincide",
+    "WhatsApp": "WhatsApp",
+    "WhatsApp support number": "Número de WhatsApp para soporte",
+    "The floating button sends the conversation to this number. It stays hidden until a number is saved.": "El botón flotante envía la conversación a este número. Permanece oculto hasta que se guarde un número.",
+    "Country code and number, digits only. For example 50376120078.": "Código de país y número, solo dígitos. Por ejemplo 50376120078.",
+    "Use the country code and the number, digits only.": "Usa el código de país y el número, solo dígitos.",
+    "Which area do you want to talk about?": "¿Con qué área deseas hablar?",
+    "Choose an option to start the conversation": "Selecciona una opción para iniciar la conversación",
+    "Chat with us on WhatsApp": "Chatea con nosotros por WhatsApp",
+    "I cannot sign in": "No puedo entrar",
+    "I want to launch a project": "Quiero lanzar un proyecto",
+    "Something else": "Otra consulta",
+    "Hello, I am :who on :product. I need help with: :topic.": "Hola, soy :who en :product. Necesito ayuda con: :topic.",
+    "Name and icon used the next time GPSH registers its GitHub App. An app that is already installed is reused.": "Nombre e icono que se usan la próxima vez que GPSH registra su app de GitHub. Si la app ya está instalada, se reutiliza."
 }

@@ -76,8 +76,10 @@ use App\Livewire\Server\Swarm as ServerSwarm;
 use App\Livewire\Server\Transfer as ServerTransfer;
 use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
+use App\Livewire\Settings\Github as SettingsGithub;
 use App\Livewire\Settings\Index as SettingsIndex;
 use App\Livewire\Settings\Odoo as SettingsOdoo;
+use App\Livewire\Settings\Whatsapp as SettingsWhatsapp;
 use App\Livewire\Settings\ScheduledJobs as SettingsScheduledJobs;
 use App\Livewire\Settings\ServiceTemplates as SettingsServiceTemplates;
 use App\Livewire\Settings\Updates as SettingsUpdates;
@@ -165,6 +167,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/advanced', SettingsAdvanced::class)->name('settings.advanced');
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
     Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
+    Route::get('/settings/github', SettingsGithub::class)->name('settings.github');
+    Route::get('/settings/whatsapp', SettingsWhatsapp::class)->name('settings.whatsapp');
 
     Route::get('/settings/backup', SettingsBackup::class)->name('settings.backup');
     Route::get('/settings/email', SettingsEmail::class)->name('settings.email');

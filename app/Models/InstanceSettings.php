@@ -59,6 +59,7 @@ class InstanceSettings extends Model
         'is_dashboard_force_https_enabled',
         'github_app_name',
         'github_app_icon',
+        'whatsapp_support_number',
     ];
 
     protected $hidden = [

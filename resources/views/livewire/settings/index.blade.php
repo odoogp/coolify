@@ -8,7 +8,7 @@
             {{-- instance_timezone auto-saves via $wire.set + submit; exclude it so
                  the bar does not flash while the snapshot catches up. --}}
             <x-unsaved-bar action="submit"
-                targets="fqdn,instance_name,public_ipv4,public_ipv6,dev_helper_version,github_app_name,github_app_icon" />
+                targets="fqdn,instance_name,public_ipv4,public_ipv6,dev_helper_version" />
             <x-application.settings-section title="{{ __('General') }}">
                 <div class="grid gap-4 lg:grid-cols-2">
                     <div @class([
@@ -34,19 +34,6 @@
 
                     <x-forms.input canGate="update" :canResource="$settings" id="instance_name" label="{{ __('Name') }}"
                         placeholder="{{ product_name() }}" helper="{{ product_text('Custom name for this Coolify instance.') }}" />
-
-                    <x-forms.input canGate="update" :canResource="$settings" id="github_app_name"
-                        label="{{ __('GitHub App name') }}" placeholder="gpsh1"
-                        helper="{{ __('Name used the next time GPSH registers its GitHub App. An app that is already installed is reused.') }}" />
-                    <div>
-                        <x-forms.input canGate="update" :canResource="$settings" id="github_app_icon"
-                            label="{{ __('GitHub App icon') }}"
-                            placeholder="https://example.com/icon.png"
-                            helper="{{ __('Image URL. GPSH shows it on the GitHub connection. After registering, upload the same image as the app logo on GitHub.') }}" />
-                        @if (is_string($github_app_icon) && $github_app_icon !== '')
-                            <img src="{{ $github_app_icon }}" alt="" class="mt-2 size-10 rounded-md border border-neutral-200 object-cover dark:border-white/10">
-                        @endif
-                    </div>
 
                     {{-- Use searchable-listbox so the label row (h-4) and control height match
                          sibling x-forms.input fields (Name). onChange auto-saves like before. --}}

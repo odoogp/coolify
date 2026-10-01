@@ -514,7 +514,7 @@ it('starts a new odoo project in stages and reuses an installed github app', fun
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Starting the containers')
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('serverId')
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Search services')
-        ->and(file_get_contents(resource_path('views/livewire/settings/index.blade.php')))->toContain('github_app_icon');
+        ->and(file_get_contents(resource_path('views/livewire/settings/github.blade.php')))->toContain('github_app_icon');
 });
 
 it('creates the odoo service after github repositories are installed', function () {

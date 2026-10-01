@@ -63,3 +63,7 @@ Owners always can. Members never can.
 - Launch is finished only when HTTPS is Let's Encrypt (not the Traefik default) and the public URL answers (not 503).
 - A push to the saved `git_branch` git-clones addons and restarts only the Odoo container. Pull requests do nothing for Odoo.
 - New GPSH strings go in `lang/es.json`. Validate with `python3 -c 'import json; json.load(open("lang/es.json"))'`.
+
+## Support
+
+WhatsApp support is a floating button on the logged-in layout. It asks for a topic, then opens `wa.me` with that text. The number is `instance_settings.whatsapp_support_number`, edited only by the instance owner at `settings.whatsapp`. Empty number hides the button. GitHub App name and icon live at `settings.github`, not on the general form.
