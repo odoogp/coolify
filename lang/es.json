@@ -3770,5 +3770,7 @@
     "GitHub is connected. Launch production on a new repository, or search an existing one.": "GitHub ya está conectado. Lanza producción en un repositorio nuevo, o busca uno que ya exista.",
     "Launch production on a new repository": "Lanzar producción en un repositorio nuevo",
     "Use an existing repository": "Usar un repositorio existente",
-    "Launch production": "Lanzar producción"
+    "Launch production": "Lanzar producción",
+    "Search services": "Buscar servicios",
+    "No matching service": "Ningún servicio coincide"
 }

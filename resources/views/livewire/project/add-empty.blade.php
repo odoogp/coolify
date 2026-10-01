@@ -52,16 +52,19 @@
 
     <x-creation-quota :quota="$creationQuota" />
 
-    <x-forms.listbox id="service" label="{{ __('Service') }}" live :options="$serviceOptions" />
+    <x-forms.searchable-listbox id="service" label="{{ __('Service') }}" live portal
+        searchPlaceholder="{{ __('Search services') }}"
+        emptyText="{{ __('No matching service') }}"
+        :options="$serviceOptions" />
 
     @if ($service !== '' && $serverOptions !== [])
-        <x-forms.listbox id="serverId" label="{{ __('Server') }}"
+        <x-forms.listbox id="serverId" label="{{ __('Server') }}" portal
             helper="{{ __('Choose the server where this instance will run.') }}"
             :options="$serverOptions" />
     @endif
 
     @if ($service === 'odoo')
-        <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}"
+        <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal
             :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
         <x-forms.checkbox id="connectGithub" label="{{ __('Connect GitHub') }}"
             helper="{{ __('You can leave this off. JupyterLab then shows the addon files, and a repository can be connected later.') }}" />

@@ -203,9 +203,11 @@ class AddEmpty extends Component
         } catch (\Throwable) {
             $names = collect();
         }
-        if (! $names->contains('odoo')) {
-            $names->prepend('odoo');
-        }
+        $names = $names
+            ->reject(fn (string $name): bool => $name === 'odoo')
+            ->sort(SORT_NATURAL)
+            ->values();
+        $names->prepend('odoo');
 
         return view('livewire.project.add-empty', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),

@@ -12,6 +12,7 @@
     'wire' => true, // false = purely client-side value (no Livewire binding)
     'value' => null, // initial value when wire=false
     'disabled' => false,
+    'portal' => false,
 ])
 
 <div class="w-full min-w-0">
@@ -38,6 +39,7 @@
         open: false,
         query: '',
         saving: false,
+        positioned: false,
         options: @js(array_values($options)),
         value: @if (!$wire) @js($value) @elseif ($live && ! $onChange) @entangle($id).live @else @entangle($id) @endif,
         get current() {
@@ -63,11 +65,42 @@
             }
 
             this.open = !this.open;
+            this.positioned = false;
             if (this.open) {
-                this.$nextTick(() => this.$refs.search?.focus());
+                this.$nextTick(() => {
+                    @if ($portal)
+                        requestAnimationFrame(() => this.positionPanel());
+                    @endif
+                    this.$refs.search?.focus();
+                });
             } else {
                 this.query = '';
             }
+        },
+        positionPanel(panel = null) {
+            const trigger = this.$refs.trigger;
+            panel ??= this.$refs.panel;
+            if (!trigger || !panel) {
+                return;
+            }
+
+            const gap = 4;
+            const edge = 12;
+            const triggerRect = trigger.getBoundingClientRect();
+            const panelHeight = Math.min(panel.scrollHeight, 288);
+            const fitsBelow = window.innerHeight - triggerRect.bottom - gap >= panelHeight;
+            const top = fitsBelow
+                ? triggerRect.bottom + gap
+                : Math.max(edge, triggerRect.top - gap - panelHeight);
+            const left = Math.min(
+                Math.max(edge, triggerRect.left),
+                window.innerWidth - triggerRect.width - edge,
+            );
+
+            panel.style.top = `${top}px`;
+            panel.style.left = `${left}px`;
+            panel.style.width = `${triggerRect.width}px`;
+            this.positioned = true;
         },
         close() {
             this.open = false;
@@ -97,7 +130,7 @@
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
         @click.outside="close()" @keydown.escape.window="open && close()">
-        <button id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
+        <button x-ref="trigger" id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
             @disabled($disabled)
             {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
             :aria-expanded="open" :title="current">
@@ -107,7 +140,8 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8 9 4-4 4 4m0 6-4 4-4-4" />
             </svg>
         </button>
-        <div class="listbox-panel searchable-listbox-panel" x-show="open" x-cloak role="listbox"
+        <div x-ref="panel" @if ($portal) style="position: fixed; z-index: 9999; visibility: hidden" :style="{ visibility: positioned ? 'visible' : 'hidden' }" x-effect="if (open) requestAnimationFrame(() => positionPanel($el))" @resize.window="open && positionPanel($el)" @scroll.window.capture="open && positionPanel($el)" @endif
+            class="listbox-panel searchable-listbox-panel" x-show="open" x-cloak role="listbox"
             @click.stop>
             <div class="searchable-listbox-search">
                 <x-reicon name="search"
