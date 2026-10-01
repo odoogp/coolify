@@ -3700,5 +3700,12 @@
     "GitHub could not read the connected account.": "GitHub no pudo leer la cuenta conectada.",
     "GitHub did not return a repository name.": "GitHub no devolvió el nombre del repositorio.",
     "GitHub did not return a commit to start the branch.": "GitHub no devolvió un commit para crear la rama.",
-    "Restore requires a complete database and filestore backup.": "La restauración necesita una copia completa de la base y del filestore."
+    "Restore requires a complete database and filestore backup.": "La restauración necesita una copia completa de la base y del filestore.",
+    "That branch is already used by this repository.": "Esa rama ya está usada en este repositorio.",
+    "The staging branch cannot be one already used by this repository.": "La rama de staging no puede ser una que este repositorio ya tenga usada.",
+    "Already used: :branches.": "Ya usadas: :branches.",
+    "This environment only runs Odoo.": "Este ambiente solo ejecuta Odoo.",
+    "Install Odoo": "Instalar Odoo",
+    "No server is available for this Odoo service.": "No hay un servidor disponible para este servicio de Odoo.",
+    "Odoo has no compose template for this version.": "Odoo no tiene plantilla de Compose para esta versión."
 }

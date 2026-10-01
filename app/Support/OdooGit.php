@@ -22,7 +22,7 @@ use RuntimeException;
 
 /**
  * GitHub is optional. Without a repository, JupyterLab is the file manager.
- * With a repository, each environment is a branch named after that environment.
+ * With a repository, each environment keeps its own branch. Staging asks for one that is not already used.
  */
 class OdooGit
 {
@@ -829,6 +829,57 @@ class OdooGit
 
         githubApi($githubApp, "/repos/{$repo}/git/refs", 'post', [
             'ref' => 'refs/heads/'.$branch,
+            'sha' => $sha,
+        ]);
+    }
+
+    /**
+     * Create or keep the staging branch the user chose.
+     * A branch already stored on this project is rejected.
+     * If the requested source is missing, the repository default branch is the source.
+     *
+     * @param  list<string>  $used
+     */
+    public static function prepareStagingBranch(GithubApp $githubApp, string $fullName, string $source, string $target, array $used): void
+    {
+        $target = trim($target);
+        $used = array_values(array_unique(array_map(strval(...), $used)));
+        if (in_array($target, $used, true)) {
+            throw new InvalidArgumentException('That branch is already used by this repository.');
+        }
+        $check = Validator::make(['branch' => $target], ['branch' => ['required', 'string', new ValidGitBranch]]);
+        if ($check->fails()) {
+            throw new InvalidArgumentException('The GitHub branch name is invalid.');
+        }
+
+        [$owner, $name] = self::splitRepository($fullName);
+        $repo = rawurlencode($owner).'/'.rawurlencode($name);
+        $existing = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($target), 'get', null, false);
+        if (filled(data_get($existing, 'data.object.sha'))) {
+            return;
+        }
+
+        $source = trim($source);
+        $sha = '';
+        if ($source !== '' && $source !== $target) {
+            $head = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($source), 'get', null, false);
+            $sha = (string) data_get($head, 'data.object.sha');
+        }
+        if ($sha === '') {
+            $details = githubApi($githubApp, "/repos/{$repo}");
+            $default = (string) data_get($details, 'data.default_branch', '');
+            if ($default === '' || $default === $target) {
+                throw new RuntimeException('The source branch does not exist on GitHub.');
+            }
+            $head = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($default), 'get', null, false);
+            $sha = (string) data_get($head, 'data.object.sha');
+        }
+        if ($sha === '') {
+            throw new RuntimeException('The source branch does not exist on GitHub.');
+        }
+
+        githubApi($githubApp, "/repos/{$repo}/git/refs", 'post', [
+            'ref' => 'refs/heads/'.$target,
             'sha' => $sha,
         ]);
     }

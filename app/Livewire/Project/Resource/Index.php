@@ -3,12 +3,21 @@
 namespace App\Livewire\Project\Resource;
 
 use App\Models\Environment;
+use App\Models\EnvironmentVariable;
+use App\Models\OdooComposeTemplate;
 use App\Models\Project;
+use App\Models\Service;
+use App\Models\StandaloneDocker;
+use App\Models\SwarmDocker;
+use App\Support\OdooGit;
+use App\Support\OdooVersion;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 
 class Index extends Component
 {
+    use AuthorizesRequests;
     public Project $project;
 
     public Environment $environment;
@@ -174,7 +183,97 @@ class Index extends Component
             'dragonfliesJs' => $this->toSearchableArray($this->dragonflies, 'database', 'Database'),
             'clickhousesJs' => $this->toSearchableArray($this->clickhouses, 'database', 'Database'),
             'servicesJs' => $this->toSearchableArray($this->services, 'service', 'Service'),
+            'odooOnly' => $this->project->odooProfile()->exists(),
         ]);
+    }
+
+    public function installOdoo()
+    {
+        try {
+            $this->authorize('createAnyResource');
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                return;
+            }
+            $existing = $this->environment->services()->get()->first(
+                fn (Service $service): bool => $service->supportsOdooJupyter()
+            );
+            if ($existing instanceof Service) {
+                return redirect()->route('project.service.configuration', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $this->environment->uuid,
+                    'service_uuid' => $existing->uuid,
+                ]);
+            }
+
+            $destination = StandaloneDocker::ownedByCurrentTeam()->first()
+                ?? SwarmDocker::ownedByCurrentTeam()->first();
+            if ($destination === null) {
+                $this->dispatch('error', __('No server is available for this Odoo service.'));
+
+                return;
+            }
+
+            $version = (string) ($profile->odoo_version ?: '18');
+            $templates = get_service_templates();
+            $encoded = data_get($templates, 'odoo.compose');
+            $compose = is_string($encoded) && $encoded !== '' ? base64_decode($encoded) : OdooComposeTemplate::defaultCompose($version);
+            $saved = OdooComposeTemplate::composeFor($version);
+            $compose = $saved ?? (is_string($compose) ? OdooVersion::apply($compose, $version) : null);
+            if (! is_string($compose) || $compose === '') {
+                $this->dispatch('error', __('Odoo has no compose template for this version.'));
+
+                return;
+            }
+
+            $service = new Service([
+                'docker_compose_raw' => $compose,
+                'environment_id' => $this->environment->id,
+                'service_type' => 'odoo',
+                'server_id' => $destination->server_id,
+                'destination_id' => $destination->id,
+                'destination_type' => $destination->getMorphClass(),
+                'jupyter_enabled' => blank($profile->git_repository),
+            ]);
+            if (in_array('odoo', NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
+                $service->connect_to_docker_network = true;
+            }
+            $service->save();
+            $service->name = 'odoo-'.$service->uuid;
+            $service->save();
+
+            $envs = data_get($templates, 'odoo.envs');
+            if (is_string($envs) && $envs !== '') {
+                collect(preg_split('/\r\n|\r|\n/', base64_decode($envs)))
+                    ->filter(fn ($line): bool => is_string($line) && str_contains($line, '='))
+                    ->each(function (string $line) use ($service): void {
+                        $key = str($line)->before('=')->value();
+                    $value = str($line)->after('=')->value();
+                    if ($key === '' || $value === '') {
+                        return;
+                    }
+                    EnvironmentVariable::create([
+                        'key' => $key,
+                        'value' => $value,
+                        'resourceable_id' => $service->id,
+                        'resourceable_type' => $service->getMorphClass(),
+                        'is_preview' => false,
+                    ]);
+                });
+            }
+
+            $service->parse(isNew: true);
+            applyServiceApplicationPrerequisites($service);
+            OdooGit::startIfPossible($service);
+
+            return redirect()->route('project.service.configuration', [
+                'project_uuid' => $this->project->uuid,
+                'environment_uuid' => $this->environment->uuid,
+                'service_uuid' => $service->uuid,
+            ]);
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
     }
 
     private function toSearchableArray(Collection $items, string $type, string $typeLabel): array

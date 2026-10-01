@@ -30,6 +30,7 @@
                         {{ __('Settings') }}
                     </a>
 
+                    @if (! $project->odooProfile)
                     <x-modal-input title="{{ __('New Environment') }}">
                         <x-slot:content>
                             <button type="button"
@@ -52,6 +53,7 @@
                             </footer>
                         </form>
                     </x-modal-input>
+                    @endif
                 </div>
             @endcan
         </header>
@@ -151,6 +153,14 @@
                             <input type="radio" wire:model="cloneAddons" value="empty" class="rounded-full">
                             {{ __('New, without modules') }}
                         </label>
+                        <div class="max-w-sm">
+                            <label class="mb-1.5 block text-sm font-medium" for="staging-branch">{{ __('Branch') }}</label>
+                            <input id="staging-branch" type="text" wire:model="stagingBranch" class="input" autocomplete="off">
+                        </div>
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('The staging branch cannot be one already used by this repository.') }}
+                            {{ __('Already used: :branches.', ['branches' => $usedBranches === [] ? '—' : implode(', ', $usedBranches)]) }}
+                        </p>
                         <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
                             @if (filled($project->odooProfile?->git_repository))
                                 {{ __('GitHub is connected, so the new staging is another branch of :repository. It does not reuse the production branch.', ['repository' => $project->odooProfile->git_repository]) }}
@@ -187,7 +197,7 @@
                                         class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg"
                                         x-text="environment.name"></h2>
                                     <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint"
-                                        x-text="environment.description || @js(__('Environment'))"></p>
+                                        x-text="environment.branch || environment.description || @js(__('Environment'))"></p>
                                 </div>
                             </div>
 
@@ -197,6 +207,10 @@
                                 </p>
 
                                 <div class="relative z-10 flex shrink-0 items-center gap-0.5">
+                                    <a x-show="environment.serviceHref" :href="environment.serviceHref"
+                                        {{ wireNavigate() }}
+                                        class="button h-7 px-2 text-[11px]"
+                                        title="{{ __('Open') }}">{{ __('Open') }}</a>
                                     <a x-show="environment.addResourceHref" :href="environment.addResourceHref"
                                         {{ wireNavigate() }}
                                         class="flex size-7.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
@@ -256,9 +270,11 @@
                         <div class="environment-resource-count text-[12px] text-neutral-600 dark:text-fg-dim"
                             x-text="environment.resourceCount"></div>
                         <p class="environment-description truncate text-[12px] text-neutral-500 dark:text-fg-dim"
-                            x-text="environment.description || '-'"></p>
+                            x-text="environment.branch || environment.description || '-'"></p>
 
                         <div class="relative flex items-center justify-end gap-0.5">
+                            <a x-show="environment.serviceHref" :href="environment.serviceHref" {{ wireNavigate() }}
+                                class="button h-7 px-2 text-[11px]">{{ __('Open') }}</a>
                             <a x-show="environment.addResourceHref" :href="environment.addResourceHref"
                                 {{ wireNavigate() }}
                                 class="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"

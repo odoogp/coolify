@@ -482,6 +482,61 @@ it('clones the production branch onto a different branch and asks github for one
         ->and($tokens->count())->toBeLessThan(2);
 });
 
+it('rejects a staging branch that is already used', function () {
+    expect(fn () => OdooGit::prepareStagingBranch($this->githubApp, 'acme/odoo', 'production', 'main', ['main']))
+        ->toThrow(\InvalidArgumentException::class, 'That branch is already used by this repository.');
+});
+
+it('starts a new staging branch from the repository default when production is missing', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-stage-key',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+
+    \Illuminate\Support\Facades\Http::fake(function ($request) {
+        $url = $request->url();
+        $method = strtoupper($request->method());
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/main')) {
+            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'defaultsha']], 200, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+        }
+        if ($method === 'GET' && str_contains($url, '/repos/acme/odoo')) {
+            return \Illuminate\Support\Facades\Http::response(['default_branch' => 'main'], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/git/refs')) {
+            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/staging-1'], 201, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    OdooGit::prepareStagingBranch($this->githubApp, 'acme/odoo', 'production', 'staging-1', ['main']);
+
+    $posted = \Illuminate\Support\Facades\Http::recorded(
+        fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
+    );
+    expect($posted)->toHaveCount(1)
+        ->and($posted[0][0]->data()['ref'])->toBe('refs/heads/staging-1')
+        ->and($posted[0][0]->data()['sha'])->toBe('defaultsha');
+});
+
 it('loads one page of repositories and shows the github error', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);

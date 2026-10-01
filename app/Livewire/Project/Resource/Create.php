@@ -30,6 +30,9 @@ class Create extends Component
             return redirect()->route('dashboard');
         }
         $this->project = $project;
+        if ($project->odooProfile()->exists()) {
+            return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
+        }
         $environment = $project->load(['environments'])->environments->where('uuid', request()->route('environment_uuid'))->first();
         if (! $environment) {
             return redirect()->route('dashboard');

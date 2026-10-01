@@ -8,10 +8,14 @@ use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Models\Service;
 use App\Services\AdminCreationQuota;
+use App\Models\GithubApp;
+use App\Rules\ValidGitBranch;
 use App\Support\OdooGit;
+use App\Support\OdooStaging;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Livewire\Component;
 use RuntimeException;
@@ -31,6 +35,8 @@ class Show extends Component
     public bool $showCloneWizard = false;
 
     public string $cloneAddons = 'copy';
+
+    public string $stagingBranch = '';
 
     protected function rules(): array
     {
@@ -99,6 +105,7 @@ class Show extends Component
         if ($production instanceof Environment) {
             $this->selectedEnvironmentUuid = $production->uuid;
         }
+        $this->stagingBranch = OdooStaging::nextName($this->project);
         $this->showCloneWizard = true;
     }
 
@@ -110,35 +117,43 @@ class Show extends Component
 
     public function cloneToStaging()
     {
+        $createdId = null;
         try {
             $this->authorize('update', $this->project);
+            $this->project->load('odooProfile.githubApp', 'environments.odooBranch');
             $selected = $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid);
             if (! $selected instanceof Environment || strcasecmp($selected->name, 'production') !== 0) {
                 throw new RuntimeException('Clone starts from the production environment.');
             }
 
-            $this->project->load('odooProfile.githubApp');
             $profile = $this->project->odooProfile;
             $repository = $profile?->git_repository;
             $app = $profile?->githubApp;
-            $from = $selected->odooBranch?->git_branch ?: $selected->name;
-            if (filled($repository) && $app !== null && blank($selected->odooBranch?->git_branch)) {
-                OdooEnvironmentBranch::query()->updateOrCreate(
-                    ['environment_id' => $selected->id],
-                    ['git_branch' => $selected->name],
-                );
+            $branch = trim($this->stagingBranch);
+            if ($branch === '') {
+                $branch = OdooStaging::nextName($this->project);
+            }
+            $used = $this->usedOdooBranches();
+            if (in_array($branch, $used, true)) {
+                throw new InvalidArgumentException('That branch is already used by this repository.');
+            }
+            $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
+            if ($check->fails()) {
+                throw new InvalidArgumentException('The GitHub branch name is invalid.');
+            }
+            if (filled($repository) && $app instanceof GithubApp) {
+                $source = $this->cloneAddons === 'copy'
+                    ? (string) ($selected->odooBranch?->git_branch ?: $selected->name)
+                    : '';
+                OdooGit::prepareStagingBranch($app, (string) $repository, $source, $branch, $used);
             }
 
             $staging = $this->project->cloneProductionAsStaging();
-            if (filled($repository) && $app !== null) {
-                if ($this->cloneAddons === 'copy') {
-                    OdooGit::cloneBranch($app, (string) $repository, (string) $from, $staging->name);
-                } else {
-                    OdooGit::ensureRepositoryAndBranch($app, $this->project, $staging->name);
-                }
+            $createdId = $staging->id;
+            if (filled($repository) && $app instanceof GithubApp) {
                 OdooEnvironmentBranch::query()->updateOrCreate(
                     ['environment_id' => $staging->id],
-                    ['git_branch' => $staging->name],
+                    ['git_branch' => $branch],
                 );
             }
 
@@ -163,10 +178,62 @@ class Show extends Component
 
             return redirectRoute($this, 'project.show', ['project_uuid' => $this->project->uuid]);
         } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->discardEmptyStaging($createdId);
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
+            $this->discardEmptyStaging($createdId);
+
             return handleError($e, $this);
         }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function usedOdooBranches(): array
+    {
+        $this->project->loadMissing('environments.odooBranch');
+
+        return $this->project->environments
+            ->map(fn (Environment $environment): ?string => $environment->odooBranch?->git_branch)
+            ->filter(fn (?string $branch): bool => filled($branch))
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    private function discardEmptyStaging(?int $environmentId): void
+    {
+        if ($environmentId === null) {
+            return;
+        }
+
+        $environment = Environment::query()->find($environmentId);
+        if (! $environment instanceof Environment) {
+            return;
+        }
+        if ($environment->services()->exists() || $environment->applications()->exists()) {
+            return;
+        }
+
+        $environment->delete();
+        $this->project->unsetRelation('environments');
+        $this->project->load(['environments' => fn ($query) => $query
+            ->withCount([
+                'applications',
+                'services',
+                'postgresqls',
+                'redis',
+                'keydbs',
+                'dragonflies',
+                'clickhouses',
+                'mongodbs',
+                'mysqls',
+                'mariadbs',
+            ])
+            ->with('odooBranch')
+            ->orderBy('created_at'),
+        ]);
     }
 
     private function copyProductionService(Environment $source, Environment $staging): ?Service
@@ -207,10 +274,13 @@ class Show extends Component
     public function render(): View
     {
         $canUpdateProject = auth()->user()->can('update', $this->project);
-        $canCreateResource = auth()->user()->can('createAnyResource');
+        $odooOnly = $this->project->odooProfile()->exists();
+        $canCreateResource = auth()->user()->can('createAnyResource') && ! $odooOnly;
+        $this->project->loadMissing('environments.odooBranch', 'environments.services');
 
         return view('livewire.project.show', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
+            'usedBranches' => $this->usedOdooBranches(),
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),
             'environmentsJs' => $this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject): array {
                 $resourceCount = collect([
@@ -226,10 +296,20 @@ class Show extends Component
                     $environment->mariadbs_count,
                 ])->sum();
 
+                $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+
                 return [
                     'uuid' => $environment->uuid,
                     'name' => $environment->name,
                     'description' => $environment->description,
+                    'branch' => $environment->odooBranch?->git_branch,
+                    'serviceHref' => $service instanceof Service
+                        ? route('project.service.configuration', [
+                            'project_uuid' => $this->project->uuid,
+                            'environment_uuid' => $environment->uuid,
+                            'service_uuid' => $service->uuid,
+                        ])
+                        : null,
                     'resourceCount' => $resourceCount,
                     'href' => route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,

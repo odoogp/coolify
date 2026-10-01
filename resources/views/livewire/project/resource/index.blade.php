@@ -23,18 +23,32 @@
                     </a>
                 @endcan
                 @can('createAnyResource')
+                    @if (! $odooOnly)
                     <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button whitespace-nowrap button-highlighted">
                         <x-reicon name="plus" class="size-3.5" />
                         {{ __('New resource') }}
                     </a>
+                    @endif
                 @endcan
             </div>
         </header>
 
         @if ($environment->isEmpty())
-            @can('createAnyResource')
+            @if ($odooOnly)
+                <x-empty title="{{ __('No resources yet') }}"
+                    description="{{ __('This environment only runs Odoo.') }}"
+                    icon-name="layers">
+                    @can('createAnyResource')
+                        <x-slot:contents>
+                            <button type="button" class="button" wire:click="installOdoo">
+                                {{ __('Install Odoo') }}
+                            </button>
+                        </x-slot:contents>
+                    @endcan
+                </x-empty>
+            @elseif (auth()->user()->can('createAnyResource'))
                 <x-empty title="{{ __('No resources yet') }}"
                     description="{{ __('Add an application, database, or service to this environment.') }}"
                     icon-name="layers">
@@ -50,7 +64,7 @@
                 <x-empty title="{{ __('No resources yet') }}"
                     description="{{ __('Add an application, database, or service to this environment.') }}"
                     icon-name="layers" />
-            @endcan
+            @endif
         @else
             <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="relative w-full sm:max-w-sm">

@@ -337,7 +337,11 @@ it('lists environments once and clones production into one staging', function ()
     expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
         ->not->toContain('project.odoo-summary')
         ->toContain('openCloneWizard')
-        ->toContain('cloneToStaging');
+        ->toContain('cloneToStaging')
+        ->toContain('staging-branch');
+    expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
+        ->toContain('installOdoo')
+        ->toContain('This environment only runs Odoo.');
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->call('selectEnvironment', $production->uuid)
@@ -373,4 +377,31 @@ it('copies the production service into the staging clone', function () {
         ->and($copy->docker_compose_raw)->toContain('odoo:20')
         ->and($copy->environment_id)->toBe($staging->id)
         ->and($production->services()->count())->toBe(1);
+});
+
+it('does not create a staging environment when the branch is already used', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    \App\Models\OdooEnvironmentBranch::query()->create([
+        'environment_id' => $production->id,
+        'git_branch' => 'main',
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->set('stagingBranch', 'main')
+        ->call('cloneToStaging')
+        ->assertDispatched('error');
+
+    expect($this->project->environments()->pluck('name')->all())->toBe(['production']);
+});
+
+it('sends an odoo project away from the generic resource catalog', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+
+    $this->get(route('project.resource.create', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ]))->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
 });
