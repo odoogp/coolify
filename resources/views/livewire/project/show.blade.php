@@ -139,7 +139,52 @@
                         @endcan
                     </div>
                 </div>
-                @if ($showCloneWizard)
+                @if ($cloneRunning || $cloneError)
+                    <div @if ($cloneRunning) wire:poll.2s="refreshCloneProgress" @endif
+                        class="fixed inset-0 z-99 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+                        <div class="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                        <h2 class="text-base font-semibold">
+                            {{ $cloneError ? __('The staging could not be created.') : __('Creating the staging') }}
+                        </h2>
+                        <ul class="mt-4 flex flex-col gap-2">
+                            @foreach ([
+                                1 => __('Mounting the environment'),
+                                2 => __('Copying the service'),
+                                3 => __('Cloning the branch'),
+                                4 => __('Checking HTTPS'),
+                                5 => __('Done'),
+                            ] as $stepNumber => $label)
+                                <li @class([
+                                    'flex items-center gap-2 text-[13px] leading-5',
+                                    'text-emerald-600 dark:text-emerald-400' => $cloneStep > $stepNumber,
+                                    'text-neutral-900 dark:text-fg' => $cloneStep === $stepNumber,
+                                    'text-neutral-500 dark:text-fg-dim' => $cloneStep < $stepNumber,
+                                ])>
+                                    <span class="flex size-4 shrink-0 items-center justify-center">
+                                        @if ($cloneStep > $stepNumber)
+                                            <x-reicon name="check-circle" class="size-4" />
+                                        @elseif ($cloneStep === $stepNumber && ! $cloneError)
+                                            <svg class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none"
+                                                viewBox="0 0 24 24" aria-hidden="true">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor"
+                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        @else
+                                            <span class="size-3 rounded-full border border-neutral-300 dark:border-white/20"></span>
+                                        @endif
+                                    </span>
+                                    <span>{{ $label }}</span>
+                                </li>
+                            @endforeach
+                        </ul>
+                        @if ($cloneError)
+                            <p class="mt-4 text-[13px] text-red-500">{{ __($cloneError) }}</p>
+                            <button type="button" class="button mt-4" wire:click="dismissCloneError">{{ __('Close') }}</button>
+                        @endif
+                        </div>
+                    </div>
+                @elseif ($showCloneWizard)
                     <div
                         class="mb-3 space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                         <p class="text-[13px] font-medium">
@@ -168,12 +213,8 @@
                                 {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
                             @endif
                         </p>
-                        <p wire:loading wire:target="cloneToStaging" class="text-[13px] font-medium">
-                            {{ __('Creating the staging and starting Odoo. The destination is a new staging environment.') }}
-                        </p>
-                        <button type="button" class="button button-highlighted" wire:click="cloneToStaging" wire:loading.attr="disabled" wire:target="cloneToStaging">
-                            <span wire:loading.remove wire:target="cloneToStaging">{{ __('Create staging') }}</span>
-                            <span wire:loading wire:target="cloneToStaging">{{ __('Creating the staging…') }}</span>
+                        <button type="button" class="button button-highlighted" wire:click="cloneToStaging">
+                            {{ __('Create staging') }}
                         </button>
                     </div>
                 @endif

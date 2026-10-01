@@ -2,19 +2,17 @@
 
 namespace App\Livewire\Project;
 
-use App\Actions\Service\StartService;
+use App\Jobs\CloneOdooStagingJob;
 use App\Models\Environment;
-use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Models\Service;
-use App\Services\AdminCreationQuota;
-use App\Models\GithubApp;
 use App\Rules\ValidGitBranch;
-use App\Support\OdooGit;
+use App\Services\AdminCreationQuota;
 use App\Support\OdooStaging;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Livewire\Component;
@@ -37,6 +35,12 @@ class Show extends Component
     public string $cloneAddons = 'copy';
 
     public string $stagingBranch = '';
+
+    public bool $cloneRunning = false;
+
+    public int $cloneStep = 0;
+
+    public ?string $cloneError = null;
 
     protected function rules(): array
     {
@@ -73,6 +77,7 @@ class Show extends Component
                         ->orderBy('created_at'),
                 ])
                 ->firstOrFail();
+            $this->loadCloneProgress();
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -117,7 +122,6 @@ class Show extends Component
 
     public function cloneToStaging()
     {
-        $createdId = null;
         try {
             $this->authorize('update', $this->project);
             $this->project->load('odooProfile.githubApp', 'environments.odooBranch');
@@ -126,64 +130,78 @@ class Show extends Component
                 throw new RuntimeException('Clone starts from the production environment.');
             }
 
-            $profile = $this->project->odooProfile;
-            $repository = $profile?->git_repository;
-            $app = $profile?->githubApp;
             $branch = trim($this->stagingBranch);
             if ($branch === '') {
                 $branch = OdooStaging::nextName($this->project);
             }
-            $used = $this->usedOdooBranches();
-            if (in_array($branch, $used, true)) {
+            if (in_array($branch, $this->usedOdooBranches(), true)) {
                 throw new InvalidArgumentException('That branch is already used by this repository.');
             }
             $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
             if ($check->fails()) {
                 throw new InvalidArgumentException('The GitHub branch name is invalid.');
             }
-            if (filled($repository) && $app instanceof GithubApp) {
-                $source = $this->cloneAddons === 'copy'
-                    ? (string) ($selected->odooBranch?->git_branch ?: $selected->name)
-                    : '';
-                OdooGit::prepareStagingBranch($app, (string) $repository, $source, $branch, $used);
-            }
 
-            $staging = $this->project->cloneProductionAsStaging();
-            $createdId = $staging->id;
-            if (filled($repository) && $app instanceof GithubApp) {
-                OdooEnvironmentBranch::query()->updateOrCreate(
-                    ['environment_id' => $staging->id],
-                    ['git_branch' => $branch],
-                );
-            }
-
-            $copied = $this->copyProductionService($selected, $staging);
-            if ($copied instanceof Service && filled($repository) && $this->cloneAddons === 'copy') {
-                OdooGit::cloneIntoService($copied);
-            }
-            if ($copied instanceof Service && $copied->server?->isFunctional()) {
-                StartService::run($copied, pullLatestImages: true);
-            }
-
+            $this->cloneError = null;
+            $this->cloneStep = 1;
+            $this->cloneRunning = true;
             $this->showCloneWizard = false;
-            if ($copied instanceof Service) {
-                return redirectRoute($this, 'project.service.configuration', [
-                    'project_uuid' => $this->project->uuid,
-                    'environment_uuid' => $staging->uuid,
-                    'service_uuid' => $copied->uuid,
-                ]);
-            }
+            Cache::put($this->cloneCacheKey(), [
+                'step' => 1,
+                'done' => false,
+                'error' => null,
+                'url' => null,
+            ], now()->addMinutes(30));
+            CloneOdooStagingJob::dispatch(
+                $this->project->id,
+                $selected->uuid,
+                $branch,
+                $this->cloneAddons,
+                $this->cloneCacheKey(),
+                (int) auth()->id(),
+            );
 
-            $this->dispatch('success', __('Staging :name created without modules.', ['name' => $staging->name]));
-
-            return redirectRoute($this, 'project.show', ['project_uuid' => $this->project->uuid]);
+            return $this->refreshCloneProgress();
         } catch (InvalidArgumentException|RuntimeException $exception) {
-            $this->discardEmptyStaging($createdId);
+            $this->cloneRunning = false;
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
-            $this->discardEmptyStaging($createdId);
+            $this->cloneRunning = false;
 
             return handleError($e, $this);
+        }
+    }
+
+    public function dismissCloneError(): void
+    {
+        $this->cloneError = null;
+        $this->cloneStep = 0;
+        $this->cloneRunning = false;
+    }
+
+    public function refreshCloneProgress()
+    {
+        $this->authorize('view', $this->project);
+        $status = Cache::get($this->cloneCacheKey());
+        if (! is_array($status)) {
+            $this->cloneRunning = false;
+
+            return;
+        }
+
+        $this->cloneStep = (int) ($status['step'] ?? 1);
+        if (filled($status['error'] ?? null)) {
+            $this->cloneRunning = false;
+            $this->cloneError = (string) $status['error'];
+            Cache::forget($this->cloneCacheKey());
+
+            return;
+        }
+        if (($status['done'] ?? false) && filled($status['url'] ?? null)) {
+            Cache::forget($this->cloneCacheKey());
+            $this->cloneRunning = false;
+
+            return redirect()->to((string) $status['url']);
         }
     }
 
@@ -202,65 +220,25 @@ class Show extends Component
             ->all();
     }
 
-    private function discardEmptyStaging(?int $environmentId): void
+    private function cloneCacheKey(): string
     {
-        if ($environmentId === null) {
-            return;
-        }
-
-        $environment = Environment::query()->find($environmentId);
-        if (! $environment instanceof Environment) {
-            return;
-        }
-        if ($environment->services()->exists() || $environment->applications()->exists()) {
-            return;
-        }
-
-        $environment->delete();
-        $this->project->unsetRelation('environments');
-        $this->project->load(['environments' => fn ($query) => $query
-            ->withCount([
-                'applications',
-                'services',
-                'postgresqls',
-                'redis',
-                'keydbs',
-                'dragonflies',
-                'clickhouses',
-                'mongodbs',
-                'mysqls',
-                'mariadbs',
-            ])
-            ->with('odooBranch')
-            ->orderBy('created_at'),
-        ]);
+        return 'odoo-clone-'.$this->project->id;
     }
 
-    private function copyProductionService(Environment $source, Environment $staging): ?Service
+    private function loadCloneProgress(): void
     {
-        $original = $source->services()->get()->first(
-            fn (Service $service): bool => $service->supportsOdooJupyter()
-        );
-        if (! $original instanceof Service) {
-            return null;
+        $status = Cache::get($this->cloneCacheKey());
+        if (! is_array($status) || ($status['done'] ?? false)) {
+            return;
         }
+        $this->cloneStep = (int) ($status['step'] ?? 1);
+        if (filled($status['error'] ?? null)) {
+            $this->cloneError = (string) $status['error'];
 
-        $copy = $original->replicate();
-        $copy->uuid = new_public_id();
-        $copy->environment_id = $staging->id;
-        $copy->config_hash = null;
-        $copy->name = 'odoo-'.$staging->name;
-        $copy->save();
-
-        foreach ($original->environment_variables as $variable) {
-            $cloned = $variable->replicate();
-            $cloned->uuid = new_public_id();
-            $cloned->resourceable_id = $copy->id;
-            $cloned->resourceable_type = $copy->getMorphClass();
-            $cloned->save();
+            return;
         }
-
-        return $copy;
+        $this->cloneRunning = true;
+        $this->showCloneWizard = false;
     }
 
     public function navigateToEnvironment($projectUuid, $environmentUuid)

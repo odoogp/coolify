@@ -338,7 +338,12 @@ it('lists environments once and clones production into one staging', function ()
         ->not->toContain('project.odoo-summary')
         ->toContain('openCloneWizard')
         ->toContain('cloneToStaging')
-        ->toContain('staging-branch');
+        ->toContain('staging-branch')
+        ->toContain('Mounting the environment')
+        ->toContain('Copying the service')
+        ->toContain('Cloning the branch')
+        ->toContain('Checking HTTPS')
+        ->toContain('refreshCloneProgress');
     expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
         ->toContain('installOdoo')
         ->toContain('This environment only runs Odoo.');
