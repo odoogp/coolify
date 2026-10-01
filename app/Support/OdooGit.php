@@ -488,8 +488,8 @@ class OdooGit
             throw new RuntimeException('The staging copy needs production and staging on the same server.');
         }
 
-        foreach ([$source->workdir(), $target->workdir()] as $directory) {
-            if (preg_match('#^/data/coolify/services/[A-Za-z0-9]+$#', $directory) !== 1) {
+        foreach ([$source->id, $target->id] as $serviceId) {
+            if (preg_match('/^[1-9][0-9]*$/', (string) $serviceId) !== 1) {
                 throw new RuntimeException('The staging database cannot be copied.');
             }
         }
@@ -507,24 +507,36 @@ class OdooGit
         $script = <<<'BASH'
 set -eu
 dump=__DUMP__
-cid() {
-  dir="$1"
-  project="$2"
-  service="$3"
-  id=$(docker compose --project-directory "$dir" --project-name "$project" ps -aq "$service" 2>/dev/null | head -n 1 || true)
-  if [ -z "$id" ]; then
-    id=$(docker ps -aq --filter "label=com.docker.compose.project=${project}" --filter "label=com.docker.compose.service=${service}" | head -n 1 || true)
+pick() {
+  service_id="$1"
+  kind="$2"
+  ids=$(docker ps -q --filter "label=coolify.serviceId=${service_id}")
+  if [ -z "$ids" ]; then
+    ids=$(docker ps -aq --filter "label=coolify.serviceId=${service_id}")
   fi
-  if [ -z "$id" ]; then
-    echo "The ${service} container for this environment is not running." >&2
-    exit 1
-  fi
-  printf '%s\n' "$id"
+  for id in $ids; do
+    image=$(docker inspect --format '{{.Config.Image}}' "$id" | tr '[:upper:]' '[:lower:]')
+    case "$kind:$image" in
+      postgres:*postgres*)
+        printf '%s\n' "$id"
+        return 0
+        ;;
+      odoo:odoo:*|odoo:*/odoo:*)
+        printf '%s\n' "$id"
+        return 0
+        ;;
+    esac
+  done
+  return 1
 }
-src_pg=$(cid __SRC_DIR__ __SRC_UUID__ postgresql)
-dst_pg=$(cid __DST_DIR__ __DST_UUID__ postgresql)
-src_odoo=$(cid __SRC_DIR__ __SRC_UUID__ odoo)
-dst_odoo=$(cid __DST_DIR__ __DST_UUID__ odoo)
+src_pg=$(pick __SRC_ID__ postgres || true)
+dst_pg=$(pick __DST_ID__ postgres || true)
+src_odoo=$(pick __SRC_ID__ odoo || true)
+dst_odoo=$(pick __DST_ID__ odoo || true)
+if [ -z "$src_pg" ]; then echo "The database container of the service being cloned was not found." >&2; exit 1; fi
+if [ -z "$dst_pg" ]; then echo "The database container of the new staging service was not found." >&2; exit 1; fi
+if [ -z "$src_odoo" ]; then echo "The Odoo container of the service being cloned was not found." >&2; exit 1; fi
+if [ -z "$dst_odoo" ]; then echo "The Odoo container of the new staging service was not found." >&2; exit 1; fi
 docker start "$src_pg" >/dev/null
 docker start "$dst_pg" >/dev/null
 docker stop "$dst_odoo" >/dev/null 2>&1 || true
@@ -548,12 +560,10 @@ docker start "$dst_odoo"
 BASH;
 
         $script = str_replace(
-            ['__SRC_DIR__', '__DST_DIR__', '__SRC_UUID__', '__DST_UUID__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__URL_SQL__'],
+            ['__SRC_ID__', '__DST_ID__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__URL_SQL__'],
             [
-                $source->workdir(),
-                $target->workdir(),
-                $source->uuid,
-                $target->uuid,
+                (string) $source->id,
+                (string) $target->id,
                 $sourceUser,
                 $targetUser,
                 $sourceDatabase,

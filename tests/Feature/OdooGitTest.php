@@ -811,11 +811,10 @@ it('copies the production database and files into staging and neutralizes only t
     $command = OdooGit::copyProductionDataCommand($source, $target);
 
     expect($command)->toContain('pg_dump')
-        ->toContain('/data/coolify/services/'.$source->uuid)
-        ->toContain('/data/coolify/services/'.$target->uuid)
-        ->toContain('ps -aq "$service"')
-        ->toContain('cid '.$source->workdir().' '.$source->uuid.' postgresql')
-        ->toContain('cid '.$target->workdir().' '.$target->uuid.' odoo')
+        ->toContain('label=coolify.serviceId='.$source->id)
+        ->toContain('label=coolify.serviceId='.$target->id)
+        ->toContain('postgres:*postgres*')
+        ->toContain('odoo:odoo:*')
         ->toContain('acme_production')
         ->toContain('--no-owner')
         ->toContain(':/source:ro')
@@ -833,6 +832,7 @@ it('copies the production database and files into staging and neutralizes only t
         ->not->toContain($sourcePassword)
         ->not->toContain('postgresql-'.$source->uuid)
         ->not->toContain('postgresql-'.$target->uuid)
+        ->not->toContain('service=postgresql')
         ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('OdooGit::copyProductionData');
 
     $target->environment_variables()->where('key', 'ODOO_DATABASE')->first()->update(['value' => 'acme_production']);
