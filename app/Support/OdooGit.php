@@ -487,9 +487,6 @@ class OdooGit
         if ($source->server_id !== null && $target->server_id !== null && (int) $source->server_id !== (int) $target->server_id) {
             throw new RuntimeException('The staging copy needs production and staging on the same server.');
         }
-        if (preg_match('/image:\s*(odoo:[0-9]+(?:\.[0-9]+)?)/', (string) $target->docker_compose_raw, $matches) !== 1) {
-            throw new RuntimeException('The staging database cannot be neutralized without the Odoo image.');
-        }
 
         $sourceVolume = OdooAddons::filestoreVolume($source);
         $targetVolume = OdooAddons::filestoreVolume($target);
@@ -521,15 +518,17 @@ docker exec -i -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" __DST_PG_
 docker volume create __DST_VOLUME__
 docker run --rm -v __SRC_VOLUME__:/source:ro -v __DST_VOLUME__:/target alpine sh -c 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; chown -R 101:101 /target || true'
 __URL_SQL__
-docker run --rm --network container:__DST_PG__ --entrypoint odoo __IMAGE__ neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
+image=$(docker inspect --format '{{.Image}}' __SRC_ODOO__)
+docker run --pull never --rm --network container:__DST_PG__ --entrypoint odoo "$image" neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
 docker start __DST_ODOO__
 BASH;
 
         $script = str_replace(
-            ['__SRC_PG__', '__DST_PG__', '__DST_ODOO__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__SRC_VOLUME__', '__DST_VOLUME__', '__IMAGE__', '__URL_SQL__'],
+            ['__SRC_PG__', '__DST_PG__', '__SRC_ODOO__', '__DST_ODOO__', '__SRC_USER__', '__DST_USER__', '__SRC_DB__', '__DST_DB__', '__SRC_PW__', '__DST_PW__', '__DUMP__', '__SRC_VOLUME__', '__DST_VOLUME__', '__URL_SQL__'],
             [
                 'postgresql-'.$source->uuid,
                 'postgresql-'.$target->uuid,
+                'odoo-'.$source->uuid,
                 'odoo-'.$target->uuid,
                 $sourceUser,
                 $targetUser,
@@ -540,7 +539,6 @@ BASH;
                 '/tmp/gpsh-clone-'.$target->uuid.'.sql',
                 $sourceVolume,
                 $targetVolume,
-                $matches[1],
                 $urlSql,
             ],
             $script,

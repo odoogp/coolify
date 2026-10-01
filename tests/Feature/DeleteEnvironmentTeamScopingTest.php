@@ -59,10 +59,9 @@ test('environment_id is locked and cannot be reassigned from the client', functi
 });
 
 test('delete still removes an empty environment owned by the current team', function () {
-    $component = Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
-        ->set('parameters', ['project_uuid' => $this->projectA->uuid]);
-
-    $component->call('delete');
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
+        ->call('delete', '')
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
 
     expect(Environment::find($this->environmentA->id))->toBeNull();
 });
@@ -75,9 +74,9 @@ test('deleting an environment also deletes the resources it has', function () {
     ]);
 
     Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
-        ->set('parameters', ['project_uuid' => $this->projectA->uuid])
         ->assertSee('Delete the resources in this environment: odoo')
-        ->call('delete');
+        ->call('delete', '')
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
 
     expect(Environment::find($this->environmentA->id))->toBeNull();
     expect(Application::withTrashed()->find($application->id)?->trashed())->toBeTrue();

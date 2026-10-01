@@ -18,25 +18,27 @@ class DeleteEnvironment extends Component
 
     public string $environmentName = '';
 
-    public array $parameters;
-
     public function mount()
     {
-        $this->parameters = get_route_parameters();
         $this->environmentName = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id)->name;
     }
 
-    public function delete()
+    public function delete(?string $password = null, array $selectedActions = [])
     {
         try {
             $this->validate([
                 'environment_id' => 'required|int',
             ]);
-            $environment = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id);
+            $environment = Environment::ownedByCurrentTeam()->with('project')->findOrFail($this->environment_id);
             $this->authorize('delete', $environment);
+            $projectUuid = $environment->project?->uuid;
             $environment->delete();
 
-            return redirectRoute($this, 'project.show', ['project_uuid' => $this->parameters['project_uuid']]);
+            if (! is_string($projectUuid) || $projectUuid === '') {
+                return redirectRoute($this, 'project.index');
+            }
+
+            return redirectRoute($this, 'project.show', ['project_uuid' => $projectUuid]);
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

@@ -95,7 +95,7 @@ class CloneOdooStagingJob implements ShouldQueue
             $this->progress(4);
             $started = true;
             if ($copied instanceof Service && $copied->server?->isFunctional()) {
-                StartService::run($copied, pullLatestImages: true);
+                StartService::run($copied, pullLatestImages: false);
                 $original = $production->services()->get()->first(
                     fn (Service $service): bool => $service->supportsOdooJupyter()
                 );
