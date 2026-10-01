@@ -49,7 +49,7 @@ class OdooGit
                 }
                 $message = (string) ($response->json('message') ?: 'GitHub repositories could not be loaded.');
                 if (githubRateLimited($message)) {
-                    throw new RuntimeException('GitHub is limiting requests. Wait a few minutes and try again.');
+                    throw new RuntimeException(__('GitHub is limiting requests. Wait a few minutes and try again.'));
                 }
                 throw new RuntimeException($message);
             }
@@ -95,7 +95,7 @@ class OdooGit
             if ($response->status() !== 200) {
                 $message = (string) ($response->json('message') ?: 'GitHub branches could not be loaded.');
                 if (githubRateLimited($message)) {
-                    throw new RuntimeException('GitHub is limiting requests. Wait a few minutes and try again.');
+                    throw new RuntimeException(__('GitHub is limiting requests. Wait a few minutes and try again.'));
                 }
                 throw new RuntimeException($message);
             }
@@ -1044,7 +1044,7 @@ BASH;
         if ($id === 0 || $fullName === '') {
             $message = (string) data_get($created, 'data.message', '');
             if (githubRateLimited($message)) {
-                throw new RuntimeException('GitHub is limiting requests. Wait a few minutes and try again.');
+                throw new RuntimeException(__('GitHub is limiting requests. Wait a few minutes and try again.'));
             }
             $message = strtolower($message);
             if (str_contains($message, 'resource not accessible') || str_contains($message, 'upgrade')) {

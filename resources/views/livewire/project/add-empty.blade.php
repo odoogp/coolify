@@ -21,7 +21,7 @@
     </p>
 
     <footer class="flex justify-end border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-        <x-forms.button type="submit"
+        <x-forms.button type="submit" wire:target="submit"
             defaultClass="button button-highlighted">
             {{ __('Create project') }}
         </x-forms.button>

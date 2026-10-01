@@ -14,8 +14,11 @@ use App\Support\OdooGit;
 use App\Support\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
+use RuntimeException;
 
 class AddEmpty extends Component
 {
@@ -49,48 +52,68 @@ class AddEmpty extends Component
 
     public function submit()
     {
+        $lock = Cache::lock('create-project-user-'.auth()->id(), 180);
+        if (! $lock->get()) {
+            return handleError(new RuntimeException(__('A project is already being created.')), $this);
+        }
+
         try {
             $this->authorize('create', Project::class);
             $this->validate();
-            $project = app(AdminCreationQuota::class)->createProject(auth()->user(), [
-                'name' => $this->name,
-                'description' => $this->description,
-                'team_id' => currentTeam()->id,
-                'uuid' => new_public_id(),
-            ]);
 
-            $productionEnvironment = $project->environments()->where('name', 'production')->first();
             $created = null;
-            if ($this->service === 'odoo') {
-                $project->enableOdoo($this->odooVersion);
-                $project->refresh();
-            }
-            if ($this->service !== '') {
-                $created = $this->createChosenService($project, $productionEnvironment);
-            }
+            $project = null;
+            $productionEnvironment = null;
+            $githubApp = null;
 
-            if ($this->service === 'odoo' && $this->connectGithub) {
-                $githubApp = OdooGit::userApp((int) $project->team_id, auth()->id());
-                if ($githubApp instanceof GithubApp) {
-                    OdooGit::launchEnvironment($project, $githubApp, 'production');
-                    if ($created instanceof Service) {
-                        OdooGit::cloneIntoService($created);
-                        OdooGit::startIfPossible($created);
-                    }
-                } else {
-                    $parameters = [
-                        'project_uuid' => $project->uuid,
-                        'environment_uuid' => $productionEnvironment->uuid,
-                    ];
-                    $back = 'project.resource.index';
-                    if ($created instanceof Service) {
-                        $parameters['service_uuid'] = $created->uuid;
-                        $back = 'project.service.configuration';
-                    }
-                    $githubApp = OdooGit::beginConnect($project, $back, $parameters);
+            DB::beginTransaction();
+            try {
+                $project = app(AdminCreationQuota::class)->createProject(auth()->user(), [
+                    'name' => $this->name,
+                    'description' => $this->description,
+                    'team_id' => currentTeam()->id,
+                    'uuid' => new_public_id(),
+                ]);
 
-                    return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+                $productionEnvironment = $project->environments()->where('name', 'production')->first();
+                if ($this->service === 'odoo') {
+                    $project->enableOdoo($this->odooVersion);
+                    $project->refresh();
                 }
+                if ($this->service !== '') {
+                    $created = $this->createChosenService($project, $productionEnvironment);
+                }
+                if ($this->service === 'odoo' && $this->connectGithub) {
+                    $githubApp = OdooGit::userApp((int) $project->team_id, auth()->id());
+                    if ($githubApp instanceof GithubApp) {
+                        OdooGit::launchEnvironment($project, $githubApp, 'production');
+                    }
+                }
+                DB::commit();
+            } catch (\Throwable $exception) {
+                DB::rollBack();
+
+                throw $exception;
+            }
+
+            if ($this->service === 'odoo' && $this->connectGithub && ! $githubApp instanceof GithubApp) {
+                $parameters = [
+                    'project_uuid' => $project->uuid,
+                    'environment_uuid' => $productionEnvironment->uuid,
+                ];
+                $back = 'project.resource.index';
+                if ($created instanceof Service) {
+                    $parameters['service_uuid'] = $created->uuid;
+                    $back = 'project.service.configuration';
+                }
+                $githubApp = OdooGit::beginConnect($project, $back, $parameters);
+
+                return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+            }
+
+            if ($created instanceof Service && $this->service === 'odoo' && $this->connectGithub) {
+                OdooGit::cloneIntoService($created);
+                OdooGit::startIfPossible($created);
             }
 
             if ($created instanceof Service && $this->service === 'odoo' && ! $this->connectGithub) {
@@ -111,6 +134,8 @@ class AddEmpty extends Component
             ]);
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        } finally {
+            $lock->release();
         }
     }
 

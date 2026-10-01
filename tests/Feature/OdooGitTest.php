@@ -755,6 +755,57 @@ it('creates the project repository without registering another github app', func
         ->and($project->odooProfile->github_app_id)->toBe($this->githubApp->id);
 });
 
+it('does not keep a project when github limits creation', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = \App\Models\PrivateKey::create([
+        'name' => 'odoo-existing-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    OdooGit::rememberForUser($this->user->id, $this->team->id, $this->githubApp);
+    \Illuminate\Support\Facades\Cache::flush();
+
+    $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+        $url = $request->url();
+        if (str_contains($url, '/zen')) {
+            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/app/installations/')) {
+            return \Illuminate\Support\Facades\Http::response([
+                'account' => ['login' => 'acme', 'type' => 'Organization'],
+            ], 200, $date);
+        }
+        if (strtoupper($request->method()) === 'POST' && str_contains($url, '/orgs/acme/repos')) {
+            return \Illuminate\Support\Facades\Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
+        }
+
+        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    $before = Project::query()->count();
+    Livewire::test(AddEmpty::class)
+        ->set('name', 'No Debe Quedar')
+        ->set('description', 'demo')
+        ->set('service', 'odoo')
+        ->set('odooVersion', '20')
+        ->set('connectGithub', true)
+        ->call('submit')
+        ->assertDispatched('error');
+
+    expect(Project::query()->where('name', 'No Debe Quedar')->exists())->toBeFalse()
+        ->and(Project::query()->count())->toBe($before);
+});
+
 it('names the database after the project and the branch', function () {
     $this->project->update(['name' => 'Mi Empresa']);
     $production = $this->project->environments()->where('name', 'production')->first();

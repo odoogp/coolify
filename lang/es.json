@@ -3691,6 +3691,7 @@
     "The staging service did not start.": "El servicio de staging no arrancó.",
     "The Odoo data directory could not be made writable.": "No se pudo dejar escribible el directorio de datos de Odoo.",
     "GitHub is limiting requests. Wait a few minutes and try again.": "GitHub está limitando las peticiones. Espera unos minutos y vuelve a intentar.",
+    "A project is already being created.": "Ya se está creando un proyecto.",
     "The Odoo container of the service being cloned was not found.": "No se encontró el contenedor de Odoo del servicio que se está clonando.",
     "The Odoo container of the new staging service was not found.": "No se encontró el contenedor de Odoo del staging nuevo.",
     "The source database name is invalid.": "El nombre de la base de origen no es válido.",
