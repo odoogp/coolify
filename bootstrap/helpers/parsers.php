@@ -2781,7 +2781,13 @@ function serviceParser(Service $resource): Collection
         $parsedServices->put($serviceName, $payload);
     }
     $odooDatabase = \App\Support\OdooGit::databaseName($resource);
-    $parsedServices = collect(\App\Support\OdooJupyter::alignParsedServices(convertToArray($parsedServices), $odooDatabase));
+    $parsedServices = collect(\App\Support\OdooJupyter::alignParsedServices(
+        convertToArray($parsedServices),
+        $odooDatabase,
+        \App\Support\OdooGit::publicHttpsUrl($resource),
+        \App\Support\OdooGit::runtimeValue($resource, 'ODOO_LOGIN_TOKEN'),
+        \App\Support\OdooGit::runtimeValue($resource, 'ODOO_ADMIN_PASSWORD'),
+    ));
     $topLevel->put('services', $parsedServices);
 
     $customOrder = ['services', 'volumes', 'networks', 'configs', 'secrets'];

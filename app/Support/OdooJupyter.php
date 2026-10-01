@@ -66,46 +66,88 @@ class OdooJupyter
         return Yaml::dump($yaml, 8, 2);
     }
 
-    public static function launchCommand(): string
+    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = ''): string
     {
+        $database = preg_replace('/[^a-z0-9_]/', '', $database) ?? '';
+        $url = preg_match('#^https://[A-Za-z0-9.-]+$#', $url) === 1 ? $url : '';
+        $token = preg_replace('/[^A-Za-z0-9]/', '', $token) ?? '';
+        $password = preg_replace('/[^A-Za-z0-9]/', '', $password) ?? '';
         // ponytail: Compose interpolates $ in the command. $$ is the only escape; a bare $( fails the deploy.
-        return str_replace('$', '$$', <<<'BASH'
+        // The database, URL, token and password are literals so they match the GPSH link even when the container env is empty.
+
+        return str_replace('$', '$$', str_replace(
+            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__'],
+            [$database, $url, $token, $password],
+            <<<'BASH'
 python3 - <<'PY' || true
 import os, time
 from pathlib import Path
 host = os.environ.get("HOST", "postgresql")
 user = os.environ.get("USER") or ""
 password = os.environ.get("PASSWORD") or ""
-database = os.environ.get("ODOO_DATABASE") or ""
-root = Path("/mnt/extra-addons/gpsh_autoconnect")
+database = os.environ.get("ODOO_DATABASE") or "__ODOO_DB__"
+root = Path("/tmp/gpsh_addons/gpsh_autoconnect")
 try:
     (root / "controllers").mkdir(parents=True, exist_ok=True)
     (root / "__manifest__.py").write_text("{'name': 'GPSH connect', 'version': '1.0', 'depends': ['web'], 'installable': True}\n")
     (root / "__init__.py").write_text("from . import controllers\n")
     (root / "controllers" / "__init__.py").write_text("from . import enter\n")
+    token = "__ODOO_TOKEN__"
+    admin_password = "__ODOO_PASSWORD__" or "admin"
     (root / "controllers" / "enter.py").write_text(
-        "import hmac, os\n"
+        "import hmac\n"
+        "import odoo\n"
         "from odoo import http\n"
         "from odoo.http import request\n"
+        "TOKEN = " + repr(token) + "\n"
+        "ADMIN_PASSWORD = " + repr(admin_password) + "\n"
+        "DATABASE = " + repr(database) + "\n"
         "class GpshEnter(http.Controller):\n"
         "    @http.route('/gpsh/enter', type='http', auth='none', csrf=False, sitemap=False)\n"
         "    def enter(self, token=None, **kwargs):\n"
-        "        expected = os.environ.get('ODOO_LOGIN_TOKEN') or ''\n"
         "        given = token or ''\n"
-        "        if not expected or len(given) != len(expected) or not hmac.compare_digest(given, expected):\n"
+        "        if not TOKEN or len(given) != len(TOKEN) or not hmac.compare_digest(given, TOKEN):\n"
         "            return request.redirect('/web/login')\n"
-        "        db = os.environ.get('ODOO_DATABASE') or ''\n"
-        "        password = os.environ.get('ODOO_ADMIN_PASSWORD') or 'admin'\n"
-        "        try:\n"
-        "            import odoo.release\n"
-        "            if int(odoo.release.version_info[0]) >= 18:\n"
-        "                request.session.authenticate(db, {'login': 'admin', 'password': password, 'type': 'password'})\n"
-        "            else:\n"
-        "                request.session.authenticate(db, 'admin', password)\n"
-        "        except Exception:\n"
+        "        def login(secret):\n"
+        "            credential = {'login': 'admin', 'password': secret, 'type': 'password'}\n"
+        "            try:\n"
+        "                with odoo.modules.registry.Registry(DATABASE).cursor() as cr:\n"
+        "                    env = odoo.api.Environment(cr, None, {})\n"
+        "                    request.session.authenticate(env, credential)\n"
+        "                    request.session.db = DATABASE\n"
+        "                    try:\n"
+        "                        request._save_session()\n"
+        "                    except Exception:\n"
+        "                        try:\n"
+        "                            from odoo.http.session import save_session\n"
+        "                            save_session(request, env)\n"
+        "                        except Exception:\n"
+        "                            pass\n"
+        "                return True\n"
+        "            except Exception:\n"
+        "                pass\n"
+        "            try:\n"
+        "                request.session.authenticate(DATABASE, credential)\n"
+        "                request.session.db = DATABASE\n"
+        "                return True\n"
+        "            except Exception:\n"
+        "                pass\n"
+        "            try:\n"
+        "                request.session.authenticate(DATABASE, 'admin', secret)\n"
+        "                request.session.db = DATABASE\n"
+        "                return True\n"
+        "            except Exception:\n"
+        "                return False\n"
+        "        secrets = [ADMIN_PASSWORD] if ADMIN_PASSWORD == 'admin' else [ADMIN_PASSWORD, 'admin']\n"
+        "        if not any(login(secret) for secret in secrets):\n"
         "            return request.redirect('/web/login')\n"
         "        return request.redirect('/odoo')\n"
     )
+    import configparser
+    parser = configparser.ConfigParser()
+    parser.read("/etc/odoo/odoo.conf")
+    current = parser.get("options", "addons_path", fallback="/usr/lib/python3/dist-packages/odoo/addons")
+    Path("/tmp/gpsh-addons-path").write_text("/tmp/gpsh_addons," + current)
 except Exception:
     pass
 if not database or not user or not password:
@@ -140,38 +182,43 @@ if conn is not None:
             ready = False
 open("/tmp/odoo-db-ready", "w").write("1" if ready else "0")
 PY
-args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode)
-load=(--db-filter="^${ODOO_DATABASE}$")
-modules=base
-if [ -f /mnt/extra-addons/gpsh_autoconnect/__manifest__.py ]; then
-  load+=(--load=base,web,gpsh_autoconnect)
-  modules=base,gpsh_autoconnect
-fi
+args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode --no-database-list)
+addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
+load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons" --load=base,web,gpsh_autoconnect)
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
-  odoo "${args[@]}" "${load[@]}" --without-demo=all -d "$ODOO_DATABASE" -i "$modules" --stop-after-init || true
+  odoo "${args[@]}" "${load[@]}" --without-demo=all -d __ODOO_DB__ -i base,gpsh_autoconnect --stop-after-init || true
 fi
-odoo shell -d "$ODOO_DATABASE" --no-http --db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" <<'PY' || true
+python3 - <<'PY' || true
 import os
-url = (os.environ.get("COOLIFY_URL") or "").split(",")[0].strip().rstrip("/")
-if url.startswith("http://"):
-    url = "https://" + url[len("http://"):]
-elif url and not url.startswith("https://"):
-    url = "https://" + url
-icp = env["ir.config_parameter"].sudo()
-if url:
-    icp.set_param("web.base.url", url)
-    icp.set_param("web.base.url.freeze", "True")
-env.ref("base.user_admin").write({"password": os.environ.get("ODOO_ADMIN_PASSWORD") or "admin"})
-module = env["ir.module.module"].search([("name", "=", "gpsh_autoconnect")], limit=1)
-if not module:
-    env["ir.module.module"].update_list()
-    module = env["ir.module.module"].search([("name", "=", "gpsh_autoconnect")], limit=1)
-if module and module.state != "installed":
-    module.button_immediate_install()
-env.cr.commit()
+url = "__ODOO_URL__"
+password = "__ODOO_PASSWORD__" or "admin"
+database = "__ODOO_DB__"
+host = os.environ.get("HOST", "postgresql")
+user = os.environ.get("USER") or ""
+dbpass = os.environ.get("PASSWORD") or ""
+if database and user and dbpass:
+    try:
+        import psycopg2
+        conn = psycopg2.connect(host=host, user=user, password=dbpass, dbname=database)
+    except ImportError:
+        import psycopg
+        conn = psycopg.connect(host=host, user=user, password=dbpass, dbname=database)
+    conn.autocommit = True
+    cur = conn.cursor()
+    if url:
+        for key, value in (("web.base.url", url), ("web.base.url.freeze", "True")):
+            cur.execute("UPDATE ir_config_parameter SET value=%s WHERE key=%s", (value, key))
+            if cur.rowcount == 0:
+                cur.execute("INSERT INTO ir_config_parameter (key, value, create_uid, write_uid, create_date, write_date) VALUES (%s, %s, 1, 1, NOW(), NOW())", (key, value))
+    try:
+        from passlib.context import CryptContext
+        cur.execute("UPDATE res_users SET password=%s WHERE login=%s", (CryptContext(schemes=["pbkdf2_sha512"]).hash(password), "admin"))
+    except Exception:
+        pass
+    conn.close()
 PY
-exec odoo "${args[@]}" "${load[@]}" -d "$ODOO_DATABASE"
-BASH);
+exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
+BASH));
     }
 
     /**
@@ -188,7 +235,11 @@ BASH);
         $header = 'traefik.http.middlewares.gpsh-forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto=https';
         $found = false;
         foreach ($labels as $index => $label) {
-            if (! is_string($label) || ! str_contains($label, 'routers.https-') || ! str_contains($label, '.middlewares=')) {
+            if (! is_string($label) || ! str_contains($label, 'traefik.http.routers.') || ! str_contains($label, '.middlewares=')) {
+                continue;
+            }
+            // The HTTP router only redirects. Forcing X-Forwarded-Proto there makes Traefik treat the request as already HTTPS and proxy it, so the browser stays on http://.
+            if (str_contains($label, 'redirect-to-https') || ! str_contains($label, 'https-')) {
                 continue;
             }
             $found = true;
@@ -218,7 +269,7 @@ BASH);
      * @param  array<string, mixed>  $services
      * @return array<string, mixed>
      */
-    public static function alignParsedServices(array $services, ?string $database = null): array
+    public static function alignParsedServices(array $services, ?string $database = null, string $url = '', string $token = '', string $password = ''): array
     {
         foreach ($services as $name => &$service) {
             if (! is_array($service)) {
@@ -239,7 +290,7 @@ BASH);
             if ($database !== null && $database !== '' && $name === 'odoo') {
                 // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
                 $service['entrypoint'] = ['bash', '-c'];
-                $service['command'] = [self::launchCommand()];
+                $service['command'] = [self::launchCommand($database, $url, $token, $password)];
                 if (is_array($service['healthcheck'] ?? null)) {
                     $service['healthcheck']['start_period'] = '180s';
                 }

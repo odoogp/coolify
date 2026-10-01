@@ -289,20 +289,24 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ],
     ];
 
-    $aligned = OdooJupyter::alignParsedServices($services, 'mi_empresa_staging_1');
+    $aligned = OdooJupyter::alignParsedServices($services, 'mi_empresa_staging_1', 'https://odoo.example.test', 'tokentokentoken', 'adminpass');
 
     $command = $aligned['odoo']['command'][0];
 
     expect($aligned['odoo']['entrypoint'])->toBe(['bash', '-c'])
         ->and($command)->toContain('--proxy-mode')
-        ->and($command)->toContain('base.user_admin')
+        ->and($command)->toContain('--no-database-list')
+        ->and($command)->toContain("--db-filter='^mi_empresa_staging_1$$'")
+        ->and($command)->toContain('-d mi_empresa_staging_1')
+        ->and($command)->toContain('https://odoo.example.test')
+        ->and($command)->toContain('tokentokentoken')
+        ->and($command)->toContain('_save_session')
         ->and($command)->toContain('web.base.url')
+        ->and($command)->toContain('res_users')
         ->and($command)->toContain('gpsh_autoconnect')
         ->and($command)->toContain('gpsh/enter')
-        ->and($command)->toContain('--db-filter')
         ->and($command)->toContain('--http-interface=0.0.0.0')
-        ->and($command)->toContain('$$ODOO_DATABASE')
-        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" -d "$$ODOO_DATABASE"')
+        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" -d mi_empresa_staging_1')
         ->and(str_replace('$$', '', $command))->not->toContain('$')
         ->and($aligned['odoo']['environment'])->toBe(['ODOO_DATABASE=mi_empresa_staging_1'])
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0');
@@ -316,10 +320,12 @@ test('an odoo https router tells odoo the browser used https', function () {
             'labels' => [
                 'traefik.http.routers.https-0-uuid-odoo.middlewares=gzip',
                 'traefik.http.routers.https-0-uuid-odoo.tls=true',
+                'traefik.http.routers.http-0-uuid-odoo.middlewares=redirect-to-https',
             ],
         ],
     ], 'mi_empresa_production');
 
     expect($aligned['odoo']['labels'])->toContain('traefik.http.routers.https-0-uuid-odoo.middlewares=gzip,gpsh-forwarded-proto')
-        ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto=https');
+        ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-forwarded-proto.headers.customrequestheaders.X-Forwarded-Proto=https')
+        ->and($aligned['odoo']['labels'])->toContain('traefik.http.routers.http-0-uuid-odoo.middlewares=redirect-to-https');
 });

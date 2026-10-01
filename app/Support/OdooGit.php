@@ -406,15 +406,26 @@ class OdooGit
         }
     }
 
-    public static function enterUrl(Service $service): string
+    public static function publicHttpsUrl(Service $service): string
     {
         $application = $service->applications()->get()->first(
             fn ($application): bool => $application instanceof ServiceApplication && self::isOdooApplication($application)
         );
-        $base = $application instanceof ServiceApplication
+
+        return $application instanceof ServiceApplication
             ? self::httpsUrl(firstDomainFromList((string) $application->fqdn))
             : '';
-        $token = (string) $service->environment_variables()->where('key', 'ODOO_LOGIN_TOKEN')->first()?->value;
+    }
+
+    public static function runtimeValue(Service $service, string $key): string
+    {
+        return (string) $service->environment_variables()->where('key', $key)->first()?->value;
+    }
+
+    public static function enterUrl(Service $service): string
+    {
+        $base = self::publicHttpsUrl($service);
+        $token = self::runtimeValue($service, 'ODOO_LOGIN_TOKEN');
         if ($base === '' || $token === '') {
             return $base;
         }
@@ -423,7 +434,7 @@ class OdooGit
     }
 
     /**
-     * Databases on this instance's Postgres. A row is disabled when it is not the instance database or it rejects connections.
+     * Databases on this instance's Postgres. A row is disabled only when Postgres rejects new connections.
      *
      * @return array<int, array{name: string, disabled: bool}>
      */
@@ -456,7 +467,7 @@ class OdooGit
             }
             $rows[] = [
                 'name' => $name,
-                'disabled' => $name !== $active || ! in_array(strtolower(trim($allowed)), ['t', 'true', '1'], true),
+                'disabled' => ! in_array(strtolower(trim($allowed)), ['t', 'true', '1'], true),
             ];
         }
 
