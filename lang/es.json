@@ -3689,6 +3689,7 @@
     "The service containers are running.": "Los contenedores del servicio están en marcha.",
     "The staging containers are not running yet.": "Los contenedores del staging todavía no están en marcha.",
     "The staging service did not start.": "El servicio de staging no arrancó.",
+    "The Odoo data directory could not be made writable.": "No se pudo dejar escribible el directorio de datos de Odoo.",
     "The Odoo container of the service being cloned was not found.": "No se encontró el contenedor de Odoo del servicio que se está clonando.",
     "The Odoo container of the new staging service was not found.": "No se encontró el contenedor de Odoo del staging nuevo.",
     "The source database name is invalid.": "El nombre de la base de origen no es válido.",

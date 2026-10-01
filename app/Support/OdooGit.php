@@ -559,7 +559,11 @@ if [ -z "$src_vol" ] || [ -z "$dst_vol" ] || [ "$src_vol" = "$dst_vol" ]; then
   echo "The database copy refused to write production." >&2
   exit 1
 fi
-docker run --rm -v "$src_vol":/source:ro -v "$dst_vol":/target alpine sh -c 'find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; chown -R 101:101 /target || true'
+uid=$(docker exec "$src_odoo" id -u)
+gid=$(docker exec "$src_odoo" id -g)
+case "$uid" in ''|*[!0-9]*) echo "The Odoo data directory could not be made writable." >&2; exit 1 ;; esac
+case "$gid" in ''|*[!0-9]*) echo "The Odoo data directory could not be made writable." >&2; exit 1 ;; esac
+docker run --rm -v "$src_vol":/source:ro -v "$dst_vol":/target alpine sh -c "find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; mkdir -p /target/sessions; chown -R ${uid}:${gid} /target; chmod -R u+rwX /target"
 __URL_SQL__
 image=$(docker inspect --format '{{.Image}}' "$src_odoo")
 docker run --pull never --rm --network "container:$dst_pg" --entrypoint odoo "$image" neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
