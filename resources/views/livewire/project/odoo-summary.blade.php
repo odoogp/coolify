@@ -29,7 +29,7 @@
                             <div class="flex items-start justify-between gap-3">
                                 <p class="font-medium">{{ $row['name'] }}</p>
                                 @if ($row['href'])
-                                    <a class="button" href="{{ $row['href'] }}">{{ __('Associate repository') }}</a>
+                                    <a class="button" href="{{ $row['href'] }}">{{ filled($row['branch']) ? __('Open') : __('Associate repository') }}</a>
                                 @endif
                             </div>
                             <p class="text-neutral-500 dark:text-fg-dim">

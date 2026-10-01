@@ -31,14 +31,14 @@ test('changes a quoted image and a registry image without rewriting the rest of 
     expect(OdooVersion::apply($registry, '19'))->toContain('image: ghcr.io/example/odoo:19');
 });
 
-test('accepts odoo 20 and refuses a pinned digest, an unknown version, and a non-odoo stack', function () {
+test('accepts a numeric odoo tag and refuses a pinned digest, a word, and a non-odoo stack', function () {
     $pinned = "services:\n  odoo:\n    image: odoo:18@sha256:abc\n";
     expect(OdooVersion::apply($pinned, '19'))->toBe($pinned);
     expect(OdooVersion::current($pinned))->toBeNull();
 
     $compose = "services:\n  odoo:\n    image: odoo:18\n";
     expect(OdooVersion::apply($compose, '20'))->toContain('image: odoo:20');
-    expect(OdooVersion::apply($compose, '21'))->toBe($compose);
+    expect(OdooVersion::apply($compose, '21'))->toContain('image: odoo:21');
     expect(OdooVersion::apply($compose, 'latest'))->toBe($compose);
 
     $other = "services:\n  web:\n    image: nginx:alpine\n";

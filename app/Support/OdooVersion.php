@@ -42,7 +42,7 @@ class OdooVersion
 
     public static function apply(string $compose, string $version): string
     {
-        if (! in_array($version, self::SUPPORTED, true)) {
+        if (! preg_match('/^\d+(?:\.\d+)?$/', $version)) {
             return $compose;
         }
 

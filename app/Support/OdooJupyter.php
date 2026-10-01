@@ -103,7 +103,7 @@ try:
         "ADMIN_PASSWORD = " + repr(admin_password) + "\n"
         "DATABASE = " + repr(database) + "\n"
         "class GpshEnter(http.Controller):\n"
-        "    @http.route('/gpsh/enter', type='http', auth='none', csrf=False, sitemap=False)\n"
+        "    @http.route('/_odoo/paas/connect', type='http', auth='none', csrf=False, sitemap=False)\n"
         "    def enter(self, token=None, **kwargs):\n"
         "        given = token or ''\n"
         "        if not TOKEN or len(given) != len(TOKEN) or not hmac.compare_digest(given, TOKEN):\n"
@@ -172,7 +172,7 @@ args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
 load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons" --load=base,web,gpsh_autoconnect)
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
-  odoo "${args[@]}" "${load[@]}" --without-demo=all -d __ODOO_DB__ -i base,gpsh_autoconnect --stop-after-init || true
+  odoo "${args[@]}" "${load[@]}" --without-demo=all -d __ODOO_DB__ -i base --stop-after-init || true
 fi
 python3 - <<'PY' || true
 import os
@@ -321,7 +321,7 @@ BASH));
                         }
                     }
                     $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.regex=^https://([^/]+)/?$$';
-                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/gpsh/enter?token='.$token;
+                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/_odoo/paas/connect?token='.$token;
                     $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.permanent=false';
                 }
                 $service['labels'] = $labels;

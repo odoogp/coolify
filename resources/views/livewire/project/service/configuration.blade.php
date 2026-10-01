@@ -59,6 +59,24 @@
             <aside class="application-settings-navigation min-w-0 xl:self-start">
                 <nav aria-label="{{ __('Service settings') }}"
                     class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
+                    @if ($odooIsOdoo)
+                        <div class="nav-section hidden xl:block">{{ __('Odoo') }}</div>
+                        <button type="button" wire:click="$set('odooPanel', 'mounted')" @class([
+                            'menu-item',
+                            'menu-item-active' => $currentRoute === 'project.service.configuration' && $odooPanel === 'mounted',
+                        ])>
+                            <x-reicon name="grid" class="menu-item-icon" />
+                            <span class="menu-item-label">{{ __('Mounted') }}</span>
+                        </button>
+                        <button type="button" wire:click="$set('odooPanel', 'github')" @class([
+                            'menu-item',
+                            'menu-item-active' => $currentRoute === 'project.service.configuration' && $odooPanel === 'github',
+                        ])>
+                            <x-reicon name="sources" class="menu-item-icon" />
+                            <span class="menu-item-label">{{ __('GitHub') }}</span>
+                        </button>
+                        <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]" aria-hidden="true"></div>
+                    @endif
                     @foreach ($groupedItems as $groupLabel => $groupItems)
                         @unless ($loop->first)
                             <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]"
@@ -98,70 +116,68 @@
 
             <div class="min-w-0">
                 @if ($currentRoute === 'project.service.configuration')
-                    @if ($odooIsOdoo)
+                    @if ($odooIsOdoo && $odooPanel === 'mounted')
+                        @php
+                            $odooEnterUrl = route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid, 'service_uuid' => $service->uuid]);
+                            $jupyterApplication = $applications->first(fn ($application): bool => $application->name === 'jupyter');
+                            $jupyterUrl = filled($jupyterApplication?->fqdn) ? getFqdnWithoutPort(firstDomainFromList((string) $jupyterApplication->fqdn)) : null;
+                            if (filled($jupyterUrl)) {
+                                $jupyterToken = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTER')->first()?->value;
+                                if (filled($jupyterToken)) {
+                                    $jupyterUrl .= '?token='.urlencode((string) $jupyterToken);
+                                }
+                            }
+                            $mountedResources = $applications->concat($databases);
+                        @endphp
+                        <section class="application-settings-section mb-6">
+                            <div class="application-settings-section-header">
+                                <div>
+                                    <h2>{{ __('Mounted') }}</h2>
+                                    <p>{{ __('Odoo, PostgreSQL, and JupyterLab for this environment.') }}</p>
+                                </div>
+                            </div>
+                            <div class="application-settings-section-body divide-y divide-neutral-200 dark:divide-white/[0.06]">
+                                @foreach ($mountedResources as $mounted)
+                                    @php
+                                        $mountedName = strtolower((string) $mounted->name);
+                                        $mountedOpen = match (true) {
+                                            $mountedName === 'odoo' => $odooEnterUrl,
+                                            $mountedName === 'jupyter' => $jupyterUrl,
+                                            default => route('project.service.index', [...$serviceRouteParameters, 'stack_service_uuid' => $mounted->uuid]),
+                                        };
+                                        $mountedLabel = match (true) {
+                                            $mountedName === 'odoo' => __('Open Odoo'),
+                                            $mountedName === 'jupyter' => __('Open Jupyter'),
+                                            str_contains($mountedName, 'postgres') => __('Open database'),
+                                            default => __('Open'),
+                                        };
+                                    @endphp
+                                    <div class="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                                        <div class="min-w-0">
+                                            <p class="text-sm font-medium">{{ Str::headline($mounted->human_name ?: $mounted->name) }}</p>
+                                            <p class="truncate font-mono text-[12px] text-neutral-500 dark:text-fg-dim">{{ $mounted->image }}</p>
+                                        </div>
+                                        @if (filled($mountedOpen))
+                                            <a class="button shrink-0" @if ($mountedName === 'odoo' || $mountedName === 'jupyter') target="_blank" @endif href="{{ $mountedOpen }}">{{ $mountedLabel }}</a>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        </section>
+                    @endif
+                    @if ($odooIsOdoo && $odooPanel === 'github')
                         <section class="application-settings-section mb-6">
                             <div class="application-settings-section-body flex flex-col gap-4">
                                 <div>
                                     <p class="text-sm font-medium">{{ __('GitHub') }}</p>
                                     <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
-                                        {{ __('This project can use a new repository or one that already exists. The branches come from that repository. Without one, JupyterLab shows the addon files.') }}
+                                        {{ __('The branch has the same name as this environment. If that branch is already in the repository, it is used. A push updates the addon folder.') }}
                                     </p>
-                                </div>
-                                @php
-                                    $odooBranchName = $environment->odooBranch?->git_branch ?: $environment->name;
-                                    $odooDatabaseName = \App\Support\OdooGit::databaseName($service);
-                                    $odooAdminPassword = $service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->first()?->value;
-                                @endphp
-                                <div class="flex flex-wrap items-center gap-3">
-                                    <p class="text-[13px]">
-                                        @if ($odooCertificateMessage !== '')
-                                            {{ $odooCertificateMessage }}
-                                        @else
-                                            {{ __('Traefik asks Let\'s Encrypt for the certificate when this instance is deployed.') }}
-                                        @endif
-                                    </p>
-                                    <x-forms.button type="button" wire:click="checkOdooCertificate" canGate="update" :canResource="$service">
-                                        {{ __('Check certificate') }}
-                                    </x-forms.button>
-                                    <p wire:loading wire:target="checkOdooCertificate" class="text-[13px]">
-                                        {{ __('Checking whether the certificate is applied to the URL…') }}
-                                    </p>
-                                </div>
-                                <p class="text-[13px]">
-                                    {{ __('Database :database. The link opens the admin session over HTTPS.', ['database' => $odooDatabaseName]) }}
-                                    @if (filled($odooAdminPassword))
-                                        {{ __('Password: :password.', ['password' => $odooAdminPassword]) }}
-                                    @endif
-                                </p>
-                                <div>
-                                    <a class="button" target="_blank" href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid, 'service_uuid' => $service->uuid]) }}">
-                                        {{ __('Open Odoo') }}
-                                    </a>
-                                </div>
-                                @php
-                                    $odooDisabledDatabases = collect($odooDatabases)->where('disabled', true)->pluck('name');
-                                @endphp
-                                <div class="flex flex-col gap-2">
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <p class="text-[13px] font-medium">{{ __('Disabled databases') }}</p>
-                                        <x-forms.button type="button" wire:click="listOdooDatabases" canGate="view" :canResource="$service">
-                                            {{ __('List databases') }}
-                                        </x-forms.button>
-                                    </div>
-                                    @if ($odooDisabledDatabases->isEmpty())
-                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No disabled databases.') }}</p>
-                                    @else
-                                        <ul class="list-disc pl-5 text-[13px]">
-                                            @foreach ($odooDisabledDatabases as $odooDisabledDatabase)
-                                                <li class="font-mono">{{ $odooDisabledDatabase }}</li>
-                                            @endforeach
-                                        </ul>
-                                    @endif
                                 </div>
                                 @if (filled($project->odooProfile?->git_repository))
                                     <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
                                     <p class="text-[13px]">
-                                        {{ __('This environment uses branch :branch. Cloning creates the next staging branch on its own.', ['branch' => $odooBranchName]) }}
+                                        {{ __('Branch :branch.', ['branch' => $environment->odooBranch?->git_branch ?: $environment->name]) }}
                                     </p>
                                 @endif
                                 @if (! $odooGithubConnected)
@@ -184,7 +200,7 @@
                                     </div>
                                     @if (blank($project->odooProfile?->git_repository))
                                     <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                        {{ __('The branch is :branch. It is chosen for you. A clone later creates the next staging branch.', ['branch' => $environment->name]) }}
+                                        {{ __('The branch is :branch. An existing repository keeps that branch when it is already there.', ['branch' => $environment->name]) }}
                                     </p>
                                     <div class="flex flex-wrap gap-4 text-sm">
                                         <label class="inline-flex items-center gap-2">
@@ -242,7 +258,7 @@
                                             {{ $odooRepoMode === 'new' ? __('Create repository') : __('Associate repository') }}
                                         </x-forms.button>
                                         <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
-                                            {{ __('Starting Odoo on branch :branch. The destination of a clone is always a new staging environment.', ['branch' => $environment->name]) }}
+                                            {{ __('Starting Odoo.') }}
                                         </p>
                                     </div>
                                     @endif
@@ -250,6 +266,7 @@
                             </div>
                         </section>
                     @endif
+                    @if (! $odooIsOdoo || $odooPanel === 'mounted')
                     <livewire:project.service.stack-form :service="$service" />
 
                     <div class="mt-8" x-data="{
@@ -327,6 +344,7 @@
                             @endforeach
                         </div>
                     </div>
+                    @endif
                 @elseif ($currentRoute === 'project.service.domains')
                     <livewire:project.service.domains :service="$service" />
                 @elseif ($currentRoute === 'project.service.environment-variables')

@@ -305,13 +305,13 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('web.base.url')
         ->and($command)->toContain('res_users')
         ->and($command)->toContain('gpsh_autoconnect')
-        ->and($command)->toContain('gpsh/enter')
+        ->and($command)->toContain('_odoo/paas/connect')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" -d mi_empresa_staging_1')
         ->and(str_replace('$$', '', $command))->not->toContain('$')
         ->and($aligned['odoo']['environment'])->toBe(['ODOO_DATABASE=mi_empresa_staging_1'])
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0')
-        ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/gpsh/enter?token=tokentokentoken');
+        ->and($aligned['odoo']['labels'])->toContain('traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/_odoo/paas/connect?token=tokentokentoken');
 });
 
 test('an odoo https router tells odoo the browser used https', function () {

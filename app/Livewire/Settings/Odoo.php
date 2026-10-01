@@ -17,6 +17,8 @@ class Odoo extends Component
 
     public string $version = '18';
 
+    public string $newVersion = '';
+
     public string $postgresVersion = '16-alpine';
 
     public string $compose = '';
@@ -38,6 +40,20 @@ class Odoo extends Component
         $this->loadVersion();
     }
 
+    public function createVersion(): void
+    {
+        $version = trim($this->newVersion);
+        if (! preg_match('/^\d+(?:\.\d+)?$/', $version)) {
+            $this->dispatch('error', __('The Odoo version is the image tag, for example 21.'));
+
+            return;
+        }
+
+        $this->version = $version;
+        $this->newVersion = '';
+        $this->loadVersion();
+    }
+
     public function save(): void
     {
         try {
@@ -55,14 +71,16 @@ class Odoo extends Component
 
     public function render()
     {
+        $saved = OdooComposeTemplate::query()->orderBy('version')->pluck('version')->all();
+
         return view('livewire.settings.odoo', [
-            'versions' => OdooVersion::SUPPORTED,
+            'versions' => array_values(array_unique([...OdooVersion::SUPPORTED, ...$saved, $this->version])),
         ]);
     }
 
     private function loadVersion(): void
     {
-        if (! in_array($this->version, OdooVersion::SUPPORTED, true)) {
+        if (! preg_match('/^\d+(?:\.\d+)?$/', $this->version)) {
             $this->version = '18';
         }
 

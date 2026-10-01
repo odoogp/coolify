@@ -121,9 +121,12 @@ class Show extends Component
             $profile = $this->project->odooProfile;
             $repository = $profile?->git_repository;
             $app = $profile?->githubApp;
-            $from = $selected->odooBranch?->git_branch;
-            if (filled($repository) && $app !== null && $this->cloneAddons === 'copy' && blank($from)) {
-                throw new RuntimeException('Associate the production environment with its GitHub branch before cloning it.');
+            $from = $selected->odooBranch?->git_branch ?: $selected->name;
+            if (filled($repository) && $app !== null && blank($selected->odooBranch?->git_branch)) {
+                OdooEnvironmentBranch::query()->updateOrCreate(
+                    ['environment_id' => $selected->id],
+                    ['git_branch' => $selected->name],
+                );
             }
 
             $staging = $this->project->cloneProductionAsStaging();

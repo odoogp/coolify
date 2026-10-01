@@ -673,7 +673,7 @@ it('turns an existing odoo link into https', function () {
     $this->project->update(['name' => 'Mi Empresa']);
     OdooGit::prepareInstance($service);
 
-    expect(OdooGit::enterUrl($service->fresh()))->toStartWith('https://odoo.example.test/gpsh/enter?token=')
+    expect(OdooGit::enterUrl($service->fresh()))->toStartWith('https://odoo.example.test/_odoo/paas/connect?token=')
         ->and(OdooGit::databaseList($service->fresh()))->toBe([
             ['name' => 'mi_empresa_production', 'disabled' => false],
         ]);

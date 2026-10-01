@@ -45,8 +45,8 @@ class OdooComposeTemplate extends Model
 
     public static function saveFor(string $version, string $compose, string $postgresVersion): self
     {
-        if (! in_array($version, OdooVersion::SUPPORTED, true)) {
-            throw new InvalidArgumentException('Choose Odoo 17, 18, 19, or 20.');
+        if (! preg_match('/^\d+(?:\.\d+)?$/', $version)) {
+            throw new InvalidArgumentException('The Odoo version is the image tag, for example 21.');
         }
 
         $postgresVersion = self::postgresTag($postgresVersion);

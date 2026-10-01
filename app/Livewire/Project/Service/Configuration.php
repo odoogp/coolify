@@ -41,6 +41,8 @@ class Configuration extends Component
 
     public bool $odooIsOdoo = false;
 
+    public string $odooPanel = 'mounted';
+
     public bool $odooGithubConnected = false;
 
     public string $odooRepoMode = 'new';
@@ -107,15 +109,23 @@ class Configuration extends Component
                     $this->dispatch('success', __('HTTPS is being applied to the Odoo link. Sign in as admin when it finishes.'));
                 }
             }
-            if ($this->odooIsOdoo) {
-                $this->checkOdooCertificate();
-                $this->listOdooDatabases();
-            }
-            $this->applications = $this->service->applications->sort();
-            $this->databases = $this->service->databases->sort();
+            $this->applications = $this->service->applications->sortBy(fn ($resource): int => $this->mountOrder((string) $resource->name))->values();
+            $this->databases = $this->service->databases->sortBy(fn ($resource): int => $this->mountOrder((string) $resource->name))->values();
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    private function mountOrder(string $name): int
+    {
+        $name = strtolower($name);
+
+        return match (true) {
+            $name === 'odoo' => 0,
+            str_contains($name, 'postgres') => 1,
+            $name === 'jupyter' => 2,
+            default => 9,
+        };
     }
 
     public function listOdooDatabases(): void

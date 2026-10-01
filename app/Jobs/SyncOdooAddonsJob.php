@@ -40,25 +40,18 @@ class SyncOdooAddonsJob implements ShouldQueue
 
         $environment = $branch->environment()->with('project', 'services')->first();
         $service = $this->service($environment, $branch);
-        $commands = $service === null ? [] : OdooAddons::copyCommands($service, '/artifacts/odoo-addons');
+        $volume = $service === null ? null : OdooAddons::extraAddonsVolume($service);
 
         try {
             if ($deployment !== null) {
                 $deployment->update([
                     'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
-                    'logs' => implode("\n", $commands),
+                    'logs' => $volume === null ? '' : 'git pull '.$volume,
                 ]);
             }
 
-            if ($service !== null && $commands !== [] && $this->otherEnvironmentVolume($commands, $environment)) {
-                throw new \RuntimeException('Addon copy would write another environment volume.');
-            }
-
-            if ($service !== null && $commands !== [] && ! app()->runningUnitTests()) {
-                $server = $service->destination?->server;
-                if ($server !== null) {
-                    instant_remote_process($commands, $server);
-                }
+            if ($service !== null) {
+                \App\Support\OdooGit::cloneIntoService($service);
             }
 
             (new RestartOdooBranchJob($branch->id))->handle();
@@ -99,28 +92,6 @@ class SyncOdooAddonsJob implements ShouldQueue
         }
 
         return $environment?->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
-    }
-
-    /**
-     * @param  list<string>  $commands
-     */
-    private function otherEnvironmentVolume(array $commands, ?Environment $environment): bool
-    {
-        if ($environment === null) {
-            return false;
-        }
-
-        $own = $environment->services->pluck('uuid')->filter()->all();
-        $text = implode("\n", $commands);
-        preg_match_all('/[a-z0-9]{20,}_odoo-extra-addons/', $text, $matches);
-        foreach ($matches[0] ?? [] as $volume) {
-            $uuid = strstr($volume, '_odoo-extra-addons', true);
-            if (! in_array($uuid, $own, true)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /**

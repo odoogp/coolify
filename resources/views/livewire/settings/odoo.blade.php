@@ -20,6 +20,14 @@
                         helper="{{ __('Image tag used by the postgresql service, for example 16-alpine.') }}"
                         placeholder="16-alpine" />
                 </div>
+                <div class="flex max-w-xl items-end gap-2">
+                    <div class="min-w-0 flex-1">
+                        <x-forms.input id="newVersion" label="{{ __('New version') }}"
+                            helper="{{ __('Image tag for a version that is not in the list, for example 21.') }}"
+                            placeholder="21" />
+                    </div>
+                    <x-forms.button type="button" wire:click="createVersion">{{ __('Create template') }}</x-forms.button>
+                </div>
                 <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="22" />
                 <div>
                     <x-forms.button type="submit" isHighlighted>{{ __('Save') }}</x-forms.button>

@@ -430,7 +430,7 @@ class OdooGit
             return $base;
         }
 
-        return $base.'/gpsh/enter?token='.urlencode($token);
+        return $base.'/_odoo/paas/connect?token='.urlencode($token);
     }
 
     /**
@@ -989,9 +989,6 @@ class OdooGit
 
         foreach ($rows as $row) {
             $row->update(['status' => 'updating']);
-            if ($row->addons_application_id !== null) {
-                continue;
-            }
             \App\Jobs\SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
         }
 
