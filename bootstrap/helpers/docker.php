@@ -808,9 +808,15 @@ function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_
                 }
                 $labels->push("traefik.http.routers.{$https_label}.tls=true");
                 $labels->push("traefik.http.routers.{$https_label}.tls.certresolver=letsencrypt");
+                $labels->push("traefik.http.routers.{$https_label}.tls.domains[0].main={$host}");
 
-                // Set labels for http (redirect to https)
-                $labels->push("traefik.http.routers.{$http_label}.rule=Host(`{$host}`) && PathPrefix(`{$path}`)");
+                // Set labels for http (redirect to https).
+                // The ACME HTTP-01 path must stay on port 80. Redirecting it makes Traefik keep its default certificate.
+                $httpRule = "Host(`{$host}`) && PathPrefix(`{$path}`)";
+                if ($is_force_https_enabled) {
+                    $httpRule .= ' && !PathPrefix(`/.well-known/acme-challenge/`)';
+                }
+                $labels->push("traefik.http.routers.{$http_label}.rule={$httpRule}");
                 $labels->push("traefik.http.routers.{$http_label}.entryPoints=http");
                 if ($port) {
                     $labels->push("traefik.http.services.{$http_label}.loadbalancer.server.port=$port");

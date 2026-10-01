@@ -13,6 +13,20 @@ test('a public https domain without a port still targets the container listen po
     expect($labels)->each(fn ($label) => $label->not->toContain('loadbalancer.server.port=80'));
 });
 
+test('https redirect leaves the lets encrypt challenge on port 80', function () {
+    $labels = fqdnLabelsForTraefik(
+        uuid: 'odoo-service',
+        domains: collect(['https://odoo.example.com']),
+        is_force_https_enabled: true,
+        onlyPort: '8069',
+    )->values()->all();
+
+    expect($labels)->toContain('traefik.http.routers.http-0-odoo-service.rule=Host(`odoo.example.com`) && PathPrefix(`/`) && !PathPrefix(`/.well-known/acme-challenge/`)');
+    expect($labels)->toContain('traefik.http.routers.https-0-odoo-service.tls.certresolver=letsencrypt');
+    expect($labels)->toContain('traefik.http.routers.https-0-odoo-service.tls.domains[0].main=odoo.example.com');
+    expect($labels)->toContain('traefik.http.routers.http-0-odoo-service.middlewares=redirect-to-https');
+});
+
 test('an explicit url port wins over the template port', function () {
     $labels = fqdnLabelsForTraefik(
         uuid: 'odoo-service',

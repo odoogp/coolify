@@ -293,7 +293,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
 
     $command = $aligned['odoo']['command'][0];
 
-    expect($aligned['odoo']['entrypoint'])->toBe(['bash', '-lc'])
+    expect($aligned['odoo']['entrypoint'])->toBe(['bash', '-c'])
         ->and($command)->toContain('--proxy-mode')
         ->and($command)->toContain('base.user_admin')
         ->and($command)->toContain('--http-interface=0.0.0.0')

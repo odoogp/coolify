@@ -108,7 +108,7 @@ env.ref("base.user_admin").write({"password": os.environ.get("ODOO_ADMIN_PASSWOR
 env.cr.commit()
 PY
 fi
-exec odoo "${args[@]}" -d "$ODOO_DATABASE" || exec odoo --http-interface=0.0.0.0 --proxy-mode
+odoo "${args[@]}" -d "$ODOO_DATABASE" || exec odoo --http-interface=0.0.0.0 --proxy-mode
 BASH);
     }
 
@@ -138,7 +138,8 @@ BASH);
                 continue;
             }
             if ($database !== null && $database !== '' && $name === 'odoo') {
-                $service['entrypoint'] = ['bash', '-lc'];
+                // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
+                $service['entrypoint'] = ['bash', '-c'];
                 $service['command'] = [self::launchCommand()];
                 if (is_array($service['healthcheck'] ?? null)) {
                     $service['healthcheck']['start_period'] = '180s';
