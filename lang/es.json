@@ -3758,5 +3758,8 @@
     "GitHub App name": "Nombre de la app de GitHub",
     "GitHub App icon": "Icono de la app de GitHub",
     "Name used the next time GPSH registers its GitHub App. An app that is already installed is reused.": "Nombre que se usa la próxima vez que GPSH registre su app de GitHub. Si la app ya está instalada, se reutiliza.",
-    "Image URL. GPSH shows it on the GitHub connection. After registering, upload the same image as the app logo on GitHub.": "URL de la imagen. GPSH la muestra en la conexión con GitHub. Después de registrarla, sube la misma imagen como logo de la app en GitHub."
+    "Image URL. GPSH shows it on the GitHub connection. After registering, upload the same image as the app logo on GitHub.": "URL de la imagen. GPSH la muestra en la conexión con GitHub. Después de registrarla, sube la misma imagen como logo de la app en GitHub.",
+    "Search branches": "Buscar ramas",
+    "No matching branch": "Ninguna rama coincide",
+    "Choose a GitHub branch that is not already used.": "Elige una rama de GitHub que no esté usada."
 }

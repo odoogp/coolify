@@ -341,7 +341,8 @@ it('lists environments once and clones production into one staging', function ()
         ->not->toContain('project.odoo-summary')
         ->toContain('openCloneWizard')
         ->toContain('cloneToStaging')
-        ->toContain('staging-branch')
+        ->toContain('stagingBranch')
+        ->toContain('Search branches')
         ->toContain('Mounting the environment')
         ->toContain('Copying the service')
         ->toContain('Cloning the branch')
@@ -395,9 +396,20 @@ it('does not create a staging environment when the branch is already used', func
         'environment_id' => $production->id,
         'git_branch' => 'main',
     ]);
+    $githubApp = GithubApp::create([
+        'name' => 'Acme GitHub',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'app_id' => 123,
+        'installation_id' => 456,
+        'team_id' => $this->team->id,
+        'is_public' => false,
+    ]);
+    $this->project->odooProfile->update(['git_repository' => 'acme/odoo', 'github_app_id' => $githubApp->id]);
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->call('selectEnvironment', $production->uuid)
+        ->set('cloneBranches', ['develop'])
         ->set('stagingBranch', 'main')
         ->call('cloneToStaging')
         ->assertDispatched('error');

@@ -199,12 +199,10 @@
                                             </x-forms.button>
                                         @else
                                             <div class="max-w-sm space-y-2">
-                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-linked-branch">{{ __('GitHub branch') }}</label>
-                                                <select id="odoo-linked-branch" wire:model="odooBranch" class="input">
-                                                    @foreach ($odooGithubBranches as $branchName)
-                                                        <option value="{{ $branchName }}">{{ $branchName }}</option>
-                                                    @endforeach
-                                                </select>
+                                                <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
+                                                    searchPlaceholder="{{ __('Search branches') }}"
+                                                    emptyText="{{ __('No matching branch') }}"
+                                                    :options="collect($odooGithubBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
                                                 <x-forms.button type="button" wire:click="saveLinkedOdooBranch" canGate="update" :canResource="$service">
                                                     {{ __('Save GitHub branch') }}
                                                 </x-forms.button>
@@ -294,12 +292,10 @@
                                                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No matching repositories.') }}</p>
                                             @endif
                                             @if ($odooGithubBranches !== [])
-                                                <label class="mb-1.5 block text-sm font-medium" for="odoo-account-branch">{{ __('GitHub branch') }}</label>
-                                                <select id="odoo-account-branch" wire:model="odooBranch" class="input">
-                                                    @foreach ($odooGithubBranches as $branchName)
-                                                        <option value="{{ $branchName }}">{{ $branchName }}</option>
-                                                    @endforeach
-                                                </select>
+                                                <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
+                                                    searchPlaceholder="{{ __('Search branches') }}"
+                                                    emptyText="{{ __('No matching branch') }}"
+                                                    :options="collect($odooGithubBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
                                                 @if (filled($environment->odooBranch?->git_branch) && ! in_array((string) $environment->odooBranch->git_branch, $odooGithubBranches, true))
                                                     <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
                                                         {{ __('The branch :branch is not on this repository. Choose another branch.', ['branch' => $environment->odooBranch->git_branch]) }}

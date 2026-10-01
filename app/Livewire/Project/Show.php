@@ -6,14 +6,14 @@ use App\Jobs\CloneOdooStagingJob;
 use App\Models\Environment;
 use App\Models\Project;
 use App\Models\Service;
-use App\Rules\ValidGitBranch;
 use App\Services\AdminCreationQuota;
+use App\Models\GithubApp;
+use App\Support\OdooGit;
 use App\Support\OdooStaging;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Livewire\Component;
 use RuntimeException;
@@ -35,6 +35,9 @@ class Show extends Component
     public string $cloneAddons = 'copy';
 
     public string $stagingBranch = '';
+
+    /** @var list<string> */
+    public array $cloneBranches = [];
 
     public bool $cloneRunning = false;
 
@@ -110,7 +113,26 @@ class Show extends Component
         if ($production instanceof Environment) {
             $this->selectedEnvironmentUuid = $production->uuid;
         }
-        $this->stagingBranch = OdooStaging::nextName($this->project);
+        $this->stagingBranch = '';
+        $this->cloneBranches = [];
+        $profile = $this->project->odooProfile;
+        $app = $profile?->githubApp;
+        if (filled($profile?->git_repository) && $app instanceof GithubApp) {
+            try {
+                $parts = explode('/', (string) $profile->git_repository, 2);
+                if (count($parts) !== 2 || $parts[0] === '' || $parts[1] === '') {
+                    throw new RuntimeException('GitHub did not return a repository name.');
+                }
+                $used = $this->usedOdooBranches();
+                $this->cloneBranches = array_values(array_filter(
+                    OdooGit::branchNames($app, $parts[0], $parts[1]),
+                    fn (string $branch): bool => ! in_array($branch, $used, true),
+                ));
+                $this->stagingBranch = (string) ($this->cloneBranches[0] ?? '');
+            } catch (InvalidArgumentException|RuntimeException $exception) {
+                $this->dispatch('error', __($exception->getMessage()));
+            }
+        }
         $this->showCloneWizard = true;
     }
 
@@ -130,16 +152,14 @@ class Show extends Component
                 throw new RuntimeException('Clone starts from the production environment.');
             }
 
-            $branch = trim($this->stagingBranch);
-            if ($branch === '') {
+            $profile = $this->project->odooProfile;
+            if (filled($profile?->git_repository) && $profile->githubApp instanceof GithubApp) {
+                $branch = trim($this->stagingBranch);
+                if ($branch === '' || ! in_array($branch, $this->cloneBranches, true)) {
+                    throw new InvalidArgumentException('Choose a GitHub branch that is not already used.');
+                }
+            } else {
                 $branch = OdooStaging::nextName($this->project);
-            }
-            if (in_array($branch, $this->usedOdooBranches(), true)) {
-                throw new InvalidArgumentException('That branch is already used by this repository.');
-            }
-            $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
-            if ($check->fails()) {
-                throw new InvalidArgumentException('The GitHub branch name is invalid.');
             }
 
             $this->cloneError = null;

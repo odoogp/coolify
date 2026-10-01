@@ -198,21 +198,25 @@
                             <input type="radio" wire:model="cloneAddons" value="empty" class="rounded-full">
                             {{ __('New, without modules') }}
                         </label>
-                        <div class="max-w-sm">
-                            <label class="mb-1.5 block text-sm font-medium" for="staging-branch">{{ __('Branch') }}</label>
-                            <input id="staging-branch" type="text" wire:model="stagingBranch" class="input" autocomplete="off">
-                        </div>
-                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                            {{ __('The staging branch cannot be one already used by this repository.') }}
-                            {{ __('Already used: :branches.', ['branches' => $usedBranches === [] ? '—' : implode(', ', $usedBranches)]) }}
-                        </p>
-                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                            @if (filled($project->odooProfile?->git_repository))
+                        @if (filled($project->odooProfile?->git_repository) && $project->odooProfile?->githubApp)
+                            <div class="max-w-sm">
+                                <x-forms.searchable-listbox id="stagingBranch" label="{{ __('Branch') }}"
+                                    searchPlaceholder="{{ __('Search branches') }}"
+                                    emptyText="{{ __('No matching branch') }}"
+                                    :options="collect($cloneBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
+                            </div>
+                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('The staging branch cannot be one already used by this repository.') }}
+                                {{ __('Already used: :branches.', ['branches' => $usedBranches === [] ? '—' : implode(', ', $usedBranches)]) }}
+                            </p>
+                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
                                 {{ __('GitHub is connected, so the new staging is another branch of :repository. It does not reuse the production branch.', ['repository' => $project->odooProfile->git_repository]) }}
-                            @else
+                            </p>
+                        @else
+                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
                                 {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
-                            @endif
-                        </p>
+                            </p>
+                        @endif
                         <button type="button" class="button button-highlighted" wire:click="cloneToStaging">
                             {{ __('Create staging') }}
                         </button>
