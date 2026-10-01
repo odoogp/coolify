@@ -80,6 +80,16 @@ class OdooJupyter
             [$database, $url, $token, $password],
             <<<'BASH'
 python3 - <<'PY' || true
+from pathlib import Path
+def page(text):
+    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.25rem\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>")
+page("Preparando Odoo.")
+Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p style=\\\"font-size:1.25rem\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div></body>\")\n")
+Path("/tmp/gpsh-status.py").write_text("from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\nclass H(BaseHTTPRequestHandler):\n    def do_GET(self):\n        body=open('/tmp/gpsh-status.html','rb').read()\n        self.send_response(200)\n        self.send_header('Content-Type','text/html; charset=utf-8')\n        self.send_header('Cache-Control','no-store')\n        self.end_headers()\n        self.wfile.write(body)\n    def log_message(self, *a):\n        return\nThreadingHTTPServer(('0.0.0.0', 8069), H).serve_forever()\n")
+PY
+python3 /tmp/gpsh-status.py >/tmp/gpsh-status.log 2>&1 &
+echo $! > /tmp/gpsh-status.pid
+python3 - <<'PY' || true
 import os, time
 from pathlib import Path
 host = os.environ.get("HOST", "postgresql")
@@ -172,8 +182,10 @@ args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
 load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons" --load=base,web,gpsh_autoconnect)
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
-  odoo "${args[@]}" "${load[@]}" --without-demo=all -d __ODOO_DB__ -i base --stop-after-init || true
+  python3 /tmp/gpsh-page.py "Instalando la base." || true
+  odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i base --stop-after-init || true
 fi
+python3 /tmp/gpsh-page.py "Abriendo Odoo." || true
 python3 - <<'PY' || true
 import os
 url = "__ODOO_URL__"
@@ -220,6 +232,7 @@ with registry.cursor() as cr:
     env.ref("base.user_admin").sudo().write({"password": password})
     cr.commit()
 PY
+if [ -f /tmp/gpsh-status.pid ]; then kill "$(cat /tmp/gpsh-status.pid)" 2>/dev/null || true; sleep 1; fi
 exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
 BASH));
     }
@@ -309,21 +322,7 @@ BASH));
                     $environment['ODOO_DATABASE'] = $database;
                 }
                 $service['environment'] = $environment;
-                $labels = self::forwardedProtoLabels($service['labels'] ?? []);
-                if ($token !== '') {
-                    foreach ($labels as $index => $label) {
-                        if (! is_string($label) || ! str_contains($label, 'traefik.http.routers.https-') || ! str_contains($label, '.middlewares=')) {
-                            continue;
-                        }
-                        if (! str_contains($label, 'gpsh-enter')) {
-                            $labels[$index] = $label.',gpsh-enter';
-                        }
-                    }
-                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.regex=^https://([^/]+)/?$$';
-                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.replacement=https://$${1}/_odoo/paas/connect?token='.$token;
-                    $labels[] = 'traefik.http.middlewares.gpsh-enter.redirectregex.permanent=false';
-                }
-                $service['labels'] = $labels;
+                $service['labels'] = self::forwardedProtoLabels($service['labels'] ?? []);
 
                 continue;
             }
