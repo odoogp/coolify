@@ -5,8 +5,10 @@ use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Service\Heading;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
+use App\Models\StandaloneDocker;
 use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\InstanceSettings;
@@ -513,6 +515,28 @@ it('starts a new odoo project in stages and reuses an installed github app', fun
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('serverId')
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Search services')
         ->and(file_get_contents(resource_path('views/livewire/settings/index.blade.php')))->toContain('github_app_icon');
+});
+
+it('creates the odoo service after github repositories are installed', function () {
+    $server = Server::factory()->create(['team_id' => $this->team->id]);
+    StandaloneDocker::factory()->create(['server_id' => $server->id]);
+    $environment = $this->project->environments()->where('name', 'production')->first();
+
+    $response = $this->get(route('project.resource.index', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $environment->uuid,
+        'launch' => 'choose',
+    ]));
+
+    $service = Service::query()->where('environment_id', $environment->id)->where('service_type', 'odoo')->first();
+    expect($service)->not->toBeNull()
+        ->and($service->server_id)->toBe($server->id);
+    $response->assertRedirect(route('project.service.configuration', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $environment->uuid,
+        'service_uuid' => $service->uuid,
+        'launch' => 'choose',
+    ]));
 });
 
 it('returns from github to the project so the repository can be chosen', function () {

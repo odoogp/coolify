@@ -7,7 +7,10 @@ use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\OdooProfile;
 use App\Models\Project;
+use App\Models\Server;
 use App\Models\Service;
+use App\Models\StandaloneDocker;
+use App\Models\SwarmDocker;
 use App\Models\User;
 use App\Models\ServiceApplication;
 use App\Rules\ValidGitBranch;
@@ -1301,7 +1304,6 @@ BASH;
         $githubApp = GithubApp::query()
             ->where('team_id', $project->team_id)
             ->whereNull('installation_id')
-            ->whereNull('app_id')
             ->latest('id')
             ->first();
         if (! $githubApp instanceof GithubApp) {
@@ -1317,6 +1319,39 @@ BASH;
         session(['from' => session('from') + ['source_id' => $githubApp->id]]);
 
         return $githubApp;
+    }
+
+    /**
+     * Servers this user may launch on. The instance server (id 0) is included
+     * only when that permission is on.
+     *
+     * @return Collection<int, Server>
+     */
+    public static function allowedLaunchServers(): Collection
+    {
+        $user = auth()->user();
+
+        return Server::ownedByCurrentTeam()->orderBy('name')->get()
+            ->filter(function (Server $server) use ($user): bool {
+                if ((int) $server->id !== 0) {
+                    return true;
+                }
+
+                return $user?->canLaunchOnInstanceServer() ?? false;
+            })
+            ->values();
+    }
+
+    public static function firstLaunchDestination(): StandaloneDocker|SwarmDocker|null
+    {
+        foreach (self::allowedLaunchServers() as $server) {
+            $destination = $server->standaloneDockers()->first() ?? $server->swarmDockers()->first();
+            if ($destination !== null) {
+                return $destination;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -331,6 +331,12 @@ class Change extends Component
             if ($settings->public_ipv6) {
                 $this->ipv6 = 'http://'.$settings->public_ipv6.':'.config('app.port');
             }
+            if (data_get(session('from'), 'odoo')
+                && (int) data_get(session('from'), 'source_id') === (int) $this->github_app->id
+                && blank($this->github_app->installation_id)
+                && filled($this->github_app->app_id)) {
+                return redirect()->away(getInstallationPath($this->github_app));
+            }
             if ($this->github_app->installation_id && session('from')) {
                 $source_id = data_get(session('from'), 'source_id');
                 if (! $source_id || (int) $this->github_app->id !== (int) $source_id) {

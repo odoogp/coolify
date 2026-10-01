@@ -126,6 +126,9 @@ class AddEmpty extends Component
                     $back = 'project.service.configuration';
                 }
                 $githubApp = OdooGit::beginConnect($project, $back, $parameters);
+                if (filled($githubApp->app_id)) {
+                    return redirect()->away(getInstallationPath($githubApp));
+                }
 
                 return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
             }
@@ -153,6 +156,14 @@ class AddEmpty extends Component
                     'project_uuid' => $project->uuid,
                     'environment_uuid' => $productionEnvironment->uuid,
                     'service_uuid' => $created->uuid,
+                ]);
+            }
+
+            if ($this->service === 'odoo' && $this->connectGithub && $productionEnvironment !== null) {
+                return redirect()->route('project.resource.index', [
+                    'project_uuid' => $project->uuid,
+                    'environment_uuid' => $productionEnvironment->uuid,
+                    'launch' => 'choose',
                 ]);
             }
 
@@ -228,17 +239,7 @@ class AddEmpty extends Component
      */
     private function launchServers()
     {
-        $user = auth()->user();
-
-        return Server::ownedByCurrentTeam()->orderBy('name')->get()
-            ->filter(function (Server $server) use ($user): bool {
-                if ((int) $server->id !== 0) {
-                    return true;
-                }
-
-                return $user?->canLaunchOnInstanceServer() ?? false;
-            })
-            ->values();
+        return OdooGit::allowedLaunchServers();
     }
 
     private function destinationForLaunch(): StandaloneDocker|SwarmDocker|null

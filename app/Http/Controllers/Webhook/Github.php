@@ -551,6 +551,10 @@ class Github extends Controller
         $github_app->private_key_id = $private_key->id;
         $github_app->save();
 
+        if (data_get(session('from'), 'odoo') && blank($github_app->installation_id)) {
+            return redirect()->away(getInstallationPath($github_app));
+        }
+
         return redirect()->route('source.github.show', ['github_app_uuid' => $github_app->uuid]);
     }
 
