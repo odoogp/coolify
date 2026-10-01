@@ -309,7 +309,7 @@ it('stops when github is rate limited instead of calling the api again', functio
     });
 
     expect(fn () => OdooGit::launchEnvironment($this->project, $this->githubApp, 'production'))
-        ->toThrow(RuntimeException::class, 'GitHub is limiting requests. Wait a few minutes and try again.');
+        ->toThrow(RuntimeException::class, 'GitHub asked to slow down. The hourly limit is still available. Wait a minute and try again.');
 
     expect(collect($urls)->contains(fn (string $url): bool => str_contains($url, '/repos/acme/')))->toBeFalse();
 });

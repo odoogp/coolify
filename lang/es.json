@@ -3691,6 +3691,8 @@
     "The staging service did not start.": "El servicio de staging no arrancó.",
     "The Odoo data directory could not be made writable.": "No se pudo dejar escribible el directorio de datos de Odoo.",
     "GitHub is limiting requests. Wait a few minutes and try again.": "GitHub está limitando las peticiones. Espera unos minutos y vuelve a intentar.",
+    "GitHub hourly request limit was reached. Wait until it resets and try again.": "Se alcanzó el límite por hora de GitHub. Espera a que se reinicie y vuelve a intentar.",
+    "GitHub asked to slow down. The hourly limit is still available. Wait a minute and try again.": "GitHub pidió ir más despacio. El límite por hora sigue disponible. Espera un minuto y vuelve a intentar.",
     "A project is already being created.": "Ya se está creando un proyecto.",
     "The Odoo container of the service being cloned was not found.": "No se encontró el contenedor de Odoo del servicio que se está clonando.",
     "The Odoo container of the new staging service was not found.": "No se encontró el contenedor de Odoo del staging nuevo.",
