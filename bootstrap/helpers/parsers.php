@@ -359,15 +359,15 @@ function parseDockerVolumeString(string $volumeString): array
 }
 
 /**
- * Attach coolify-proxy to the service network. "already exists" is success;
- * any other failure stays in the deployment log instead of a silent 502.
+ * Attach coolify-proxy to the service network. A restart finds it already
+ * connected; connecting again makes Docker fail the deploy.
  */
 function coolifyProxyNetworkConnectCommand(string $network): string
 {
     $quoted = escapeshellarg($network);
-    $format = '{{range $n, $cfg := .NetworkSettings.Networks}}{{$n}} {{end}}';
+    $format = escapeshellarg('{{range .Containers}}{{.Name}} {{end}}');
 
-    return 'docker network connect '.$quoted.' coolify-proxy || docker inspect -f '.escapeshellarg($format).' coolify-proxy | grep -qw '.$quoted;
+    return 'docker network inspect '.$quoted.' --format '.$format.' | grep -qw coolify-proxy || docker network connect '.$quoted.' coolify-proxy';
 }
 
 function addTraefikDockerNetworkLabel(Collection $labels, string $network): Collection

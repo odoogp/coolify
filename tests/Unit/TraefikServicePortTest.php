@@ -36,10 +36,11 @@ test('a scheme-less host and port is not parsed as the scheme', function () {
 test('attaching the proxy to a service network is not hidden when it fails', function () {
     $command = coolifyProxyNetworkConnectCommand('svc-uuid');
 
+    expect($command)->toContain("docker network inspect 'svc-uuid'");
+    expect($command)->toContain('grep -qw coolify-proxy');
     expect($command)->toContain("docker network connect 'svc-uuid' coolify-proxy");
-    expect($command)->toContain('docker inspect');
-    expect($command)->toContain('grep -qw');
     expect($command)->not->toContain('|| true');
+    expect($command)->not->toContain('$');
 });
 
 test('container listen port uses the compose target, not the published host port', function () {
