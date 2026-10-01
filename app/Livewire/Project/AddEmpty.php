@@ -52,8 +52,8 @@ class AddEmpty extends Component
 
     public function submit()
     {
-        $lock = Cache::lock('create-project-user-'.auth()->id(), 180);
-        if (! $lock->get()) {
+        $guard = 'create-project-user-'.auth()->id();
+        if (! Cache::add($guard, 1, 15)) {
             return handleError(new RuntimeException(__('A project is already being created.')), $this);
         }
 
@@ -133,9 +133,9 @@ class AddEmpty extends Component
                 'environment_uuid' => $productionEnvironment->uuid,
             ]);
         } catch (\Throwable $e) {
+            Cache::forget($guard);
+
             return handleError($e, $this);
-        } finally {
-            $lock->release();
         }
     }
 

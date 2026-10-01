@@ -1256,14 +1256,22 @@ BASH;
                 'parameters' => $parameters === [] ? ['project_uuid' => $project->uuid] : $parameters,
             ],
         ]);
-        $githubApp = GithubApp::create([
-            'name' => self::appName((int) $project->team_id),
-            'api_url' => 'https://api.github.com',
-            'html_url' => 'https://github.com',
-            'custom_user' => 'git',
-            'custom_port' => 22,
-            'team_id' => $project->team_id,
-        ]);
+        $githubApp = GithubApp::query()
+            ->where('team_id', $project->team_id)
+            ->whereNull('installation_id')
+            ->whereNull('app_id')
+            ->latest('id')
+            ->first();
+        if (! $githubApp instanceof GithubApp) {
+            $githubApp = GithubApp::create([
+                'name' => self::appName((int) $project->team_id),
+                'api_url' => 'https://api.github.com',
+                'html_url' => 'https://github.com',
+                'custom_user' => 'git',
+                'custom_port' => 22,
+                'team_id' => $project->team_id,
+            ]);
+        }
         session(['from' => session('from') + ['source_id' => $githubApp->id]]);
 
         return $githubApp;

@@ -500,7 +500,8 @@ it('names a new github app after the product and keeps it on the user', function
 
     expect($app->name)->toBe('gpsh')
         ->and(session('from.odoo'))->toBeTrue()
-        ->and(OdooGit::beginConnect($this->project)->name)->toBe('gpsh-2');
+        ->and(OdooGit::beginConnect($this->project)->is($app))->toBeTrue()
+        ->and(GithubApp::query()->where('team_id', $this->team->id)->where('name', 'like', 'gpsh%')->count())->toBe(1);
 
     OdooGit::rememberForUser($this->user->id, $this->team->id, $app);
 
