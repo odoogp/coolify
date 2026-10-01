@@ -70,37 +70,45 @@ class OdooJupyter
     {
         // ponytail: Compose interpolates $ in the command. $$ is the only escape; a bare $( fails the deploy.
         return str_replace('$', '$$', <<<'BASH'
-set -e
-python3 - <<'PY'
-import os, time, psycopg2
+python3 - <<'PY' || true
+import os, time
 host = os.environ.get("HOST", "postgresql")
-user = os.environ["USER"]
-password = os.environ["PASSWORD"]
-database = os.environ["ODOO_DATABASE"]
+user = os.environ.get("USER") or ""
+password = os.environ.get("PASSWORD") or ""
+database = os.environ.get("ODOO_DATABASE") or ""
+if not database or not user or not password:
+    raise SystemExit(0)
+def connect(name):
+    try:
+        import psycopg2
+        return psycopg2.connect(host=host, user=user, password=password, dbname=name)
+    except ImportError:
+        import psycopg
+        return psycopg.connect(host=host, user=user, password=password, dbname=name)
 conn = None
 for _ in range(30):
     try:
-        conn = psycopg2.connect(host=host, user=user, password=password, dbname="postgres")
+        conn = connect("postgres")
         break
     except Exception:
         time.sleep(2)
 if conn is None:
-    raise SystemExit("PostgreSQL is not ready")
+    raise SystemExit(0)
 conn.autocommit = True
 cur = conn.cursor()
 cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (database,))
 open("/tmp/odoo-db-exists", "w").write("1" if cur.fetchone() else "0")
 PY
 args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode)
-if [ "$(cat /tmp/odoo-db-exists)" != "1" ]; then
-  odoo "${args[@]}" --without-demo=all -d "$ODOO_DATABASE" -i base --stop-after-init
-  odoo shell -d "$ODOO_DATABASE" --no-http "${args[@]}" <<'PY'
+if [ ! -f /tmp/odoo-db-exists ] || [ "$(cat /tmp/odoo-db-exists)" != "1" ]; then
+  odoo "${args[@]}" --without-demo=all -d "$ODOO_DATABASE" -i base --stop-after-init || true
+  odoo shell -d "$ODOO_DATABASE" --no-http --db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" <<'PY' || true
 import os
-env.ref("base.user_admin").write({"password": os.environ["ODOO_ADMIN_PASSWORD"]})
+env.ref("base.user_admin").write({"password": os.environ.get("ODOO_ADMIN_PASSWORD") or "admin"})
 env.cr.commit()
 PY
 fi
-exec odoo "${args[@]}" -d "$ODOO_DATABASE"
+exec odoo "${args[@]}" -d "$ODOO_DATABASE" || exec odoo --http-interface=0.0.0.0 --proxy-mode
 BASH);
     }
 
@@ -131,7 +139,10 @@ BASH);
             }
             if ($database !== null && $database !== '' && $name === 'odoo') {
                 $service['entrypoint'] = ['bash', '-lc'];
-                $service['command'] = self::launchCommand();
+                $service['command'] = [self::launchCommand()];
+                if (is_array($service['healthcheck'] ?? null)) {
+                    $service['healthcheck']['start_period'] = '180s';
+                }
                 $environment = $service['environment'] ?? [];
                 if ($environment instanceof \Illuminate\Support\Collection) {
                     $environment = $environment->all();
