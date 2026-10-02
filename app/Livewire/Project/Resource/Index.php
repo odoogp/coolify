@@ -49,6 +49,9 @@ class Index extends Component
     public function mount(): mixed
     {
         $this->loadResources();
+        if ($this->project->odooProfile()->exists() && request()->query('launch') !== 'choose') {
+            return redirect()->route('project.show', ['project_uuid' => $this->project->uuid]);
+        }
         if (request()->query('launch') !== 'choose' || ! $this->project->odooProfile()->exists()) {
             return null;
         }
@@ -76,18 +79,19 @@ class Index extends Component
     private function loadResources(): void
     {
         $this->applications = $this->postgresqls = $this->redis = $this->mongodbs = $this->mysqls = $this->mariadbs = $this->keydbs = $this->dragonflies = $this->clickhouses = $this->services = collect();
-        $this->parameters = get_route_parameters();
-        $project = currentTeam()
-            ->projects()
-            ->select('id', 'uuid', 'team_id', 'name')
-            ->where('uuid', request()->route('project_uuid'))
-            ->firstOrFail();
-        $environment = $project->environments()
-            ->select('id', 'uuid', 'name', 'project_id')
-            ->where('uuid', request()->route('environment_uuid'))
-            ->firstOrFail();
+        if (! isset($this->project)) {
+            $this->parameters = get_route_parameters();
+            $project = currentTeam()
+                ->projects()
+                ->select('id', 'uuid', 'team_id', 'name')
+                ->where('uuid', request()->route('project_uuid'))
+                ->firstOrFail();
+            $environment = $project->environments()
+                ->select('id', 'uuid', 'name', 'project_id')
+                ->where('uuid', request()->route('environment_uuid'))
+                ->firstOrFail();
 
-        $this->project = $project;
+            $this->project = $project;
 
         // Load projects and environments for breadcrumb navigation
         $this->allProjects = Project::ownedByCurrentTeamCached();
@@ -121,6 +125,7 @@ class Index extends Component
             'mongodbs',
             'services',
         ]);
+        }
 
         // Eager load relationships for applications
         $this->applications = $this->environment->applications()->with([
@@ -187,7 +192,7 @@ class Index extends Component
 
     public function render()
     {
-        if (! isset($this->project)) {
+        if (! isset($this->applications)) {
             $this->loadResources();
         }
 

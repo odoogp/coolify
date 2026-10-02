@@ -44,6 +44,25 @@
             </div>
         </div>
     @endif
+@if ($needsServer)
+    <div class="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+        <p class="text-[13px] leading-5 text-neutral-700 dark:text-fg">
+            {{ __('Add a server before creating a project.') }}
+        </p>
+        <p class="text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
+            {{ __('You cannot launch on the server where GPSH is installed.') }}
+        </p>
+        @if ($canAddServer)
+            <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
+                {{ __('Add a server') }}
+            </a>
+        @else
+            <p class="text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
+                {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
+            </p>
+        @endif
+    </div>
+@else
 <form class="space-y-4" wire:submit="submit">
     <div class="grid gap-4 md:grid-cols-2">
         <x-forms.input placeholder="{{ __('Your project name') }}" id="name" label="{{ __('Name') }}" required />
@@ -82,4 +101,5 @@
         </x-forms.button>
     </footer>
 </form>
+@endif
 </div>

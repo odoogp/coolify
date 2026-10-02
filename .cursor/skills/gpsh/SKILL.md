@@ -1,69 +1,110 @@
 ---
 name: gpsh
 description: >-
-  Locked GPSH decisions for this Coolify fork: Odoo stays a Service, GitHub App
-  launch flow, server booleans, staging clone, and what not to change. Use when
-  editing Odoo, Jupyter, project launch, AddEmpty, service picker, GitHub App,
-  repositories, staging, servers, team permissions, lang/es.json, or GPSH docs.
+  GPSH phase contract for this Coolify fork (phases 0–10): Odoo project,
+  staging, optional GitHub, Jupyter, launch, servers, backups, and the screens
+  that must match those phases. Use when editing Odoo, Jupyter, project launch,
+  AddEmpty, service picker, GitHub App, repositories, staging, servers, team
+  permissions, settings, lang/es.json, or GPSH docs.
 ---
 
 # GPSH
 
 The visible name is GPSH (`product_name()` / `product_text()`). Models, routes, and tables stay Coolify names.
 
-Read `docs/gpsh-architecture.md` for the map. `docs/v5/` (coold, flux) is not this runtime. Do not mix it into the Odoo layer.
+The product contract is the phases below. Long form: `docs/gpsh-architecture.md`, `docs/gpsh-odoo-phase-1.md`, `docs/gpsh-odoo-phase-2.md`, `docs/gpsh-odoo-phases-3-10.md`, `docs/gpsh-odoo-architecture-decision.md`. `docs/v5/` (coold, flux) is not this runtime.
 
-Phases 3–10 already exist. Do not extend them or rip them out unless they block the connection flow.
+Before changing launch, a project screen, GitHub, or Odoo: check the phase that owns that screen. If the UI still looks like stock Coolify where a phase already defined the behavior, that is the bug. Do not add a second flow beside the phase.
 
-## Do not touch
+The deployment experience to reach is Odoo.sh: one project, production and staging, one Odoo per environment, a branch, and a public HTTPS link. The client does not manage a scattered list of Coolify services. That project screen is phase 6 and is still the gap. Do not hide Coolify's own tools from the owner: adding servers, S3, and the cloud providers Coolify already has (Hetzner, Vultr, DigitalOcean, and the rest of the server create screen) stay available.
 
-- Do not commit or push unless the user asks.
-- This Mac has no `php` and no `docker`. Do not invent Pest, `php -l`, curl, or HTTP results. Say what was not run.
-- Do not `docker compose down` or `down -v`. Do not delete volumes.
-- Do not change the local updater, `COOLIFY_IMAGE=coolify-custom:local`, `COOLIFY_PULL_POLICY=never`, instance Postgres/Redis/Realtime/Sentinel, or sentinel rows `id = 0`.
-- Do not edit a migration after it has been applied.
-- Source edits are not live until `coolify-custom:local` is rebuilt. Say that when the user must see the change.
-- Do not change Odoo listen `0.0.0.0:8069`. Do not re-enable the Odoo image healthcheck. Do not reintroduce `gpsh-enter`.
-- Do not change `S3StoragePolicy` or `canAccessTerminal`. S3 create stays owner-only, checked on submit, not on `Storage\Create::mount` (that form is mounted on every page).
-- Members never get `server.create` / `server.update` / `server.delete` or S3 create, even if a pivot flag is true. Server update and delete stay owner-only.
-- Do not call `ProvisionOdooEnvironment`. Do not create an `Application` to represent the Git connection. Do not use `OauthController` for repository access. Do not add `OdooGithubApp`. `GithubApp` is the Git source. Odoo stays a `Service`.
-- `request_oauth_on_install` is false. GitHub is optional. One repository per project. Environment name and `odoo_environment_branches.git_branch` are different. The database name is the environment name.
-- Do not re-download the Odoo image (`docker run --pull never`, `pullLatestImages false`).
-- Queue workers: treat the user as authenticated only when `auth()->id() !== null`. Otherwise `User::whereKey` and `Auth::setUser`. `(int) null === 0` selects the instance owner and server id 0. `Auth::onceUsingId(0)` is unsafe. An empty server id must throw "Choose a server." before `(int)` cast.
+The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set when the user is created, on the invitation, not after the first login: staging quota, `can_add_servers`, `can_launch_on_instance_server`, and `odoo.*` abilities. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server, S3, or terminal access. Do not replace Coolify roles with a new role system.
 
-## Launch a project
+`App\Livewire\Project\Resource\Index` keeps resource lists in `protected` properties. Livewire drops them on the next request, including Install Odoo. `render()` reloads them from the public project and environment. Install Odoo is only shown when that environment is empty. If another service is already there, the list shows that service's name and there is no Install Odoo button.
 
-Form: `app/Livewire/Project/AddEmpty.php` and `resources/views/livewire/project/add-empty.blade.php`. The service field is `x-forms.searchable-listbox` with `live` and `portal` (the create modal clips a normal listbox). Odoo first, then the other templates. Choosing Odoo reveals version, Connect GitHub, and the server list.
+## Phase 0
 
-1. Ask which server when the team has one the user may use. Server id 0 only if `canLaunchOnInstanceServer()`. No usable server: do not pretend a service was created.
-2. GitHub app already installed (`app_id`, `installation_id`, private key; `webhook_secret` is not required): do not send them to install the app or to "Install repositories". Go to the service with `launch=choose`.
-3. App not installed: create the GitHub App, then send them to install repositories (`getInstallationPath`). Do not stop on the Coolify page that only shows the button.
-4. After repositories are installed, return to the environment they configured. Create the Odoo service if it is missing, then open `project.service.configuration?launch=choose` (new repository or search an existing one). Confirming either path runs `LaunchOdooProjectJob` (containers, then HTTPS). Do not dump them on an empty resource index.
-5. Without GitHub, start `LaunchOdooProjectJob` immediately after create.
+Reuse Coolify. Do not build a second deploy engine, a second Git checkout, a second webhook, or a second user system.
 
-`App\Livewire\Project\Resource\Index` keeps resource collections in `protected` properties. Livewire does not restore those on the next request. Initialize them before `render()` reads them.
+- Odoo is a `Service` (template `odoo` + Postgres), started with `StartService`. Not an `Application` image build.
+- Git source is `GithubApp`. Webhook stays `POST /source/github/events`.
+- One `Application` marked `is_odoo_addons` per environment is how that webhook finds the branch (`SyncOdooAddonsJob` copies into `{serviceUuid}_odoo-extra-addons` and restarts only the Odoo container). Do not add `OdooGithubApp`. Do not create an extra Application in assign/launch on top of that one.
+- Login OAuth (`OauthController`) does not list repositories.
+- Do not call `ProvisionOdooEnvironment`.
 
-## Permissions on the user
+## Phase 1 — profile and staging quota
+
+- `odoo_profiles`: one row per project. `odoo_version` is 17, 18, 19, or 20. Enabling Odoo only saves the profile. It does not create an empty staging.
+- Staging is an `Environment` named `staging` or `staging-N`. `production` is not staging. No `OdooStagingEnvironment` model.
+- Quota is on the user, written only by the owner. Not the old project columns. Rule: `OdooStaging::canCreateStagingEnvironment()`. No profile or a member: no. Owner, or admin with a null limit: yes. Admin with a number: staging environments they created, under that number. Production does not count.
+- `Project::createNextStagingEnvironment()` is the only creator. Clone calls it. One new staging, never a second production. If `staging` exists, reuse it; the next is `staging-2`.
+- A project without a profile stays production only.
+
+## Phase 2 — what the user must see
+
+GitHub is optional. `request_oauth_on_install` is false.
+
+New project: pick the service (search by name; the menu must not be clipped). Odoo asks version 17–20 and Connect GitHub. Skipping GitHub still creates the project. JupyterLab stays on and shows addon files. One folder: Odoo `/mnt/extra-addons`, Jupyter `/workspace/addons`.
+
+Connect GitHub uses the existing GitHub App register. A row without `installation_id` is not connected. Do not ask for `app_id`, installation id, or the private key in the project form. The app name comes from instance settings (default `gpsh1`), stored on `team_user.github_app_id`. The screen shows that account's login and repositories, not a list of apps. The owner can switch the account. The manifest for this path asks `contents: write` and `administration: write`. A GitHub App created from Coolify's normal source screen stays read-only.
+
+Already installed (`app_id`, `installation_id`, private key; `webhook_secret` is not required): do not send them to install the app or to "Install repositories". Ask: launch production on a new repository, or search an existing one (reuse the repository search, up to five pages). Then start containers and wait for HTTPS.
+
+Not installed: create the app, then send them to install repositories (`getInstallationPath`). Do not stop on the Coolify page that only shows the button. After GitHub returns, create the Odoo service if it is missing and open the same new-vs-existing choice. Do not leave them on an empty resource index.
+
+One repository per project (`owner/name` on the profile). It cannot belong to two projects. New repo slug is the project name (`Mi Empresa` → `mi-empresa`). Each environment stores its own `git_branch` in `odoo_environment_branches`. Two environments cannot share a branch. Without GitHub there is no branch row; the panel says JupyterLab.
+
+Inside the project there is one list. A row is selected with one click. The only clone button is in the header and says the destination is a staging. While it runs, the screen says it is creating that staging and starting Odoo. An Odoo project does not offer other service types. Clicking production stays on the project and shows that environment. The button is Open Odoo, including for a member. It does not open the resource index or the service screen. Those screens stay for every project that is not Odoo. `launch=choose` is the only Odoo visit to the service page, and it shows the repository choice, not the service list.
+
+On the service, Odoo, PostgreSQL, and Jupyter (if on) are listed first, each with a way in. GitHub is its own section. The public URL is `https://` without port `:8069` and opens the admin session at `/_odoo/paas/connect`. Odoo starts with `--proxy-mode` and `--no-database-list`, filtered to its own database. Each start writes `web.base.url` as `https://` in Postgres. HTTPS redirect must still allow `/.well-known/acme-challenge/`. A new Odoo version is a template under Settings.
+
+A push to the saved `git_branch` reclones addons and restarts only the Odoo container. Pull requests do nothing. No second webhook.
+
+Launch is not done until the certificate is Let's Encrypt (not the Traefik default) and the public URL answers (not 503 / "no available server"). While Odoo installs, the public URL shows a Spanish auto-refresh page. Do not re-download the image (`pullLatestImages false`, `--pull never`). Do not re-enable the image healthcheck. Do not reintroduce `gpsh-enter`. Listen stays `0.0.0.0:8069`.
+
+If the user cannot launch on the server where GPSH is installed (server id 0) and has no other server, the new-project form asks them to add a server and does not create the project. Owners can always use server id 0.
+
+## Phases 3–10 — do not drop these
+
+These are already started. Do not rip them out. Do not extend them unless the current phase flow is blocked.
+
+- 3. Production and staging are two environments, two services, separate domains, databases, filestores, and addon volumes. The existing webhook dispatches the matching branch. A push does not build an image when the addons Application exists. Statuses: `queued`, `in_progress`, `finished`, `failed`, `cancelled-by-user`.
+- 4. Deploy history reuses that queue or the service deploy, with those same statuses.
+- 5. `OdooBackup` is `complete` only when the database execution and the filestore volume execution are both `success`. Restore or clone of data without that pair is refused.
+- 6. Project view for member and owner: domain, version, workers, addon path, Jupyter, last status. Not the raw Docker inventory. No new server screens.
+- 7. Version on the profile, workers, addon path, Jupyter optional per environment. The 17–20 selector on the service already exists.
+- 8. Audit log (user, action, project, environment, result, metadata, no secrets) and the notification channels that already exist.
+- 9. API `/api/v1/projects/{uuid}/odoo` calls the same actions as the UI.
+- 10. A member cannot create or change a server or S3. Staging does not write to production. Abilities `odoo.*` granted by the owner do not open servers, S3, or the terminal.
+
+## Corrections that override an older phase sentence
+
+- Clone copies the database and the filestore, then Odoo neutralize. Staging stays writable. Phase 1's "the clone copies nothing" is stale. The only `:ro` is the production filestore during the copy. After start succeeds, a later copy failure keeps the staging environment.
+- The environment name and `git_branch` are different fields. The database name is the environment name, not `{project}_{branch}`.
+- Do not find Postgres as `postgresql-{uuid}`. Match image or name `*postgres*`, or label `coolify.service.subType=database`. Odoo is image `odoo:` or a name containing `odoo` but not jupyter. Do not stop Jupyter. Filestore ownership comes from `docker exec` uid/gid on the source Odoo, not hardcoded `101:101`.
+- Wait until Odoo, Jupyter (if enabled), and PostgreSQL are running before the HTTPS check.
+- Deleting an environment returns to the project page.
+- `(int) null === 0` selects the instance owner and server id 0. An empty server id must throw "Choose a server." before the cast. In a queue worker, trust `auth()->id()` only when it is not null; otherwise `User::whereKey` and `Auth::setUser`. `Auth::onceUsingId(0)` is unsafe.
+
+## Permissions
 
 Pivot `team_user`, set by the owner on an admin:
 
-- `can_add_servers`: admin may create servers. `ServerPolicy::create` is `canAddServers()`.
-- `can_launch_on_instance_server`: admin may launch on server id 0.
+- `can_add_servers`: `ServerPolicy::create` is `canAddServers()`.
+- `can_launch_on_instance_server`: may launch on server id 0.
 
-Owners always can. Members never can.
-
-## Staging and HTTPS
-
-- Clone copies the database and the filestore, then Odoo neutralize. Staging is writable. The only `:ro` is the production filestore during the copy.
-- Do not find Postgres by a guessed name `postgresql-{uuid}`. Match image/name `*postgres*` or label `coolify.service.subType=database`. Odoo is image `odoo:` or a name containing `odoo` but not jupyter. Do not stop Jupyter.
-- Filestore chown uses `docker exec` on the source Odoo for uid/gid. Not hardcoded `101:101`.
-- After compose up, wait until Odoo, Jupyter (if enabled), and PostgreSQL are running before HTTPS.
-- A later copy failure after start keeps the staging environment.
-- Deleting an environment returns to the project page.
-- Launch is finished only when HTTPS is Let's Encrypt (not the Traefik default) and the public URL answers (not 503).
-- A push to the saved `git_branch` git-clones addons and restarts only the Odoo container. Pull requests do nothing for Odoo.
-- New GPSH strings go in `lang/es.json`. Validate with `python3 -c 'import json; json.load(open("lang/es.json"))'`.
+Owners always can. Members never can, even if the column is true. Server update/delete and S3 create stay owner-only. `S3StoragePolicy` and `canAccessTerminal` stay as they are. `Storage\Create` is mounted on every page: authorize on submit, not on mount.
 
 ## Support
 
-WhatsApp support is a floating button on the logged-in layout. It asks for a topic, then opens `wa.me` with that text. The number is `instance_settings.whatsapp_support_number`, edited only by the instance owner at `settings.whatsapp`. Empty number hides the button. GitHub App name and icon live at `settings.github`, not on the general form.
+WhatsApp: floating button on the logged-in layout. It asks the topic, then opens `wa.me`. Number is `instance_settings.whatsapp_support_number`, owner only, at `settings.whatsapp`. Empty hides the button. GitHub App name and icon are at `settings.github`, not on the general form.
+
+## Do not touch
+
+- Do not commit or push unless asked.
+- This Mac has no `php` and no `docker`. Do not invent test results.
+- Do not `docker compose down` or `down -v`. Do not delete volumes.
+- Do not change the local updater, `COOLIFY_IMAGE=coolify-custom:local`, `COOLIFY_PULL_POLICY=never`, or sentinel rows `id = 0`.
+- Do not edit a migration after it is applied.
+- Source edits are not live until `coolify-custom:local` is rebuilt. Say so.
+- New GPSH strings go in `lang/es.json`. Validate with `python3 -c 'import json; json.load(open("lang/es.json"))'`.

@@ -108,10 +108,8 @@ class OdooSummary extends Component
                     'branch' => $environment->odooBranch?->git_branch,
                     'status' => $latest?->status,
                     'staging' => OdooStaging::isStagingName($environment->name),
-                    'href' => $service === null ? null : route('project.service.configuration', [
+                    'href' => $service === null ? null : route('project.show', [
                         'project_uuid' => $this->project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                        'service_uuid' => $service->uuid,
                     ]),
                 ];
             })

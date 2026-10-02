@@ -37,6 +37,7 @@
     $hasMultipleServers = $isApplication && method_exists($resource, 'additional_servers') &&
         ($resource->relationLoaded('additional_servers') ? $resource->additional_servers->count() > 0 : ($resource->additional_servers_count ?? 0) > 0);
     $serverName = $hasMultipleServers ? null : data_get($resource, 'destination.server.name');
+    $odooProject = (bool) $resource->environment?->project?->odooProfile()->exists();
     $routeParams = [
         'project_uuid' => $currentProjectUuid,
         'environment_uuid' => $currentEnvironmentUuid,
@@ -108,7 +109,9 @@
             <div class="flex items-center relative" @mouseenter="open()"
                 @mouseleave="close()">
                 <a class="text-xs truncate lg:text-sm hover:text-warning" {{ wireNavigate() }}
-                    href="{{ route('project.resource.index', [
+                    href="{{ $odooProject
+                        ? route('project.show', ['project_uuid' => $currentProjectUuid])
+                        : route('project.resource.index', [
                         'environment_uuid' => $currentEnvironmentUuid,
                         'project_uuid' => $currentProjectUuid,
                     ]) }}">
@@ -150,14 +153,16 @@
                             @endphp
                             <div @mouseenter="openEnv('{{ $environment->uuid }}'); envPositions['{{ $environment->uuid }}'] = $el.offsetTop - ($el.closest('.overflow-y-auto')?.scrollTop || 0)"
                                 @mouseleave="closeEnv()">
-                                <a href="{{ route('project.resource.index', [
+                                <a href="{{ $odooProject
+                                        ? route('project.show', ['project_uuid' => $currentProjectUuid])
+                                        : route('project.resource.index', [
                                         'environment_uuid' => $environment->uuid,
                                         'project_uuid' => $currentProjectUuid,
                                     ]) }}" {{ wireNavigate() }}
                                     class="flex items-center justify-between gap-2 px-4 py-2 text-sm hover:bg-neutral-100 dark:hover:bg-coolgray-200 {{ $environment->uuid === $currentEnvironmentUuid ? 'dark:text-warning font-semibold' : '' }}"
                                     title="{{ $environment->name }}">
                                     <span class="truncate">{{ $environment->name }}</span>
-                                    @if ($envResources->count() > 0)
+                                    @if (! $odooProject && $envResources->count() > 0)
                                         <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="4"
@@ -197,7 +202,7 @@
                                 ->merge($envDatabases->map(fn($db) => ['type' => 'database', 'resource' => $db]))
                                 ->merge($environment->services->map(fn($svc) => ['type' => 'service', 'resource' => $svc]));
                         @endphp
-                        @if ($envResources->count() > 0)
+                        @if (! $odooProject && $envResources->count() > 0)
                             <div x-show="activeEnv === '{{ $environment->uuid }}'" x-cloak
                                 x-transition:enter="transition ease-out duration-150"
                                 x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
@@ -243,6 +248,7 @@
             </div>
         </li>
 
+        @unless ($odooProject)
         <!-- Resource Level -->
         <li class="inline-flex items-center mr-2">
             <a class="text-xs truncate lg:text-sm hover:text-warning" {{ wireNavigate() }}
@@ -255,6 +261,7 @@
                 {{ data_get($resource, 'name') }}@if($serverName) <span class="text-xs text-neutral-400">({{ $serverName }})</span>@endif
             </a>
         </li>
+        @endunless
 
         <!-- Current Section Status -->
         @if ($resource->getMorphClass() == 'App\Models\Service')

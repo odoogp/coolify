@@ -133,6 +133,17 @@
                     class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
                     <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
                     <div class="flex flex-wrap items-center gap-2">
+                        @if ($project->odooProfile)
+                            @php
+                                $selectedOdoo = $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter());
+                            @endphp
+                            @if ($selectedOdoo)
+                                <a class="button button-highlighted" target="_blank"
+                                    href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid]) }}">
+                                    {{ __('Open Odoo') }}
+                                </a>
+                            @endif
+                        @endif
                         @can('delete', $selectedEnvironment)
                             <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
                                 :key="'delete-environment-'.$selectedEnvironment->id" />
@@ -229,7 +240,7 @@
                     <template x-for="environment in paginatedEnvironments" :key="environment.uuid">
                         <article
                             class="group relative flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
-                            <a :href="environment.href" {{ wireNavigate() }} class="absolute inset-0 rounded-xl"
+                            <a x-show="!environment.odoo" :href="environment.href" {{ wireNavigate() }} class="absolute inset-0 rounded-xl"
                                 :aria-label="`Open ${environment.name}`"></a>
 
                             <div class="flex items-start gap-3">
@@ -252,7 +263,9 @@
                                 </p>
 
                                 <div class="relative z-10 flex shrink-0 items-center gap-0.5">
-                                    <a x-show="environment.serviceHref" :href="environment.serviceHref"
+                                    <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
+                                        class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
+                                    <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref"
                                         {{ wireNavigate() }}
                                         class="button h-7 px-2 text-[11px]"
                                         title="{{ __('Open') }}">{{ __('Open') }}</a>
@@ -307,9 +320,10 @@
                                 class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-fg-dim">
                                 <x-reicon name="layers" class="size-4" />
                             </div>
-                            <a :href="environment.href" {{ wireNavigate() }}
+                            <a x-show="!environment.odoo" :href="environment.href" {{ wireNavigate() }}
                                 class="relative truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
                                 x-text="environment.name"></a>
+                            <span x-show="environment.odoo" class="truncate text-[13px] font-semibold" x-text="environment.name"></span>
                         </div>
 
                         <div class="environment-resource-count text-[12px] text-neutral-600 dark:text-fg-dim"
@@ -318,7 +332,9 @@
                             x-text="environment.branch || environment.description || '-'"></p>
 
                         <div class="relative flex items-center justify-end gap-0.5">
-                            <a x-show="environment.serviceHref" :href="environment.serviceHref" {{ wireNavigate() }}
+                            <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
+                                class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
+                            <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref" {{ wireNavigate() }}
                                 class="button h-7 px-2 text-[11px]">{{ __('Open') }}</a>
                             <a x-show="environment.addResourceHref" :href="environment.addResourceHref"
                                 {{ wireNavigate() }}

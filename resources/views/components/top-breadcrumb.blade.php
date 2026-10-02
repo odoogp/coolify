@@ -6,6 +6,7 @@
     $currentProject = $projectUuid ? $projects->firstWhere('uuid', $projectUuid) : null;
     $environments = $currentProject ? $currentProject->environments()->get() : collect();
     $currentEnvironment = $environmentUuid ? $environments->firstWhere('uuid', $environmentUuid) : null;
+    $odooProject = (bool) $currentProject?->odooProfile()->exists();
     $projectDestinationRoute = request()->routeIs('shared-variables.project.*')
         ? 'shared-variables.project.show'
         : 'project.show';
@@ -281,7 +282,7 @@
                     {{ __('Environments') }}
                 </div>
                 @foreach ($environments as $env)
-                    <a href="{{ route('project.resource.index', ['project_uuid' => $currentProject->uuid, 'environment_uuid' => $env->uuid]) }}" {{ wireNavigate() }} @click="open = false"
+                    <a href="{{ $odooProject ? route('project.show', ['project_uuid' => $currentProject->uuid]) : route('project.resource.index', ['project_uuid' => $currentProject->uuid, 'environment_uuid' => $env->uuid]) }}" {{ wireNavigate() }} @click="open = false"
                         class="listbox-option {{ $env->uuid === $currentEnvironment->uuid ? 'bg-neutral-100 font-medium text-black dark:bg-white/[0.07] dark:text-fg' : '' }}">
                         <span class="min-w-0 flex-1 truncate">{{ $env->name }}</span>
                     </a>
@@ -290,7 +291,7 @@
         </div>
     @endif
 
-    @if ($currentResource)
+    @if ($currentResource && ! $odooProject)
         <x-breadcrumb-switcher title="{{ __('Resources') }}" :label="$currentResource->name" :items="$resourceItems">
             <x-slot:meta>
                 @if ($currentApplication)

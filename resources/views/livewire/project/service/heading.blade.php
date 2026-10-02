@@ -41,6 +41,14 @@
             fn (array $item): bool => $item['visible'] ?? true,
         ));
 
+        $odooHeading = $service->supportsOdooJupyter();
+        $odooEnterUrl = $odooHeading && $service->environment?->project
+            ? route('project.service.odoo.enter', [
+                'project_uuid' => $service->environment->project->uuid,
+                'environment_uuid' => $service->environment->uuid,
+                'service_uuid' => $service->uuid,
+            ])
+            : null;
         $serviceStatus = str($service->status ?? 'exited');
         $githubBranch = $service->environment?->odooBranch?->git_branch;
         $environmentVariablesUrl = route('project.service.environment-variables', [
@@ -67,7 +75,7 @@
         <div class="mb-3 w-full xl:hidden">
             <div class="flex min-w-0 flex-col items-start gap-2">
                 <h1 class="min-w-0 max-w-full truncate text-[24px]! leading-7! font-semibold! tracking-tight! text-black dark:text-fg">
-                    {{ $service->name }}
+                    {{ $odooHeading ? $service->environment->name : $service->name }}
                 </h1>
                 <div class="relative flex w-full min-w-0 items-center gap-2">
                     <x-status-summary :status="$service->status" title="{{ __('Service status') }}" container-name="Containers" />
@@ -77,7 +85,9 @@
         </div>
 
         <div class="w-full xl:hidden">
-            @if ($service->isDeployable)
+            @if ($odooEnterUrl)
+                <a class="button button-highlighted mb-3" target="_blank" href="{{ $odooEnterUrl }}">{{ __('Open Odoo') }}</a>
+            @elseif ($service->isDeployable)
                 @can('deploy', $service)
                 <div id="service-mobile-actions" class="relative mb-3"
                     x-data="{ open: false }" @click.outside="open = false"
@@ -186,7 +196,9 @@
             <div
                 class="resource-heading-navbar application-heading-actions flex w-auto min-w-0 items-center justify-end gap-1 overflow-visible">
                 <div class="resource-heading-actions flex shrink-0 items-center gap-0.5">
-                    @if ($service->isDeployable)
+                    @if ($odooEnterUrl)
+                        <a class="button button-highlighted" target="_blank" href="{{ $odooEnterUrl }}">{{ __('Open Odoo') }}</a>
+                    @elseif ($service->isDeployable)
                         <div class="resource-heading-menus shrink-0">
                             <x-services.links :service="$service" />
                         </div>

@@ -116,6 +116,9 @@ class Configuration extends Component
             $project->loadMissing('odooProfile');
             $environment->loadMissing('odooBranch');
             $this->odooIsOdoo = $this->service->supportsOdooJupyter();
+            if ($this->odooIsOdoo && request()->query('launch') !== 'choose') {
+                return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
+            }
             $this->syncOdooGithub();
             $this->awaitingRepositoryChoice = request()->query('launch') === 'choose'
                 && blank($project->odooProfile?->git_repository);

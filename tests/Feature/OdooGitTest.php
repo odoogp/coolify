@@ -539,6 +539,21 @@ it('creates the odoo service after github repositories are installed', function 
     ]));
 });
 
+it('asks for a server before a project when the coolify host is not allowed', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin']);
+    $this->actingAs($admin);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(AddEmpty::class)
+        ->assertSee('Add a server before creating a project')
+        ->set('name', 'Sin servidor')
+        ->set('service', 'odoo')
+        ->call('submit');
+
+    expect(Project::query()->where('name', 'Sin servidor')->exists())->toBeFalse();
+});
+
 it('returns from github to the project so the repository can be chosen', function () {
     session([
         'from' => [

@@ -300,7 +300,7 @@ class Show extends Component
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'usedBranches' => $this->usedOdooBranches(),
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),
-            'environmentsJs' => $this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject): array {
+            'environmentsJs' => $this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly): array {
                 $resourceCount = collect([
                     $environment->applications_count,
                     $environment->services_count,
@@ -315,8 +315,15 @@ class Show extends Component
                 ])->sum();
 
                 $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
-                $serviceHref = $service instanceof Service
+                $serviceHref = ! $odooOnly && $service instanceof Service
                     ? route('project.service.configuration', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                    ])
+                    : null;
+                $enterHref = $odooOnly && $service instanceof Service
+                    ? route('project.service.odoo.enter', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
                         'service_uuid' => $service->uuid,
@@ -328,12 +335,14 @@ class Show extends Component
                     'name' => $environment->name,
                     'description' => $environment->description,
                     'branch' => $environment->odooBranch?->git_branch,
+                    'odoo' => $odooOnly,
                     'serviceHref' => $serviceHref,
+                    'enterHref' => $enterHref,
                     'resourceCount' => $resourceCount,
-                    'href' => $serviceHref ?? route('project.resource.index', [
+                    'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
-                    ]),
+                    ])),
                     'settingsHref' => $canUpdateProject
                         ? route('project.environment.edit', [
                             'project_uuid' => $this->project->uuid,

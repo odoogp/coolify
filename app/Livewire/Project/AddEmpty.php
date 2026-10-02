@@ -71,6 +71,9 @@ class AddEmpty extends Component
 
         try {
             $this->authorize('create', Project::class);
+            if ($this->needsServerBeforeProject()) {
+                throw new RuntimeException(__('Add a server before creating a project.'));
+            }
             $this->validate();
 
             $created = null;
@@ -231,6 +234,8 @@ class AddEmpty extends Component
                 ->map(fn (Server $server): array => ['value' => (string) $server->id, 'label' => $server->name])
                 ->values()
                 ->all(),
+            'needsServer' => $this->needsServerBeforeProject(),
+            'canAddServer' => (bool) auth()->user()?->canAddServers(),
         ]);
     }
 
@@ -240,6 +245,15 @@ class AddEmpty extends Component
     private function launchServers()
     {
         return OdooGit::allowedLaunchServers();
+    }
+
+    private function needsServerBeforeProject(): bool
+    {
+        if (auth()->user()?->canLaunchOnInstanceServer()) {
+            return false;
+        }
+
+        return $this->launchServers()->isEmpty();
     }
 
     private function destinationForLaunch(): StandaloneDocker|SwarmDocker|null

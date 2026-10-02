@@ -257,7 +257,7 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
 
     public function members()
     {
-        return $this->belongsToMany(User::class, 'team_user', 'team_id', 'user_id')->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities');
+        return $this->belongsToMany(User::class, 'team_user', 'team_id', 'user_id')->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities', 'can_add_servers', 'can_launch_on_instance_server');
     }
 
     public function subscription()

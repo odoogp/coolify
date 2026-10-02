@@ -334,6 +334,40 @@ it('asks for the odoo version and github while creating the project', function (
         ->and(Application::query()->count())->toBe(0);
 });
 
+it('keeps an odoo environment on the project and lets a member open odoo', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'name' => 'odoo-production',
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $member = User::factory()->create();
+    $member->teams()->attach($this->team, ['role' => 'member']);
+    $this->actingAs($member);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee('Open Odoo')
+        ->assertSee('production')
+        ->assertSee(route('project.service.odoo.enter', [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $production->uuid,
+            'service_uuid' => $service->uuid,
+        ], false));
+
+    $this->get(route('project.resource.index', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ]))->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
+
+    $this->get(route('project.service.configuration', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+        'service_uuid' => $service->uuid,
+    ]))->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
+});
+
 it('lists environments once and clones production into one staging', function () {
     $this->project->enableOdoo('20');
     $production = $this->project->environments()->where('name', 'production')->first();
