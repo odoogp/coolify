@@ -54,7 +54,8 @@ class OdooMonitor
             'command' => [self::grafanaCommand()],
             'environment' => [
                 'SERVICE_URL_MONITOR_3000',
-                'GF_SERVER_ROOT_URL=${SERVICE_FQDN_MONITOR}',
+                'GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}',
+                'GF_SERVER_SERVE_FROM_SUB_PATH=false',
                 'GF_SECURITY_ADMIN_USER=admin',
                 'GF_SECURITY_ADMIN_PASSWORD=${SERVICE_PASSWORD_MONITOR}',
                 'GF_AUTH_ANONYMOUS_ENABLED=true',

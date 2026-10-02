@@ -69,7 +69,7 @@ class OdooJupyter
      */
     public static function ownerSessionUrl(Service $service): ?string
     {
-        if (! $service->supportsOdooJupyter() || ! isInstanceOwner()) {
+        if (! $service->supportsOdooJupyter() || ! isInstanceAdmin()) {
             return null;
         }
 
@@ -190,9 +190,9 @@ class OdooJupyter
 python3 - <<'PY' || true
 from pathlib import Path
 def page(text):
-    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.25rem\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>")
-page("Preparando Odoo.")
-Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p style=\\\"font-size:1.25rem\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div></body>\")\n")
+    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p id=\"m\" style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>")
+page("Estamos preparando todo.")
+Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p id=\\\"m\\\" style=\\\"font-size:1.5rem;line-height:1.4\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>\")\n")
 Path("/tmp/gpsh-status.py").write_text("from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\nclass H(BaseHTTPRequestHandler):\n    def do_GET(self):\n        body=open('/tmp/gpsh-status.html','rb').read()\n        self.send_response(200)\n        self.send_header('Content-Type','text/html; charset=utf-8')\n        self.send_header('Cache-Control','no-store')\n        self.end_headers()\n        self.wfile.write(body)\n    def log_message(self, *a):\n        return\nThreadingHTTPServer(('0.0.0.0', 8069), H).serve_forever()\n")
 PY
 python3 /tmp/gpsh-status.py >/tmp/gpsh-status.log 2>&1 &
@@ -279,8 +279,10 @@ if conn is not None:
         try:
             other = connect(database)
             check = other.cursor()
+            other.autocommit = True
             check.execute("SELECT 1 FROM information_schema.tables WHERE table_name='ir_module_module'")
             ready = check.fetchone() is not None
+            check.execute("DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets, orm_signaling_default, orm_signaling_templates, orm_signaling_routing, orm_signaling_groups CASCADE")
             other.close()
         except Exception:
             ready = False

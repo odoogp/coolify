@@ -12,6 +12,7 @@ use App\Models\StandaloneMongodb;
 use App\Models\StandaloneMysql;
 use App\Models\StandalonePostgresql;
 use App\Models\StandaloneRedis;
+use App\Support\OdooGit;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 
@@ -101,7 +102,7 @@ class Logs extends Component
             };
 
             if ($containers && $containers->count() > 0) {
-                return $containers->sort()->toArray();
+                return $this->limitClientLogs($containers->sort()->values()->all());
             }
 
             return [];
@@ -151,10 +152,16 @@ class Logs extends Component
                 $this->type = 'service';
                 $this->resource = Service::ownedByCurrentTeam()->where('uuid', $this->parameters['service_uuid'])->firstOrFail();
                 $this->resource->applications()->get()->each(function ($application) {
-                    $this->containers->push(data_get($application, 'name').'-'.data_get($this->resource, 'uuid'));
+                    $name = data_get($application, 'name').'-'.data_get($this->resource, 'uuid');
+                    if ($this->clientCanSeeContainer($name)) {
+                        $this->containers->push($name);
+                    }
                 });
                 $this->resource->databases()->get()->each(function ($database) {
-                    $this->containers->push(data_get($database, 'name').'-'.data_get($this->resource, 'uuid'));
+                    $name = data_get($database, 'name').'-'.data_get($this->resource, 'uuid');
+                    if ($this->clientCanSeeContainer($name)) {
+                        $this->containers->push($name);
+                    }
                 });
                 if ($this->resource->server->isFunctional()) {
                     $server = $this->resource->server;
@@ -175,5 +182,27 @@ class Logs extends Component
     public function render()
     {
         return view('livewire.project.shared.logs');
+    }
+
+    /**
+     * @param  array<int, mixed>  $containers
+     * @return array<int, mixed>
+     */
+    private function limitClientLogs(array $containers): array
+    {
+        return array_values(array_filter($containers, function (mixed $container): bool {
+            $name = is_array($container) ? (string) ($container['Names'] ?? '') : (string) $container;
+
+            return $this->clientCanSeeContainer($name);
+        }));
+    }
+
+    private function clientCanSeeContainer(string $name): bool
+    {
+        if (! $this->resource instanceof Service || ! $this->resource->supportsOdooJupyter() || isInstanceOwner()) {
+            return true;
+        }
+
+        return OdooGit::clientSeesLog($name);
     }
 }
