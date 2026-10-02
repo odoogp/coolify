@@ -90,6 +90,9 @@ class ExecuteContainerCommand extends Component
             if ($this->resource->server->isFunctional()) {
                 $this->servers = $this->servers->push($this->resource->server);
             }
+            if ($this->resource->supportsOdooJupyter() && ($this->shell === null || $this->shell === '')) {
+                $this->shell = 'odoo';
+            }
         } elseif (data_get($this->parameters, 'server_uuid')) {
             $this->type = 'server';
             $this->resource = Server::ownedByCurrentTeam()->where('uuid', $this->parameters['server_uuid'])->firstOrFail();
@@ -182,7 +185,7 @@ class ExecuteContainerCommand extends Component
             return data_get($container, 'container.Names');
         });
 
-        if ($this->containers->count() === 1) {
+        if ($this->containers->count() === 1 && $this->shell !== 'odoo') {
             $this->selected_container = data_get($this->containers->first(), 'container.Names');
             $this->connectToContainer();
         }
@@ -192,7 +195,7 @@ class ExecuteContainerCommand extends Component
             });
             if ($odoo !== null) {
                 $this->selected_container = (string) data_get($odoo, 'container.Names');
-                $this->connectToContainer();
+                $this->dispatch('odoo-shell-selected');
             }
         }
 

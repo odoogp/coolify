@@ -70,6 +70,8 @@
         <section class="mt-8 mb-0! h-[calc(100dvh-8rem)] min-h-[32rem] w-full max-w-none xl:mt-0"
             x-on:terminal-theme-selected="setTheme($event.detail.theme)"
             x-on:terminal-starting.window="syncTheme()"
+            x-on:terminal-websocket-ready.window="wsReady = true; startOdooShell()"
+            x-on:odoo-shell-selected.window="odooPending = true; startOdooShell()"
             x-data="{
                 themeKeys: @js($consoleThemeKeys),
                 themeAccents: @js($consoleThemeAccents),
@@ -79,10 +81,27 @@
                 targetChosen: @js($selected_container !== 'default'),
                 selectedContainer: @entangle('selected_container').live,
                 containerOptions: @js($containerOptions),
+                odooShell: @js($shell === 'odoo'),
+                wsReady: false,
+                odooPending: @js($shell === 'odoo' && $selected_container !== 'default'),
+                shellStarted: false,
                 init() {
                     const savedTheme = localStorage.getItem('coolify-console-theme');
                     this.consoleTheme = this.themeKeys.includes(savedTheme) ? savedTheme : 'system';
                     localStorage.setItem('coolify-console-theme', this.consoleTheme);
+                    this.$watch('selectedContainer', () => this.startOdooShell());
+                },
+                startOdooShell() {
+                    if (!this.odooShell || this.shellStarted || !this.wsReady || !this.odooPending) {
+                        return;
+                    }
+                    if (!this.selectedContainer || this.selectedContainer === 'default') {
+                        return;
+                    }
+                    this.shellStarted = true;
+                    this.targetChosen = true;
+                    window.dispatchEvent(new CustomEvent('terminal-starting'));
+                    this.$wire.connectToContainer();
                 },
                 setTheme(theme) {
                     this.consoleTheme = theme;
@@ -177,7 +196,7 @@
 
                 <div class="terminal-session-panel mt-8 flex min-h-0 flex-1 flex-col overflow-hidden">
                 <div class="application-console-block min-h-0 flex-1">
-                    @if ($type !== 'server' && $containers->count() > 1)
+                    @if ($type !== 'server' && $containers->count() > 1 && $shell !== 'odoo')
                         <div x-cloak x-show="!targetChosen" data-terminal-target-picker="launcher"
                             class="absolute inset-0 z-20 flex items-start justify-start p-6 sm:p-10">
                             <div class="terminal-target-picker w-full max-w-md rounded-lg border p-2 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
@@ -201,7 +220,7 @@
                         </div>
                     @endif
                     <livewire:project.shared.terminal variant="application"
-                        :auto-start="$type === 'server' || ! $containersLoaded || $containers->count() === 1" />
+                        :auto-start="$type === 'server' || ! $containersLoaded || $containers->count() === 1 || $shell === 'odoo'" />
                 </div>
                 </div>
             </div>

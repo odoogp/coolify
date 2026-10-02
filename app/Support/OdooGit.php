@@ -579,6 +579,20 @@ exec bash --noprofile --norc -i
 BASH;
     }
 
+    public static function serviceForTerminalContainer(string $container): ?Service
+    {
+        if (self::terminalShell($container) === null) {
+            return null;
+        }
+
+        $uuid = preg_replace('/^odoo[-_]/i', '', ltrim($container, '/')) ?? '';
+        if ($uuid === '') {
+            return null;
+        }
+
+        return Service::query()->where('uuid', $uuid)->first();
+    }
+
     public static function copyProductionDataCommand(Service $source, Service $target): string
     {
         $source->loadMissing('environment');

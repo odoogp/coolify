@@ -4,6 +4,7 @@ namespace App\Livewire\Project\Shared;
 
 use App\Helpers\SshMultiplexingHelper;
 use App\Models\Server;
+use App\Models\Service;
 use App\Support\OdooGit;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -44,7 +45,17 @@ class Terminal extends Component
 
         $server = Server::query()->whereUuid($serverUuid)->firstOrFail();
         $this->authorize('view', $server);
-        if (! auth()->user()?->canOpenTerminal($server)) {
+        $odooService = $isContainer ? OdooGit::serviceForTerminalContainer((string) $identifier) : null;
+        $odooServerId = $odooService?->server_id;
+        if ($odooServerId === null) {
+            $odooService?->loadMissing('destination');
+            $odooServerId = $odooService?->destination?->server_id;
+        }
+        $odooShellAllowed = $odooService instanceof Service
+            && $odooServerId !== null
+            && (int) $odooServerId === (int) $server->id
+            && auth()->user()?->canOpenTerminal($odooService);
+        if (! $odooShellAllowed && ! auth()->user()?->canOpenTerminal($server)) {
             abort(403);
         }
 

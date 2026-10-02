@@ -592,7 +592,7 @@ it('shows editor, monitor, and odoo log icons on the project environments', func
         ->toContain('name="code"')
         ->toContain('name="dashboard"')
         ->toContain('name="file-content"')
-        ->toContain('name="terminal"');
+        ->toContain('M6.75 8.25 10.75 12 6.75 15.75');
 });
 
 it('lets the instance owner add a module that the next start links read-only', function () {

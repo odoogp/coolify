@@ -10,8 +10,8 @@ use App\Notifications\TransactionalEmails\ResetPassword as TransactionalEmailsRe
 use App\Services\ChangelogService;
 use App\Traits\DeletesUserSessions;
 use DateTimeInterface;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Contracts\Translation\HasLocalePreference;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notifiable;
@@ -487,11 +487,16 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
     }
 
     /**
-     * Members never. The instance owner and the team owner can open any terminal.
-     * An admin only opens an instance they created or whose project or environment they created.
+     * Members never open a server terminal. Anyone on the team can open the Odoo shell of that team's service.
+     * The instance owner and the team owner can open any terminal.
+     * An admin only opens another instance they created or whose project or environment they created.
      */
     public function canOpenTerminal(mixed $resource = null): bool
     {
+        if ($resource instanceof Service && $resource->supportsOdooJupyter() && $this->sharesTeamWith($resource)) {
+            return true;
+        }
+
         if ($this->isMember()) {
             return false;
         }
@@ -552,6 +557,34 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         $environment->loadMissing('project');
 
         return (int) $environment->project?->created_by === $id;
+    }
+
+    public function canUseOdooTerminal(): bool
+    {
+        $teamIds = $this->teams()->pluck('teams.id');
+        if ($teamIds->isEmpty()) {
+            return false;
+        }
+
+        return Service::query()
+            ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
+            ->where('docker_compose_raw', 'like', '%odoo:%')
+            ->exists();
+    }
+
+    private function sharesTeamWith(Service $service): bool
+    {
+        if ($this->isInstanceOwner()) {
+            return true;
+        }
+
+        $service->loadMissing('environment.project');
+        $teamId = $service->environment?->project?->team_id;
+        if ($teamId === null) {
+            return false;
+        }
+
+        return $this->teams()->where('teams.id', $teamId)->exists();
     }
 
     private function teamFlag(string $column): bool

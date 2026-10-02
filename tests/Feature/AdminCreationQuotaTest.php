@@ -4,11 +4,17 @@ use App\Exceptions\AdminCreationQuotaExceeded;
 use App\Http\Middleware\VerifyCsrfToken;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Show as ProjectShow;
+use App\Livewire\Team\Create;
 use App\Livewire\Team\InviteLink;
 use App\Livewire\Team\Member as TeamMember;
+use App\Models\Application;
 use App\Models\Environment;
 use App\Models\InstanceSettings;
+use App\Models\PrivateKey;
 use App\Models\Project;
+use App\Models\Server;
+use App\Models\Service;
+use App\Models\StandaloneDocker;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
@@ -427,7 +433,7 @@ test('an invited admin stays on the assigned team and cannot create another', fu
 
     $this->actingAs($invitee);
 
-    Livewire::test(\App\Livewire\Team\Create::class)
+    Livewire::test(Create::class)
         ->set('name', 'Client team')
         ->call('submit')
         ->assertForbidden();
@@ -489,39 +495,39 @@ test('an admin cannot exceed production, staging, or service quotas', function (
         'destination_type' => null,
     ];
 
-    \App\Models\Application::factory()->create([
+    Application::factory()->create([
         ...$application,
         'environment_id' => $production->id,
     ]);
-    \App\Models\Application::factory()->create([
+    Application::factory()->create([
         ...$application,
         'environment_id' => $staging->id,
     ]);
 
-    expect(fn () => \App\Models\Application::factory()->create([
+    expect(fn () => Application::factory()->create([
         ...$application,
         'environment_id' => $production->id,
     ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 ramas de producción en este equipo.');
 
-    expect(fn () => \App\Models\Application::factory()->create([
+    expect(fn () => Application::factory()->create([
         ...$application,
         'environment_id' => $staging->id,
     ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 ramas de staging en este equipo.');
 
-    $key = \App\Models\PrivateKey::factory()->create(['team_id' => $this->team->id]);
-    $server = \App\Models\Server::factory()->create([
+    $key = PrivateKey::factory()->create(['team_id' => $this->team->id]);
+    $server = Server::factory()->create([
         'team_id' => $this->team->id,
         'private_key_id' => $key->id,
     ]);
-    $destination = \App\Models\StandaloneDocker::query()->where('server_id', $server->id)->firstOrFail();
+    $destination = StandaloneDocker::query()->where('server_id', $server->id)->firstOrFail();
 
-    \App\Models\Service::factory()->create([
+    Service::factory()->create([
         'environment_id' => $production->id,
         'destination_id' => $destination->id,
         'destination_type' => $destination->getMorphClass(),
     ]);
 
-    expect(fn () => \App\Models\Service::factory()->create([
+    expect(fn () => Service::factory()->create([
         'environment_id' => $production->id,
         'destination_id' => $destination->id,
         'destination_type' => $destination->getMorphClass(),
@@ -580,4 +586,29 @@ test('an admin opens the terminal only on an instance they created', function ()
         ->and($other->canOpenTerminal($project))->toBeFalse()
         ->and($this->member->canOpenTerminal($project))->toBeFalse()
         ->and($this->owner->canOpenTerminal($project))->toBeTrue();
+});
+
+test('a client admin and a member can open the odoo shell of their team', function () {
+    $project = Project::factory()->create([
+        'team_id' => $this->team->id,
+        'created_by' => $this->owner->id,
+    ]);
+    $environment = $project->environments()->first()
+        ?? Environment::factory()->create(['name' => 'production', 'project_id' => $project->id]);
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+        'created_by' => $this->owner->id,
+    ]);
+    $server = new Server;
+    $server->id = 0;
+
+    $this->actingAs($this->member);
+    session(['currentTeam' => $this->team]);
+
+    expect($this->member->canOpenTerminal($service))->toBeTrue()
+        ->and($this->member->canOpenTerminal($server))->toBeFalse()
+        ->and($this->member->can('canAccessTerminal'))->toBeTrue()
+        ->and($this->admin->canOpenTerminal($service))->toBeTrue()
+        ->and($this->admin->canOpenTerminal($project))->toBeFalse();
 });
