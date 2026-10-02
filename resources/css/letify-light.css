@@ -1,0 +1,254 @@
+/*
+ * Letify Light. Applies only when Appearance is Letify Light (data-theme="light").
+ * Midnight Dark, Crystal Dark, Crystal Light, and Custom Dark keep their own surfaces.
+ * A future Letify Dark can reuse these token names under html[data-theme="letify-dark"].
+ */
+html[data-theme="light"] {
+    --letify-primary: #7b3ff2;
+    --letify-purple-light: #a855f7;
+    --letify-pink: #d946ef;
+    --letify-lavender: #f6f2fd;
+    --letify-canvas: #fcfaff;
+    --letify-section: #f9f7fd;
+    --letify-line: #efeaf8;
+    --letify-ink: #2a2140;
+    --letify-muted: #6d6484;
+    --color-accent: #7b3ff2;
+    --color-coollabs: #7b3ff2;
+    --color-coollabs-100: #a855f7;
+    --color-coollabs-200: #7b3ff2;
+    --color-app: #fcfaff;
+    --color-panel: #ffffff;
+    --color-surface: #ffffff;
+    --color-raised: #ffffff;
+    --color-nav-text: #5c5474;
+    --color-nav-muted: #8b849e;
+    --color-nav-active: #ffffff;
+    --coollabs-canvas: #fcfaff;
+    --coollabs-elevated: #ffffff;
+    --coollabs-base: #ffffff;
+    --coollabs-recessed: #f9f7fd;
+    --coollabs-hairline: #efeaf8;
+    --coollabs-line: #efeaf8;
+    color-scheme: light;
+}
+
+html[data-theme="light"] body,
+html[data-theme="light"] main.min-h-screen {
+    background: #fcfaff;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .app-sidebar,
+html[data-theme="light"] header.fixed.top-0,
+html[data-theme="light"] .sticky.top-0.z-40 {
+    background: #ffffff;
+}
+
+html[data-theme="light"] main h1 {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .application-settings-section,
+html[data-theme="light"] .box,
+html[data-theme="light"] .coolbox,
+html[data-theme="light"] .box-boarding {
+    border: 0;
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 10px 40px rgba(123, 63, 242, 0.08);
+}
+
+html[data-theme="light"] .box:hover,
+html[data-theme="light"] .coolbox:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 50px rgba(123, 63, 242, 0.12);
+    transition: transform 240ms ease-out, box-shadow 240ms ease-out;
+}
+
+html[data-theme="light"] .button {
+    min-height: 48px;
+    padding-inline: 1.25rem;
+    border-radius: 999px;
+    border-color: transparent;
+    background: #f6f2fd;
+    color: #4c1d95;
+    box-shadow: 0 8px 20px rgba(123, 63, 242, 0.08);
+    transition: transform 220ms ease-out, box-shadow 220ms ease-out, background-color 220ms ease-out;
+}
+
+html[data-theme="light"] .button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    background: #efe6ff;
+    box-shadow: 0 12px 28px rgba(123, 63, 242, 0.16);
+    color: #4c1d95;
+}
+
+html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
+    border-color: transparent;
+    background-image: linear-gradient(135deg, #7b3ff2 0%, #d946ef 100%);
+    color: #ffffff;
+    box-shadow: 0 12px 28px rgba(123, 63, 242, 0.28);
+}
+
+html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)):hover:not(:disabled) {
+    background-image: linear-gradient(135deg, #6d2fe0 0%, #c026d3 100%);
+    color: #ffffff;
+}
+
+html[data-theme="light"] .input,
+html[data-theme="light"] .select,
+html[data-theme="light"] textarea.input {
+    min-height: 48px;
+    border-radius: 20px;
+    border: 1px solid #efeaf8;
+    background: #ffffff;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .input:focus-visible,
+html[data-theme="light"] .select:focus-visible,
+html[data-theme="light"] textarea.input:focus-visible {
+    border-color: #7b3ff2;
+    box-shadow: 0 0 0 4px rgba(123, 63, 242, 0.15);
+}
+
+html[data-theme="light"] .app-sidebar .menu-item,
+html[data-theme="light"] .application-settings-navigation .menu-item {
+    border-radius: 16px;
+    color: #5c5474;
+    transition: background-color 220ms ease-out, color 220ms ease-out, transform 220ms ease-out;
+}
+
+html[data-theme="light"] .app-sidebar .menu-item:hover,
+html[data-theme="light"] .application-settings-navigation .menu-item:hover {
+    background: #f6f2fd;
+    color: #4c1d95;
+}
+
+html[data-theme="light"] .app-sidebar .menu-item-active,
+html[data-theme="light"] .application-settings-navigation .menu-item-active,
+html[data-theme="light"] .menu-subitem-active {
+    background-color: transparent;
+    background-image: linear-gradient(135deg, #7b3ff2 0%, #d946ef 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 24px rgba(123, 63, 242, 0.28);
+}
+
+html[data-theme="light"] .menu-item-active .menu-item-icon,
+html[data-theme="light"] .menu-subitem-active .menu-item-icon {
+    color: #ffffff;
+    opacity: 1;
+}
+
+html[data-theme="light"] .data-table-row {
+    margin-block: 6px;
+    border-radius: 20px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(123, 63, 242, 0.06);
+    transition: transform 220ms ease-out, box-shadow 220ms ease-out;
+}
+
+html[data-theme="light"] .data-table-row:hover {
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 14px 32px rgba(123, 63, 242, 0.1);
+}
+
+html[data-theme="light"] [data-callout="success"] {
+    border-color: transparent;
+    background: #eafbf0;
+    color: #15803d;
+}
+
+html[data-theme="light"] [data-callout="warning"] {
+    border-color: transparent;
+    background: #fff8e8;
+    color: #a16207;
+}
+
+html[data-theme="light"] [data-callout="danger"] {
+    border-color: transparent;
+    background: #fff0f3;
+    color: #be123c;
+}
+
+html[data-theme="light"] [data-callout="info"] {
+    border-color: transparent;
+    background: #f6f2fd;
+    color: #6d28d9;
+}
+
+html[data-theme="light"] .empty-state {
+    border: 0;
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 15px 50px rgba(123, 63, 242, 0.08);
+    backdrop-filter: none;
+}
+
+html[data-theme="light"] .empty-state h2 {
+    font-weight: 700;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .empty-state p {
+    color: #6d6484;
+}
+
+html[data-theme="light"] .letify-empty-art {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+html[data-theme="light"] .empty-state .empty-icon {
+    display: none;
+}
+
+.letify-empty-art {
+    display: none;
+}
+
+html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm {
+    border-radius: 28px;
+    background: #ffffff;
+    border: 0;
+    box-shadow: 0 10px 40px rgba(123, 63, 242, 0.08);
+    backdrop-filter: none;
+}
+
+html[data-theme="light"] .modal-box,
+html[data-theme="light"] .listbox-panel,
+html[data-theme="light"] .top-user-menu-panel {
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 15px 50px rgba(123, 63, 242, 0.12);
+}
+
+html[data-theme="light"] .badge {
+    border-radius: 999px;
+    background: #f6f2fd;
+    color: #6d28d9;
+}
+
+html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    border: 0;
+    background: #f6f2fd;
+    color: #7b3ff2;
+    box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme="light"] .button:hover:not(:disabled),
+    html[data-theme="light"] .box:hover,
+    html[data-theme="light"] .coolbox:hover,
+    html[data-theme="light"] .data-table-row:hover {
+        transform: none;
+    }
+}
