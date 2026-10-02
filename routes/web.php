@@ -151,20 +151,6 @@ if (app()->environment(['local', 'testing'])) {
     })->where('code', '[0-9]{3}')->name('dev.error-preview');
 }
 
-// Proposed interface sample. Production screens stay unchanged.
-// The route stays registered so tests can flip the environment per request.
-Route::get('/design-preview/{screen?}', function (?string $screen = 'login') {
-    abort_unless(app()->environment('local'), 404);
-
-    $screen = $screen ?: 'login';
-    $screens = ['login', 'panel', 'proyectos', 'servidor', 'ajustes'];
-    abort_unless(in_array($screen, $screens, true), 404);
-
-    return view('design-preview.'.$screen, [
-        'screen' => $screen,
-    ]);
-})->where('screen', '[a-z]+')->name('design-preview');
-
 Route::middleware(['auth', 'throttle:force-password-reset'])->group(function () {
     Route::get('/force-password-reset', ForcePasswordReset::class)->name('auth.force-password-reset');
 });

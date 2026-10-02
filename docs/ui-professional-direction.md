@@ -1,8 +1,8 @@
 # Dirección visual profesional de GPSH
 
-Propuesta para revisar antes de cambiar la interfaz real. La muestra vive en
-`/design-preview` y solo responde cuando `APP_ENV=local`. Las vistas de
-producción, `DESIGN.md` y `resources/css/app.css` no cambian en esta fase.
+El acceso real usa esta composición en `x-auth.shell`: escena a un lado y
+tarjeta al otro, en claro y en oscuro. El panel, los proyectos y los ajustes
+siguen el sistema de `DESIGN.md`. No hay una segunda interfaz de muestra.
 
 El nombre visible sigue siendo GPSH. La composición del acceso sale de la
 referencia de login: escena a un lado, tarjeta de cristal al otro, botón en
@@ -30,8 +30,8 @@ De `DESIGN.md` se mantiene la estructura, no el acabado:
 ## Qué cambia el acabado
 
 `DESIGN.md` pide superficies casi neutras, radio de 8px, sin sombra marcada y
-acento amarillo en oscuro. Esta propuesta usa otro acabado, solo dentro de la
-muestra hasta que se apruebe:
+acento amarillo en oscuro. El acceso ya usa otro acabado. El resto del
+producto sigue `DESIGN.md`:
 
 - Lienzo claro cálido y lienzo oscuro azul profundo.
 - Tarjetas a 16px, anillo fino y sombra suave.
@@ -71,14 +71,11 @@ tarjeta blanca. El oscuro usa el lienzo azul y la tarjeta translúcida.
 
 ## Cascarón
 
-La muestra enseña cinco pantallas: acceso, panel, proyectos, servidor y
-ajustes. El interruptor de tema se guarda en `localStorage` con la clave
-`gpsh-preview-theme` y no toca la preferencia `theme` de la aplicación real.
+El acceso comparte `x-auth.shell` con el registro, la recuperación y la
+verificación. El tema es el de la aplicación (`theme` en `localStorage`).
 
 ## Segunda fase
 
-Cuando esta dirección se apruebe, los tokens pasan a
-`resources/views/components/auth/shell.blade.php`,
-`resources/views/layouts/app.blade.php` y las tarjetas descritas en
-`DESIGN.md`. En ese momento se actualiza `DESIGN.md`. Hasta entonces este
-archivo es la propuesta y `DESIGN.md` sigue siendo el sistema en producción.
+El mosaico de widgets todavía no está en el panel, los proyectos ni los
+ajustes. Cuando se apruebe, esos tokens pasan a
+`resources/views/layouts/app.blade.php` y a las tarjetas de `DESIGN.md`.

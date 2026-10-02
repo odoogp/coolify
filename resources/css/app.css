@@ -1064,11 +1064,76 @@ html[data-theme="custom"] textarea:disabled {
 /* Public authentication surfaces */
 .auth-shell {
     min-height: 100dvh;
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(20rem, 0.85fr);
     background:
         radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--color-coollabs) 9%, transparent), transparent 34rem),
-        var(--coollabs-canvas);
-    color: #171717;
+        #f3f1ec;
+    color: #1a1524;
+}
+
+.auth-stage {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    background:
+        radial-gradient(ellipse 58% 42% at 30% 14%, color-mix(in oklab, var(--color-coollabs) 42%, transparent), transparent 68%),
+        radial-gradient(ellipse 40% 30% at 72% 78%, rgba(130, 160, 255, 0.28), transparent 70%),
+        linear-gradient(180deg, #ece6ff 0%, #f7f4ef 60%, #efe8df 100%);
+}
+
+.dark .auth-stage {
+    background:
+        radial-gradient(ellipse 58% 42% at 32% 16%, color-mix(in oklab, var(--color-coollabs) 55%, transparent), transparent 68%),
+        radial-gradient(ellipse 36% 28% at 74% 72%, rgba(40, 180, 120, 0.28), transparent 70%),
+        linear-gradient(180deg, #140c28 0%, #07080c 62%, #050607 100%);
+}
+
+.auth-stage-orbit {
+    position: absolute;
+    width: min(420px, 70%);
+    height: 150px;
+    border: 1px solid color-mix(in oklab, var(--color-coollabs) 28%, transparent);
+    border-radius: 50%;
+    transform: rotate(-16deg);
+}
+
+.auth-stage-mark {
+    position: relative;
+    z-index: 1;
+    width: min(280px, 58vw);
+    filter: drop-shadow(0 24px 40px rgb(40 20 120 / 0.35));
+}
+
+.auth-stage-shard {
+    position: absolute;
+    background: linear-gradient(160deg, rgb(255 255 255 / 0.72), color-mix(in oklab, var(--color-coollabs) 18%, transparent));
+    clip-path: polygon(50% 0, 100% 25%, 100% 75%, 50% 100%, 0 75%, 0 25%);
+}
+
+.auth-stage-shard-a { top: 18%; left: 16%; width: 36px; height: 42px; }
+.auth-stage-shard-b { top: 62%; left: 22%; width: 28px; height: 32px; opacity: 0.8; }
+.auth-stage-shard-c { top: 28%; right: 14%; width: 54px; height: 62px; }
+
+.auth-stage-ridge {
+    position: absolute;
+    bottom: -8px;
+    height: 22%;
+    background: #ddd4ee;
+    border-radius: 60% 40% 0 0;
+}
+
+.dark .auth-stage-ridge { background: #1a2140; }
+.auth-stage-ridge-a { left: -4%; width: 46%; }
+.auth-stage-ridge-b { right: -6%; width: 38%; height: 16%; background: #e7e0f4; }
+.dark .auth-stage-ridge-b { background: #14192e; }
+
+main:has(.auth-shell) {
+    height: auto;
+    min-height: 100dvh;
+    background: transparent;
 }
 
 .dark .auth-shell {
@@ -1082,14 +1147,52 @@ html[data-theme="custom"] textarea:disabled {
     min-height: 100dvh;
     width: 100%;
     padding: 2rem 1rem;
+    background:
+        radial-gradient(circle at 80% 0%, color-mix(in oklab, var(--color-coollabs) 16%, transparent), transparent 18rem),
+        #f3f1ec;
+}
+
+.dark .auth-shell,
+.dark .auth-shell-content {
+    background-color: #050607;
+    color: #f6f7fb;
+}
+
+.dark .auth-shell-content {
+    background:
+        radial-gradient(circle at 80% 0%, color-mix(in oklab, var(--color-coollabs) 18%, transparent), transparent 18rem),
+        #050607;
+}
+
+@media (max-width: 900px) {
+    .auth-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-stage {
+        min-height: 220px;
+    }
 }
 
 .auth-card {
     width: min(100%, 27rem);
     overflow: hidden;
-    border-radius: 10px;
-    background: var(--coollabs-elevated);
-    box-shadow: 0 0 0 1px var(--coollabs-hairline), 0 20px 60px rgb(0 0 0 / 0.14);
+    border-radius: 24px;
+    background: rgb(255 255 255 / 0.86);
+    box-shadow: 0 0 0 1px rgb(28 23 48 / 0.06), 0 20px 60px rgb(40 24 80 / 0.1);
+    backdrop-filter: blur(22px);
+}
+
+.dark .auth-card {
+    background: rgb(12 14 28 / 0.62);
+    box-shadow: 0 0 0 1px rgb(255 255 255 / 0.14), 0 24px 70px rgb(0 0 0 / 0.35);
+}
+
+.auth-shell button[isHighlighted]:not(:disabled) {
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(90deg, #7c5cff, #4f7dff);
+    color: #fff;
 }
 
 .auth-card-heading {
