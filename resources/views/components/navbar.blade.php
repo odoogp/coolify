@@ -47,7 +47,7 @@
                     document.documentElement.classList.remove('dark');
                 }
                 document.documentElement.dataset.theme = userSettings === 'custom' ? 'custom' : (isDark ? 'dark' : 'light');
-                document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+                document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#07080e' : '#f6f4f1');
             }
     }">
     {{-- Search is only useful when workspace resources are available --}}

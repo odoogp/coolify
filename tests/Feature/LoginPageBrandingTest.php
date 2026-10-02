@@ -29,6 +29,25 @@ test('page body uses the dynamic viewport height on mobile', function () {
         ->not->toMatch('/body\s*\{[^}]*@apply[^;]*min-h-screen/s');
 });
 
+test('auth scene shares one viewport and moves its objects', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+    $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
+
+    expect($styles)
+        ->toContain('@keyframes auth-float')
+        ->toContain('@keyframes auth-drift')
+        ->toContain('@keyframes auth-spin')
+        ->toContain('prefers-reduced-motion: reduce')
+        ->toContain('.auth-stage {')
+        ->toMatch('/\.auth-stage\s*\{[^}]*position:\s*relative;/s')
+        ->toMatch('/@media \(min-width: 901px\)\s*\{[^}]*\.auth-stage\s*\{[^}]*position:\s*absolute;/s')
+        ->not->toContain('padding: 42vh')
+        ->not->toContain('grid-template-columns: minmax(0, 1.15fr)')
+        ->and($shell)
+        ->toContain('auth-stage-mark-slot')
+        ->toContain('auth-stage-glow');
+});
+
 test('auth pages use the Coollabs purple background glow', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
 

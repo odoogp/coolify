@@ -1,8 +1,8 @@
 # Dirección visual profesional de GPSH
 
-El acceso real usa esta composición en `x-auth.shell`: escena a un lado y
-tarjeta al otro, en claro y en oscuro. El panel, los proyectos y los ajustes
-siguen el sistema de `DESIGN.md`. No hay una segunda interfaz de muestra.
+El acceso usa la escena y la tarjeta de `x-auth.shell`. El resto de la
+aplicación usa el mismo acabado: lienzo, acento violeta y tarjetas de color
+en proyectos, servidores, orígenes y ajustes. No hay una segunda interfaz.
 
 El nombre visible sigue siendo GPSH. La composición del acceso sale de la
 referencia de login: escena a un lado, tarjeta de cristal al otro, botón en
@@ -30,8 +30,7 @@ De `DESIGN.md` se mantiene la estructura, no el acabado:
 ## Qué cambia el acabado
 
 `DESIGN.md` pide superficies casi neutras, radio de 8px, sin sombra marcada y
-acento amarillo en oscuro. El acceso ya usa otro acabado. El resto del
-producto sigue `DESIGN.md`:
+acento amarillo en oscuro. El producto usa este otro acabado:
 
 - Lienzo claro cálido y lienzo oscuro azul profundo.
 - Tarjetas a 16px, anillo fino y sombra suave.
@@ -74,8 +73,8 @@ tarjeta blanca. El oscuro usa el lienzo azul y la tarjeta translúcida.
 El acceso comparte `x-auth.shell` con el registro, la recuperación y la
 verificación. El tema es el de la aplicación (`theme` en `localStorage`).
 
-## Segunda fase
+## Dónde está
 
-El mosaico de widgets todavía no está en el panel, los proyectos ni los
-ajustes. Cuando se apruebe, esos tokens pasan a
-`resources/views/layouts/app.blade.php` y a las tarjetas de `DESIGN.md`.
+El cascarón, las tarjetas de recurso y los estados vacíos viven en
+`resources/css/app.css`. El tema personalizado sigue usando el color que
+elige la persona y no pisa ese degradado.
