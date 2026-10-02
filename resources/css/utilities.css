@@ -418,4 +418,50 @@
     .sidebar-collapsed .sidebar-collapsed-label {
         display: none;
     }
+
+    /* Collapsed: the icon springs up and the name sits in the tip above it. */
+    .app-sidebar.sidebar-collapsed > ul {
+        padding-top: 0.75rem;
+    }
+
+    .app-sidebar.sidebar-collapsed .menu-item {
+        transition:
+            transform 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+            background-color 0.2s ease,
+            color 0.2s ease,
+            box-shadow 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .app-sidebar.sidebar-collapsed .menu-item:hover {
+        transform: translateY(-6px);
+        z-index: 2;
+        background-color: white;
+        box-shadow: 0 10px 18px -8px rgb(0 0 0 / 0.28);
+    }
+
+    .dark .app-sidebar.sidebar-collapsed .menu-item:hover {
+        background-color: #2c2c2e;
+        box-shadow: 0 12px 20px -8px rgb(0 0 0 / 0.72);
+    }
+
+    /* Expanded: the label is already visible, so the row only lifts a little. */
+    .app-sidebar:not(.sidebar-collapsed) .menu-item {
+        transition:
+            transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+            background-color 0.15s ease,
+            color 0.15s ease;
+    }
+
+    .app-sidebar:not(.sidebar-collapsed) .menu-item:hover {
+        transform: translateY(-2px);
+    }
+}
+
+@media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+    .app-sidebar .menu-item,
+    .app-sidebar .menu-item:hover {
+        transition: background-color 0.15s ease, color 0.15s ease;
+        transform: none;
+        box-shadow: none;
+    }
 }

@@ -49,6 +49,26 @@ it('does not animate navbar padding when restoring collapsed state', function ()
         ->not->toContain('overflow-hidden motion-safe:transition-all');
 });
 
+it('lifts sidebar rows on hover and shows the name above collapsed icons', function () {
+    $navbar = file_get_contents(resource_path('views/components/navbar.blade.php'));
+    $css = file_get_contents(resource_path('css/utilities.css'));
+
+    expect($navbar)
+        ->toContain('class="app-sidebar ')
+        ->toContain('if (!collapsed) return;')
+        ->toContain('tooltip.x = rect.left + rect.width / 2;')
+        ->toContain('tooltip.y = rect.top - 14;')
+        ->toContain('x-show="collapsed && tooltip.show"')
+        ->toContain('app-sidebar-tip')
+        ->toContain('-translate-x-1/2 -translate-y-full')
+        ->and($css)
+        ->toContain('.app-sidebar.sidebar-collapsed .menu-item:hover')
+        ->toContain('transform: translateY(-6px);')
+        ->toContain('.app-sidebar:not(.sidebar-collapsed) .menu-item:hover')
+        ->toContain('transform: translateY(-2px);')
+        ->toContain('prefers-reduced-motion: reduce');
+});
+
 it('draws a single border between the desktop sidebar and main content', function () {
     $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
     $navbar = file_get_contents(resource_path('views/components/navbar.blade.php'));
