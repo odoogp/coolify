@@ -458,7 +458,8 @@ test('launching odoo adds grafana for that stack and only odoo and postgresql', 
         ->and($services['prometheus']['command'][0])->toContain('regex: abc123')
         ->and($services['prometheus']['command'][0])->toContain('regex: odoo|postgresql|postgres')
         ->and($services['monitor']['command'][0])->toContain('gpsh-odoo')
-        ->and($services['monitor']['command'][0])->toContain('$${container:regex}')
+        ->and($services['monitor']['command'][0])->toContain('container_cpu_usage_seconds_total')
+        ->and($services['monitor']['command'][0])->not->toContain('container:regex')
         ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_3000')
         ->and($services['monitor']['environment'])->toContain('GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}')
         ->and($services['cadvisor']['volumes'])->toBe(OdooMonitor::cadvisorVolumes())
@@ -483,7 +484,10 @@ test('the odoo terminal opens the odoo shell and the other containers keep their
         ->and(OdooGit::terminalShell('jupyter-abc123'))->toBeNull()
         ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull();
 
-    expect(OdooGit::loginOpenCommand('odoo.example.test'))->not->toContain('letsencrypt');
+    expect(OdooGit::loginOpenCommand('odoo.example.test'))->not->toContain('letsencrypt')
+        ->and(OdooGit::loginOpenCommand('odoo.example.test'))->toContain('se actualiza sola')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('--http-port=8071')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain("HTTPConnection('127.0.0.1',8071");
 });
 
 test('odoo shares its certificate and the owner jupyter starts later', function () {

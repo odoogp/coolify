@@ -182,10 +182,10 @@ BASH;
                 ]],
             ],
             'panels' => [
-                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{name=~".*(${container:regex}).*",id!="/"}[5m])) by (name)'),
-                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{name=~".*(${container:regex}).*",id!="/"}) by (name)'),
-                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{name=~".*(${container:regex}).*",id!="/"}[5m])) by (name)', 8),
-                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{name=~".*(${container:regex}).*",id!="/"}[5m])) by (name)', 8),
+                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{id!="/"}[5m])) by (name)'),
+                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{id!="/"}) by (name)'),
+                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{id!="/"}[5m])) by (name)', 8),
+                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{id!="/"}[5m])) by (name)', 8),
             ],
         ], JSON_UNESCAPED_SLASHES));
 

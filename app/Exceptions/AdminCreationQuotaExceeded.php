@@ -8,6 +8,8 @@ class AdminCreationQuotaExceeded extends AuthorizationException
 {
     public function __construct(string $resource, int $used, int $limit)
     {
-        parent::__construct("Has creado {$used} de {$limit} {$resource} en este equipo.");
+        parent::__construct(__('You cannot create more :resource. Contact support and ask for a new plan.', [
+            'resource' => $resource,
+        ]));
     }
 }

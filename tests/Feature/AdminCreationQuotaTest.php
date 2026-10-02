@@ -76,7 +76,7 @@ test('a zero project quota blocks creation and the included production does not 
     expect(fn () => app(AdminCreationQuota::class)->createProject($this->admin, [
         'name' => 'Needs production',
         'team_id' => $this->team->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 0 de 0 proyectos en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more proyectos. Contact support and ask for a new plan.');
 
     expect(Project::query()->where('team_id', $this->team->id)->count())->toBe(0);
 
@@ -103,7 +103,7 @@ test('reaching the project quota blocks the next create and deleting frees the s
     expect(fn () => app(AdminCreationQuota::class)->createProject($this->admin, [
         'name' => 'Second',
         'team_id' => $this->team->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 proyectos en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more proyectos. Contact support and ask for a new plan.');
 
     $first->delete();
 
@@ -130,7 +130,7 @@ test('the project cap blocks another project even when environment slots remain'
         'name' => 'Direct create',
         'team_id' => $this->team->id,
         'created_by' => $this->admin->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 proyectos en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more proyectos. Contact support and ask for a new plan.');
 
     expect(Project::query()->where('team_id', $this->team->id)->count())->toBe(1);
 });
@@ -153,7 +153,7 @@ test('the included staging does not spend an environment slot and an extra envir
         'name' => 'qa',
         'project_id' => $project->id,
         'created_by' => $this->admin->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 0 de 0 entornos en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more entornos. Contact support and ask for a new plan.');
 });
 
 test('resources without an author do not count and the owner ignores a quota', function () {
@@ -263,7 +263,7 @@ test('revoking a pending invitation frees the member slot and expired invitation
         'role' => 'member',
         'link' => 'http://localhost/invitations/blocked',
         'via' => 'link',
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 miembros en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more miembros. Contact support and ask for a new plan.');
 
     $invitation->delete();
 
@@ -389,12 +389,12 @@ test('livewire and the api enforce project and environment quotas', function () 
     $this->withToken($token)
         ->postJson('/api/v1/projects', ['name' => 'Api project'])
         ->assertForbidden()
-        ->assertJsonPath('message', 'Has creado 1 de 1 proyectos en este equipo.');
+        ->assertJsonPath('message', 'You cannot create more proyectos. Contact support and ask for a new plan.');
 
     $this->withToken($token)
         ->postJson('/api/v1/projects/'.$project->uuid.'/environments', ['name' => 'staging'])
         ->assertForbidden()
-        ->assertJsonPath('message', 'Has creado 1 de 1 entornos en este equipo.');
+        ->assertJsonPath('message', 'You cannot create more entornos. Contact support and ask for a new plan.');
 });
 
 test('two creates stop at the cap', function () {
@@ -507,12 +507,12 @@ test('an admin cannot exceed production, staging, or service quotas', function (
     expect(fn () => Application::factory()->create([
         ...$application,
         'environment_id' => $production->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 ramas de producción en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more ramas de producción. Contact support and ask for a new plan.');
 
     expect(fn () => Application::factory()->create([
         ...$application,
         'environment_id' => $staging->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 ramas de staging en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more ramas de staging. Contact support and ask for a new plan.');
 
     $key = PrivateKey::factory()->create(['team_id' => $this->team->id]);
     $server = Server::factory()->create([
@@ -531,7 +531,7 @@ test('an admin cannot exceed production, staging, or service quotas', function (
         'environment_id' => $production->id,
         'destination_id' => $destination->id,
         'destination_type' => $destination->getMorphClass(),
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 servicios en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'You cannot create more servicios. Contact support and ask for a new plan.');
 });
 
 test('another admin can launch the included staging without spending environment slots', function () {

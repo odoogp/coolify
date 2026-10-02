@@ -421,7 +421,7 @@ class AdminCreationQuota
         int $stagingBranches = 0,
         int $services = 0,
     ): void {
-        if ($membership === null || $membership->role !== Role::ADMIN->value) {
+        if ($membership === null || $membership->role === Role::OWNER->value) {
             return;
         }
 
@@ -634,4 +634,4 @@ class AdminCreationQuota
 
         return (int) $membership->{$column};
     }
-};
+}

@@ -21,6 +21,9 @@ class Center extends Component
 
     public bool $showCustom = true;
 
+    #[Validate(['required', 'integer', 'min:1', 'max:365'])]
+    public int $keepDays = 7;
+
     #[Validate(['required', 'string', 'max:160'])]
     public string $title = '';
 
@@ -45,11 +48,13 @@ class Center extends Component
         $this->showExpiration = $settings->expiration;
         $this->showDeletion = $settings->deletion;
         $this->showCustom = $settings->custom;
+        $this->keepDays = max(1, (int) $settings->keep_days);
     }
 
     public function saveSettings(): void
     {
         abort_unless(isInstanceOwner(), 403);
+        $this->validateOnly('keepDays');
 
         GpshNoticeSetting::current()->fill([
             'mounted' => $this->showMounted,
@@ -57,7 +62,9 @@ class Center extends Component
             'expiration' => $this->showExpiration,
             'deletion' => $this->showDeletion,
             'custom' => $this->showCustom,
+            'keep_days' => $this->keepDays,
         ])->save();
+        GpshNotices::forgetExpired();
 
         $this->dispatch('success', __('Notice settings saved.'));
     }

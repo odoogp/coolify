@@ -77,8 +77,19 @@ class GpshNotices
         }
     }
 
+    public static function forgetExpired(): void
+    {
+        $days = (int) GpshNoticeSetting::current()->keep_days;
+        if ($days < 1) {
+            return;
+        }
+
+        GpshNotice::query()->where('created_at', '<', now()->subDays($days))->delete();
+    }
+
     public static function forUser(User $user): Builder
     {
+        self::forgetExpired();
         $enabled = array_values(array_filter(
             self::kinds(),
             fn (string $kind): bool => GpshNoticeSetting::current()->allows($kind),

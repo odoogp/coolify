@@ -123,11 +123,10 @@ class CloneOdooStagingJob implements ShouldQueue
 
             $this->progress(5, done: true, redirect: $copied instanceof Service
                 ? [
-                    'name' => 'project.service.configuration',
+                    'name' => 'project.show',
                     'parameters' => [
                         'project_uuid' => $project->uuid,
-                        'environment_uuid' => $staging->uuid,
-                        'service_uuid' => $copied->uuid,
+                        'environment' => $staging->uuid,
                     ],
                 ]
                 : [
@@ -256,12 +255,14 @@ class CloneOdooStagingJob implements ShouldQueue
     private function progress(int $step, bool $done = false, ?string $error = null, ?array $redirect = null, ?string $environment = null): void
     {
         $current = Cache::get($this->cacheKey);
-        Cache::put($this->cacheKey, [
+        $payload = [
             'step' => $step,
             'done' => $done,
             'error' => $error,
             'redirect' => $redirect,
             'environment' => $environment ?? (is_array($current) ? ($current['environment'] ?? null) : null),
-        ], now()->addMinutes(30));
+        ];
+        Cache::put($this->cacheKey, $payload, now()->addMinutes(30));
+        Cache::put('odoo-clone-project-'.$this->projectId, $payload, now()->addMinutes(30));
     }
 }

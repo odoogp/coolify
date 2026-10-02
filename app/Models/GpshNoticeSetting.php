@@ -16,6 +16,7 @@ class GpshNoticeSetting extends Model
         'expiration',
         'deletion',
         'custom',
+        'keep_days',
     ];
 
     protected function casts(): array
@@ -26,6 +27,7 @@ class GpshNoticeSetting extends Model
             'expiration' => 'boolean',
             'deletion' => 'boolean',
             'custom' => 'boolean',
+            'keep_days' => 'integer',
         ];
     }
 

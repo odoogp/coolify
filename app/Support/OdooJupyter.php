@@ -196,7 +196,7 @@ def page(text):
     Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p id=\"m\" style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>")
 page("Estamos preparando todo.")
 Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p id=\\\"m\\\" style=\\\"font-size:1.5rem;line-height:1.4\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>\")\n")
-Path("/tmp/gpsh-status.py").write_text("from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\nclass H(BaseHTTPRequestHandler):\n    def do_GET(self):\n        body=open('/tmp/gpsh-status.html','rb').read()\n        self.send_response(200)\n        self.send_header('Content-Type','text/html; charset=utf-8')\n        self.send_header('Cache-Control','no-store')\n        self.end_headers()\n        self.wfile.write(body)\n    def log_message(self, *a):\n        return\nThreadingHTTPServer(('0.0.0.0', 8069), H).serve_forever()\n")
+Path("/tmp/gpsh-status.py").write_text("from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\nimport http.client\nclass H(BaseHTTPRequestHandler):\n    def do_GET(self):\n        self.forward()\n    def do_POST(self):\n        self.forward()\n    def do_HEAD(self):\n        self.forward()\n    def forward(self):\n        try:\n            length=int(self.headers.get('Content-Length') or 0)\n            payload=self.rfile.read(length) if length else None\n            headers={k:v for k,v in self.headers.items() if k.lower() not in ('host','content-length')}\n            conn=http.client.HTTPConnection('127.0.0.1',8071,timeout=60)\n            conn.request(self.command,self.path,body=payload,headers=headers)\n            resp=conn.getresponse()\n            data=resp.read()\n            self.send_response(resp.status)\n            for key,value in resp.getheaders():\n                if key.lower() not in ('transfer-encoding','connection','content-length'):\n                    self.send_header(key,value)\n            self.send_header('Content-Length',str(len(data)))\n            self.end_headers()\n            if self.command!='HEAD':\n                self.wfile.write(data)\n            conn.close()\n        except Exception:\n            page=open('/tmp/gpsh-status.html','rb').read()\n            self.send_response(200)\n            self.send_header('Content-Type','text/html; charset=utf-8')\n            self.send_header('Cache-Control','no-store')\n            self.send_header('Content-Length',str(len(page)))\n            self.end_headers()\n            if self.command!='HEAD':\n                self.wfile.write(page)\n    def log_message(self,*a):\n        return\nThreadingHTTPServer(('0.0.0.0',8069),H).serve_forever()\n")
 PY
 python3 /tmp/gpsh-status.py >/tmp/gpsh-status.log 2>&1 &
 echo $! > /tmp/gpsh-status.pid
@@ -379,7 +379,6 @@ with registry.cursor() as cr:
     env.ref("base.user_admin").sudo().write({"password": password})
     cr.commit()
 PY
-if [ -f /tmp/gpsh-status.pid ]; then kill "$(cat /tmp/gpsh-status.pid)" 2>/dev/null || true; sleep 1; fi
 mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore /mnt/extra-addons/.gpsh
 chmod 755 /mnt/extra-addons/.gpsh || true
 keep="__OWNER_KEEP__"
@@ -403,10 +402,10 @@ exec > >(tee -a /mnt/extra-addons/.gpsh/odoo.log) 2>&1
 if [ "$(id -u)" = "0" ]; then
   chown -R odoo:odoo /var/lib/odoo 2>/dev/null || true
   if command -v setpriv >/dev/null 2>&1; then
-    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
+    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" --http-port=8071 -d __ODOO_DB__
   fi
 fi
-exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
+exec odoo "${args[@]}" "${load[@]}" --http-port=8071 -d __ODOO_DB__
 BASH));
     }
 

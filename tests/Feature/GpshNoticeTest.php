@@ -128,3 +128,37 @@ it('announces when the instance is up and when it can be opened', function () {
         ->call('openNotice', $mounted->id)
         ->assertRedirect($mounted->href());
 });
+
+it('removes notices older than the time set in the notification center', function () {
+    $this->actingAs($this->owner);
+    Livewire::test(Center::class)
+        ->set('keepDays', 2)
+        ->call('saveSettings')
+        ->assertHasNoErrors();
+
+    expect(GpshNoticeSetting::current()->keep_days)->toBe(2);
+
+    $old = GpshNotice::query()->create([
+        'title' => 'Aviso viejo',
+        'body' => 'Ya pasó.',
+        'audience' => 'clients',
+        'kind' => 'custom',
+        'team_id' => $this->clientTeam->id,
+    ]);
+    $old->forceFill(['created_at' => now()->subDays(3)])->save();
+    GpshNotice::query()->create([
+        'title' => 'Aviso nuevo',
+        'body' => 'Sigue aquí.',
+        'audience' => 'clients',
+        'kind' => 'custom',
+        'team_id' => $this->clientTeam->id,
+    ]);
+
+    $this->actingAs($this->client);
+    Livewire::test(GpshNoticeBell::class)
+        ->assertDontSee('Aviso viejo')
+        ->assertSee('Aviso nuevo');
+
+    expect(GpshNotice::query()->where('title', 'Aviso viejo')->exists())->toBeFalse()
+        ->and(GpshNotice::query()->where('title', 'Aviso nuevo')->exists())->toBeTrue();
+});

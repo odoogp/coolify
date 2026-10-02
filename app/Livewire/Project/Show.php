@@ -296,6 +296,11 @@ class Show extends Component
         return 'odoo-clone-'.$this->project->id.'-'.auth()->id();
     }
 
+    private function sharedCloneKey(): string
+    {
+        return 'odoo-clone-project-'.$this->project->id;
+    }
+
     private function absorbWork(bool $redirectOnDone): mixed
     {
         $clone = Cache::get($this->cloneCacheKey());
@@ -362,6 +367,13 @@ class Show extends Component
             return;
         }
 
+        $sharedClone = Cache::get($this->sharedCloneKey());
+        if (is_array($sharedClone) && ($sharedClone['done'] ?? false) !== true && ! filled($sharedClone['error'] ?? null)) {
+            $this->workRunning = true;
+
+            return;
+        }
+
         $this->project->loadMissing('environments.services');
         foreach ($this->project->environments as $environment) {
             foreach ($environment->services as $service) {
@@ -398,18 +410,29 @@ class Show extends Component
                     continue;
                 }
                 $status = Cache::get('launch-odoo-'.$service->uuid);
-                if (! is_array($status) || ($status['done'] ?? false) === true) {
+                if (is_array($status) && ($status['done'] ?? false) !== true) {
+                    $map[$environment->uuid] = [
+                        'running' => ! filled($status['error'] ?? null),
+                        'message' => $this->launchMessage((int) ($status['step'] ?? 1)),
+                        'error' => filled($status['error'] ?? null) ? (string) $status['error'] : null,
+                    ];
+
                     continue;
                 }
-                $map[$environment->uuid] = [
-                    'running' => ! filled($status['error'] ?? null),
-                    'message' => $this->launchMessage((int) ($status['step'] ?? 1)),
-                    'error' => filled($status['error'] ?? null) ? (string) $status['error'] : null,
-                ];
+                if ($service->isStarting()) {
+                    $map[$environment->uuid] = [
+                        'running' => true,
+                        'message' => $this->launchMessage(2),
+                        'error' => null,
+                    ];
+                }
             }
         }
 
-        $clone = Cache::get($this->cloneCacheKey());
+        $clone = Cache::get($this->sharedCloneKey());
+        if (! is_array($clone)) {
+            $clone = Cache::get($this->cloneCacheKey());
+        }
         if (is_array($clone) && ($clone['done'] ?? false) !== true) {
             $uuid = is_string($clone['environment'] ?? null) ? $clone['environment'] : null;
             if ($uuid !== null && $this->project->environments->contains(fn (Environment $environment): bool => $environment->uuid === $uuid)) {

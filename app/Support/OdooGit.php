@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Actions\Service\StartService;
+use App\Enums\ProcessStatus;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * GitHub is optional. Without a repository, JupyterLab is the file manager.
@@ -471,7 +473,7 @@ class OdooGit
             return false;
         }
 
-        if (self::odooIsUp($service)) {
+        if (self::odooIsUp($service) || self::startFinished($service)) {
             return true;
         }
 
@@ -479,6 +481,17 @@ class OdooGit
             ->where('service_id', $service->id)
             ->whereIn('kind', ['mounted', 'accessible'])
             ->exists();
+    }
+
+    private static function startFinished(Service $service): bool
+    {
+        try {
+            $activity = Activity::query()->where('properties->type_uuid', $service->uuid)->latest()->first();
+
+            return (string) data_get($activity, 'properties.status') === ProcessStatus::FINISHED->value;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public static function publicHttpsUrl(Service $service): string
@@ -547,7 +560,7 @@ class OdooGit
 
         $resolve = escapeshellarg($host.':443:127.0.0.1');
         $url = escapeshellarg('https://'.$host.'/web/login');
-        $script = 'code=$(curl -skL --resolve '.$resolve.' --max-time 8 -o /tmp/gpsh-open -w "%{http_code}" '.$url.' || true); if case "$code" in 2*|3*) true ;; *) false ;; esac && ! grep -q "no available server" /tmp/gpsh-open && grep -Eqi "oe_login|/web/login|odoo" /tmp/gpsh-open; then echo open; fi; rm -f /tmp/gpsh-open';
+        $script = 'code=$(curl -skL --resolve '.$resolve.' --max-time 8 -o /tmp/gpsh-open -w "%{http_code}" '.$url.' || true); if case "$code" in 2*|3*) true ;; *) false ;; esac && ! grep -qi "bad gateway" /tmp/gpsh-open && ! grep -q "no available server" /tmp/gpsh-open && ! grep -q "se actualiza sola" /tmp/gpsh-open && grep -Eqi "oe_login|/web/login|odoo" /tmp/gpsh-open; then echo open; fi; rm -f /tmp/gpsh-open';
 
         return 'bash -c '.escapeshellarg($script);
     }

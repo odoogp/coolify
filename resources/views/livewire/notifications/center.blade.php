@@ -30,6 +30,16 @@
                             {{ __('Custom messages') }}
                         </label>
                     </div>
+                    <label class="mt-4 grid w-fit gap-1.5 text-sm font-medium">
+                        {{ __('Notices disappear after') }}
+                        <span class="flex items-center gap-2 font-normal">
+                            <input type="number" min="1" max="365" wire:model="keepDays" class="input w-24" />
+                            {{ __('days') }}
+                        </span>
+                    </label>
+                    @error('keepDays')
+                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                    @enderror
                     <div class="mt-4">
                         <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
                     </div>

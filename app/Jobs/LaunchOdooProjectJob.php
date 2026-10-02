@@ -64,11 +64,10 @@ class LaunchOdooProjectJob implements ShouldQueue
 
             $environment = $service->environment;
             $this->progress(4, done: true, redirect: [
-                'name' => 'project.service.configuration',
+                'name' => 'project.show',
                 'parameters' => [
                     'project_uuid' => $project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                    'service_uuid' => $service->uuid,
+                    'environment' => $environment->uuid,
                 ],
             ]);
         } catch (Throwable $exception) {
