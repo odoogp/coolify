@@ -171,6 +171,8 @@ class CloneOdooStagingJob implements ShouldQueue
             $cloned->save();
         }
 
+        OdooGit::assignCopiedBranch($copy->fresh());
+
         return $copy;
     }
 

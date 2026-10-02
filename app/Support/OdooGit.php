@@ -424,6 +424,21 @@ class OdooGit
         }
     }
 
+    public static function assignCopiedBranch(Service $service): void
+    {
+        $database = self::databaseName($service);
+        if ($database === null) {
+            return;
+        }
+
+        $service->loadMissing('environment');
+        self::rememberVariable($service, 'ODOO_DATABASE', $database, true);
+        self::rememberVariable($service, 'ODOO_LOGIN_TOKEN', Str::password(40, symbols: false), true);
+        if ($service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->doesntExist()) {
+            self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', Str::password(20, symbols: false), false);
+        }
+    }
+
     public static function publicHttpsUrl(Service $service): string
     {
         $application = $service->applications()->get()->first(

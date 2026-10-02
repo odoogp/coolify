@@ -234,12 +234,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $user = auth()->user();
         $team = $user->currentTeam();
         $teamIds = $user->teams()->pluck('teams.id');
-        $serviceServerIds = \App\Models\Service::query()
+        $services = \App\Models\Service::query()
             ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
-            ->pluck('server_id')
-            ->filter()
-            ->unique()
-            ->values();
+            ->get(['server_id', 'destination_id', 'destination_type']);
+        $serviceServerIds = $services->pluck('server_id');
+        $dockerIds = $services
+            ->where('destination_type', \App\Models\StandaloneDocker::class)
+            ->pluck('destination_id')
+            ->filter();
+        if ($dockerIds->isNotEmpty()) {
+            $serviceServerIds = $serviceServerIds->merge(
+                \App\Models\StandaloneDocker::query()->whereIn('id', $dockerIds)->pluck('server_id')
+            );
+        }
+        $serviceServerIds = $serviceServerIds->push(0)->filter(fn ($id) => $id !== null && $id !== '')->unique()->values();
 
         $ipAddresses = \App\Models\Server::query()
             ->where(function ($query) use ($team, $serviceServerIds) {
@@ -254,7 +262,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
                     return false;
                 }
 
-                return (bool) ($server->settings?->is_terminal_enabled ?? true);
+                $terminalEnabled = (bool) ($server->settings?->is_terminal_enabled ?? true);
+
+                return $terminalEnabled || (int) $server->id === 0 || $server->ip === 'host.docker.internal';
             })
             ->pluck('ip')
             ->filter()

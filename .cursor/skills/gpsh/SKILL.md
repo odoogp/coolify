@@ -102,7 +102,7 @@ Owners always can. Members never can, even if the column is true. Server update/
 
 Terminal (`canAccessTerminal` plus the resource check): members never. The instance owner can open any terminal. An admin can open the terminal only for an instance they created (`created_by`) or that the owner assigned to them. Another admin on the same team does not inherit that terminal. The websocket allowlist is every server that user can use, including server id 0 when a service of their team runs there (`host.docker.internal`). It is not only `currentTeam()->servers`.
 
-Odoo stays the container process. Start as root only to `chown` `/var/lib/odoo` to the `odoo` user, then drop privileges. Do not pass `gpsh_autoconnect` with `--load`: a server-wide module that fails to import exits the container, the status stays `exited`, and Open Odoo stays hidden. The image healthcheck stays disabled. Listen stays `0.0.0.0:8069`.
+Odoo stays the container process. Start as root only to `chown` `/var/lib/odoo` to the `odoo` user, then drop privileges. Do not pass `gpsh_autoconnect` with `--load`. Install it in that branch's database (`-i gpsh_autoconnect`) so `/_odoo/paas/connect` exists on staging as well as production. A copied branch gets its own `ODOO_DATABASE` and `ODOO_LOGIN_TOKEN`; it must not keep production's. The image healthcheck stays disabled. Listen stays `0.0.0.0:8069`. The terminal allowlist includes server id 0 and `host.docker.internal` when that user can use the server, including when the service points at it through its destination.
 
 ## Support
 

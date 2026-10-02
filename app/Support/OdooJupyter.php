@@ -185,6 +185,40 @@ if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
   python3 /tmp/gpsh-page.py "Instalando la base." || true
   odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i base --stop-after-init || true
 fi
+python3 - <<'PY' || true
+import os
+from pathlib import Path
+host = os.environ.get("HOST", "postgresql")
+user = os.environ.get("USER") or ""
+password = os.environ.get("PASSWORD") or ""
+database = os.environ.get("ODOO_DATABASE") or "__ODOO_DB__"
+state = ""
+conn = None
+if database and user and password:
+    try:
+        import psycopg2
+        conn = psycopg2.connect(host=host, user=user, password=password, dbname=database)
+    except Exception:
+        try:
+            import psycopg
+            conn = psycopg.connect(host=host, user=user, password=password, dbname=database)
+        except Exception:
+            conn = None
+if conn is not None:
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT state FROM ir_module_module WHERE name=%s", ("gpsh_autoconnect",))
+        row = cur.fetchone()
+        state = row[0] if row else ""
+    except Exception:
+        state = ""
+    conn.close()
+Path("/tmp/gpsh-connect-state").write_text(state or "")
+PY
+if [ "$(cat /tmp/gpsh-connect-state 2>/dev/null)" != "installed" ]; then
+  python3 /tmp/gpsh-page.py "Preparando el acceso." || true
+  odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i gpsh_autoconnect --stop-after-init || true
+fi
 python3 /tmp/gpsh-page.py "Abriendo Odoo." || true
 python3 - <<'PY' || true
 import os

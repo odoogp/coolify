@@ -88,8 +88,16 @@ function userCanUseServer(Server $server): bool
         return true;
     }
 
+    $destinationIds = \App\Models\StandaloneDocker::query()->where('server_id', $server->id)->select('id');
+
     return \App\Models\Service::query()
-        ->where('server_id', $server->id)
+        ->where(function ($query) use ($server, $destinationIds) {
+            $query->where('server_id', $server->id)
+                ->orWhere(function ($query) use ($destinationIds) {
+                    $query->where('destination_type', \App\Models\StandaloneDocker::class)
+                        ->whereIn('destination_id', $destinationIds);
+                });
+        })
         ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
         ->exists();
 }

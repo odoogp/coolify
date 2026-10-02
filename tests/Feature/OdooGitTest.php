@@ -928,6 +928,22 @@ it('names the database after the project and the branch', function () {
 
     expect(OdooGit::databaseName($service))->toBe('mi_empresa_production');
 
+    $staging = $this->project->environments()->where('name', '!=', 'production')->first();
+    $copied = Service::factory()->create([
+        'environment_id' => $staging->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $copied->environment_variables()->createMany([
+        ['key' => 'ODOO_DATABASE', 'value' => 'mi_empresa_production', 'is_preview' => false],
+        ['key' => 'ODOO_LOGIN_TOKEN', 'value' => 'productiontokenproductiontokenproduction', 'is_preview' => false],
+    ]);
+
+    OdooGit::assignCopiedBranch($copied->fresh());
+
+    expect($copied->environment_variables()->where('key', 'ODOO_DATABASE')->value('value'))->toBe(OdooGit::databaseName($copied->fresh()))
+        ->and($copied->environment_variables()->where('key', 'ODOO_DATABASE')->value('value'))->not->toBe('mi_empresa_production')
+        ->and($copied->environment_variables()->where('key', 'ODOO_LOGIN_TOKEN')->value('value'))->not->toBe('productiontokenproductiontokenproduction');
+
     OdooEnvironmentBranch::query()->create([
         'environment_id' => $production->id,
         'git_branch' => 'main',
