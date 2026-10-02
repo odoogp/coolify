@@ -160,6 +160,7 @@ export function initializeTerminalComponent() {
             fullscreen: false,
             terminalActive: false,
             starting: false,
+            exitMessage: '',
             message: '(connection closed)',
             term: null,
             fitAddon: null,
@@ -754,6 +755,22 @@ export function initializeTerminalComponent() {
                 }
             },
 
+            terminalExitText() {
+                if (!this.term?.buffer?.active) {
+                    return '';
+                }
+                const buffer = this.term.buffer.active;
+                const lines = [];
+                for (let index = 0; index < buffer.length; index++) {
+                    const line = buffer.getLine(index);
+                    if (line) {
+                        lines.push(line.translateToString(true));
+                    }
+                }
+
+                return lines.map((line) => line.trim()).filter(Boolean).slice(-4).join(' ');
+            },
+
             sendCommandWhenReady(message) {
                 if (this.isWebSocketReady()) {
                     this.sendMessage(message);
@@ -777,6 +794,7 @@ export function initializeTerminalComponent() {
 
                 if (event.data === 'pty-ready') {
                     this.starting = false;
+                    this.exitMessage = '';
                     if (!this.term._initialized) {
                         this.term.open(document.getElementById('terminal'));
                         this.term._initialized = true;
@@ -817,7 +835,7 @@ export function initializeTerminalComponent() {
                     this.$wire.dispatch('terminalConnected');
                 } else if (event.data === 'unprocessable') {
                     this.starting = false;
-                    if (this.term) this.term.reset();
+                    this.exitMessage = this.terminalExitText() || 'The session ended.';
                     this.terminalActive = false;
                     this.lastSentCommand = null;
                     this.resetTerminalSessionCountdown();
@@ -829,9 +847,9 @@ export function initializeTerminalComponent() {
                     this.starting = false;
                     this.exitFullscreen();
                     this.mobileToolbarCollapsed = false;
+                    this.exitMessage = this.terminalExitText() || 'The session ended.';
                     this.terminalActive = false;
                     this.resetTerminalSessionCountdown();
-                    this.term.reset();
                     this.commandBuffer = '';
                     this.lastSentCommand = null;
 
@@ -842,6 +860,8 @@ export function initializeTerminalComponent() {
                     (event.data.startsWith('Unauthorized:') || event.data.startsWith('Invalid SSH command:'))
                 ) {
                     logTerminal('error', '[Terminal] Backend rejected terminal startup:', event.data);
+                    this.exitMessage = event.data;
+                    this.starting = false;
                     this.$wire.dispatch('error', event.data);
                     this.terminalActive = false;
                     this.resetTerminalSessionCountdown();

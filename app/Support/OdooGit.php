@@ -472,6 +472,48 @@ class OdooGit
     }
 
     /**
+     * True when this Odoo already answers its login page. A failed start can still leave it open.
+     */
+    public static function loginAnswers(Service $service): bool
+    {
+        if (app()->runningUnitTests()) {
+            return false;
+        }
+
+        $server = $service->server;
+        if ($server === null || ! $server->isFunctional()) {
+            return false;
+        }
+
+        $host = parse_url(self::publicHttpsUrl($service), PHP_URL_HOST);
+        $command = is_string($host) ? self::loginOpenCommand($host) : null;
+        if ($command === null) {
+            return false;
+        }
+
+        try {
+            $output = instant_remote_process([$command], $server, false);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return str_contains((string) $output, 'open');
+    }
+
+    public static function loginOpenCommand(string $host): ?string
+    {
+        if (preg_match('/^[a-z0-9.-]+$/', $host) !== 1) {
+            return null;
+        }
+
+        $resolve = escapeshellarg($host.':443:127.0.0.1');
+        $url = escapeshellarg('https://'.$host.'/web/login');
+        $script = 'code=$(curl -skL --resolve '.$resolve.' --max-time 8 -o /tmp/gpsh-open -w "%{http_code}" '.$url.' || true); if case "$code" in 2*|3*) true ;; *) false ;; esac && ! grep -q "no available server" /tmp/gpsh-open && grep -Eqi "oe_login|/web/login|odoo" /tmp/gpsh-open; then echo open; fi; rm -f /tmp/gpsh-open';
+
+        return 'bash -c '.escapeshellarg($script);
+    }
+
+    /**
      * The clone screen stays up until this branch's Odoo answers the real login page.
      */
     public static function waitUntilOpen(Service $service): void
@@ -574,8 +616,6 @@ psql() {
 odoo-log() {
   tail -n 80 -F /mnt/extra-addons/.gpsh/odoo.log
 }
-export -f odoo psql odoo-log
-exec bash --noprofile --norc -i
 BASH;
     }
 

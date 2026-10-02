@@ -47,6 +47,14 @@ class Show extends Component
 
     public ?string $cloneError = null;
 
+    public bool $workRunning = false;
+
+    /** @var array<string, string> */
+    public array $activityErrors = [];
+
+    /** @var list<array<string, mixed>> */
+    public array $environmentPayload = [];
+
     protected function rules(): array
     {
         return [
@@ -82,7 +90,13 @@ class Show extends Component
                         ->orderBy('created_at'),
                 ])
                 ->firstOrFail();
-            $this->loadCloneProgress();
+            $this->absorbWork(redirectOnDone: false);
+            $this->markWorkRunning();
+            $this->project->loadMissing('environments.odooBranch', 'environments.services');
+            $this->environmentPayload = $this->environmentRows(
+                auth()->user()->can('update', $this->project),
+                $this->project->odooProfile()->exists(),
+            );
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -188,6 +202,8 @@ class Show extends Component
                 (int) auth()->id(),
             );
 
+            $this->workRunning = true;
+
             return $this->refreshCloneProgress();
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->cloneRunning = false;
@@ -209,29 +225,33 @@ class Show extends Component
     public function refreshCloneProgress()
     {
         $this->authorize('view', $this->project);
-        $status = Cache::get($this->cloneCacheKey());
-        if (! is_array($status)) {
-            $this->cloneRunning = false;
-
-            return;
-        }
-
-        $this->cloneStep = (int) ($status['step'] ?? 1);
-        if (filled($status['error'] ?? null)) {
-            $this->cloneRunning = false;
-            $this->cloneError = (string) $status['error'];
-            Cache::forget($this->cloneCacheKey());
-
-            return;
-        }
-        if ($status['done'] ?? false) {
-            $redirect = $this->cloneRedirect($status);
-            if ($redirect !== null) {
-                Cache::forget($this->cloneCacheKey());
-                $this->cloneRunning = false;
-
-                return $redirect;
-            }
+        $this->project->unsetRelation('environments');
+        $this->project->load([
+            'environments' => fn ($query) => $query
+                ->withCount([
+                    'applications',
+                    'services',
+                    'postgresqls',
+                    'redis',
+                    'keydbs',
+                    'dragonflies',
+                    'clickhouses',
+                    'mongodbs',
+                    'mysqls',
+                    'mariadbs',
+                ])
+                ->orderBy('created_at'),
+            'environments.odooBranch',
+            'environments.services',
+        ]);
+        $redirect = $this->absorbWork(redirectOnDone: true);
+        $this->markWorkRunning();
+        $this->environmentPayload = $this->environmentRows(
+            auth()->user()->can('update', $this->project),
+            $this->project->odooProfile()->exists(),
+        );
+        if ($redirect !== null) {
+            return $redirect;
         }
     }
 
@@ -272,20 +292,200 @@ class Show extends Component
         return 'odoo-clone-'.$this->project->id.'-'.auth()->id();
     }
 
-    private function loadCloneProgress(): void
+    private function absorbWork(bool $redirectOnDone): mixed
     {
-        $status = Cache::get($this->cloneCacheKey());
-        if (! is_array($status) || ($status['done'] ?? false)) {
-            return;
+        $clone = Cache::get($this->cloneCacheKey());
+        if (is_array($clone)) {
+            if (filled($clone['error'] ?? null)) {
+                $uuid = is_string($clone['environment'] ?? null) ? $clone['environment'] : 'pending-clone';
+                $this->activityErrors[$uuid] = (string) $clone['error'];
+                $this->cloneError = (string) $clone['error'];
+                Cache::forget($this->cloneCacheKey());
+                $this->cloneRunning = false;
+            } elseif (($clone['done'] ?? false) === true) {
+                $redirect = $redirectOnDone ? $this->cloneRedirect($clone) : null;
+                Cache::forget($this->cloneCacheKey());
+                $this->cloneRunning = false;
+                if ($redirect !== null) {
+                    return $redirect;
+                }
+            } else {
+                $this->cloneRunning = true;
+                $this->cloneStep = (int) ($clone['step'] ?? 1);
+                $this->showCloneWizard = false;
+            }
+        } else {
+            $this->cloneRunning = false;
         }
-        $this->cloneStep = (int) ($status['step'] ?? 1);
-        if (filled($status['error'] ?? null)) {
-            $this->cloneError = (string) $status['error'];
+
+        $this->project->loadMissing('environments.services');
+        foreach ($this->project->environments as $environment) {
+            foreach ($environment->services as $service) {
+                if (! $service->supportsOdooJupyter()) {
+                    continue;
+                }
+                $key = 'launch-odoo-'.$service->uuid;
+                $status = Cache::get($key);
+                if (! is_array($status)) {
+                    continue;
+                }
+                if (filled($status['error'] ?? null)) {
+                    $this->activityErrors[$environment->uuid] = (string) $status['error'];
+                    Cache::forget($key);
+
+                    continue;
+                }
+                if (($status['done'] ?? false) === true) {
+                    $redirect = is_array($status['redirect'] ?? null) ? $status['redirect'] : null;
+                    $name = is_array($redirect) ? (string) ($redirect['name'] ?? '') : '';
+                    $parameters = is_array($redirect) && is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
+                    Cache::forget($key);
+                    if ($redirectOnDone && $name !== '') {
+                        return redirectRoute($this, $name, $parameters);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function markWorkRunning(): void
+    {
+        if ($this->cloneRunning) {
+            $this->workRunning = true;
 
             return;
         }
-        $this->cloneRunning = true;
-        $this->showCloneWizard = false;
+
+        $this->project->loadMissing('environments.services');
+        foreach ($this->project->environments as $environment) {
+            foreach ($environment->services as $service) {
+                if (! $service->supportsOdooJupyter()) {
+                    continue;
+                }
+                $status = Cache::get('launch-odoo-'.$service->uuid);
+                if (is_array($status) && ($status['done'] ?? false) !== true && ! filled($status['error'] ?? null)) {
+                    $this->workRunning = true;
+
+                    return;
+                }
+            }
+        }
+
+        $this->workRunning = false;
+    }
+
+    /**
+     * @return array<string, array{running: bool, message: string, error: ?string}>
+     */
+    private function activityMap(): array
+    {
+        $this->project->loadMissing('environments.services');
+        $map = [];
+        foreach ($this->project->environments as $environment) {
+            foreach ($environment->services as $service) {
+                if (! $service->supportsOdooJupyter()) {
+                    continue;
+                }
+                $status = Cache::get('launch-odoo-'.$service->uuid);
+                if (! is_array($status) || ($status['done'] ?? false) === true) {
+                    continue;
+                }
+                $map[$environment->uuid] = [
+                    'running' => ! filled($status['error'] ?? null),
+                    'message' => $this->launchMessage((int) ($status['step'] ?? 1)),
+                    'error' => filled($status['error'] ?? null) ? (string) $status['error'] : null,
+                ];
+            }
+        }
+
+        $clone = Cache::get($this->cloneCacheKey());
+        if (is_array($clone) && ($clone['done'] ?? false) !== true) {
+            $uuid = is_string($clone['environment'] ?? null) ? $clone['environment'] : null;
+            if ($uuid !== null && $this->project->environments->contains(fn (Environment $environment): bool => $environment->uuid === $uuid)) {
+                $map[$uuid] = [
+                    'running' => ! filled($clone['error'] ?? null),
+                    'message' => $this->cloneMessage((int) ($clone['step'] ?? 1)),
+                    'error' => filled($clone['error'] ?? null) ? (string) $clone['error'] : null,
+                ];
+            }
+        }
+
+        foreach ($this->activityErrors as $uuid => $message) {
+            if ($this->project->environments->contains(fn (Environment $environment): bool => $environment->uuid === $uuid)) {
+                $map[$uuid] = [
+                    'running' => false,
+                    'message' => '',
+                    'error' => $message,
+                ];
+            }
+        }
+
+        return $map;
+    }
+
+    private function cloneMessage(int $step): string
+    {
+        return match ($step) {
+            1 => __('Mounting the environment'),
+            2 => __('Copying the service'),
+            3 => __('Cloning the branch'),
+            4 => __('Waiting until Odoo can be opened'),
+            default => __('Done'),
+        };
+    }
+
+    private function launchMessage(int $step): string
+    {
+        return match ($step) {
+            1 => __('Creating the project'),
+            2 => __('Starting the containers'),
+            3 => __('Waiting until Odoo can be opened'),
+            default => __('Done'),
+        };
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function withPendingClone(array $rows): array
+    {
+        $clone = Cache::get($this->cloneCacheKey());
+        $uuid = is_array($clone) && is_string($clone['environment'] ?? null) ? $clone['environment'] : null;
+        $known = $uuid !== null && collect($rows)->contains(fn (array $row): bool => $row['uuid'] === $uuid);
+        $pendingError = $this->activityErrors[$uuid ?? 'pending-clone'] ?? $this->activityErrors['pending-clone'] ?? null;
+        $running = is_array($clone) && ($clone['done'] ?? false) !== true && ! filled($clone['error'] ?? null);
+        if ($known || (! $running && ! is_string($pendingError))) {
+            return $rows;
+        }
+
+        $rows[] = [
+            'uuid' => $uuid ?? 'pending-clone',
+            'name' => OdooStaging::nextName($this->project),
+            'description' => null,
+            'branch' => null,
+            'odoo' => true,
+            'serviceHref' => null,
+            'enterHref' => null,
+            'jupyterHref' => null,
+            'monitorHref' => null,
+            'logsHref' => null,
+            'terminalHref' => null,
+            'environmentHref' => null,
+            'resourceCount' => 0,
+            'href' => null,
+            'settingsHref' => null,
+            'addResourceHref' => null,
+            'activity' => [
+                'running' => $running,
+                'message' => $running ? $this->cloneMessage((int) (is_array($clone) ? ($clone['step'] ?? 1) : 1)) : '',
+                'error' => is_string($pendingError) ? $pendingError : null,
+            ],
+        ];
+
+        return $rows;
     }
 
     public function navigateToEnvironment($projectUuid, $environmentUuid)
@@ -298,104 +498,114 @@ class Show extends Component
 
     public function render(): View
     {
-        $canUpdateProject = auth()->user()->can('update', $this->project);
-        $odooOnly = $this->project->odooProfile()->exists();
-        $canCreateResource = auth()->user()->can('createAnyResource') && ! $odooOnly;
         $this->project->loadMissing('environments.odooBranch', 'environments.services');
+        $activities = $this->activityMap();
 
         return view('livewire.project.show', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'usedBranches' => $this->usedOdooBranches(),
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),
-            'environmentsJs' => $this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly): array {
-                $resourceCount = collect([
-                    $environment->applications_count,
-                    $environment->services_count,
-                    $environment->postgresqls_count,
-                    $environment->redis_count,
-                    $environment->keydbs_count,
-                    $environment->dragonflies_count,
-                    $environment->clickhouses_count,
-                    $environment->mongodbs_count,
-                    $environment->mysqls_count,
-                    $environment->mariadbs_count,
-                ])->sum();
+            'activities' => $activities,
+        ]);
+    }
 
-                $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
-                $serviceHref = ! $odooOnly && $service instanceof Service
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function environmentRows(bool $canUpdateProject, bool $odooOnly): array
+    {
+        $canCreateResource = auth()->user()->can('createAnyResource') && ! $odooOnly;
+        $activities = $this->activityMap();
+
+        return $this->withPendingClone($this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly, $activities): array {
+            $resourceCount = collect([
+                $environment->applications_count,
+                $environment->services_count,
+                $environment->postgresqls_count,
+                $environment->redis_count,
+                $environment->keydbs_count,
+                $environment->dragonflies_count,
+                $environment->clickhouses_count,
+                $environment->mongodbs_count,
+                $environment->mysqls_count,
+                $environment->mariadbs_count,
+            ])->sum();
+
+            $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+            $serviceHref = ! $odooOnly && $service instanceof Service
+                ? route('project.service.configuration', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                    'service_uuid' => $service->uuid,
+                ])
+                : null;
+            $enterHref = $odooOnly && $service instanceof Service && $service->isRunning() && ! $service->isExited()
+                ? route('project.service.odoo.enter', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                    'service_uuid' => $service->uuid,
+                ])
+                : null;
+            $jupyterHref = $odooOnly && $service instanceof Service ? OdooJupyter::sessionUrl($service) : null;
+            $monitorHref = $odooOnly && $service instanceof Service ? OdooMonitor::urlFor($service) : null;
+            $logsHref = $odooOnly && $service instanceof Service
+                ? route('project.service.logs', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                    'service_uuid' => $service->uuid,
+                    'only' => 'odoo',
+                ])
+                : null;
+            $terminalHref = $odooOnly && $service instanceof Service && auth()->user()?->canOpenTerminal($service)
+                ? route('project.service.command', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                    'service_uuid' => $service->uuid,
+                    'shell' => 'odoo',
+                ])
+                : null;
+
+            return [
+                'uuid' => $environment->uuid,
+                'name' => $environment->name,
+                'description' => $environment->description,
+                'branch' => $environment->odooBranch?->git_branch,
+                'odoo' => $odooOnly,
+                'serviceHref' => $serviceHref,
+                'enterHref' => $enterHref,
+                'jupyterHref' => $jupyterHref,
+                'monitorHref' => $monitorHref,
+                'logsHref' => $logsHref,
+                'terminalHref' => $terminalHref,
+                'environmentHref' => $odooOnly && $service instanceof Service
                     ? route('project.service.configuration', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
                         'service_uuid' => $service->uuid,
                     ])
-                    : null;
-                $enterHref = $odooOnly && $service instanceof Service && $service->isRunning() && ! $service->isExited()
-                    ? route('project.service.odoo.enter', [
+                    : route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
-                        'service_uuid' => $service->uuid,
+                    ]),
+                'resourceCount' => $resourceCount,
+                'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                ])),
+                'settingsHref' => $canUpdateProject
+                    ? route('project.environment.edit', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
                     ])
-                    : null;
-                $jupyterHref = $odooOnly && $service instanceof Service ? OdooJupyter::sessionUrl($service) : null;
-                $monitorHref = $odooOnly && $service instanceof Service ? OdooMonitor::urlFor($service) : null;
-                $logsHref = $odooOnly && $service instanceof Service
-                    ? route('project.service.logs', [
+                    : null,
+                'addResourceHref' => $canCreateResource
+                    ? route('project.resource.create', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
-                        'service_uuid' => $service->uuid,
-                        'only' => 'odoo',
                     ])
-                    : null;
-                $terminalHref = $odooOnly && $service instanceof Service && auth()->user()?->canOpenTerminal($service)
-                    ? route('project.service.command', [
-                        'project_uuid' => $this->project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                        'service_uuid' => $service->uuid,
-                        'shell' => 'odoo',
-                    ])
-                    : null;
-
-                return [
-                    'uuid' => $environment->uuid,
-                    'name' => $environment->name,
-                    'description' => $environment->description,
-                    'branch' => $environment->odooBranch?->git_branch,
-                    'odoo' => $odooOnly,
-                    'serviceHref' => $serviceHref,
-                    'enterHref' => $enterHref,
-                    'jupyterHref' => $jupyterHref,
-                    'monitorHref' => $monitorHref,
-                    'logsHref' => $logsHref,
-                    'terminalHref' => $terminalHref,
-                    'environmentHref' => $odooOnly && $service instanceof Service
-                        ? route('project.service.configuration', [
-                            'project_uuid' => $this->project->uuid,
-                            'environment_uuid' => $environment->uuid,
-                            'service_uuid' => $service->uuid,
-                        ])
-                        : route('project.resource.index', [
-                            'project_uuid' => $this->project->uuid,
-                            'environment_uuid' => $environment->uuid,
-                        ]),
-                    'resourceCount' => $resourceCount,
-                    'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [
-                        'project_uuid' => $this->project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                    ])),
-                    'settingsHref' => $canUpdateProject
-                        ? route('project.environment.edit', [
-                            'project_uuid' => $this->project->uuid,
-                            'environment_uuid' => $environment->uuid,
-                        ])
-                        : null,
-                    'addResourceHref' => $canCreateResource
-                        ? route('project.resource.create', [
-                            'project_uuid' => $this->project->uuid,
-                            'environment_uuid' => $environment->uuid,
-                        ])
-                        : null,
-                ];
-            })->values()->toArray(),
-        ]);
+                    : null,
+                'activity' => $activities[$environment->uuid] ?? null,
+            ];
+        })->values()->all());
     }
 }

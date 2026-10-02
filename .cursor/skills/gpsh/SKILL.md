@@ -2,10 +2,12 @@
 name: gpsh
 description: >-
   GPSH phase contract for this Coolify fork (phases 0–10): Odoo project,
-  staging, optional GitHub, Jupyter, launch, servers, backups, and the screens
-  that must match those phases. Use when editing Odoo, Jupyter, project launch,
-  AddEmpty, service picker, GitHub App, repositories, staging, servers, team
-  permissions, settings, lang/es.json, or GPSH docs.
+  staging, optional GitHub, Jupyter, launch, servers, backups, notices, the
+  Odoo terminal, runtime logs, and the screens that must match those phases.
+  Use when editing Odoo, Jupyter, project launch, AddEmpty, service picker,
+  GitHub App, repositories, staging, servers, team permissions, settings,
+  notifications, the terminal, logs, lang/es.json, or GPSH docs. The "Where it
+  lives" section is the file map: open that file first.
 ---
 
 # GPSH
@@ -21,6 +23,21 @@ The deployment experience to reach is Odoo.sh: one project, production and stagi
 The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set on the invitation, before the sign-in link, for admin and member: projects, environments, members, production branches, staging branches, and services. Admin also gets the GitHub account, `can_add_servers`, and `can_launch_on_instance_server`. Member also gets `odoo.*` abilities. Server flags stay off for a member. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server or S3 access. A member or admin can open the Odoo shell of a service on their team. They cannot open a server terminal. An admin's other terminals stay limited to instances they created or that were assigned to them. Do not replace Coolify roles with a new role system.
 
 `App\Livewire\Project\Resource\Index` keeps resource lists in `protected` properties. Livewire drops them on the next request, including Install Odoo. `render()` reloads them from the public project and environment. Install Odoo is only shown when that environment is empty, and it asks where to run: local only with permission, create a server when none exist, or which server when some exist. If another service is already there, the list shows that service's name and there is no Install Odoo button.
+
+## Where it lives
+
+Open the file in this list. Do not search the tree first. This checkout is coolify2. The running `coolify` container mounts coolify1, and a remote host stays on the old image until it is rebuilt. The Odoo shell and the live log also need that Odoo service redeployed.
+
+- Project list, clone dialog, hover icons: `app/Livewire/Project/Show.php` (`jupyterHref`, `monitorHref`, `logsHref` with `?only=odoo`, `terminalHref` with `?shell=odoo`), `resources/views/livewire/project/show.blade.php`, `resources/views/livewire/project/environment-shortcuts.blade.php` (Editor, Monitor, Logs, Terminal). The Terminal mark is the rounded square with a prompt in that shortcut view, not a reicon. While a launch or clone is running, that environment row stays on the list without its buttons: a spinner and the current step (`activity` on the row, `environment-activity.blade.php`). An error is a red `!`; clicking it shows the message. Do not put a full-screen progress overlay back on the project, the service page, or AddEmpty.
+- Clone start: `app/Jobs/CloneOdooStagingJob.php` `waitForServiceStart()`. If Odoo already answers `/web/login` (`OdooGit::loginAnswers()`), the clone continues. Do not fail the clone only because the start activity said the staging service did not start.
+- Service configuration: `resources/views/livewire/project/service/stack-form.blade.php`. Network and the Odoo version/Jupyter block are inside `isInstanceOwner()`. Resource cards: `app/Livewire/Project/Service/Configuration.php` `hideClientContainers()` and `resources/views/livewire/project/service/configuration.blade.php`.
+- Who sees a container: `OdooGit::clientSeesLog()` in `app/Support/OdooGit.php`. Clients get Odoo and PostgreSQL only. An instance admin sees the rest. Used by the service page, the terminal list (`ExecuteContainerCommand`), and `app/Livewire/Project/Shared/Logs.php`.
+- Odoo shell: `OdooGit::terminalShell()` (banner, then an interactive bash; `odoo` passes `HOST`, `PORT`, `USER`, `PASSWORD`). `OdooGit::serviceForTerminalContainer()` maps `odoo-{uuid}` back to the service. The session starts in `app/Livewire/Project/Shared/ExecuteContainerCommand.php` (`shell` defaults to `odoo`) and `resources/views/livewire/project/shared/execute-container-command.blade.php` (`startOdooShell()` after `terminal-websocket-ready`). The docker exec is `app/Livewire/Project/Shared/Terminal.php`.
+- Who may open that shell: `User::canOpenTerminal()` and `User::canUseOdooTerminal()` in `app/Models/User.php`. The gate is `canAccessTerminal` in `app/Providers/AuthServiceProvider.php`. A member or admin of the service's team can open that Odoo shell, including on server id 0. They cannot open a server terminal.
+- Live logs: `OdooJupyter::launchCommand()` in `app/Support/OdooJupyter.php` tees stdout to `/mnt/extra-addons/.gpsh/odoo.log`. `app/Livewire/Project/Shared/GetLogs.php` and `resources/views/livewire/project/shared/get-logs.blade.php` poll `getLogs(true)` every 2s while streaming. A logfile-only process never grows in `docker logs`.
+- Notices: bell `app/Livewire/GpshNoticeBell.php` and `resources/views/livewire/gpsh-notice-bell.blade.php`, mounted twice in `resources/views/layouts/app.blade.php` (desktop and mobile, distinct keys). Center `app/Livewire/Notifications/Center.php`, view `resources/views/livewire/notifications/center.blade.php`, route `notifications.center`, tab in `resources/views/components/notification/settings-layout.blade.php` (instance owner only). Rules `app/Support/GpshNotices.php` (`publish`, `announce`, `watch`, `forUser`). Models `GpshNotice`, `GpshNoticeRead`, `GpshNoticeSetting`. Tables from `database/migrations/2026_10_02_180000_create_gpsh_notices_table.php`. Launch and clone call `watch` / `announce` from `app/Jobs/LaunchOdooProjectJob.php` and `app/Jobs/CloneOdooStagingJob.php`. Kinds: `mounted`, `accessible`, `expiration`, `deletion`, `custom`. Audience: `clients` or `owner`. Turning a kind off in settings hides it and stops sending it.
+- Launch sidecars and the shared certificate: `OdooJupyter` (`gpsh-later`, `backgroundStartCommand`, `shareOdooCertificate`), `OdooMonitor`, `app/Actions/Service/StartService.php`, `OdooGit::containersReadyCommand()` and `usesSharedCertificate()`.
+- Tests: project icons `tests/Feature/OdooGitTest.php`; shell and log tee `tests/Unit/OdooJupyterTest.php`; who opens the shell `tests/Feature/AdminCreationQuotaTest.php`; notices `tests/Feature/GpshNoticeTest.php`.
 
 ## Phase 0
 
@@ -91,7 +108,7 @@ These are already started. Do not rip them out. Do not extend them unless the cu
 - Owner Jupyter is an extra button on the Odoo service for an instance admin (`isInstanceAdmin()`, team 0 owner or admin). A client admin or member does not see it. It is not the client Jupyter. The workspace has `odoo` (that image's `/usr/lib/python3/dist-packages/odoo/addons`), `owner` (the owner modules), and `custom` (this branch's extra-addons), all read-only. A sleeping `stdlib` container uses the same Odoo image so Docker seeds a volume; the volume name includes the image tag. Both use the Compose profile `gpsh-later` and start in the background after Odoo answers HTTPS. The team's existing notification channels get one general notice. The readiness check and the database copy ignore `stdlib` and `jupyterowner`. Neither appears in the terminal.
 - While Odoo installs, the public page rotates short Spanish lines ("Estamos preparando todo.", "No se vaya, todo comenzará pronto.", "Es mejor que vayas por un café.") and still contains "Esta página se actualiza sola." so the HTTPS check can tell it from the real login.
 - A copied staging database drops `orm_signaling_*` before neutralize and before the next Odoo start. Odoo recreates those counters. Leaving them makes startup fail with `relation "orm_signaling_assets" already exists`.
-- On an Odoo service, a client sees only the Odoo and PostgreSQL containers: the service page, the terminal list, and runtime logs. Jupyter, Grafana, Prometheus, cAdvisor, and the stdlib container stay visible to an instance admin.
+- On an Odoo service, a client sees only the Odoo and PostgreSQL containers: the service page, the terminal list, and runtime logs. Jupyter, Grafana, Prometheus, cAdvisor, and the stdlib container stay visible to an instance admin. The service configuration hides Network and the Odoo version/Jupyter controls from everyone except the instance owner.
 - The Odoo terminal is an interactive shell. `odoo shell` passes `HOST`, `PORT`, `USER`, and `PASSWORD` from the container. Without those flags Odoo dials port 5432 on localhost and the session closes.
 - Odoo writes its log to stdout and to `/mnt/extra-addons/.gpsh/odoo.log`. Live logs follow stdout. A logfile-only process never grows in `docker logs`.
 - The instance owner has a bell in the top bar and a notification center under Notifications. Kinds are instance up, instance accessible, expirations, upcoming deletions, and custom messages. Each notice is for clients or for the owner. A client sees client notices for their team, or for every client when no team is set. Turning a kind off hides it and stops sending it. Launch and clone create the up and accessible notices.

@@ -21,6 +21,7 @@ use Livewire\Component;
 class Index extends Component
 {
     use AuthorizesRequests;
+
     public Project $project;
 
     public Environment $environment;
@@ -97,38 +98,38 @@ class Index extends Component
 
             $this->project = $project;
 
-        // Load projects and environments for breadcrumb navigation
-        $this->allProjects = Project::ownedByCurrentTeamCached();
-        $environmentRelations = [
-            'applications:id,uuid,name,environment_id',
-            'services:id,uuid,name,environment_id',
-            'postgresqls:id,uuid,name,environment_id',
-            'redis:id,uuid,name,environment_id',
-            'mongodbs:id,uuid,name,environment_id',
-            'mysqls:id,uuid,name,environment_id',
-            'mariadbs:id,uuid,name,environment_id',
-            'keydbs:id,uuid,name,environment_id',
-            'dragonflies:id,uuid,name,environment_id',
-            'clickhouses:id,uuid,name,environment_id',
-        ];
+            // Load projects and environments for breadcrumb navigation
+            $this->allProjects = Project::ownedByCurrentTeamCached();
+            $environmentRelations = [
+                'applications:id,uuid,name,environment_id',
+                'services:id,uuid,name,environment_id',
+                'postgresqls:id,uuid,name,environment_id',
+                'redis:id,uuid,name,environment_id',
+                'mongodbs:id,uuid,name,environment_id',
+                'mysqls:id,uuid,name,environment_id',
+                'mariadbs:id,uuid,name,environment_id',
+                'keydbs:id,uuid,name,environment_id',
+                'dragonflies:id,uuid,name,environment_id',
+                'clickhouses:id,uuid,name,environment_id',
+            ];
 
-        $this->allEnvironments = $project->environments()
-            ->select('id', 'uuid', 'name', 'project_id')
-            ->with($environmentRelations)
-            ->get();
+            $this->allEnvironments = $project->environments()
+                ->select('id', 'uuid', 'name', 'project_id')
+                ->with($environmentRelations)
+                ->get();
 
-        $this->environment = $environment->loadCount([
-            'applications',
-            'redis',
-            'postgresqls',
-            'mysqls',
-            'keydbs',
-            'dragonflies',
-            'clickhouses',
-            'mariadbs',
-            'mongodbs',
-            'services',
-        ]);
+            $this->environment = $environment->loadCount([
+                'applications',
+                'redis',
+                'postgresqls',
+                'mysqls',
+                'keydbs',
+                'dragonflies',
+                'clickhouses',
+                'mariadbs',
+                'mongodbs',
+                'services',
+            ]);
         }
 
         // Eager load relationships for applications
@@ -252,10 +253,8 @@ class Index extends Component
             Cache::put($launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
             LaunchOdooProjectJob::dispatch($service->id, $launchKey, (int) auth()->id());
 
-            return redirect()->route('project.service.configuration', [
+            return redirect()->route('project.show', [
                 'project_uuid' => $this->project->uuid,
-                'environment_uuid' => $this->environment->uuid,
-                'service_uuid' => $service->uuid,
             ]);
         } catch (\Throwable $e) {
             return handleError($e, $this);

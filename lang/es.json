@@ -3844,5 +3844,8 @@
     "The containers for :name are running.": "Los contenedores de :name están corriendo.",
     "You can open :name.": "Ya puedes abrir :name.",
     "Audience": "Destinatarios",
-    "Kind": "Tipo"
+    "Kind": "Tipo",
+    "The container is not running.": "El contenedor no está corriendo.",
+    "This container has no shell.": "Este contenedor no tiene shell.",
+    "The session ended.": "La sesión terminó."
 }

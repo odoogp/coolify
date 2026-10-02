@@ -386,12 +386,15 @@ it('lists environments once and clones production into one staging', function ()
         ->toContain('cloneToStaging')
         ->toContain('stagingBranch')
         ->toContain('Search branches')
+        ->toContain('neutralizes that copy')
+        ->toContain('refreshCloneProgress')
+        ->toContain('environment.activity')
+        ->not->toContain('Creating the staging');
+    expect(file_get_contents(app_path('Livewire/Project/Show.php')))
         ->toContain('Mounting the environment')
         ->toContain('Copying the service')
         ->toContain('Cloning the branch')
-        ->toContain('Waiting until Odoo can be opened')
-        ->toContain('neutralizes that copy')
-        ->toContain('refreshCloneProgress');
+        ->toContain('Waiting until Odoo can be opened');
     expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
         ->toContain('installOdoo')
         ->toContain('This environment only runs Odoo.');

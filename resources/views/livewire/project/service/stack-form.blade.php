@@ -50,6 +50,7 @@
         </div>
     </x-application.settings-section>
 
+    @if (isInstanceOwner())
     <x-application.settings-section title="{{ __('Network') }}"
         description="{{ __('Control whether this Compose stack joins Coolify\'s predefined network.') }}">
         <x-forms.listbox canGate="update" :canResource="$service" id="connectToDockerNetwork" label="{{ __('Network attachment') }}" live onChange="instantSave"
@@ -85,6 +86,7 @@
                 </p>
             @endif
         </x-application.settings-section>
+    @endif
     @endif
 
     @if ($fields->count() > 0)

@@ -139,6 +139,9 @@ test('the odoo checkbox and jupyter port stay behind the existing service checks
 
     expect($form)->toContain('supportsOdooJupyter()');
     expect($form)->toContain('canGate="update"');
+    expect($form)->toContain('@if (isInstanceOwner())');
+    expect(strpos($form, '@if (isInstanceOwner())'))->toBeLessThan(strpos($form, "__('Network')"));
+    expect(strpos($form, "__('Network')"))->toBeLessThan(strpos($form, 'supportsOdooJupyter()'));
     expect($parser)->toContain('if ($resource->jupyter_enabled)');
     expect($parser)->toContain('OdooJupyter::injectOwner($compose)');
     expect($parser)->toContain('OdooJupyter::proxyPort');
@@ -472,10 +475,15 @@ test('the odoo terminal opens the odoo shell and the other containers keep their
 
     expect($shell)->toContain('--db_host="$HOST"')
         ->and($shell)->toContain('--db_port="$PORT"')
-        ->and($shell)->toContain('exec bash --noprofile --norc -i')
+        ->and($shell)->not->toContain('exec bash')
         ->and($shell)->not->toContain('exec odoo shell')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Project/Shared/Terminal.php'))->toContain('--rcfile /tmp/gpsh-shell.sh')
+        ->and(OdooGit::loginOpenCommand('odoo.example.test'))->toContain('/web/login')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Jobs/CloneOdooStagingJob.php'))->toContain('loginAnswers')
         ->and(OdooGit::terminalShell('jupyter-abc123'))->toBeNull()
         ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull();
+
+    expect(OdooGit::loginOpenCommand('odoo.example.test'))->not->toContain('letsencrypt');
 });
 
 test('odoo shares its certificate and the owner jupyter starts later', function () {

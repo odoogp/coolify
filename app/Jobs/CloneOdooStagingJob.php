@@ -76,6 +76,7 @@ class CloneOdooStagingJob implements ShouldQueue
 
             $this->progress(1);
             $staging = $project->cloneProductionAsStaging();
+            $this->progress(1, environment: $staging->uuid);
             if (filled($repository) && $app instanceof GithubApp) {
                 OdooEnvironmentBranch::query()->updateOrCreate(
                     ['environment_id' => $staging->id],
@@ -108,7 +109,13 @@ class CloneOdooStagingJob implements ShouldQueue
                 if ($original instanceof Service) {
                     OdooGit::copyProductionData($original, $copied);
                 }
-                OdooGit::waitUntilOpen($copied->fresh());
+                try {
+                    OdooGit::waitUntilOpen($copied->fresh() ?? $copied);
+                } catch (Throwable $openError) {
+                    if (! OdooGit::loginAnswers($copied)) {
+                        throw $openError;
+                    }
+                }
                 GpshNotices::announce($copied, 'accessible');
                 $copied->refresh();
                 $copied->isConfigurationChanged(true);
@@ -184,6 +191,10 @@ class CloneOdooStagingJob implements ShouldQueue
     private function waitForServiceStart(mixed $activity, Service $service): void
     {
         if (! $activity instanceof Activity) {
+            if (OdooGit::loginAnswers($service)) {
+                return;
+            }
+
             throw new RuntimeException('The staging service did not start.');
         }
 
@@ -200,9 +211,17 @@ class CloneOdooStagingJob implements ShouldQueue
                 return;
             }
             if (in_array($status, [ProcessStatus::ERROR->value, ProcessStatus::KILLED->value, ProcessStatus::CANCELLED->value], true)) {
+                if (OdooGit::loginAnswers($service)) {
+                    return;
+                }
+
                 throw new RuntimeException($this->startFailureMessage($activity));
             }
             sleep(3);
+        }
+
+        if (OdooGit::loginAnswers($service)) {
+            return;
         }
 
         throw new RuntimeException('The staging service did not start.');
@@ -234,13 +253,15 @@ class CloneOdooStagingJob implements ShouldQueue
     /**
      * @param  array{name: string, parameters: array<string, string>}|null  $redirect
      */
-    private function progress(int $step, bool $done = false, ?string $error = null, ?array $redirect = null): void
+    private function progress(int $step, bool $done = false, ?string $error = null, ?array $redirect = null, ?string $environment = null): void
     {
+        $current = Cache::get($this->cacheKey);
         Cache::put($this->cacheKey, [
             'step' => $step,
             'done' => $done,
             'error' => $error,
             'redirect' => $redirect,
+            'environment' => $environment ?? (is_array($current) ? ($current['environment'] ?? null) : null),
         ], now()->addMinutes(30));
     }
 }

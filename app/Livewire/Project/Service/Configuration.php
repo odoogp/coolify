@@ -120,10 +120,8 @@ class Configuration extends Component
             if ($this->odooIsOdoo) {
                 $this->launchKey = 'launch-odoo-'.$this->service->uuid;
                 $status = Cache::get($this->launchKey);
-                if (is_array($status) && ($status['done'] ?? false) !== true) {
-                    $this->launchRunning = true;
-                    $this->launchStep = (int) ($status['step'] ?? 1);
-                    $this->launchError = is_string($status['error'] ?? null) ? $status['error'] : null;
+                if (is_array($status) && ($status['done'] ?? false) !== true && request()->query('launch') !== 'choose') {
+                    return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
                 }
             }
             $this->awaitingRepositoryChoice = request()->query('launch') === 'choose'
@@ -366,7 +364,7 @@ class Configuration extends Component
         }
     }
 
-    public function associateOdooRepository(): void
+    public function associateOdooRepository(): mixed
     {
         try {
             $this->authorize('update', $this->service);
@@ -383,9 +381,8 @@ class Configuration extends Component
                 $classification = OdooStaging::isStagingName($this->environment->name) ? 'staging' : 'production';
                 OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
                 $this->syncOdooGithub();
-                $this->startPlannedLaunch();
 
-                return;
+                return $this->startPlannedLaunch();
             }
 
             $repository = $this->selectedOdooRepository();
@@ -404,7 +401,8 @@ class Configuration extends Component
                 $branch,
             );
             $this->syncOdooGithub();
-            $this->startPlannedLaunch();
+
+            return $this->startPlannedLaunch();
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
@@ -440,7 +438,7 @@ class Configuration extends Component
         $this->launchStep = 0;
     }
 
-    private function startPlannedLaunch(): void
+    private function startPlannedLaunch(): mixed
     {
         OdooGit::cloneIntoService($this->service);
         $this->launchKey = 'launch-odoo-'.$this->service->uuid;
@@ -450,10 +448,8 @@ class Configuration extends Component
             $this->launchKey,
             (int) auth()->id(),
         );
-        $this->launchStep = 1;
-        $this->launchError = null;
-        $this->launchRunning = true;
-        $this->awaitingRepositoryChoice = false;
+
+        return redirect()->route('project.show', ['project_uuid' => $this->project->uuid]);
     }
 
     private function syncOdooGithub(): void

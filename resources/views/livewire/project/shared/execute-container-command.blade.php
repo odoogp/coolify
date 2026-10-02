@@ -70,8 +70,6 @@
         <section class="mt-8 mb-0! h-[calc(100dvh-8rem)] min-h-[32rem] w-full max-w-none xl:mt-0"
             x-on:terminal-theme-selected="setTheme($event.detail.theme)"
             x-on:terminal-starting.window="syncTheme()"
-            x-on:terminal-websocket-ready.window="wsReady = true; startOdooShell()"
-            x-on:odoo-shell-selected.window="odooPending = true; startOdooShell()"
             x-data="{
                 themeKeys: @js($consoleThemeKeys),
                 themeAccents: @js($consoleThemeAccents),
@@ -81,27 +79,10 @@
                 targetChosen: @js($selected_container !== 'default'),
                 selectedContainer: @entangle('selected_container').live,
                 containerOptions: @js($containerOptions),
-                odooShell: @js($shell === 'odoo'),
-                wsReady: false,
-                odooPending: @js($shell === 'odoo' && $selected_container !== 'default'),
-                shellStarted: false,
                 init() {
                     const savedTheme = localStorage.getItem('coolify-console-theme');
                     this.consoleTheme = this.themeKeys.includes(savedTheme) ? savedTheme : 'system';
                     localStorage.setItem('coolify-console-theme', this.consoleTheme);
-                    this.$watch('selectedContainer', () => this.startOdooShell());
-                },
-                startOdooShell() {
-                    if (!this.odooShell || this.shellStarted || !this.wsReady || !this.odooPending) {
-                        return;
-                    }
-                    if (!this.selectedContainer || this.selectedContainer === 'default') {
-                        return;
-                    }
-                    this.shellStarted = true;
-                    this.targetChosen = true;
-                    window.dispatchEvent(new CustomEvent('terminal-starting'));
-                    this.$wire.connectToContainer();
                 },
                 setTheme(theme) {
                     this.consoleTheme = theme;

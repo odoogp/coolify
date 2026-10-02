@@ -72,12 +72,16 @@ class Terminal extends Component
             // Verify container exists and belongs to the user's team
             $status = getContainerStatus($server, $identifier);
             if ($status !== 'running') {
+                $this->dispatch('terminal-start-failed', message: __('The container is not running.'));
+
                 return;
             }
 
             // Check shell availability
             $this->hasShell = $this->checkShellAvailability($server, $identifier);
             if (! $this->hasShell) {
+                $this->dispatch('terminal-start-failed', message: __('This container has no shell.'));
+
                 return;
             }
 
@@ -85,7 +89,9 @@ class Terminal extends Component
             $escapedIdentifier = escapeshellarg($identifier);
             $odooShell = OdooGit::terminalShell($identifier);
             if ($odooShell !== null) {
-                $dockerCommand = "docker exec -it -u odoo {$escapedIdentifier} bash -c ".escapeshellarg($odooShell);
+                $payload = base64_encode($odooShell);
+                $inner = 'printf %s '.escapeshellarg($payload).' | base64 -d > /tmp/gpsh-shell.sh && exec /bin/bash --noprofile --rcfile /tmp/gpsh-shell.sh -i';
+                $dockerCommand = "docker exec -it -u odoo {$escapedIdentifier} bash -c ".escapeshellarg($inner);
             } else {
                 $shellCommand = 'PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && '.
                                 'if [ -f ~/.profile ]; then . ~/.profile; fi && '.

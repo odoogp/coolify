@@ -3,7 +3,8 @@
 @endphp
 
 <div id="terminal-container" x-data="terminalData()" data-auto-start="{{ $autoStart ? 'true' : 'false' }}"
-    x-on:terminal-starting.window="starting = true; setTerminalTheme(localStorage.getItem('coolify-console-theme') ?? 'system')"
+    x-on:terminal-start-failed.window="starting = false; exitMessage = $event.detail.message || @js(__('The session ended.'))"
+    x-on:terminal-starting.window="starting = true; exitMessage = ''; setTerminalTheme(localStorage.getItem('coolify-console-theme') ?? 'system')"
     x-on:terminal-theme-change.window="setTerminalTheme($event.detail.theme)"
     @class([
         'group/terminal relative h-full min-h-0 bg-transparent' => $isApplicationConsole,
@@ -56,8 +57,8 @@
                         <path class="opacity-75" d="M21 12a9 9 0 0 0-9-9" stroke="currentColor"
                             stroke-width="3" stroke-linecap="round" />
                     </svg>
-                    <span
-                        x-text="connectionState === 'reconnecting' ? `reconnecting… (attempt ${reconnectAttempts})` : (starting ? 'connecting…' : (connectionState === 'connecting' ? 'connecting…' : 'choose a container to start a session'))"></span>
+                    <span class="max-w-md text-center"
+                        x-text="exitMessage ? exitMessage : (connectionState === 'reconnecting' ? `reconnecting… (attempt ${reconnectAttempts})` : (starting ? 'connecting…' : (connectionState === 'connecting' ? 'connecting…' : 'choose a container to start a session')))"></span>
                 </div>
             </div>
         @else

@@ -1,4 +1,4 @@
-<div>
+<div @if ($workRunning) wire:poll.2s="refreshCloneProgress" @endif>
     <x-slot:title>
         {{ data_get_str($project, 'name')->limit(10) }} > Environments | Coolify
     </x-slot>
@@ -127,6 +127,7 @@
                     class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
                     <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
                     <div class="flex flex-wrap items-center gap-2">
+                        @unless (($activities[$selectedEnvironment->uuid] ?? null) || $cloneRunning)
                         @if ($project->odooProfile)
                             @php
                                 $selectedOdoo = $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter());
@@ -155,54 +156,10 @@
                             <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
                                 :key="'delete-environment-'.$selectedEnvironment->id" />
                         @endcan
+                        @endunless
                     </div>
                 </div>
-                @if ($cloneRunning || $cloneError)
-                    <div @if ($cloneRunning) wire:poll.2s="refreshCloneProgress" @endif
-                        class="fixed inset-0 z-99 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
-                        <div class="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                        <h2 class="text-base font-semibold">
-                            {{ $cloneError ? __('The staging could not be created.') : __('Creating the staging') }}
-                        </h2>
-                        <ul class="mt-4 flex flex-col gap-2">
-                            @foreach ([
-                                1 => __('Mounting the environment'),
-                                2 => __('Copying the service'),
-                                3 => __('Cloning the branch'),
-                                4 => __('Waiting until Odoo can be opened'),
-                                5 => __('Done'),
-                            ] as $stepNumber => $label)
-                                <li @class([
-                                    'flex items-center gap-2 text-[13px] leading-5',
-                                    'text-emerald-600 dark:text-emerald-400' => $cloneStep > $stepNumber,
-                                    'text-neutral-900 dark:text-fg' => $cloneStep === $stepNumber,
-                                    'text-neutral-500 dark:text-fg-dim' => $cloneStep < $stepNumber,
-                                ])>
-                                    <span class="flex size-4 shrink-0 items-center justify-center">
-                                        @if ($cloneStep > $stepNumber)
-                                            <x-reicon name="check-circle" class="size-4" />
-                                        @elseif ($cloneStep === $stepNumber && ! $cloneError)
-                                            <svg class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none"
-                                                viewBox="0 0 24 24" aria-hidden="true">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor"
-                                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                        @else
-                                            <span class="size-3 rounded-full border border-neutral-300 dark:border-white/20"></span>
-                                        @endif
-                                    </span>
-                                    <span>{{ $label }}</span>
-                                </li>
-                            @endforeach
-                        </ul>
-                        @if ($cloneError)
-                            <p class="mt-4 text-[13px] text-red-500">{{ __($cloneError) }}</p>
-                            <button type="button" class="button mt-4" wire:click="dismissCloneError">{{ __('Close') }}</button>
-                        @endif
-                        </div>
-                    </div>
-                @elseif ($showCloneWizard)
+                @if ($showCloneWizard)
                     <div wire:click="closeCloneWizard"
                         class="fixed inset-0 z-99 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
                     <div wire:click.stop
@@ -276,7 +233,7 @@
                                     x-text="`${environment.resourceCount} ${environment.resourceCount === 1 ? 'resource' : 'resources'}`">
                                 </p>
 
-                                <div class="relative z-10 flex shrink-0 items-center gap-0.5">
+                                <div class="relative z-10 flex shrink-0 items-center gap-0.5" x-show="!environment.activity">
                                     @include('livewire.project.environment-shortcuts')
                                     <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
                                         class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
@@ -298,6 +255,7 @@
                                         <x-reicon name="settings" class="size-3" />
                                     </a>
                                 </div>
+                                @include('livewire.project.environment-activity')
                             </div>
                         </article>
                     </template>
@@ -338,9 +296,11 @@
                             <a x-show="!environment.odoo" :href="environment.href" {{ wireNavigate() }}
                                 class="relative truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
                                 x-text="environment.name"></a>
-                            <a x-show="environment.odoo" :href="environment.environmentHref" {{ wireNavigate() }}
+                            <a x-show="environment.odoo && !environment.activity" :href="environment.environmentHref" {{ wireNavigate() }}
                                 class="truncate text-[13px] font-semibold hover:underline"
                                 x-text="environment.name"></a>
+                            <span x-show="environment.odoo && environment.activity" class="truncate text-[13px] font-semibold opacity-70"
+                                x-text="environment.name"></span>
                         </div>
 
                         <div class="environment-resource-count text-[12px] text-neutral-600 dark:text-fg-dim"
@@ -348,7 +308,7 @@
                         <p class="environment-description truncate text-[12px] text-neutral-500 dark:text-fg-dim"
                             x-text="environment.branch || environment.description || '-'"></p>
 
-                        <div class="relative flex items-center justify-end gap-0.5">
+                        <div class="relative flex items-center justify-end gap-0.5" x-show="!environment.activity">
                             @include('livewire.project.environment-shortcuts')
                             <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
                                 class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
@@ -367,6 +327,7 @@
                                 <x-reicon name="settings" class="size-3.5" />
                             </a>
                         </div>
+                        @include('livewire.project.environment-activity')
                     </div>
                 </template>
                 <x-client-pagination x-show="filteredEnvironments.length > 0"
@@ -396,7 +357,8 @@
             viewMode: @js($project->odooProfile !== null) ? 'table' : (localStorage.getItem('project-environments-view') || 'grid'),
             page: 1,
             pageSize: 12,
-            environments: @js($environmentsJs),
+            openError: null,
+            environments: @entangle('environmentPayload'),
             sortOptions: [{
                     value: 'name-asc',
                     label: 'Name A–Z'

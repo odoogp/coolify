@@ -1295,3 +1295,36 @@ it('copies the production database and files into staging and neutralizes only t
     expect(fn () => OdooGit::copyProductionDataCommand($source->fresh(), $target->fresh()))
         ->toThrow(RuntimeException::class, 'Only a staging database is neutralized.');
 });
+
+it('shows a launch or a clone on the environment row', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    Cache::put('launch-odoo-'.$service->uuid, [
+        'step' => 2,
+        'done' => false,
+        'error' => null,
+        'redirect' => null,
+    ], now()->addMinutes(30));
+
+    $html = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])->html();
+
+    expect($html)->toContain('Starting the containers')
+        ->and($html)->not->toContain('Creating the staging');
+
+    Cache::forget('launch-odoo-'.$service->uuid);
+    Cache::put('odoo-clone-'.$this->project->id.'-'.$this->user->id, [
+        'step' => 2,
+        'done' => false,
+        'error' => 'The staging service did not start.',
+        'redirect' => null,
+        'environment' => null,
+    ], now()->addMinutes(30));
+
+    $failed = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])->html();
+
+    expect($failed)->toContain('The staging service did not start.')
+        ->and($failed)->toContain('pending-clone');
+});

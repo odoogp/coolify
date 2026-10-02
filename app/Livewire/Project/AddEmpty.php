@@ -16,6 +16,7 @@ use App\Support\OdooGit;
 use App\Support\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -158,7 +159,7 @@ class AddEmpty extends Component
                 $this->launchError = null;
                 $this->launchRunning = true;
 
-                return;
+                return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
             }
 
             if ($created instanceof Service) {
@@ -245,7 +246,7 @@ class AddEmpty extends Component
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, Server>
+     * @return Collection<int, Server>
      */
     /**
      * @return list<array{value: string, label: string}>

@@ -195,7 +195,7 @@ class ExecuteContainerCommand extends Component
             });
             if ($odoo !== null) {
                 $this->selected_container = (string) data_get($odoo, 'container.Names');
-                $this->dispatch('odoo-shell-selected');
+                $this->connectToContainer();
             }
         }
 
@@ -239,7 +239,7 @@ class ExecuteContainerCommand extends Component
     public function connectToContainer()
     {
         if ($this->selected_container === 'default') {
-            $this->dispatch('error', __('Please select a container.'));
+            $this->dispatch('terminal-start-failed', message: __('Please select a container.'));
 
             return;
         }
@@ -290,6 +290,8 @@ class ExecuteContainerCommand extends Component
             // Dispatch a frontend event to ensure terminal gets focus after connection
             $this->dispatch('terminal-should-focus');
         } catch (\Throwable $e) {
+            $this->dispatch('terminal-start-failed', message: $e->getMessage());
+
             return handleError($e, $this);
         } finally {
             $this->isConnecting = false;
