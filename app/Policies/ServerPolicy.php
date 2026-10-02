@@ -20,7 +20,7 @@ class ServerPolicy
      */
     public function view(User $user, Server $server): bool
     {
-        return $user->teams->contains('id', $server->team_id);
+        return userCanUseServer($server);
     }
 
     /**

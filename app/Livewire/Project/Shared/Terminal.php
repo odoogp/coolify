@@ -41,7 +41,7 @@ class Terminal extends Component
     {
         $this->authorize('canAccessTerminal');
 
-        $server = Server::ownedByCurrentTeam()->whereUuid($serverUuid)->firstOrFail();
+        $server = Server::query()->whereUuid($serverUuid)->firstOrFail();
         $this->authorize('view', $server);
         if (! auth()->user()?->canOpenTerminal($server)) {
             abort(403);

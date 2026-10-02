@@ -42,7 +42,8 @@
         ));
 
         $odooHeading = $service->supportsOdooJupyter();
-        $odooEnterUrl = $odooHeading && $service->environment?->project
+        $odooReady = $odooHeading && $service->isRunning() && ! $service->isExited();
+        $odooEnterUrl = $odooReady && $service->environment?->project
             ? route('project.service.odoo.enter', [
                 'project_uuid' => $service->environment->project->uuid,
                 'environment_uuid' => $service->environment->uuid,

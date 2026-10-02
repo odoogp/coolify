@@ -36,11 +36,8 @@ function remote_process(
 
     $command_string = implode("\n", $command);
 
-    if (Auth::check()) {
-        $teams = Auth::user()->teams->pluck('id');
-        if (! $teams->contains($server->team_id) && ! $teams->contains(0)) {
-            throw new Exception('User is not part of the team that owns this server');
-        }
+    if (! userCanUseServer($server)) {
+        throw new Exception('User is not part of the team that owns this server');
     }
 
     SshMultiplexingHelper::ensureMultiplexedConnection($server);
@@ -74,6 +71,27 @@ function remote_process(
     $activity->refresh();
 
     return $activity;
+}
+
+/**
+ * The GPSH host is server id 0 and belongs to the instance team. A client can
+ * still run their own service there when that service is already on the server.
+ */
+function userCanUseServer(Server $server): bool
+{
+    if (! Auth::check()) {
+        return true;
+    }
+
+    $teamIds = Auth::user()->teams()->pluck('teams.id');
+    if ($teamIds->contains($server->team_id) || $teamIds->contains(0)) {
+        return true;
+    }
+
+    return \App\Models\Service::query()
+        ->where('server_id', $server->id)
+        ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
+        ->exists();
 }
 
 function instant_scp(string $source, string $dest, Server $server, $throwError = true)

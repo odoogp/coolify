@@ -60,7 +60,7 @@ Production is the environment, not a list of Compose services. Open Odoo from th
 
 A push to the saved `git_branch` reclones addons and restarts only the Odoo container. Pull requests do nothing. No second webhook.
 
-Launch is not done until the certificate is Let's Encrypt (not the Traefik default) and the public URL answers (not 503 / "no available server"). While Odoo installs, the public URL shows a Spanish auto-refresh page. Do not re-download the image (`pullLatestImages false`, `--pull never`). Do not re-enable the image healthcheck. Do not reintroduce `gpsh-enter`. Listen stays `0.0.0.0:8069`.
+Launch is not done until the certificate is Let's Encrypt (not the Traefik default) and `https://host/web/login` is the Odoo login, not the auto-refresh page and not 503 / "no available server". Open Odoo stays hidden while the container is exited. While Odoo installs, the public URL shows a Spanish auto-refresh page. A client whose service runs on server id 0 may use that server even though the server row belongs to the instance team. Do not re-download the image (`pullLatestImages false`, `--pull never`). Do not re-enable the image healthcheck. Do not reintroduce `gpsh-enter`. Listen stays `0.0.0.0:8069`.
 
 In the new-project wizard and on an empty Odoo environment (Install Odoo), ask where it runs. Local is server id 0, included even when that server belongs to the instance team, and only when `canLaunchOnInstanceServer()`. Without that permission and with no other server, the only question is whether to create a server. With permission, also offer creating a new server. If servers already exist, ask which one. Read the flag from `team_user`, not a stale team list. Owners can always use server id 0.
 

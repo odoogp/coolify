@@ -35,7 +35,7 @@
         $consoleThemeAccents = collect($consoleThemes)->pluck('accent', 'key');
         $containerOptions = $containers->map(fn ($container) => [
             'value' => data_get($container, 'container.Names'),
-            'label' => data_get($container, 'container.Names').' · '.data_get($container, 'server.name'),
+            'label' => (data_get($container, 'container.Label') ?: data_get($container, 'container.Names')).' · '.data_get($container, 'server.name'),
         ])->values();
     @endphp
 
@@ -131,7 +131,7 @@
                                 <div class="terminal-session-target-trigger flex h-8 min-w-0 max-w-sm items-center gap-2 rounded-md px-2.5 text-xs font-medium text-white/70">
                                 <x-reicon name="browser-terminal" class="size-3.5 shrink-0 text-white/55" />
                                 <span class="min-w-0 truncate font-semibold text-white/80">
-                                    {{ data_get($containers->first(), 'container.Names') }}
+                                    {{ data_get($containers->first(), 'container.Label') ?: data_get($containers->first(), 'container.Names') }}
                                     · {{ data_get($containers->first(), 'server.name') }}
                                 </span>
                                 </div>

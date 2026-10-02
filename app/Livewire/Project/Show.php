@@ -322,7 +322,7 @@ class Show extends Component
                         'service_uuid' => $service->uuid,
                     ])
                     : null;
-                $enterHref = $odooOnly && $service instanceof Service
+                $enterHref = $odooOnly && $service instanceof Service && $service->isRunning() && ! $service->isExited()
                     ? route('project.service.odoo.enter', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,

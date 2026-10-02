@@ -361,6 +361,8 @@ test('the odoo deploy waits until https answers', function () {
         ->and($command)->toContain('odoo.example.test')
         ->and($command)->toContain('seq 1 120')
         ->and($command)->toContain('no available server')
+        ->and($command)->toContain('se actualiza sola')
+        ->and($command)->toContain('/web/login')
         ->and($command)->toContain('grep -qi encrypt')
         ->and(\App\Support\OdooGit::httpsReadyCommand('not a host'))->toBeNull();
 });

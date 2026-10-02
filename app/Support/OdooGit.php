@@ -890,7 +890,7 @@ BASH;
             return null;
         }
 
-        $script = 'host='.escapeshellarg($host).'; ready=0; for i in $(seq 1 120); do issuer=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "$host" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null || true); code=$(curl -sk --resolve "$host:443:127.0.0.1" --max-time 8 -o /tmp/gpsh-https-body -w "%{http_code}" "https://$host/" || true); if printf "%s" "$issuer" | grep -qi encrypt && printf "%s" "$issuer" | grep -qiv traefik && case "$code" in 2*|3*) true ;; *) false ;; esac && ! grep -q "no available server" /tmp/gpsh-https-body; then echo "HTTPS is ready for $host"; ready=1; break; fi; echo "Waiting for HTTPS on $host ($code)"; sleep 5; done; rm -f /tmp/gpsh-https-body; test "$ready" = 1';
+        $script = 'host='.escapeshellarg($host).'; ready=0; for i in $(seq 1 120); do issuer=$(echo | openssl s_client -connect 127.0.0.1:443 -servername "$host" 2>/dev/null | openssl x509 -noout -issuer 2>/dev/null || true); code=$(curl -skL --resolve "$host:443:127.0.0.1" --max-time 8 -o /tmp/gpsh-https-body -w "%{http_code}" "https://$host/web/login" || true); if printf "%s" "$issuer" | grep -qi encrypt && printf "%s" "$issuer" | grep -qiv traefik && case "$code" in 2*|3*) true ;; *) false ;; esac && ! grep -q "no available server" /tmp/gpsh-https-body && ! grep -q "se actualiza sola" /tmp/gpsh-https-body && grep -Eqi "oe_login|/web/login|odoo" /tmp/gpsh-https-body; then echo "Odoo is ready for $host"; ready=1; break; fi; echo "Waiting until Odoo can be opened on $host ($code)"; sleep 5; done; rm -f /tmp/gpsh-https-body; test "$ready" = 1';
 
         return 'bash -c '.escapeshellarg($script);
     }

@@ -140,6 +140,7 @@ class ExecuteContainerCommand extends Component
                             'server' => $this->resource->server,
                             'container' => [
                                 'Names' => data_get($application, 'name').'-'.data_get($this->resource, 'uuid'),
+                                'Label' => $this->containerLabel((string) data_get($application, 'name')),
                             ],
                         ]);
                     }
@@ -148,9 +149,10 @@ class ExecuteContainerCommand extends Component
                     if ($database->isRunning()) {
                         $this->containers->push([
                             'server' => $this->resource->server,
-                            'container' => [
-                                'Names' => data_get($database, 'name').'-'.data_get($this->resource, 'uuid'),
-                            ],
+                        'container' => [
+                            'Names' => data_get($database, 'name').'-'.data_get($this->resource, 'uuid'),
+                            'Label' => $this->containerLabel((string) data_get($database, 'name')),
+                        ],
                         ]);
                     }
                 });
@@ -262,6 +264,18 @@ class ExecuteContainerCommand extends Component
         } finally {
             $this->isConnecting = false;
         }
+    }
+
+    private function containerLabel(string $name): string
+    {
+        $lower = strtolower($name);
+
+        return match (true) {
+            str_contains($lower, 'jupyter') => 'Jupyter',
+            str_contains($lower, 'postgres') => 'PostgreSQL',
+            str_contains($lower, 'odoo') => 'Odoo',
+            default => $name,
+        };
     }
 
     public function render()

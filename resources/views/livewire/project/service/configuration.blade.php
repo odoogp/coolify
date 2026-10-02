@@ -10,7 +10,7 @@
                     @foreach ([
                         1 => __('Creating the project'),
                         2 => __('Starting the containers'),
-                        3 => __('Checking HTTPS'),
+                        3 => __('Waiting until Odoo can be opened'),
                         4 => __('Done'),
                     ] as $stepNumber => $label)
                         <li @class([

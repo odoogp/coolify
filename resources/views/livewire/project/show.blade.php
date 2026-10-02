@@ -169,7 +169,7 @@
                                 1 => __('Mounting the environment'),
                                 2 => __('Copying the service'),
                                 3 => __('Cloning the branch'),
-                                4 => __('Checking HTTPS'),
+                                4 => __('Waiting until Odoo can be opened'),
                                 5 => __('Done'),
                             ] as $stepNumber => $label)
                                 <li @class([
