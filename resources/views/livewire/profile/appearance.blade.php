@@ -63,12 +63,12 @@
             </div>
             <div class="application-settings-section-body grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ([
-                    ['value' => 'light', 'label' => __('Light'), 'description' => __('Bright surfaces and dark text.'), 'preview' => 'bg-white'],
-                    ['value' => 'system', 'label' => __('System'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
-                    ['value' => 'dark', 'label' => __('Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
-                    ['value' => 'crystal', 'label' => __('Crystal'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
-                    ['value' => 'crystal-light', 'label' => __('Crystal light'), 'description' => __('The same glass in light tones.'), 'preview' => 'bg-gradient-to-b from-[#ffe4dc] via-[#efe8ff] to-white'],
-                    ['value' => 'custom', 'label' => __('Custom'), 'description' => __('Choose any color for dark surfaces.'), 'preview' => ''],
+                    ['value' => 'light', 'label' => __('Letify Light'), 'description' => __('Lavender canvas, purple gradients, and floating cards.'), 'preview' => 'bg-[#FCFAFF]'],
+                    ['value' => 'system', 'label' => __('Match system'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
+                    ['value' => 'dark', 'label' => __('Midnight Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
+                    ['value' => 'crystal', 'label' => __('Crystal Dark'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
+                    ['value' => 'crystal-light', 'label' => __('Crystal Light'), 'description' => __('The same glass in light tones.'), 'preview' => 'bg-gradient-to-b from-[#ffe4dc] via-[#efe8ff] to-white'],
+                    ['value' => 'custom', 'label' => __('Custom Dark'), 'description' => __('Choose any color for dark surfaces.'), 'preview' => ''],
                 ] as $option)
                     <div role="button" tabindex="0"
                         @if ($option['value'] !== 'custom')

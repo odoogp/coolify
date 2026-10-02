@@ -127,12 +127,12 @@
         </button>
         <div x-show="appearanceOpen" x-collapse class="mx-1 grid gap-0.5 pb-1 pl-6">
             @foreach ([
-                ['value' => 'light', 'label' => __('Light')],
-                ['value' => 'system', 'label' => __('System')],
-                ['value' => 'dark', 'label' => __('Dark')],
-                ['value' => 'crystal', 'label' => __('Crystal')],
-                ['value' => 'crystal-light', 'label' => __('Crystal light')],
-                ['value' => 'custom', 'label' => __('Custom')],
+                ['value' => 'light', 'label' => __('Letify Light')],
+                ['value' => 'system', 'label' => __('Match system')],
+                ['value' => 'dark', 'label' => __('Midnight Dark')],
+                ['value' => 'crystal', 'label' => __('Crystal Dark')],
+                ['value' => 'crystal-light', 'label' => __('Crystal Light')],
+                ['value' => 'custom', 'label' => __('Custom Dark')],
             ] as $option)
                 @if ($option['value'] === 'custom')
                     <div
@@ -140,7 +140,7 @@
                         <span class="flex items-center gap-2">
                             <span class="size-3.5 rounded-full border border-white/20"
                                 :style="`background: ${themeColor}`"></span>
-                            {{ __('Custom') }}
+                            {{ __('Custom Dark') }}
                         </span>
                         <svg x-show="theme === 'custom'" class="size-3.5 text-coollabs dark:text-warning"
                             viewBox="0 0 12 12" fill="none" aria-hidden="true">

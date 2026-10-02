@@ -24,10 +24,12 @@ test('crystal is its own appearance and keeps readable type on colored glass', f
     $styles = file_get_contents(resource_path('css/app.css'));
 
     expect($menu)
-        ->toContain("['value' => 'crystal', 'label' => __('Crystal')]")
-        ->toContain("['value' => 'crystal-light', 'label' => __('Crystal light')]")
+        ->toContain("['value' => 'light', 'label' => __('Letify Light')]")
+        ->toContain("['value' => 'dark', 'label' => __('Midnight Dark')]")
+        ->toContain("['value' => 'crystal', 'label' => __('Crystal Dark')]")
+        ->toContain("['value' => 'crystal-light', 'label' => __('Crystal Light')]")
         ->and($appearance)
-        ->toContain("['value' => 'crystal', 'label' => __('Crystal')")
+        ->toContain("['value' => 'crystal', 'label' => __('Crystal Dark')")
         ->and($layout)
         ->toContain("theme === 'crystal'")
         ->toContain("theme === 'crystal-light'")
@@ -41,4 +43,20 @@ test('crystal is its own appearance and keeps readable type on colored glass', f
         ->and(file_get_contents(resource_path('js/app.js')))
         ->toContain('placeTileSpot')
         ->toContain('is-pressed');
+});
+
+test('letify light is a named light theme and does not restyle dark appearances', function () {
+    $styles = file_get_contents(resource_path('css/letify-light.css'));
+    $layout = file_get_contents(resource_path('views/layouts/base.blade.php'));
+
+    expect($styles)
+        ->toContain('html[data-theme="light"]')
+        ->toContain('#7b3ff2')
+        ->toContain('#fcfaff')
+        ->toContain('linear-gradient(135deg, #7b3ff2 0%, #d946ef 100%)')
+        ->toContain('border-radius: 28px')
+        ->not->toContain('html[data-theme="crystal"]')
+        ->not->toContain('html.dark')
+        ->and($layout)
+        ->toContain('resources/css/letify-light.css');
 });

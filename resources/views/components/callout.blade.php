@@ -42,7 +42,7 @@
 @endphp
 
 <div
-    {{ $attributes->merge(['class' => 'relative rounded-lg border px-3 py-2.5 ' . $style['shell'] . ' ' . $class]) }}>
+    {{ $attributes->merge(['class' => 'relative rounded-lg border px-3 py-2.5 ' . $style['shell'] . ' ' . $class, 'data-callout' => $type]) }}>
     <div class="flex items-start gap-2.5">
         <x-reicon :name="$style['icon']" class="mt-0.5 size-4 shrink-0 {{ $style['iconClass'] }}" />
         <div class="min-w-0 flex-1 {{ $dismissible ? 'pr-7' : '' }}">
