@@ -72,7 +72,14 @@ class AddEmpty extends Component
         try {
             $this->authorize('create', Project::class);
             if ($this->needsServerBeforeProject()) {
-                throw new RuntimeException(__('Add a server before creating a project.'));
+                throw new RuntimeException(__('Do you want to create a server?'));
+            }
+            if ($this->serverId === 'new') {
+                if (! auth()->user()?->canAddServers()) {
+                    throw new RuntimeException(__('The owner has to add a server, or allow you to add servers, before you can create a project.'));
+                }
+
+                return redirect()->route('server.create');
             }
             $this->validate();
 
@@ -230,10 +237,8 @@ class AddEmpty extends Component
                 ->prepend(['value' => '', 'label' => __('No service yet')])
                 ->values()
                 ->all(),
-            'serverOptions' => $this->launchServers()
-                ->map(fn (Server $server): array => ['value' => (string) $server->id, 'label' => $server->name])
-                ->values()
-                ->all(),
+            'serverChoices' => $this->serverChoices(),
+            'hasOtherServers' => $this->launchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
             'needsServer' => $this->needsServerBeforeProject(),
             'canAddServer' => (bool) auth()->user()?->canAddServers(),
         ]);
@@ -242,6 +247,28 @@ class AddEmpty extends Component
     /**
      * @return \Illuminate\Support\Collection<int, Server>
      */
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function serverChoices(): array
+    {
+        $choices = $this->launchServers()
+            ->map(fn (Server $server): array => [
+                'value' => (string) $server->id,
+                'label' => (int) $server->id === 0
+                    ? __('Launch on the server where GPSH is installed')
+                    : $server->name,
+            ])
+            ->values()
+            ->all();
+
+        if (auth()->user()?->canAddServers()) {
+            $choices[] = ['value' => 'new', 'label' => __('Create a new server')];
+        }
+
+        return $choices;
+    }
+
     private function launchServers()
     {
         return OdooGit::allowedLaunchServers();

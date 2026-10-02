@@ -62,7 +62,7 @@ A push to the saved `git_branch` reclones addons and restarts only the Odoo cont
 
 Launch is not done until the certificate is Let's Encrypt (not the Traefik default) and the public URL answers (not 503 / "no available server"). While Odoo installs, the public URL shows a Spanish auto-refresh page. Do not re-download the image (`pullLatestImages false`, `--pull never`). Do not re-enable the image healthcheck. Do not reintroduce `gpsh-enter`. Listen stays `0.0.0.0:8069`.
 
-If the user cannot launch on the server where GPSH is installed (server id 0) and has no other server, the new-project form asks them to add a server and does not create the project. Owners can always use server id 0.
+In the new-project wizard, ask where it runs. Local (server id 0) is a choice only when `canLaunchOnInstanceServer()`. Without that permission and with no other server, the only question is whether to create a server, and the project is not created. With permission, also offer creating a new server. If servers already exist, ask which one. Choosing a new server goes to server create and does not create the project yet. Owners can always use server id 0.
 
 ## Phases 3–10 — do not drop these
 

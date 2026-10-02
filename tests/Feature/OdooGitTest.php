@@ -546,7 +546,8 @@ it('asks for a server before a project when the coolify host is not allowed', fu
     session(['currentTeam' => $this->team]);
 
     Livewire::test(AddEmpty::class)
-        ->assertSee('Add a server before creating a project')
+        ->assertSee('Do you want to create a server?')
+        ->assertDontSee('Launch on the server where GPSH is installed')
         ->set('name', 'Sin servidor')
         ->set('service', 'odoo')
         ->call('submit');

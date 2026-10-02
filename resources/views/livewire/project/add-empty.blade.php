@@ -47,14 +47,11 @@
 @if ($needsServer)
     <div class="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
         <p class="text-[13px] leading-5 text-neutral-700 dark:text-fg">
-            {{ __('Add a server before creating a project.') }}
-        </p>
-        <p class="text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
-            {{ __('You cannot launch on the server where GPSH is installed.') }}
+            {{ __('Do you want to create a server?') }}
         </p>
         @if ($canAddServer)
             <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
-                {{ __('Add a server') }}
+                {{ __('Create a new server') }}
             </a>
         @else
             <p class="text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
@@ -76,10 +73,10 @@
         emptyText="{{ __('No matching service') }}"
         :options="$serviceOptions" />
 
-    @if ($service !== '' && $serverOptions !== [])
-        <x-forms.listbox id="serverId" label="{{ __('Server') }}" portal
-            helper="{{ __('Choose the server where this instance will run.') }}"
-            :options="$serverOptions" />
+    @if ($serverChoices !== [])
+        <x-forms.listbox id="serverId" portal
+            label="{{ $hasOtherServers ? __('Which server should run this project?') : __('Do you want to create a new server?') }}"
+            :options="$serverChoices" />
     @endif
 
     @if ($service === 'odoo')
