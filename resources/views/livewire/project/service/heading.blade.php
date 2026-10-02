@@ -42,7 +42,7 @@
         ));
 
         $odooHeading = $service->supportsOdooJupyter();
-        $odooReady = $odooHeading && $service->isRunning() && ! $service->isExited();
+        $odooReady = $odooHeading && $service->isRunning() && ! $service->isExited() && ! str($service->status)->contains('unhealthy');
         $odooEnterUrl = $odooReady && $service->environment?->project
             ? route('project.service.odoo.enter', [
                 'project_uuid' => $service->environment->project->uuid,
@@ -50,6 +50,16 @@
                 'service_uuid' => $service->uuid,
             ])
             : null;
+        $jupyterUrl = $odooHeading ? \App\Support\OdooJupyter::sessionUrl($service) : null;
+        $ownerJupyterUrl = $odooHeading ? \App\Support\OdooJupyter::ownerSessionUrl($service) : null;
+        $odooLogsUrl = $odooHeading && $service->environment?->project
+            ? route('project.service.logs', [
+                'project_uuid' => $service->environment->project->uuid,
+                'environment_uuid' => $service->environment->uuid,
+                'service_uuid' => $service->uuid,
+            ])
+            : null;
+        $monitorUrl = $odooHeading ? \App\Support\OdooMonitor::urlFor($service) : null;
         $serviceStatus = str($service->status ?? 'exited');
         $githubBranch = $service->environment?->odooBranch?->git_branch;
         $environmentVariablesUrl = route('project.service.environment-variables', [
@@ -80,14 +90,47 @@
                 </h1>
                 <div class="relative flex w-full min-w-0 items-center gap-2">
                     <x-status-summary :status="$service->status" title="{{ __('Service status') }}" container-name="Containers" />
-                    <x-services.links :service="$service" compact />
+                    @unless ($odooHeading)
+                        <x-services.links :service="$service" compact />
+                    @endunless
                 </div>
             </div>
         </div>
 
         <div class="w-full xl:hidden">
-            @if ($odooEnterUrl)
-                <a class="button button-highlighted mb-3" target="_blank" href="{{ $odooEnterUrl }}">{{ __('Open Odoo') }}</a>
+            @if ($odooEnterUrl || $jupyterUrl || $ownerJupyterUrl || $odooLogsUrl || $monitorUrl)
+                <div class="mb-3 flex flex-wrap gap-2">
+                    @if ($odooEnterUrl)
+                        <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $odooEnterUrl }}">
+                            <x-reicon name="external-link" class="size-3.5" />
+                            {{ __('Open Odoo') }}
+                        </a>
+                    @endif
+                    @if ($jupyterUrl)
+                        <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Open Jupyter') }}
+                        </a>
+                    @endif
+                    @if ($ownerJupyterUrl)
+                        <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $ownerJupyterUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Owner Jupyter') }}
+                        </a>
+                    @endif
+                    @if ($odooLogsUrl)
+                        <a class="button" href="{{ $odooLogsUrl }}">
+                            <x-reicon name="file-content" class="size-3.5 opacity-70" />
+                            {{ __('Logs') }}
+                        </a>
+                    @endif
+                    @if ($monitorUrl)
+                        <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $monitorUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Monitor') }}
+                        </a>
+                    @endif
+                </div>
             @endif
             @if ($service->isDeployable)
                 @can('deploy', $service)
@@ -199,12 +242,41 @@
                 class="resource-heading-navbar application-heading-actions flex w-auto min-w-0 items-center justify-end gap-1 overflow-visible">
                 <div class="resource-heading-actions flex shrink-0 items-center gap-0.5">
                     @if ($odooEnterUrl)
-                        <a class="button button-highlighted" target="_blank" href="{{ $odooEnterUrl }}">{{ __('Open Odoo') }}</a>
+                        <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $odooEnterUrl }}">
+                            <x-reicon name="external-link" class="size-3.5" />
+                            {{ __('Open Odoo') }}
+                        </a>
+                    @endif
+                    @if ($jupyterUrl)
+                        <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Open Jupyter') }}
+                        </a>
+                    @endif
+                    @if ($ownerJupyterUrl)
+                        <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $ownerJupyterUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Owner Jupyter') }}
+                        </a>
+                    @endif
+                    @if ($odooLogsUrl)
+                        <a class="button" href="{{ $odooLogsUrl }}">
+                            <x-reicon name="file-content" class="size-3.5 opacity-70" />
+                            {{ __('Logs') }}
+                        </a>
+                    @endif
+                    @if ($monitorUrl)
+                        <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $monitorUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Monitor') }}
+                        </a>
                     @endif
                     @if ($service->isDeployable)
+                        @unless ($odooHeading)
                         <div class="resource-heading-menus shrink-0">
                             <x-services.links :service="$service" />
                         </div>
+                        @endunless
                         @can('deploy', $service)
                         <div id="service-desktop-actions" class="relative" x-data="{ open: false }"
                                 x-effect="$dispatch('resource-actions-toggled', { open })"

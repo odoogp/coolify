@@ -32,12 +32,14 @@
             'right-0! left-auto! min-w-60! max-w-96!' => !$fullWidth && !$compact,
         ])>
         @if ($jupyterUrl)
-            <a class="{{ $linkItemClasses }}" target="_blank" href="{{ $jupyterUrl }}">
+            <a class="{{ $linkItemClasses }}" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
+                <x-reicon name="external-link" class="size-3.5 shrink-0 opacity-70" />
                 {{ __('Open Jupyter') }}
             </a>
         @endif
         @forelse ($links as $link)
-            <a class="{{ $linkItemClasses }}" target="_blank" href="{{ $link }}">
+            <a class="{{ $linkItemClasses }}" target="_blank" rel="noopener noreferrer" href="{{ $link }}">
+                <x-reicon name="external-link" class="size-3.5 shrink-0 opacity-70" />
                 <span class="min-w-0 truncate">{{ $jupyterUrl && $loop->count === 1 ? __('Open Odoo') : $link }}</span>
             </a>
         @empty

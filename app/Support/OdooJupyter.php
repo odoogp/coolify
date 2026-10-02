@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Service;
 use Symfony\Component\Yaml\Yaml;
 
 /**
@@ -18,17 +19,76 @@ class OdooJupyter
 
     public const SERVICE_NAME = 'jupyter';
 
+    public const OWNER_SERVICE_NAME = 'jupyterowner';
+
+    public const STDLIB_SERVICE_NAME = 'stdlib';
+
+    public const IMAGE_ADDONS = '/usr/lib/python3/dist-packages/odoo/addons';
+
     public const WORKSPACE = '/workspace/addons';
 
     public const LISTEN_PORT = '8888';
 
+    public const OWNER_MODULES_MOUNT = '/data/coolify/gpsh-owner-modules:/gpsh-owner-modules:ro';
+
+    public const ODOO_LOG = '/mnt/extra-addons/.gpsh/odoo.log';
+
     public static function proxyPort(string $serviceName, ?string $detected): ?string
     {
-        if ($serviceName === self::SERVICE_NAME) {
+        if ($serviceName === self::SERVICE_NAME || $serviceName === self::OWNER_SERVICE_NAME) {
             return self::LISTEN_PORT;
         }
 
         return $detected;
+    }
+
+    /**
+     * External JupyterLab URL for this branch. Empty without the token: there is no anonymous session.
+     */
+    public static function sessionUrl(Service $service): ?string
+    {
+        if (! $service->jupyter_enabled || ! auth()->user()?->can('view', $service)) {
+            return null;
+        }
+
+        $jupyter = $service->applications()->get()->firstWhere('name', self::SERVICE_NAME);
+        if (! filled($jupyter?->fqdn)) {
+            return null;
+        }
+
+        $token = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTER')->first()?->value;
+        if (! filled($token)) {
+            return null;
+        }
+
+        return getFqdnWithoutPort(firstDomainFromList((string) $jupyter->fqdn)).'?token='.urlencode((string) $token);
+    }
+
+    /**
+     * Jupyter for the instance owner: image addons, owner modules, and this branch's custom addons.
+     */
+    public static function ownerSessionUrl(Service $service): ?string
+    {
+        if (! $service->supportsOdooJupyter() || ! isInstanceOwner()) {
+            return null;
+        }
+
+        $jupyter = $service->applications()->get()->firstWhere('name', self::OWNER_SERVICE_NAME);
+        if (! filled($jupyter?->fqdn)) {
+            return null;
+        }
+
+        $token = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTEROWNER')->first()?->value;
+        if (! filled($token)) {
+            return null;
+        }
+
+        return getFqdnWithoutPort(firstDomainFromList((string) $jupyter->fqdn)).'?token='.urlencode((string) $token);
+    }
+
+    public static function hidesTerminal(string $name): bool
+    {
+        return in_array(strtolower($name), [self::OWNER_SERVICE_NAME, self::STDLIB_SERVICE_NAME], true);
     }
 
     public static function isOdooCompose(string $compose): bool
@@ -66,18 +126,66 @@ class OdooJupyter
         return Yaml::dump($yaml, 8, 2);
     }
 
-    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = ''): string
+    public static function injectOwner(string $compose): string
+    {
+        $yaml = self::parse($compose);
+        if (! is_array($yaml)) {
+            return $compose;
+        }
+
+        $services = $yaml['services'] ?? null;
+        if (! is_array($services) || isset($services[self::OWNER_SERVICE_NAME])) {
+            return $compose;
+        }
+
+        $odoo = self::odooService($services);
+        $image = (string) ($odoo['image'] ?? '');
+        if ($odoo === null || preg_match('/^[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}$/', $image) !== 1) {
+            return $compose;
+        }
+
+        $volume = self::stdlibVolumeName($image);
+        $source = self::addonVolumeSource($odoo['volumes'] ?? []);
+        $services[self::STDLIB_SERVICE_NAME] = [
+            'image' => $image,
+            'user' => '0:0',
+            'restart' => 'unless-stopped',
+            'entrypoint' => ['sleep'],
+            'command' => ['infinity'],
+            'volumes' => [$volume.':'.self::IMAGE_ADDONS],
+        ];
+        $volumes = [
+            $volume.':'.self::WORKSPACE.'/odoo:ro',
+            '/data/coolify/gpsh-owner-modules:'.self::WORKSPACE.'/owner:ro',
+        ];
+        if ($source !== null) {
+            $volumes[] = $source.':'.self::WORKSPACE.'/custom:ro';
+        }
+        $services[self::OWNER_SERVICE_NAME] = self::ownerServiceDefinition($volumes);
+        $yaml['services'] = $services;
+
+        return Yaml::dump($yaml, 8, 2);
+    }
+
+    /**
+     * @param  list<string>  $modules
+     */
+    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = '', array $modules = []): string
     {
         $database = preg_replace('/[^a-z0-9_]/', '', $database) ?? '';
         $url = preg_match('#^https://[A-Za-z0-9.-]+$#', $url) === 1 ? $url : '';
         $token = preg_replace('/[^A-Za-z0-9]/', '', $token) ?? '';
         $password = preg_replace('/[^A-Za-z0-9]/', '', $password) ?? '';
+        $modules = array_values(array_unique(array_filter(
+            $modules,
+            fn (mixed $name): bool => is_string($name) && preg_match('/^[A-Za-z0-9_]+$/', $name) === 1,
+        )));
         // ponytail: Compose interpolates $ in the command. $$ is the only escape; a bare $( fails the deploy.
         // The database, URL, token and password are literals so they match the GPSH link even when the container env is empty.
 
         return str_replace('$', '$$', str_replace(
-            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__'],
-            [$database, $url, $token, $password],
+            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__', '__OWNER_KEEP__', '__OWNER_LIST__'],
+            [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules)],
             <<<'BASH'
 python3 - <<'PY' || true
 from pathlib import Path
@@ -267,14 +375,32 @@ with registry.cursor() as cr:
     cr.commit()
 PY
 if [ -f /tmp/gpsh-status.pid ]; then kill "$(cat /tmp/gpsh-status.pid)" 2>/dev/null || true; sleep 1; fi
-mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore
+mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore /mnt/extra-addons/.gpsh
+chmod 755 /mnt/extra-addons/.gpsh || true
+keep="__OWNER_KEEP__"
+for link in /mnt/extra-addons/*; do
+  [ -L "$link" ] || continue
+  target=$(readlink "$link" || true)
+  case "$target" in
+    /gpsh-owner-modules/*)
+      base=$(basename "$link")
+      case "$keep" in *" $base "*) ;; *) rm -f "$link" ;; esac
+      ;;
+  esac
+done
+for module in __OWNER_LIST__; do
+  case "$module" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+  [ -d "/gpsh-owner-modules/$module" ] || continue
+  ln -sfn "/gpsh-owner-modules/$module" "/mnt/extra-addons/$module"
+done
+umask 022
 if [ "$(id -u)" = "0" ]; then
   chown -R odoo:odoo /var/lib/odoo 2>/dev/null || true
   if command -v setpriv >/dev/null 2>&1; then
-    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
+    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" --logfile=/mnt/extra-addons/.gpsh/odoo.log -d __ODOO_DB__
   fi
 fi
-exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
+exec odoo "${args[@]}" "${load[@]}" --logfile=/mnt/extra-addons/.gpsh/odoo.log -d __ODOO_DB__
 BASH));
     }
 
@@ -324,12 +450,13 @@ BASH));
      * Jupyter must keep the source Odoo ends up mounting, not a second volume.
      *
      * @param  array<string, mixed>  $services
+     * @param  list<string>  $modules
      * @return array<string, mixed>
      */
-    public static function alignParsedServices(array $services, ?string $database = null, string $url = '', string $token = '', string $password = ''): array
+    public static function alignParsedServices(array $services, ?string $database = null, string $url = '', string $token = '', string $password = '', array $modules = []): array
     {
         foreach ($services as $name => &$service) {
-            if (! is_array($service)) {
+            if (! is_array($service) || $name === self::STDLIB_SERVICE_NAME || $name === self::OWNER_SERVICE_NAME) {
                 continue;
             }
             $image = strtolower((string) ($service['image'] ?? ''));
@@ -347,9 +474,20 @@ BASH));
             if ($database !== null && $database !== '' && $name === 'odoo') {
                 // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
                 $service['entrypoint'] = ['bash', '-c'];
-                $service['command'] = [self::launchCommand($database, $url, $token, $password)];
+                $service['command'] = [self::launchCommand($database, $url, $token, $password, $modules)];
                 $service['user'] = '0:0';
                 $service['restart'] = 'unless-stopped';
+                $volumes = $service['volumes'] ?? [];
+                if ($volumes instanceof \Illuminate\Support\Collection) {
+                    $volumes = $volumes->all();
+                }
+                if (! is_array($volumes)) {
+                    $volumes = [];
+                }
+                if (! in_array(self::OWNER_MODULES_MOUNT, $volumes, true)) {
+                    $volumes[] = self::OWNER_MODULES_MOUNT;
+                }
+                $service['volumes'] = $volumes;
                 // The image healthcheck fails for the whole base install. Traefik then has no server and answers "no available server".
                 $service['healthcheck'] = ['disable' => true];
                 $environment = $service['environment'] ?? [];
@@ -373,13 +511,9 @@ BASH));
         }
         unset($service);
 
-        if (! isset($services[self::SERVICE_NAME]) || ! is_array($services[self::SERVICE_NAME])) {
-            return $services;
-        }
-
         $odoo = null;
         foreach ($services as $name => $service) {
-            if (! is_array($service) || $name === self::SERVICE_NAME) {
+            if (! is_array($service) || in_array($name, [self::SERVICE_NAME, self::OWNER_SERVICE_NAME, self::STDLIB_SERVICE_NAME], true)) {
                 continue;
             }
             $image = strtolower((string) ($service['image'] ?? ''));
@@ -388,18 +522,15 @@ BASH));
                 break;
             }
         }
-        if ($odoo === null) {
-            return $services;
+        $source = is_array($odoo) ? self::addonVolumeSource($odoo['volumes'] ?? []) : null;
+        if ($source !== null && isset($services[self::SERVICE_NAME]) && is_array($services[self::SERVICE_NAME])) {
+            $services[self::SERVICE_NAME]['volumes'] = [
+                $source.':'.self::WORKSPACE,
+            ];
         }
-
-        $source = self::addonVolumeSource($odoo['volumes'] ?? []);
-        if ($source === null) {
-            return $services;
+        if (isset($services[self::OWNER_SERVICE_NAME]) && is_array($services[self::OWNER_SERVICE_NAME])) {
+            $services[self::OWNER_SERVICE_NAME]['volumes'] = self::ownerVolumes($services, $source);
         }
-
-        $services[self::SERVICE_NAME]['volumes'] = [
-            $source.':'.self::WORKSPACE,
-        ];
 
         return $services;
     }
@@ -526,7 +657,7 @@ BASH));
                 '--',
                 'bash',
                 '-c',
-                'chown -R 100:101 '.self::WORKSPACE.' && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"',
+                'mkdir -p '.self::WORKSPACE.'/.gpsh && if [ ! -f '.self::WORKSPACE.'/odoo-logs.sh ]; then printf "%s\n" "#!/bin/sh" "exec tail -n 200 -F '.self::WORKSPACE.'/.gpsh/odoo.log" > '.self::WORKSPACE.'/odoo-logs.sh; chmod 755 '.self::WORKSPACE.'/odoo-logs.sh; fi && chown -R 100:101 '.self::WORKSPACE.' && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"',
             ],
             // The image healthcheck reads jovyan's runtime dir and stays unhealthy as UID 100.
             // Traefik skips unhealthy containers, so the public URL is a 404.
@@ -546,7 +677,12 @@ BASH));
                 'jupyter',
                 'lab',
                 '--ServerApp.token=${SERVICE_PASSWORD_JUPYTER}',
+                '--ServerApp.allow_password_change=False',
                 '--ServerApp.root_dir='.self::WORKSPACE,
+                '--MappingKernelManager.cull_idle_timeout=1800',
+                '--MappingKernelManager.cull_interval=300',
+                '--TerminalManager.cull_inactive_timeout=1800',
+                '--TerminalManager.cull_interval=300',
                 '--ip=0.0.0.0',
                 '--allow-root',
                 '--no-browser',
@@ -555,6 +691,88 @@ BASH));
                 $volumeSource.':'.self::WORKSPACE,
             ],
         ];
+    }
+
+    /**
+     * @param  list<string>  $volumes
+     * @return array<string, mixed>
+     */
+    private static function ownerServiceDefinition(array $volumes): array
+    {
+        return [
+            'image' => self::IMAGE,
+            'user' => '0:0',
+            'working_dir' => '/tmp',
+            'restart' => 'unless-stopped',
+            'expose' => [self::LISTEN_PORT],
+            'depends_on' => [self::STDLIB_SERVICE_NAME],
+            'entrypoint' => ['tini', '-g', '--', 'setpriv', '--reuid=100', '--regid=101', '--clear-groups'],
+            'healthcheck' => ['disable' => true],
+            'environment' => [
+                'SERVICE_URL_JUPYTEROWNER_'.self::LISTEN_PORT,
+                'JUPYTER_ENABLE_LAB=yes',
+                'HOME=/tmp',
+                'JUPYTER_CONFIG_DIR=/tmp/jupyter-config',
+                'JUPYTER_DATA_DIR=/tmp/jupyter-data',
+                'JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime',
+                'JUPYTER_TOKEN=${SERVICE_PASSWORD_JUPYTEROWNER}',
+            ],
+            'command' => [
+                'jupyter',
+                'lab',
+                '--ServerApp.token=${SERVICE_PASSWORD_JUPYTEROWNER}',
+                '--ServerApp.allow_password_change=False',
+                '--ServerApp.root_dir='.self::WORKSPACE,
+                '--MappingKernelManager.cull_idle_timeout=1800',
+                '--MappingKernelManager.cull_interval=300',
+                '--TerminalManager.cull_inactive_timeout=1800',
+                '--TerminalManager.cull_interval=300',
+                '--ip=0.0.0.0',
+                '--allow-root',
+                '--no-browser',
+            ],
+            'volumes' => $volumes,
+        ];
+    }
+
+    /**
+     * Docker fills this volume from the image only while it is empty.
+     * A different image tag uses another volume, so an upgrade does not keep the previous addons.
+     */
+    private static function stdlibVolumeName(string $image): string
+    {
+        $tag = 'odoo';
+        if (preg_match('/:([^:@]+)$/', $image, $matches) === 1) {
+            $tag = strtolower($matches[1]);
+        }
+        $tag = trim(preg_replace('/[^a-z0-9]+/', '-', $tag) ?? '', '-');
+
+        return 'odoo-stdlib-'.($tag === '' ? 'odoo' : $tag);
+    }
+
+    /**
+     * @param  array<string, mixed>  $services
+     * @return list<string>
+     */
+    private static function ownerVolumes(array $services, ?string $customSource): array
+    {
+        $volumes = [];
+        $stdlib = $services[self::STDLIB_SERVICE_NAME]['volumes'] ?? [];
+        if (is_array($stdlib)) {
+            foreach ($stdlib as $volume) {
+                $parsed = self::parseVolume($volume);
+                if ($parsed !== null && str_contains($parsed['target'], 'dist-packages/odoo/addons')) {
+                    $volumes[] = $parsed['source'].':'.self::WORKSPACE.'/odoo:ro';
+                    break;
+                }
+            }
+        }
+        $volumes[] = '/data/coolify/gpsh-owner-modules:'.self::WORKSPACE.'/owner:ro';
+        if ($customSource !== null) {
+            $volumes[] = $customSource.':'.self::WORKSPACE.'/custom:ro';
+        }
+
+        return $volumes;
     }
 
     /**

@@ -5,24 +5,33 @@ use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Service\Heading;
-use App\Models\Server;
-use App\Models\Service;
-use App\Models\ServiceApplication;
-use App\Models\StandaloneDocker;
+use App\Livewire\Settings\Odoo;
 use App\Models\Application;
 use App\Models\GithubApp;
+use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\PrivateKey;
 use App\Models\Project;
+use App\Models\Server;
+use App\Models\Service;
+use App\Models\ServiceApplication;
+use App\Models\ServiceDatabase;
+use App\Models\StandaloneDocker;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\OdooGit;
+use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 use RuntimeException;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
 
@@ -277,7 +286,7 @@ it('launches an environment without github and leaves the addon files to jupyter
 it('stops when github is rate limited instead of calling the api again', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-github-app',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -290,25 +299,25 @@ it('stops when github is rate limited instead of calling the api again', functio
     $this->project->update(['name' => 'Mi Empresa']);
 
     $urls = [];
-    \Illuminate\Support\Facades\Http::fake(function ($request) use (&$urls) {
+    Http::fake(function ($request) use (&$urls) {
         $urls[] = $request->url();
         $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
         if (str_contains($request->url(), '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($request->url(), '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($request->url(), '/app/installations/')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'account' => ['login' => 'acme', 'type' => 'Organization'],
             ], 200, $date);
         }
         if (strtoupper($request->method()) === 'POST' && str_contains($request->url(), '/orgs/acme/repos')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
+            return Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected'], 500, $date);
+        return Http::response(['message' => 'unexpected'], 500, $date);
     });
 
     expect(fn () => OdooGit::launchEnvironment($this->project, $this->githubApp, 'production'))
@@ -320,7 +329,7 @@ it('stops when github is rate limited instead of calling the api again', functio
 it('creates the project repository and makes each environment its own branch', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-github-app',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -333,46 +342,46 @@ it('creates the project repository and makes each environment its own branch', f
     $this->project->update(['name' => 'Mi Empresa']);
     $before = $this->project->environments()->count();
 
-    \Illuminate\Support\Facades\Http::fake(function ($request) {
+    Http::fake(function ($request) {
         $url = $request->url();
         $method = strtoupper($request->method());
         $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/app/installations/')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'account' => ['login' => 'acme', 'type' => 'Organization'],
             ], 200, $date);
         }
         if ($method === 'POST' && str_contains($url, '/orgs/acme/repos')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'id' => 99,
                 'full_name' => 'acme/mi-empresa',
                 'default_branch' => 'main',
             ], 201, $date);
         }
         if (str_contains($url, '/git/ref/heads/main')) {
-            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'abc123']], 200, $date);
+            return Http::response(['object' => ['sha' => 'abc123']], 200, $date);
         }
         if ($method === 'POST' && str_contains($url, '/git/refs')) {
-            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/created'], 201, $date);
+            return Http::response(['ref' => 'refs/heads/created'], 201, $date);
         }
         if (str_contains($url, '/git/ref/heads/')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+            return Http::response(['message' => 'Not Found'], 404, $date);
         }
         if (str_contains($url, '/repos/acme/')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'id' => 99,
                 'full_name' => 'acme/mi-empresa',
                 'default_branch' => 'main',
             ], 200, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     $staging = OdooGit::launchEnvironment($this->project, $this->githubApp, 'staging');
@@ -394,11 +403,154 @@ it('creates the project repository and makes each environment its own branch', f
         ->and($secondStaging->fresh()->odooBranch->git_branch)->toBe('staging-2')
         ->and($this->project->environments()->count())->toBe($before);
 
-    $created = \Illuminate\Support\Facades\Http::recorded(
+    $created = Http::recorded(
         fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/orgs/acme/repos')
     );
     expect($created)->toHaveCount(1)
         ->and($created[0][0]->data()['name'])->toBe('mi-empresa');
+});
+
+it('opens jupyter outside the platform and keeps odoo logs on the panel', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $odoo = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'jupyter_enabled' => true,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::create([
+        'uuid' => (string) Str::uuid(),
+        'service_id' => $odoo->id,
+        'name' => 'jupyter',
+        'human_name' => 'Jupyter',
+        'image' => 'jupyter/datascience-notebook:latest',
+        'fqdn' => 'https://jupyter.example.test',
+    ]);
+    $odoo->environment_variables()->create([
+        'key' => 'SERVICE_PASSWORD_JUPYTER',
+        'value' => 'labtoken',
+        'is_preview' => false,
+    ]);
+
+    Livewire::test(Heading::class, [
+        'service' => $odoo,
+        'parameters' => [],
+        'query' => [],
+    ])->assertSee('Open Jupyter')
+        ->assertSee('https://jupyter.example.test?token=labtoken')
+        ->assertSee('Logs')
+        ->assertDontSee('Owner Jupyter')
+        ->assertDontSee('Open service links')
+        ->assertDontSee('The latest configuration has not been applied');
+
+    expect(file_get_contents(resource_path('views/livewire/project/service/heading.blade.php')))
+        ->toContain('name="external-link"')
+        ->toContain("{{ __('Open Jupyter') }}")
+        ->toContain("{{ __('Logs') }}");
+});
+
+it('shows owner jupyter only to the instance owner', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $odoo = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'jupyter_enabled' => true,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::create([
+        'service_id' => $odoo->id,
+        'name' => 'jupyterowner',
+        'human_name' => 'Owner Jupyter',
+        'image' => 'jupyter/datascience-notebook:latest',
+        'fqdn' => 'https://jupyterowner.example.test',
+    ]);
+    $odoo->environment_variables()->create([
+        'key' => 'SERVICE_PASSWORD_JUPYTEROWNER',
+        'value' => 'ownertoken',
+        'is_preview' => false,
+    ]);
+
+    Livewire::test(Heading::class, [
+        'service' => $odoo,
+        'parameters' => [],
+        'query' => [],
+    ])->assertDontSee('Owner Jupyter');
+
+    $rootTeam = Team::factory()->make(['name' => 'Root jupyter']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->actingAs($this->user->fresh());
+
+    Livewire::test(Heading::class, [
+        'service' => $odoo->fresh(),
+        'parameters' => [],
+        'query' => [],
+    ])->assertSee('Owner Jupyter')
+        ->assertSee('https://jupyterowner.example.test?token=ownertoken');
+});
+
+it('opens grafana for the odoo and postgresql containers only', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'jupyter',
+        'human_name' => 'Jupyter',
+        'image' => 'jupyter/datascience-notebook:latest',
+    ]);
+    ServiceDatabase::create([
+        'service_id' => $service->id,
+        'name' => 'postgresql',
+        'human_name' => 'PostgreSQL',
+        'image' => 'postgres:16-alpine',
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'monitor',
+        'human_name' => 'Monitor',
+        'image' => 'grafana/grafana-oss',
+        'fqdn' => 'https://monitor.example.test',
+    ]);
+
+    $expected = OdooMonitor::urlFor($service->fresh());
+
+    Livewire::test(Heading::class, [
+        'service' => $service->fresh(),
+        'parameters' => [],
+        'query' => [],
+    ])->assertSee($expected)
+        ->assertDontSee('jupyter-'.$service->uuid);
+});
+
+it('lets the instance owner add a module that the next start links read-only', function () {
+    $rootTeam = Team::factory()->make(['name' => 'Root modules']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->actingAs($this->user->fresh());
+
+    Livewire::test(Odoo::class)
+        ->set('moduleName', 'sale_owner')
+        ->call('addModule');
+
+    expect(GpshOwnerModule::names())->toBe(['sale_owner']);
+
+    $command = OdooJupyter::launchCommand('mi_empresa_production', '', '', '', GpshOwnerModule::names());
+
+    expect($command)->toContain('for module in sale_owner;');
+
+    Livewire::test(Odoo::class)
+        ->call('removeModule', 'sale_owner');
+
+    expect(GpshOwnerModule::names())->toBe([]);
 });
 
 it('does not ask for the branch or github while deploying', function () {
@@ -495,13 +647,13 @@ it('lets an admin change the github account and keeps members out', function () 
     $member->teams()->attach($this->team, ['role' => 'member']);
     $this->actingAs($member);
 
-    expect(fn () => OdooGit::beginConnect($this->project))->toThrow(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+    expect(fn () => OdooGit::beginConnect($this->project))->toThrow(HttpException::class);
 });
 
 it('starts a new odoo project in stages and reuses an installed github app', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-installed-app',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -614,7 +766,7 @@ it('names a new github app after the product and keeps it on the user', function
 
     OdooGit::rememberForUser($this->user->id, $this->team->id, $app);
 
-    expect(\Illuminate\Support\Facades\DB::table('team_user')
+    expect(DB::table('team_user')
         ->where('user_id', $this->user->id)
         ->where('team_id', $this->team->id)
         ->value('github_app_id'))->toBe($app->id);
@@ -623,7 +775,7 @@ it('names a new github app after the product and keeps it on the user', function
 it('clones the production branch onto a different branch and asks github for one token', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-clone-key',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -634,35 +786,35 @@ it('clones the production branch onto a different branch and asks github for one
         'webhook_secret' => 'odoo-hook',
     ]);
 
-    \Illuminate\Support\Facades\Http::fake(function ($request) {
+    Http::fake(function ($request) {
         $url = $request->url();
         $method = strtoupper($request->method());
         $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/git/ref/heads/production')) {
-            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'prodsha']], 200, $date);
+            return Http::response(['object' => ['sha' => 'prodsha']], 200, $date);
         }
         if (str_contains($url, '/git/ref/heads/')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+            return Http::response(['message' => 'Not Found'], 404, $date);
         }
         if ($method === 'POST' && str_contains($url, '/git/refs')) {
-            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/staging-3'], 201, $date);
+            return Http::response(['ref' => 'refs/heads/staging-3'], 201, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     OdooGit::cloneBranch($this->githubApp, 'acme/mi-empresa', 'production', 'staging-3');
 
-    $posted = \Illuminate\Support\Facades\Http::recorded(
+    $posted = Http::recorded(
         fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
     );
-    $tokens = \Illuminate\Support\Facades\Http::recorded(
+    $tokens = Http::recorded(
         fn ($request) => str_contains($request->url(), '/access_tokens')
     );
     expect($posted)->toHaveCount(1)
@@ -673,13 +825,13 @@ it('clones the production branch onto a different branch and asks github for one
 
 it('rejects a staging branch that is already used', function () {
     expect(fn () => OdooGit::prepareStagingBranch($this->githubApp, 'acme/odoo', 'production', 'main', ['main']))
-        ->toThrow(\InvalidArgumentException::class, 'That branch is already used by this repository.');
+        ->toThrow(InvalidArgumentException::class, 'That branch is already used by this repository.');
 });
 
 it('starts a new staging branch from the repository default when production is missing', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-stage-key',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -690,35 +842,35 @@ it('starts a new staging branch from the repository default when production is m
         'webhook_secret' => 'odoo-hook',
     ]);
 
-    \Illuminate\Support\Facades\Http::fake(function ($request) {
+    Http::fake(function ($request) {
         $url = $request->url();
         $method = strtoupper($request->method());
         $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/git/ref/heads/main')) {
-            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'defaultsha']], 200, $date);
+            return Http::response(['object' => ['sha' => 'defaultsha']], 200, $date);
         }
         if (str_contains($url, '/git/ref/heads/')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+            return Http::response(['message' => 'Not Found'], 404, $date);
         }
         if ($method === 'GET' && str_contains($url, '/repos/acme/odoo')) {
-            return \Illuminate\Support\Facades\Http::response(['default_branch' => 'main'], 200, $date);
+            return Http::response(['default_branch' => 'main'], 200, $date);
         }
         if ($method === 'POST' && str_contains($url, '/git/refs')) {
-            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/staging-1'], 201, $date);
+            return Http::response(['ref' => 'refs/heads/staging-1'], 201, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     OdooGit::prepareStagingBranch($this->githubApp, 'acme/odoo', 'production', 'staging-1', ['main']);
 
-    $posted = \Illuminate\Support\Facades\Http::recorded(
+    $posted = Http::recorded(
         fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
     );
     expect($posted)->toHaveCount(1)
@@ -729,7 +881,7 @@ it('starts a new staging branch from the repository default when production is m
 it('loads one page of repositories and shows the github error', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-repos-key',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -741,33 +893,33 @@ it('loads one page of repositories and shows the github error', function () {
     ]);
 
     $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
-    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+    Http::fake(function ($request) use ($date) {
         $url = $request->url();
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/installation/repositories')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Bad credentials'], 401, $date);
+            return Http::response(['message' => 'Bad credentials'], 401, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     expect(fn () => OdooGit::repositories($this->githubApp))->toThrow(RuntimeException::class, 'Bad credentials');
 
-    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+    Http::fake(function ($request) use ($date) {
         $url = $request->url();
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/installation/repositories')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'total_count' => 1,
                 'repositories' => [[
                     'id' => 7,
@@ -778,11 +930,11 @@ it('loads one page of repositories and shows the github error', function () {
             ], 200, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     $repositories = OdooGit::repositories($this->githubApp);
-    $pages = \Illuminate\Support\Facades\Http::recorded(
+    $pages = Http::recorded(
         fn ($request) => str_contains($request->url(), '/installation/repositories')
     );
 
@@ -794,7 +946,7 @@ it('loads one page of repositories and shows the github error', function () {
 it('creates the project repository without registering another github app', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-existing-app',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -805,48 +957,48 @@ it('creates the project repository without registering another github app', func
         'webhook_secret' => 'odoo-hook',
     ]);
     OdooGit::rememberForUser($this->user->id, $this->team->id, $this->githubApp);
-    \Illuminate\Support\Facades\Cache::flush();
+    Cache::flush();
 
     $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
-    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+    Http::fake(function ($request) use ($date) {
         $url = $request->url();
         $method = strtoupper($request->method());
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/app/installations/')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'account' => ['login' => 'acme', 'type' => 'Organization'],
             ], 200, $date);
         }
         if ($method === 'POST' && str_contains($url, '/orgs/acme/repos')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'id' => 44,
                 'full_name' => 'acme/cliente-dos',
                 'default_branch' => 'main',
             ], 201, $date);
         }
         if (str_contains($url, '/git/ref/heads/main')) {
-            return \Illuminate\Support\Facades\Http::response(['object' => ['sha' => 'abc123']], 200, $date);
+            return Http::response(['object' => ['sha' => 'abc123']], 200, $date);
         }
         if ($method === 'POST' && str_contains($url, '/git/refs')) {
-            return \Illuminate\Support\Facades\Http::response(['ref' => 'refs/heads/production'], 201, $date);
+            return Http::response(['ref' => 'refs/heads/production'], 201, $date);
         }
         if (str_contains($url, '/git/ref/heads/')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Not Found'], 404, $date);
+            return Http::response(['message' => 'Not Found'], 404, $date);
         }
         if (str_contains($url, '/repos/acme/')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'id' => 44,
                 'full_name' => 'acme/cliente-dos',
                 'default_branch' => 'main',
             ], 200, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     $before = GithubApp::query()->count();
@@ -868,7 +1020,7 @@ it('creates the project repository without registering another github app', func
 it('keeps the project and waits to choose a repository when github is already connected', function () {
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
-    $privateKey = \App\Models\PrivateKey::create([
+    $privateKey = PrivateKey::create([
         'name' => 'odoo-existing-app',
         'private_key' => $pem,
         'is_git_related' => true,
@@ -879,27 +1031,27 @@ it('keeps the project and waits to choose a repository when github is already co
         'webhook_secret' => 'odoo-hook',
     ]);
     OdooGit::rememberForUser($this->user->id, $this->team->id, $this->githubApp);
-    \Illuminate\Support\Facades\Cache::flush();
+    Cache::flush();
 
     $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
-    \Illuminate\Support\Facades\Http::fake(function ($request) use ($date) {
+    Http::fake(function ($request) use ($date) {
         $url = $request->url();
         if (str_contains($url, '/zen')) {
-            return \Illuminate\Support\Facades\Http::response('Keep it logically awesome.', 200, $date);
+            return Http::response('Keep it logically awesome.', 200, $date);
         }
         if (str_contains($url, '/access_tokens')) {
-            return \Illuminate\Support\Facades\Http::response(['token' => 'ghs_test'], 201, $date);
+            return Http::response(['token' => 'ghs_test'], 201, $date);
         }
         if (str_contains($url, '/app/installations/')) {
-            return \Illuminate\Support\Facades\Http::response([
+            return Http::response([
                 'account' => ['login' => 'acme', 'type' => 'Organization'],
             ], 200, $date);
         }
         if (strtoupper($request->method()) === 'POST' && str_contains($url, '/orgs/acme/repos')) {
-            return \Illuminate\Support\Facades\Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
+            return Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
         }
 
-        return \Illuminate\Support\Facades\Http::response(['message' => 'unexpected '.$url], 500, $date);
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
     });
 
     $before = Project::query()->count();
@@ -1062,6 +1214,8 @@ it('copies the production database and files into staging and neutralizes only t
         ->not->toContain('service=postgresql')
         ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('waitForServiceStart')
         ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('OdooGit::copyProductionData')
+        ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('OdooGit::waitUntilOpen')
+        ->and(file_get_contents(app_path('Jobs/CloneOdooStagingJob.php')))->toContain('isConfigurationChanged(true)')
         ->and(file_get_contents(app_path('Actions/Service/StartService.php')))->toContain('containersReadyCommand');
 
     $target->environment_variables()->where('key', 'ODOO_DATABASE')->first()->update(['value' => 'acme_production']);

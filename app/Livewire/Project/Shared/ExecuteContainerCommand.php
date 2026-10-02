@@ -5,6 +5,8 @@ namespace App\Livewire\Project\Shared;
 use App\Models\Application;
 use App\Models\Server;
 use App\Models\Service;
+use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -135,6 +137,9 @@ class ExecuteContainerCommand extends Component
                 }
             } elseif (data_get($this->parameters, 'service_uuid')) {
                 $this->resource->applications()->get()->each(function ($application) {
+                    if (OdooMonitor::hidesTerminal((string) $application->name) || OdooJupyter::hidesTerminal((string) $application->name)) {
+                        return;
+                    }
                     if ($application->isRunning() && $this->resource->server->isTerminalEnabled()) {
                         $this->containers->push([
                             'server' => $this->resource->server,
@@ -149,10 +154,10 @@ class ExecuteContainerCommand extends Component
                     if ($database->isRunning()) {
                         $this->containers->push([
                             'server' => $this->resource->server,
-                        'container' => [
-                            'Names' => data_get($database, 'name').'-'.data_get($this->resource, 'uuid'),
-                            'Label' => $this->containerLabel((string) data_get($database, 'name')),
-                        ],
+                            'container' => [
+                                'Names' => data_get($database, 'name').'-'.data_get($this->resource, 'uuid'),
+                                'Label' => $this->containerLabel((string) data_get($database, 'name')),
+                            ],
                         ]);
                     }
                 });

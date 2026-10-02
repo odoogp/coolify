@@ -4,11 +4,15 @@ use App\Enums\ProxyTypes;
 use App\Jobs\ServerFilesFromServerJob;
 use App\Models\Application;
 use App\Models\ApplicationPreview;
+use App\Models\GpshOwnerModule;
 use App\Models\LocalFileVolume;
 use App\Models\LocalPersistentVolume;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -1564,10 +1568,14 @@ function serviceParser(Service $resource): Collection
     $compose = data_get($resource, 'docker_compose_raw');
     // Store original compose for later use to update docker_compose_raw with content removed
     $originalCompose = $compose;
-    if ($resource->jupyter_enabled && is_string($compose)) {
-        $compose = \App\Support\OdooJupyter::inject($compose);
+    if (is_string($compose)) {
+        if ($resource->jupyter_enabled) {
+            $compose = OdooJupyter::inject($compose);
+        }
+        $compose = OdooJupyter::injectOwner($compose);
+        $compose = OdooMonitor::inject($compose, (string) $uuid);
     }
-    \App\Support\OdooGit::useHttps($resource);
+    OdooGit::useHttps($resource);
     if (! $compose) {
         return collect([]);
     }
@@ -2653,7 +2661,7 @@ function serviceParser(Service $resource): Collection
         }
         if (! $isDatabase && $fqdns instanceof Collection && $fqdns->count() > 0) {
             $shouldGenerateLabelsExactly = $resource->server->settings->generate_exact_labels;
-            $proxyPort = \App\Support\OdooJupyter::proxyPort(
+            $proxyPort = OdooJupyter::proxyPort(
                 (string) $serviceName,
                 $predefinedPort ?: containerListenPort(data_get($service, 'ports'), data_get($service, 'expose')),
             );
@@ -2780,13 +2788,14 @@ function serviceParser(Service $resource): Collection
 
         $parsedServices->put($serviceName, $payload);
     }
-    $odooDatabase = \App\Support\OdooGit::databaseName($resource);
-    $parsedServices = collect(\App\Support\OdooJupyter::alignParsedServices(
+    $odooDatabase = OdooGit::databaseName($resource);
+    $parsedServices = collect(OdooJupyter::alignParsedServices(
         convertToArray($parsedServices),
         $odooDatabase,
-        \App\Support\OdooGit::publicHttpsUrl($resource),
-        \App\Support\OdooGit::runtimeValue($resource, 'ODOO_LOGIN_TOKEN'),
-        \App\Support\OdooGit::runtimeValue($resource, 'ODOO_ADMIN_PASSWORD'),
+        OdooGit::publicHttpsUrl($resource),
+        OdooGit::runtimeValue($resource, 'ODOO_LOGIN_TOKEN'),
+        OdooGit::runtimeValue($resource, 'ODOO_ADMIN_PASSWORD'),
+        GpshOwnerModule::names(),
     ));
     $topLevel->put('services', $parsedServices);
 

@@ -107,6 +107,9 @@ class CloneOdooStagingJob implements ShouldQueue
                 if ($original instanceof Service) {
                     OdooGit::copyProductionData($original, $copied);
                 }
+                OdooGit::waitUntilOpen($copied->fresh());
+                $copied->refresh();
+                $copied->isConfigurationChanged(true);
             }
 
             $this->progress(5, done: true, redirect: $copied instanceof Service

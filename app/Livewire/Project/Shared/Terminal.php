@@ -4,6 +4,7 @@ namespace App\Livewire\Project\Shared;
 
 use App\Helpers\SshMultiplexingHelper;
 use App\Models\Server;
+use App\Support\OdooGit;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\On;
@@ -71,12 +72,16 @@ class Terminal extends Component
 
             // Escape the identifier for shell usage
             $escapedIdentifier = escapeshellarg($identifier);
-            $shellCommand = 'PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && '.
-                            'if [ -f ~/.profile ]; then . ~/.profile; fi && '.
-                            'if [ -n "$SHELL" ] && [ -x "$SHELL" ]; then exec $SHELL; else sh; fi';
+            $odooShell = OdooGit::terminalShell($identifier);
+            if ($odooShell !== null) {
+                $dockerCommand = "docker exec -it -u odoo {$escapedIdentifier} bash -c ".escapeshellarg($odooShell);
+            } else {
+                $shellCommand = 'PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && '.
+                                'if [ -f ~/.profile ]; then . ~/.profile; fi && '.
+                                'if [ -n "$SHELL" ] && [ -x "$SHELL" ]; then exec $SHELL; else sh; fi';
 
-            // Add sudo for non-root users to access Docker socket
-            $dockerCommand = "docker exec -it {$escapedIdentifier} sh -c '{$shellCommand}'";
+                $dockerCommand = "docker exec -it {$escapedIdentifier} sh -c '{$shellCommand}'";
+            }
             if ($server->isNonRoot()) {
                 $dockerCommand = "sudo {$dockerCommand}";
             }

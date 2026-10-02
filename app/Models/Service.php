@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ProcessStatus;
 use App\Services\AdminCreationQuota;
 use App\Services\ContainerStatusAggregator;
+use App\Support\OdooJupyter;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -124,6 +125,8 @@ class Service extends BaseModel
             if ($save) {
                 $this->config_hash = $newConfigHash;
                 $this->save();
+
+                return false;
             }
 
             return true;
@@ -1527,7 +1530,7 @@ class Service extends BaseModel
 
     public function supportsOdooJupyter(): bool
     {
-        return \App\Support\OdooJupyter::isOdooCompose((string) $this->docker_compose_raw);
+        return OdooJupyter::isOdooCompose((string) $this->docker_compose_raw);
     }
 
     public function applications()
