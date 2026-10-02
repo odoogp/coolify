@@ -1,6 +1,9 @@
 <?php
 
+use App\Models\Service;
+use App\Support\OdooGit;
 use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use Symfony\Component\Yaml\Yaml;
 
 function odooCompose(): string
@@ -32,12 +35,19 @@ test('jupyter is injected only for an odoo stack and shares the addon volume', f
     expect($jupyter['user'])->toBe('0:0');
     expect($jupyter['working_dir'])->toBe('/workspace/addons');
     expect($jupyter['restart'])->toBe('always');
-    expect($jupyter['entrypoint'][5])->toBe('chown -R 100:101 /workspace/addons && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"');
+    expect($jupyter['entrypoint'][5])->toContain('odoo-logs.sh')
+        ->toContain('/workspace/addons/.gpsh/odoo.log')
+        ->toContain('chown -R 100:101 /workspace/addons && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"');
     expect($jupyter['command'])->toBe([
         'jupyter',
         'lab',
         '--ServerApp.token=${SERVICE_PASSWORD_JUPYTER}',
+        '--ServerApp.allow_password_change=False',
         '--ServerApp.root_dir=/workspace/addons',
+        '--MappingKernelManager.cull_idle_timeout=1800',
+        '--MappingKernelManager.cull_interval=300',
+        '--TerminalManager.cull_inactive_timeout=1800',
+        '--TerminalManager.cull_interval=300',
         '--ip=0.0.0.0',
         '--allow-root',
         '--no-browser',
@@ -129,7 +139,8 @@ test('the odoo checkbox and jupyter port stay behind the existing service checks
 
     expect($form)->toContain('supportsOdooJupyter()');
     expect($form)->toContain('canGate="update"');
-    expect($parser)->toContain('if ($resource->jupyter_enabled && is_string($compose))');
+    expect($parser)->toContain('if ($resource->jupyter_enabled)');
+    expect($parser)->toContain('OdooJupyter::injectOwner($compose)');
     expect($parser)->toContain('OdooJupyter::proxyPort');
     expect(OdooJupyter::proxyPort('jupyter', '80'))->toBe('8888');
     expect(OdooJupyter::proxyPort('odoo', '8069'))->toBe('8069');
@@ -304,6 +315,9 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('base.user_admin')
         ->and($command)->toContain('web.base.url')
         ->and($command)->toContain('-i gpsh_autoconnect')
+        ->and($command)->toContain('--logfile=/mnt/extra-addons/.gpsh/odoo.log')
+        ->and($command)->toContain('/gpsh-owner-modules/')
+        ->and($aligned['odoo']['volumes'] ?? [])->toContain('/data/coolify/gpsh-owner-modules:/gpsh-owner-modules:ro')
         ->and($command)->toContain('gpsh-connect-state')
         ->and($command)->toContain('gpsh_autoconnect')
         ->and($command)->toContain('_odoo/paas/connect')
@@ -314,7 +328,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
         ->and($command)->toContain('setpriv --reuid=odoo')
         ->and($command)->not->toContain('--load=base,web,gpsh_autoconnect')
-        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" -d mi_empresa_staging_1')
+        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" --logfile=/mnt/extra-addons/.gpsh/odoo.log -d mi_empresa_staging_1')
         ->and($aligned['odoo']['user'])->toBe('0:0')
         ->and($aligned['odoo']['restart'])->toBe('unless-stopped')
         ->and(str_replace('$$', '', $command))->not->toContain('$')
@@ -343,25 +357,28 @@ test('an odoo https router tells odoo the browser used https', function () {
 });
 
 test('the odoo deploy waits until its containers are running before https', function () {
-    $service = new \App\Models\Service;
+    $service = new Service;
     $service->forceFill([
         'id' => 15,
         'uuid' => 'abc123',
         'jupyter_enabled' => true,
     ]);
 
-    $command = \App\Support\OdooGit::containersReadyCommand($service);
+    $command = OdooGit::containersReadyCommand($service);
 
     expect($command)->toStartWith('bash -c ')
-        ->and($command)->toContain('label=com.docker.compose.project=abc123')
-        ->and($command)->toContain('label=coolify.serviceId=15')
+        ->and($command)->toContain('project=abc123')
+        ->and($command)->toContain('service_id=15')
+        ->and($command)->toContain('label=com.docker.compose.project=${project}')
+        ->and($command)->toContain('label=coolify.serviceId=${service_id}')
         ->and($command)->toContain('need_jupyter=1')
+        ->and($command)->toContain('*stdlib*|*jupyterowner*')
         ->and($command)->toContain('seq 1 60')
         ->and($command)->toContain('The service containers are running.');
 });
 
 test('the odoo deploy waits until https answers', function () {
-    $command = \App\Support\OdooGit::httpsReadyCommand('odoo.example.test');
+    $command = OdooGit::httpsReadyCommand('odoo.example.test');
 
     expect($command)->toStartWith('bash -c ')
         ->and($command)->toContain('odoo.example.test')
@@ -370,5 +387,68 @@ test('the odoo deploy waits until https answers', function () {
         ->and($command)->toContain('se actualiza sola')
         ->and($command)->toContain('/web/login')
         ->and($command)->toContain('grep -qi encrypt')
-        ->and(\App\Support\OdooGit::httpsReadyCommand('not a host'))->toBeNull();
+        ->and(OdooGit::httpsReadyCommand('not a host'))->toBeNull();
+});
+
+test('an owner module is linked into the addon folder and odoo logs go to the shared file', function () {
+    $command = OdooJupyter::launchCommand('mi_empresa_production', '', '', '', ['sale_owner', 'not-valid']);
+
+    expect($command)->toContain('for module in sale_owner;')
+        ->and($command)->toContain('ln -sfn "/gpsh-owner-modules/$$module" "/mnt/extra-addons/$$module"')
+        ->and($command)->not->toContain('not-valid')
+        ->and($command)->toContain('--logfile=/mnt/extra-addons/.gpsh/odoo.log');
+});
+
+test('owner jupyter mounts the image addons, owner modules, and branch addons', function () {
+    $compose = OdooJupyter::injectOwner(odooCompose());
+    $services = Yaml::parse($compose)['services'];
+    $owner = $services['jupyterowner'];
+
+    expect($services['stdlib']['image'])->toBe('odoo:18')
+        ->and($services['stdlib']['volumes'])->toBe(['odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'])
+        ->and($owner['volumes'])->toBe([
+            'odoo-stdlib-18:/workspace/addons/odoo:ro',
+            '/data/coolify/gpsh-owner-modules:/workspace/addons/owner:ro',
+            'odoo-extra-addons:/workspace/addons/custom:ro',
+        ])
+        ->and($owner['environment'])->toContain('SERVICE_URL_JUPYTEROWNER_8888')
+        ->and(json_encode($owner))->not->toContain('docker.sock')
+        ->and(OdooJupyter::injectOwner($compose))->toBe($compose)
+        ->and(OdooJupyter::hidesTerminal('jupyterowner'))->toBeTrue()
+        ->and(OdooJupyter::hidesTerminal('jupyter'))->toBeFalse();
+
+    $services['stdlib']['volumes'] = ['abc123_odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'];
+    $services['odoo']['volumes'] = ['abc123_odoo-extra-addons:/mnt/extra-addons'];
+    $aligned = OdooJupyter::alignParsedServices($services);
+
+    expect($aligned['jupyterowner']['volumes'])->toBe([
+        'abc123_odoo-stdlib-18:/workspace/addons/odoo:ro',
+        '/data/coolify/gpsh-owner-modules:/workspace/addons/owner:ro',
+        'abc123_odoo-extra-addons:/workspace/addons/custom:ro',
+    ])->and($aligned['stdlib']['command'])->toBe(['infinity']);
+});
+
+test('launching odoo adds grafana for that stack and only odoo and postgresql', function () {
+    $compose = OdooMonitor::inject(odooCompose(), 'abc123');
+    $services = Yaml::parse($compose)['services'];
+    $again = OdooMonitor::inject($compose, 'abc123');
+
+    expect(array_keys($services))->toContain('cadvisor', 'prometheus', 'monitor')
+        ->and($again)->toBe($compose)
+        ->and($services['prometheus']['command'][0])->toContain('regex: abc123')
+        ->and($services['prometheus']['command'][0])->toContain('regex: odoo|postgresql|postgres')
+        ->and($services['monitor']['command'][0])->toContain('gpsh-odoo')
+        ->and($services['monitor']['command'][0])->toContain('$${container:regex}')
+        ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_3000')
+        ->and($services['cadvisor']['volumes'])->toBe(['/var/run/docker.sock:/var/run/docker.sock:ro'])
+        ->and(json_encode($services))->not->toContain('jupyter')
+        ->and(OdooMonitor::dashboardUrl('https://monitor.example.test', 'odoo-abc123', 'postgresql-abc123'))
+        ->toBe('https://monitor.example.test/d/gpsh-odoo/odoo?orgId=1&kiosk&var-container=odoo-abc123&var-container=postgresql-abc123')
+        ->and(OdooMonitor::inject(odooCompose(), 'not a project'))->toBe(odooCompose());
+});
+
+test('the odoo terminal opens the odoo shell and the other containers keep theirs', function () {
+    expect(OdooGit::terminalShell('odoo-abc123'))->toBe('exec odoo shell --no-http -d "$ODOO_DATABASE"')
+        ->and(OdooGit::terminalShell('jupyter-abc123'))->toBeNull()
+        ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull();
 });

@@ -32,8 +32,7 @@ class Heading extends Component
     {
         $this->authorizeService('view');
 
-        if (str($this->service->status)->contains('running') && is_null($this->service->config_hash)) {
-            $this->service->isConfigurationChanged(true);
+        if (str($this->service->status)->contains('running') && is_null($this->service->config_hash) && $this->service->isConfigurationChanged(true)) {
             $this->dispatch('configurationChanged');
         }
 

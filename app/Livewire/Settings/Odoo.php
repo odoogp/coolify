@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
 use App\Models\OdooComposeTemplate;
 use App\Support\OdooVersion;
@@ -22,6 +23,8 @@ class Odoo extends Component
     public string $postgresVersion = '16-alpine';
 
     public string $compose = '';
+
+    public string $moduleName = '';
 
     public function mount(): void
     {
@@ -69,12 +72,37 @@ class Odoo extends Component
         }
     }
 
+    public function addModule(): void
+    {
+        $this->authorize('update', $this->settings);
+        $name = trim($this->moduleName);
+        if (preg_match('/^[A-Za-z0-9_]+$/', $name) !== 1) {
+            $this->dispatch('error', __('The module name can only use letters, numbers, and underscores.'));
+
+            return;
+        }
+
+        GpshOwnerModule::query()->firstOrCreate(['name' => $name]);
+        $this->moduleName = '';
+        $this->dispatch('success', __('Owner module saved. Redeploy Odoo to link it.'));
+    }
+
+    public function removeModule(string $name): void
+    {
+        $this->authorize('update', $this->settings);
+        if (preg_match('/^[A-Za-z0-9_]+$/', $name) === 1) {
+            GpshOwnerModule::query()->where('name', $name)->delete();
+        }
+        $this->dispatch('success', __('Owner module removed. Redeploy Odoo to drop the link.'));
+    }
+
     public function render()
     {
         $saved = OdooComposeTemplate::query()->orderBy('version')->pluck('version')->all();
 
         return view('livewire.settings.odoo', [
             'versions' => array_values(array_unique([...OdooVersion::SUPPORTED, ...$saved, $this->version])),
+            'ownerModules' => GpshOwnerModule::names(),
         ]);
     }
 

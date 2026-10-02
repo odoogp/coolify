@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use App\Actions\Service\StartService;
+use App\Jobs\SyncOdooAddonsJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
@@ -9,11 +11,12 @@ use App\Models\OdooProfile;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Service;
+use App\Models\ServiceApplication;
 use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Models\User;
-use App\Models\ServiceApplication;
 use App\Rules\ValidGitBranch;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -468,6 +471,46 @@ class OdooGit
         instant_remote_process([self::copyProductionDataCommand($source, $target)], $server);
     }
 
+    /**
+     * The clone screen stays up until this branch's Odoo answers the real login page.
+     */
+    public static function waitUntilOpen(Service $service): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $server = $service->server;
+        if ($server === null || ! $server->isFunctional()) {
+            throw new RuntimeException('The staging service did not start.');
+        }
+
+        instant_remote_process([self::containersReadyCommand($service)], $server);
+        $host = parse_url(self::publicHttpsUrl($service), PHP_URL_HOST);
+        $command = is_string($host) ? self::httpsReadyCommand($host) : null;
+        if ($command === null) {
+            throw new RuntimeException('The staging service did not start.');
+        }
+
+        instant_remote_process([$command], $server);
+    }
+
+    /**
+     * Odoo opens its own shell. PostgreSQL and Jupyter keep the container shell.
+     */
+    public static function terminalShell(string $container): ?string
+    {
+        $name = strtolower(ltrim($container, '/'));
+        if ($name === '' || str_contains($name, 'jupyter') || str_contains($name, 'postgres')) {
+            return null;
+        }
+        if (! str_starts_with($name, 'odoo-') && ! str_starts_with($name, 'odoo_')) {
+            return null;
+        }
+
+        return 'exec odoo shell --no-http -d "$ODOO_DATABASE"';
+    }
+
     public static function copyProductionDataCommand(Service $source, Service $target): string
     {
         $source->loadMissing('environment');
@@ -866,6 +909,7 @@ for i in $(seq 1 60); do
   for id in $ids; do
     image=$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
     name=$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    case "$name" in *stdlib*|*jupyterowner*) continue ;; esac
     subtype=$(docker inspect --format '{{ index .Config.Labels "coolify.service.subType" }}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
     case "$image$name" in *postgres*) pg=1 ;; esac
     if [ "$subtype" = "database" ]; then pg=1; fi
@@ -914,7 +958,7 @@ BASH;
     {
         $service->refresh();
         if ($service->server?->isFunctional()) {
-            \App\Actions\Service\StartService::dispatch($service);
+            StartService::dispatch($service);
         }
     }
 
@@ -1450,7 +1494,7 @@ BASH;
      * After GitHub returns, the project asks whether to launch production
      * on a new repository or to search an existing one.
      */
-    public static function resumeLaunchRedirect(): ?\Illuminate\Http\RedirectResponse
+    public static function resumeLaunchRedirect(): ?RedirectResponse
     {
         $from = session('from');
         if (! is_array($from) || ! data_get($from, 'odoo')) {
@@ -1525,7 +1569,7 @@ BASH;
 
         foreach ($rows as $row) {
             $row->update(['status' => 'updating']);
-            \App\Jobs\SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
+            SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
         }
 
         return $rows->count();
