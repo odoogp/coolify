@@ -548,7 +548,7 @@ class Show extends Component
                     'service_uuid' => $service->uuid,
                 ])
                 : null;
-            $enterHref = $odooOnly && $service instanceof Service && OdooGit::odooIsUp($service) && OdooGit::enterUrl($service) !== ''
+            $enterHref = $odooOnly && $service instanceof Service && OdooGit::canOpen($service)
                 ? route('project.service.odoo.enter', [
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $environment->uuid,

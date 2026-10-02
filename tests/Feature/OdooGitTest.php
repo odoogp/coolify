@@ -9,6 +9,7 @@ use App\Livewire\Project\Show;
 use App\Livewire\Settings\Odoo;
 use App\Models\Application;
 use App\Models\GithubApp;
+use App\Models\GpshNotice;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
 use App\Models\OdooEnvironmentBranch;
@@ -1367,6 +1368,44 @@ it('shows open odoo when the odoo container is up and the rest of the stack is n
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->call('selectEnvironment', $production->uuid)
         ->assertDontSeeHtml($href);
+});
+
+it('shows open odoo for the environment a notice points at', function () {
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $staging->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::query()->create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://staging.example.test',
+        'status' => 'exited',
+    ]);
+
+    $href = route('project.service.odoo.enter', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $staging->uuid,
+        'service_uuid' => $service->uuid,
+    ]);
+
+    Livewire::withQueryParams(['environment' => $staging->uuid])
+        ->test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertDontSeeHtml($href);
+
+    GpshNotice::query()->create([
+        'title' => 'Odoo is up',
+        'body' => 'The containers are running.',
+        'audience' => 'clients',
+        'kind' => 'mounted',
+        'team_id' => $this->team->id,
+        'service_id' => $service->id,
+    ]);
+
+    Livewire::withQueryParams(['environment' => $staging->uuid])
+        ->test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSeeHtml($href);
 });
 
 it('sends an empty odoo link back to the project', function () {

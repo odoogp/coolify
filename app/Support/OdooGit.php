@@ -6,6 +6,7 @@ use App\Actions\Service\StartService;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
+use App\Models\GpshNotice;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\OdooProfile;
 use App\Models\Project;
@@ -458,6 +459,26 @@ class OdooGit
         $status = strtolower((string) $application->status);
 
         return str_contains($status, 'running') && ! str_contains($status, 'exited');
+    }
+
+    /**
+     * Open Odoo once it has a public URL and either its container is up or a notice already said so.
+     * The status column can stay "exited" until the next container check.
+     */
+    public static function canOpen(Service $service): bool
+    {
+        if (self::enterUrl($service) === '') {
+            return false;
+        }
+
+        if (self::odooIsUp($service)) {
+            return true;
+        }
+
+        return GpshNotice::query()
+            ->where('service_id', $service->id)
+            ->whereIn('kind', ['mounted', 'accessible'])
+            ->exists();
     }
 
     public static function publicHttpsUrl(Service $service): string

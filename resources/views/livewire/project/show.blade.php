@@ -131,7 +131,7 @@
                             $selectedOdoo = $project->odooProfile
                                 ? $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter())
                                 : null;
-                            $openOdooUrl = $selectedOdoo instanceof \App\Models\Service && \App\Support\OdooGit::odooIsUp($selectedOdoo)
+                            $openOdooUrl = $selectedOdoo instanceof \App\Models\Service && \App\Support\OdooGit::canOpen($selectedOdoo)
                                 ? \App\Support\OdooGit::enterUrl($selectedOdoo)
                                 : '';
                         @endphp
