@@ -13,14 +13,21 @@
                 </p>
             </div>
 
+            <div class="flex w-fit shrink-0 items-center gap-2">
             @can('update', $project)
-                <div class="flex w-fit shrink-0 items-center gap-2">
                     @if ($project->odooProfile)
                         <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
                             {{ __('Clone to staging') }}
                         </button>
                     @endif
-
+            @endcan
+                    @if ($project->odooProfile)
+                        <a class="button button-highlighted" {{ wireNavigate() }}
+                            x-bind:href="selectedEnvironmentHref()">
+                            {{ __('Open environment') }}
+                        </a>
+                    @endif
+            @can('update', $project)
                     <a href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button"
@@ -54,8 +61,8 @@
                         </form>
                     </x-modal-input>
                     @endif
-                </div>
             @endcan
+                </div>
         </header>
 
         @if ($project->environments->isEmpty())
@@ -323,7 +330,9 @@
                             <a x-show="!environment.odoo" :href="environment.href" {{ wireNavigate() }}
                                 class="relative truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
                                 x-text="environment.name"></a>
-                            <span x-show="environment.odoo" class="truncate text-[13px] font-semibold" x-text="environment.name"></span>
+                            <a x-show="environment.odoo" :href="environment.environmentHref" {{ wireNavigate() }}
+                                class="truncate text-[13px] font-semibold hover:underline"
+                                x-text="environment.name"></a>
                         </div>
 
                         <div class="environment-resource-count text-[12px] text-neutral-600 dark:text-fg-dim"
@@ -431,6 +440,13 @@
             },
             get rangeEnd() {
                 return Math.min(this.page * this.pageSize, this.filteredEnvironments.length);
+            },
+            selectedEnvironmentHref() {
+                const current = this.environments.find((environment) => environment.uuid === this.selected)
+                    || this.environments.find((environment) => environment.name === 'production')
+                    || this.environments[0];
+
+                return current?.environmentHref || '#';
             },
             setViewMode(mode) {
                 this.viewMode = mode;

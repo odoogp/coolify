@@ -49,9 +49,6 @@ class Index extends Component
     public function mount(): mixed
     {
         $this->loadResources();
-        if ($this->project->odooProfile()->exists() && request()->query('launch') !== 'choose') {
-            return redirect()->route('project.show', ['project_uuid' => $this->project->uuid]);
-        }
         if (request()->query('launch') !== 'choose' || ! $this->project->odooProfile()->exists()) {
             return null;
         }

@@ -348,6 +348,7 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee('Open environment')
         ->assertSee('Open Odoo')
         ->assertSee('production')
         ->assertSee(route('project.service.odoo.enter', [
@@ -359,7 +360,7 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
     $this->get(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $production->uuid,
-    ]))->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
+    ]))->assertOk()->assertSee('production');
 
     $this->get(route('project.service.configuration', [
         'project_uuid' => $this->project->uuid,

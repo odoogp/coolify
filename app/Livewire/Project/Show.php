@@ -338,6 +338,10 @@ class Show extends Component
                     'odoo' => $odooOnly,
                     'serviceHref' => $serviceHref,
                     'enterHref' => $enterHref,
+                    'environmentHref' => route('project.resource.index', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                    ]),
                     'resourceCount' => $resourceCount,
                     'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,
