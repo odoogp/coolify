@@ -7,6 +7,9 @@
         ['label' => __('Pushover'), 'route' => 'notifications.pushover', 'brandIcon' => 'pushover'],
         ['label' => __('Webhook'), 'route' => 'notifications.webhook', 'icon' => 'destinations'],
     ];
+    if (isInstanceOwner()) {
+        array_unshift($notificationMenuItems, ['label' => __('Notification center'), 'route' => 'notifications.center', 'icon' => 'notifications']);
+    }
 @endphp
 
 <section class="application-settings-workspace w-full max-w-none">

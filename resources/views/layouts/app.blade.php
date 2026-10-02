@@ -66,6 +66,7 @@
                     <div id="configuration-warning-hud-slot" class="relative shrink-0"></div>
                     {{-- Resource actions dock here on desktop. --}}
                     <div id="resource-action-hud-slot" class="hidden shrink-0 items-center xl:flex"></div>
+                    <livewire:gpsh-notice-bell key="notice-bell-desktop" />
                 </div>
             </header>
 
@@ -127,6 +128,7 @@
                     @if (isInstanceAdmin() && !isCloud())
                         <livewire:upgrade key="mobile-upgrade" />
                     @endif
+                    <livewire:gpsh-notice-bell key="notice-bell-mobile" />
                     <x-top-user-menu />
                     <button type="button" class="-m-1 p-2 text-neutral-500 dark:text-fg-dim" x-on:click="open = !open">
                         <span class="sr-only">{{ __('Open sidebar') }}</span>

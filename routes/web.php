@@ -14,6 +14,7 @@ use App\Livewire\Destination\Index as DestinationIndex;
 use App\Livewire\Destination\Resources as DestinationResources;
 use App\Livewire\Destination\Show as DestinationShow;
 use App\Livewire\ForcePasswordReset;
+use App\Livewire\Notifications\Center as NotificationCenter;
 use App\Livewire\Notifications\Discord as NotificationDiscord;
 use App\Livewire\Notifications\Email as NotificationEmail;
 use App\Livewire\Notifications\Pushover as NotificationPushover;
@@ -191,6 +192,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/slack', NotificationSlack::class)->name('notifications.slack');
         Route::get('/pushover', NotificationPushover::class)->name('notifications.pushover');
         Route::get('/webhook', NotificationWebhook::class)->name('notifications.webhook');
+        Route::get('/center', NotificationCenter::class)->name('notifications.center');
     });
 
     Route::prefix('storages')->group(function () {

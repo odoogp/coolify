@@ -399,13 +399,14 @@ for module in __OWNER_LIST__; do
   ln -sfn "/gpsh-owner-modules/$module" "/mnt/extra-addons/$module"
 done
 umask 022
+exec > >(tee -a /mnt/extra-addons/.gpsh/odoo.log) 2>&1
 if [ "$(id -u)" = "0" ]; then
   chown -R odoo:odoo /var/lib/odoo 2>/dev/null || true
   if command -v setpriv >/dev/null 2>&1; then
-    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" --logfile=/mnt/extra-addons/.gpsh/odoo.log -d __ODOO_DB__
+    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
   fi
 fi
-exec odoo "${args[@]}" "${load[@]}" --logfile=/mnt/extra-addons/.gpsh/odoo.log -d __ODOO_DB__
+exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
 BASH));
     }
 

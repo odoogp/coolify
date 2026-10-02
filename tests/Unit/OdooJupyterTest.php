@@ -315,7 +315,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('base.user_admin')
         ->and($command)->toContain('web.base.url')
         ->and($command)->toContain('-i gpsh_autoconnect')
-        ->and($command)->toContain('--logfile=/mnt/extra-addons/.gpsh/odoo.log')
+        ->and($command)->toContain('tee -a /mnt/extra-addons/.gpsh/odoo.log')
         ->and($command)->toContain('/gpsh-owner-modules/')
         ->and($aligned['odoo']['volumes'] ?? [])->toContain('/data/coolify/gpsh-owner-modules:/gpsh-owner-modules:ro')
         ->and($command)->toContain('gpsh-connect-state')
@@ -331,7 +331,8 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
         ->and($command)->toContain('setpriv --reuid=odoo')
         ->and($command)->not->toContain('--load=base,web,gpsh_autoconnect')
-        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" --logfile=/mnt/extra-addons/.gpsh/odoo.log -d mi_empresa_staging_1')
+        ->and($command)->toContain('exec odoo "$${args[@]}" "$${load[@]}" -d mi_empresa_staging_1')
+        ->and($command)->not->toContain('--logfile=')
         ->and($aligned['odoo']['user'])->toBe('0:0')
         ->and($aligned['odoo']['restart'])->toBe('unless-stopped')
         ->and(str_replace('$$', '', $command))->not->toContain('$')
@@ -399,7 +400,7 @@ test('an owner module is linked into the addon folder and odoo logs go to the sh
     expect($command)->toContain('for module in sale_owner;')
         ->and($command)->toContain('ln -sfn "/gpsh-owner-modules/$$module" "/mnt/extra-addons/$$module"')
         ->and($command)->not->toContain('not-valid')
-        ->and($command)->toContain('--logfile=/mnt/extra-addons/.gpsh/odoo.log');
+        ->and($command)->toContain('tee -a /mnt/extra-addons/.gpsh/odoo.log');
 });
 
 test('owner jupyter mounts the image addons, owner modules, and branch addons', function () {
@@ -467,7 +468,12 @@ test('launching odoo adds grafana for that stack and only odoo and postgresql', 
 });
 
 test('the odoo terminal opens the odoo shell and the other containers keep theirs', function () {
-    expect(OdooGit::terminalShell('odoo-abc123'))->toBe('exec odoo shell --no-http -d "$ODOO_DATABASE"')
+    $shell = OdooGit::terminalShell('odoo-abc123');
+
+    expect($shell)->toContain('--db_host="$HOST"')
+        ->and($shell)->toContain('--db_port="$PORT"')
+        ->and($shell)->toContain('exec bash --noprofile --norc -i')
+        ->and($shell)->not->toContain('exec odoo shell')
         ->and(OdooGit::terminalShell('jupyter-abc123'))->toBeNull()
         ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull();
 });

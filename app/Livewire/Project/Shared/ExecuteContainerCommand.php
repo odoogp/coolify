@@ -140,8 +140,14 @@ class ExecuteContainerCommand extends Component
                     ]);
                 }
             } elseif (data_get($this->parameters, 'service_uuid')) {
-                $this->resource->applications()->get()->each(function ($application) {
+                $clientContainers = $this->resource instanceof Service
+                    && $this->resource->supportsOdooJupyter()
+                    && ! isInstanceAdmin();
+                $this->resource->applications()->get()->each(function ($application) use ($clientContainers) {
                     if (OdooMonitor::hidesTerminal((string) $application->name) || OdooJupyter::hidesTerminal((string) $application->name)) {
+                        return;
+                    }
+                    if ($clientContainers && ! OdooGit::clientSeesLog((string) $application->name)) {
                         return;
                     }
                     if ($application->isRunning() && $this->resource->server->isTerminalEnabled()) {
@@ -154,7 +160,10 @@ class ExecuteContainerCommand extends Component
                         ]);
                     }
                 });
-                $this->resource->databases()->get()->each(function ($database) {
+                $this->resource->databases()->get()->each(function ($database) use ($clientContainers) {
+                    if ($clientContainers && ! OdooGit::clientSeesLog((string) $database->name)) {
+                        return;
+                    }
                     if ($database->isRunning()) {
                         $this->containers->push([
                             'server' => $this->resource->server,

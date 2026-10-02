@@ -11,6 +11,7 @@ use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\GpshNotices;
 use App\Support\OdooGit;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -100,7 +101,7 @@ class CloneOdooStagingJob implements ShouldQueue
             $started = true;
             if ($copied instanceof Service && $copied->server?->isFunctional()) {
                 $activity = StartService::run($copied, pullLatestImages: false);
-                $this->waitForServiceStart($activity);
+                $this->waitForServiceStart($activity, $copied);
                 $original = $production->services()->get()->first(
                     fn (Service $service): bool => $service->supportsOdooJupyter()
                 );
@@ -108,6 +109,7 @@ class CloneOdooStagingJob implements ShouldQueue
                     OdooGit::copyProductionData($original, $copied);
                 }
                 OdooGit::waitUntilOpen($copied->fresh());
+                GpshNotices::announce($copied, 'accessible');
                 $copied->refresh();
                 $copied->isConfigurationChanged(true);
             }
@@ -179,16 +181,21 @@ class CloneOdooStagingJob implements ShouldQueue
         return $copy;
     }
 
-    private function waitForServiceStart(mixed $activity): void
+    private function waitForServiceStart(mixed $activity, Service $service): void
     {
         if (! $activity instanceof Activity) {
             throw new RuntimeException('The staging service did not start.');
         }
 
+        $mounted = false;
+        // The copied database is not open yet. Accessible is announced after waitUntilOpen.
+        $accessible = true;
         $deadline = time() + 3600;
         while (time() < $deadline) {
             $activity->refresh();
+            $output = RunRemoteProcess::decodeOutput($activity);
             $status = (string) $activity->getExtraProperty('status');
+            GpshNotices::watch($service, is_string($output) ? $output : '', $status, $mounted, $accessible);
             if ($status === ProcessStatus::FINISHED->value) {
                 return;
             }

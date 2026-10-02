@@ -7,6 +7,7 @@ use App\Actions\Service\StartService;
 use App\Enums\ProcessStatus;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\GpshNotices;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -59,7 +60,7 @@ class LaunchOdooProjectJob implements ShouldQueue
 
             $this->progress(2);
             $activity = StartService::run($service->fresh() ?? $service, pullLatestImages: false);
-            $this->waitForServiceStart($activity);
+            $this->waitForServiceStart($activity, $service);
 
             $environment = $service->environment;
             $this->progress(4, done: true, redirect: [
@@ -80,12 +81,14 @@ class LaunchOdooProjectJob implements ShouldQueue
         }
     }
 
-    private function waitForServiceStart(mixed $activity): void
+    private function waitForServiceStart(mixed $activity, Service $service): void
     {
         if (! $activity instanceof Activity) {
             throw new RuntimeException('The project could not be started.');
         }
 
+        $mounted = false;
+        $accessible = false;
         $deadline = time() + 1200;
         while (time() < $deadline) {
             $activity->refresh();
@@ -94,6 +97,7 @@ class LaunchOdooProjectJob implements ShouldQueue
                 $this->progress(3);
             }
             $status = (string) $activity->getExtraProperty('status');
+            GpshNotices::watch($service, is_string($output) ? $output : '', $status, $mounted, $accessible);
             if ($status === ProcessStatus::FINISHED->value) {
                 return;
             }

@@ -496,7 +496,7 @@ class OdooGit
     }
 
     /**
-     * Odoo opens its own shell. PostgreSQL and Jupyter keep the container shell.
+     * Clients see the Odoo and PostgreSQL containers. The instance admin sees the rest.
      */
     public static function clientSeesLog(string $container): bool
     {
@@ -540,7 +540,43 @@ class OdooGit
             return null;
         }
 
-        return 'exec odoo shell --no-http -d "$ODOO_DATABASE"';
+        // Stay in an interactive shell. `odoo shell` without these flags reads odoo.conf and dials 127.0.0.1:5432.
+        return <<<'BASH'
+printf '\n\033[95m%s\033[0m\n\n%s\n\n%s\n%s\n%s\n%s\n\n' \
+  'GPSH' \
+  'Conectado a esta instancia de Odoo.' \
+  '  odoo shell     Shell de Odoo, contra PostgreSQL del compose' \
+  '  psql           Base de esta instancia' \
+  '  odoo-log       Sigue el registro de Odoo' \
+  'Escribe exit para salir.'
+export HOST="${HOST:-postgresql}"
+export PORT="${PORT:-5432}"
+export PS1='gpsh:\w\$ '
+odoo() {
+  set -- --db_host="$HOST" --db_port="$PORT" --db_user="$USER" --db_password="$PASSWORD" "$@"
+  case " $* " in
+    *" shell "*)
+      case " $* " in
+        *" -d "*|*" --database "*) ;;
+        *) set -- "$@" -d "$ODOO_DATABASE" ;;
+      esac
+      ;;
+  esac
+  command odoo "$@"
+}
+psql() {
+  if ! command -v psql >/dev/null 2>&1; then
+    printf '%s\n' 'psql no está en este contenedor.'
+    return 1
+  fi
+  PGPASSWORD="$PASSWORD" command psql -h "$HOST" -p "$PORT" -U "$USER" -d "${ODOO_DATABASE:-postgres}" "$@"
+}
+odoo-log() {
+  tail -n 80 -F /mnt/extra-addons/.gpsh/odoo.log
+}
+export -f odoo psql odoo-log
+exec bash --noprofile --norc -i
+BASH;
     }
 
     public static function copyProductionDataCommand(Service $source, Service $target): string

@@ -140,6 +140,7 @@ class Configuration extends Component
             }
             $this->applications = $this->service->applications->sortBy(fn ($resource): int => $this->mountOrder((string) $resource->name))->values();
             $this->databases = $this->service->databases->sortBy(fn ($resource): int => $this->mountOrder((string) $resource->name))->values();
+            $this->hideClientContainers();
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -182,6 +183,21 @@ class Configuration extends Component
         $this->service->refresh();
         $this->applications = $this->service->applications->sort();
         $this->databases = $this->service->databases->sort();
+        $this->hideClientContainers();
+    }
+
+    private function hideClientContainers(): void
+    {
+        if (! $this->odooIsOdoo || isInstanceAdmin()) {
+            return;
+        }
+
+        $this->applications = $this->applications
+            ->filter(fn ($resource): bool => OdooGit::clientSeesLog((string) $resource->name))
+            ->values();
+        $this->databases = $this->databases
+            ->filter(fn ($resource): bool => OdooGit::clientSeesLog((string) $resource->name))
+            ->values();
     }
 
     public function restartApplication($id)
