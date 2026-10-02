@@ -100,7 +100,9 @@ Member only: `odoo_abilities` (grantable list). A member stays without server fl
 
 Owners always can. Members never can, even if the column is true. Server update/delete and S3 create stay owner-only. `S3StoragePolicy` stays as it is. `Storage\Create` is mounted on every page: authorize on submit, not on mount.
 
-Terminal (`canAccessTerminal` plus the resource check): members never. The instance owner can open any terminal. An admin can open the terminal only for an instance they created (`created_by`) or that the owner assigned to them. Another admin on the same team does not inherit that terminal.
+Terminal (`canAccessTerminal` plus the resource check): members never. The instance owner can open any terminal. An admin can open the terminal only for an instance they created (`created_by`) or that the owner assigned to them. Another admin on the same team does not inherit that terminal. The websocket allowlist is every server that user can use, including server id 0 when a service of their team runs there (`host.docker.internal`). It is not only `currentTeam()->servers`.
+
+Odoo stays the container process. Start as root only to `chown` `/var/lib/odoo` to the `odoo` user, then drop privileges. Do not pass `gpsh_autoconnect` with `--load`: a server-wide module that fails to import exits the container, the status stays `exited`, and Open Odoo stays hidden. The image healthcheck stays disabled. Listen stays `0.0.0.0:8069`.
 
 ## Support
 

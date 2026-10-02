@@ -227,28 +227,51 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('terminal.auth')->middleware('can.access.terminal');
 
     Route::post('/terminal/auth/ips', function () {
-        if (auth()->check()) {
-            $team = auth()->user()->currentTeam();
-            $ipAddresses = $team->servers
-                ->where('settings.is_terminal_enabled', true)
-                ->pluck('ip')
-                ->filter()
-                ->values();
-
-            if (isDev()) {
-                $ipAddresses = $ipAddresses->merge([
-                    'coolify-testing-host',
-                    'host.docker.internal',
-                    'localhost',
-                    '127.0.0.1',
-                    base_ip(),
-                ])->filter()->unique()->values();
-            }
-
-            return response()->json(['ipAddresses' => $ipAddresses->all()], 200);
+        if (! auth()->check()) {
+            return response()->json(['ipAddresses' => []], 401);
         }
 
-        return response()->json(['ipAddresses' => []], 401);
+        $user = auth()->user();
+        $team = $user->currentTeam();
+        $teamIds = $user->teams()->pluck('teams.id');
+        $serviceServerIds = \App\Models\Service::query()
+            ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
+            ->pluck('server_id')
+            ->filter()
+            ->unique()
+            ->values();
+
+        $ipAddresses = \App\Models\Server::query()
+            ->where(function ($query) use ($team, $serviceServerIds) {
+                $query->where('team_id', $team->id);
+                if ($serviceServerIds->isNotEmpty()) {
+                    $query->orWhereIn('id', $serviceServerIds);
+                }
+            })
+            ->get()
+            ->filter(function ($server) {
+                if (! userCanUseServer($server)) {
+                    return false;
+                }
+
+                return (bool) ($server->settings?->is_terminal_enabled ?? true);
+            })
+            ->pluck('ip')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if (isDev()) {
+            $ipAddresses = $ipAddresses->merge([
+                'coolify-testing-host',
+                'host.docker.internal',
+                'localhost',
+                '127.0.0.1',
+                base_ip(),
+            ])->filter()->unique()->values();
+        }
+
+        return response()->json(['ipAddresses' => $ipAddresses->all()], 200);
     })->name('terminal.auth.ips')->middleware('can.access.terminal');
 
     Route::prefix('invitations')->group(function () {

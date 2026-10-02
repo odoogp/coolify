@@ -180,7 +180,7 @@ open("/tmp/odoo-db-ready", "w").write("1" if ready else "0")
 PY
 args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode --no-database-list)
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
-load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons" --load=base,web,gpsh_autoconnect)
+load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons")
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
   python3 /tmp/gpsh-page.py "Instalando la base." || true
   odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i base --stop-after-init || true
@@ -233,6 +233,13 @@ with registry.cursor() as cr:
     cr.commit()
 PY
 if [ -f /tmp/gpsh-status.pid ]; then kill "$(cat /tmp/gpsh-status.pid)" 2>/dev/null || true; sleep 1; fi
+mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore
+if [ "$(id -u)" = "0" ]; then
+  chown -R odoo:odoo /var/lib/odoo 2>/dev/null || true
+  if command -v setpriv >/dev/null 2>&1; then
+    exec setpriv --reuid=odoo --regid=odoo --init-groups --inh-caps=-all odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
+  fi
+fi
 exec odoo "${args[@]}" "${load[@]}" -d __ODOO_DB__
 BASH));
     }
@@ -307,6 +314,8 @@ BASH));
                 // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
                 $service['entrypoint'] = ['bash', '-c'];
                 $service['command'] = [self::launchCommand($database, $url, $token, $password)];
+                $service['user'] = '0:0';
+                $service['restart'] = 'unless-stopped';
                 // The image healthcheck fails for the whole base install. Traefik then has no server and answers "no available server".
                 $service['healthcheck'] = ['disable' => true];
                 $environment = $service['environment'] ?? [];
