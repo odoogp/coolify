@@ -1,0 +1,2768 @@
+/* Coolify Tweaks 4.1.2 — MIT, Anirudh Sriram
+   https://github.com/techwithanirudh/coolify-tweaks
+   Loaded after GPSH styles. Remove the layout link to turn it off.
+*/
+/* ==FONT-IMPORT:START== */@import "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@100..900&family=Geist:wght@100..900&display=swap";/* ==FONT-IMPORT:END== */
+
+/* ==UI-THEME-VARS:START== */
+
+:root {
+  --background: #f8f8fa;
+  --foreground: #060606;
+  --card: #fdfdfe;
+  --card-foreground: var(--foreground);
+  --popover: #fbfcfe;
+  --popover-foreground: var(--foreground);
+  --primary: #7033ff;
+  --primary-foreground: #fff;
+  --secondary: #edeef3;
+  --secondary-foreground: #0d0d0d;
+  --muted: #dcdee1;
+  --muted-foreground: #262626;
+  --accent: #eef0f4;
+  --accent-foreground: var(--foreground);
+  --destructive: #e40014;
+  --destructive-foreground: #fff;
+  --border: #cbced3;
+  --input: #eaebee;
+  --ring: #121212;
+  --chart-1: #7033ff;
+  --chart-2: #e40014;
+  --chart-3: #4ac885;
+  --chart-4: #fd822b;
+  --chart-5: #3276e4;
+  --radius: .875rem;
+  --sidebar: #f0f2f5;
+  --sidebar-foreground: #0d0d0d;
+  --sidebar-primary: #0d0d0d;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #e3e4e9;
+  --sidebar-accent-foreground: #0d0d0d;
+  --sidebar-border: #cfd1d6;
+  --sidebar-ring: #121212;
+  --font-sans: "Geist", sans-serif;
+  --font-serif: "Georgia", serif;
+  --font-mono: "Geist Mono", monospace;
+  --shadow-2xs: 0px 2px 3px 0px #00000014;
+  --shadow-xs: 0px 2px 3px 0px #00000014;
+  --shadow-sm: 0px 2px 3px 0px #00000029, 0px 1px 2px -1px #00000029;
+  --shadow: 0px 2px 3px 0px #00000029, 0px 1px 2px -1px #00000029;
+  --shadow-md: 0px 2px 3px 0px #00000029, 0px 2px 4px -1px #00000029;
+  --shadow-lg: 0px 2px 3px 0px #00000029, 0px 4px 6px -1px #00000029;
+  --shadow-xl: 0px 2px 3px 0px #00000029, 0px 8px 10px -1px #00000029;
+  --shadow-2xl: 0px 2px 3px 0px #0006;
+  --spacing: .27rem;
+  --tracking-normal: -.025em;
+}
+
+@supports (color: lab(0% 0 0)) {
+  :root {
+    --background: lab(97.6702% -.0148118 -.76015);
+    --foreground: lab(1.5609% 0 0);
+    --card: lab(99.4151% -.0076592 -.380242);
+    --popover: lab(98.8253% -.0212193 -1.13969);
+    --primary: lab(41.276% 61.6029 -92.3266);
+    --primary-foreground: lab(100% 0 0);
+    --secondary: lab(94.1702% -.0367165 -2.2759);
+    --secondary-foreground: lab(3.6999% 0 0);
+    --muted: lab(88.3752% -.0316799 -1.89728);
+    --muted-foreground: lab(15.32% 0 0);
+    --accent: lab(94.7502% -.0367463 -2.27594);
+    --destructive: lab(48.4493% 77.4328 61.5452);
+    --destructive-foreground: lab(100% 0 0);
+    --border: lab(82.5599% -.0415742 -3.0303);
+    --input: lab(93.0203% -.0269115 -1.51871);
+    --ring: lab(5.26802% 0 0);
+    --chart-1: lab(41.276% 61.6029 -92.3266);
+    --chart-2: lab(48.4493% 77.4328 61.5452);
+    --chart-3: lab(72.4642% -47.8952 22.9132);
+    --chart-4: lab(68.023% 44.2252 64.984);
+    --chart-5: lab(49.9778% 8.92893 -63.243);
+    --sidebar: lab(95.3353% -.0321865 -1.89756);
+    --sidebar-foreground: lab(3.6999% 0 0);
+    --sidebar-primary: lab(3.6999% 0 0);
+    --sidebar-primary-foreground: lab(100% 0 0);
+    --sidebar-accent: lab(90.6902% -.036329 -2.27571);
+    --sidebar-accent-foreground: lab(3.6999% 0 0);
+    --sidebar-border: lab(83.7199% -.0418425 -3.03046);
+    --sidebar-ring: lab(5.26802% 0 0);
+  }
+}
+
+.dark {
+  --background: #1f1c23;
+  --foreground: #fdfdfc;
+  --card: #353239;
+  --card-foreground: #fcfafc;
+  --popover: #1a191f;
+  --popover-foreground: #f0f0f0;
+  --primary: #483492;
+  --primary-foreground: #fff;
+  --secondary: #302f35;
+  --secondary-foreground: #f0f0f0;
+  --muted: #27262b;
+  --muted-foreground: #a0a0a0;
+  --accent: #2a292e;
+  --accent-foreground: #ceced0;
+  --destructive: #ff6568;
+  --destructive-foreground: #fff;
+  --border: #38353b;
+  --input: #38353b;
+  --ring: #8c5cff;
+  --chart-1: #483492;
+  --chart-2: #ff6568;
+  --chart-3: #4ade80;
+  --chart-4: #fd822b;
+  --chart-5: #5993f4;
+  --radius: .875rem;
+  --sidebar: #1a191f;
+  --sidebar-foreground: #fbfafc;
+  --sidebar-primary: #2a292e;
+  --sidebar-primary-foreground: #fff;
+  --sidebar-accent: #2a292e;
+  --sidebar-accent-foreground: #fbf9fb;
+  --sidebar-border: #33353a;
+  --sidebar-ring: #8c5cff;
+  --font-sans: "Geist", sans-serif;
+  --font-serif: "Georgia", serif;
+  --font-mono: "Geist Mono", monospace;
+  --shadow-2xs: 0px 2px 3px 0px #00000014;
+  --shadow-xs: 0px 2px 3px 0px #00000014;
+  --shadow-sm: 0px 2px 3px 0px #00000029, 0px 1px 2px -1px #00000029;
+  --shadow: 0px 2px 3px 0px #00000029, 0px 1px 2px -1px #00000029;
+  --shadow-md: 0px 2px 3px 0px #00000029, 0px 2px 4px -1px #00000029;
+  --shadow-lg: 0px 2px 3px 0px #00000029, 0px 4px 6px -1px #00000029;
+  --shadow-xl: 0px 2px 3px 0px #00000029, 0px 8px 10px -1px #00000029;
+  --shadow-2xl: 0px 2px 3px 0px #0006;
+  --spacing: .27rem;
+  --tracking-normal: -.025em;
+}
+
+@supports (color: lab(0% 0 0)) {
+  .dark {
+    --background: lab(10.8451% 2.84829 -4.27331);
+    --foreground: lab(99.292% -.128835 .473607);
+    --card: lab(21.3129% 2.60812 -3.94655);
+    --card-foreground: lab(98.4697% .956982 -.721276);
+    --popover: lab(9.07116% 1.71524 -4.00495);
+    --popover-foreground: lab(94.7916% -.0000298023 0);
+    --primary: lab(28.5039% 28.6027 -49.9206);
+    --primary-foreground: lab(100% 0 0);
+    --secondary: lab(19.8558% 1.47314 -3.42205);
+    --secondary-foreground: lab(94.78% 0 0);
+    --muted: lab(15.2261% 1.32766 -3.07873);
+    --muted-foreground: lab(65.8728% .0000298023 -.0000119209);
+    --accent: lab(16.8478% 1.38634 -3.08989);
+    --accent-foreground: lab(82.8086% .269026 -.982177);
+    --destructive: lab(63.7053% 60.745 31.3109);
+    --destructive-foreground: lab(100% 0 0);
+    --border: lab(22.6425% 2.38897 -3.2687);
+    --input: lab(22.6425% 2.38897 -3.2687);
+    --ring: lab(51.3492% 47.9995 -75.7176);
+    --chart-1: lab(28.5039% 28.6027 -49.9206);
+    --chart-2: lab(63.7053% 60.745 31.3109);
+    --chart-3: lab(79.1499% -56.2124 34.18);
+    --chart-4: lab(68.023% 44.2252 64.984);
+    --chart-5: lab(60.4488% 3.68816 -55.3263);
+    --sidebar: lab(9.07116% 1.71524 -4.00495);
+    --sidebar-foreground: lab(98.3888% .598282 -.828302);
+    --sidebar-primary: lab(16.8478% 1.38634 -3.08989);
+    --sidebar-primary-foreground: lab(100% 0 0);
+    --sidebar-accent: lab(16.8478% 1.38634 -3.08989);
+    --sidebar-accent-foreground: lab(98.1217% .957042 -.721276);
+    --sidebar-border: lab(22.1025% .0234395 -3.45785);
+    --sidebar-ring: lab(51.3492% 47.9995 -75.7176);
+  }
+}
+
+/* ==UI-THEME-VARS:END== */
+
+:root {
+  --success: #4ac885;
+  --warning: #fd822b;
+  --info: #3276e4;
+  --color-base: var(--foreground);
+  --livewire-progress-bar-color: var(--primary);
+}
+
+@supports (color: lab(0% 0 0)) {
+  :root {
+    --success: lab(72.4642% -47.8952 22.9132);
+    --warning: lab(68.023% 44.2252 64.984);
+    --info: lab(49.9778% 8.92893 -63.243);
+  }
+}
+
+.dark {
+  --success: #4ade80;
+  --warning: #fd822b;
+  --info: #5993f4;
+  --color-base: var(--background);
+  --livewire-progress-bar-color: var(--primary);
+}
+
+@supports (color: lab(0% 0 0)) {
+  .dark {
+    --success: lab(79.1499% -56.2124 34.18);
+    --warning: lab(68.023% 44.2252 64.984);
+    --info: lab(60.4488% 3.68816 -55.3263);
+  }
+}
+
+:root {
+  --radius-xs: calc(var(--radius) - 8px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: calc(var(--radius) - 2px);
+  --radius-xl: var(--radius);
+  --radius-2xl: calc(var(--radius) + 4px);
+  --radius-3xl: calc(var(--radius) + 8px);
+  --sidebar-width: 260px;
+  --navigation-sidebar-width: var(--sidebar-width);
+  --navigation-sidebar-collapsed-width: 80px;
+  --blur: 10px;
+  --color-coollabs: var(--primary);
+  --color-text-primary: var(--foreground);
+  --color-coollabs-100: var(--primary);
+  --color-coollabs-200: var(--primary);
+  --color-coolgray-100: var(--border);
+  --color-coolgray-200: var(--input);
+  --color-coolgray-300: var(--border);
+  --color-coolgray-400: var(--accent);
+  --color-coolgray-500: var(--background);
+  --color-error: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
+  font-size: 15px;
+}
+
+@media (width >= 1024px) {
+  body:has(nav.sidebar-collapsed a[title="Dashboard"]) {
+    --navigation-sidebar-width: var(--navigation-sidebar-collapsed-width);
+  }
+}
+
+.scrollbar {
+  --scrollbar-thumb: var(--primary) !important;
+  --scrollbar-track: var(--background) !important;
+}
+
+button, a, input, select, textarea {
+  border-radius: var(--radius-md);
+}
+
+:root {
+  --default-font-family: var(--font-sans);
+}
+
+h1 {
+  color: var(--foreground);
+  font: 700 2.1rem/1.25 var(--font-sans);
+}
+
+h2 {
+  color: var(--foreground);
+  font: 700 1.5rem/1.35 var(--font-sans);
+}
+
+h3 {
+  color: var(--foreground);
+  font: 700 1.25rem/1.35 var(--font-sans);
+}
+
+h4 {
+  color: var(--foreground);
+  font: 700 1.1rem/1.35 var(--font-sans);
+}
+
+.subtitle {
+  color: var(--muted-foreground);
+  font-size: .95rem;
+}
+
+body, html, main {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+main {
+  height: 100svh;
+  padding-block: calc(var(--spacing) * 18) !important;
+}
+
+main > :not(template) {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+}
+
+body > div[x-data*="pageWidth"] {
+  min-width: 100%;
+  max-width: 100%;
+}
+
+section > h2 + div, section > h3 + div {
+  margin-top: calc(var(--spacing) * 2.5);
+  padding: calc(var(--spacing) * 3) calc(var(--spacing) * 3.5);
+  border-radius: var(--radius-xl);
+  background: var(--popover);
+  overflow: hidden;
+}
+
+section h3[class="pb-2"] {
+  font-size: 1.6rem;
+}
+
+:is(.flex.gap-1, .flex.gap-2, .flex.items-center.gap-4, .flex.flex-col.gap-4) > :is(h1, h2, h3, h4) {
+  margin-right: auto;
+}
+
+a[class*="hover:underline"]:hover {
+  color: var(--muted-foreground);
+  text-decoration: none;
+}
+
+.monaco-editor {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+[x-show="popups.sponsorship"] {
+  padding: calc(var(--spacing) * 5);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: var(--shadow-lg);
+}
+
+.fixed.inset-0.z-50 > .relative[class*="max-w-"], [x-show][x-trap], [x-show][x-trap] > .relative, [x-show^="modalOpen"] {
+  border-radius: var(--radius-lg);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+div[class="w-32"] {
+  width: 100%;
+  min-width: calc(var(--spacing) * 32);
+}
+
+div[class="w-48"] {
+  width: 100%;
+  min-width: calc(var(--spacing) * 48);
+}
+
+div[class*="w-64"] {
+  width: 100%;
+  min-width: calc(var(--spacing) * 64);
+}
+
+div[class="pb-6 w-96"], div[class="flex gap-2 items-end w-96"], div[class="w-96"], div[class="w-52"], form.w-96.flex, div[class*="sm:w-96"], div[class="pt-2 w-96"], div[class="w-96 flex flex-col gap-1"], div[class="w-96 pb-6"], div[class*="md:w-96"] {
+  width: 100%;
+  min-width: calc(var(--spacing) * 96);
+}
+
+div[class="w-[500px]"] {
+  width: 100%;
+  min-width: 500px;
+}
+
+div.flex.items-start.gap-2 > .inline-flex svg {
+  height: calc(var(--spacing) * 9);
+}
+
+div.w-auto > button {
+  width: max-content;
+}
+
+form, div[class*="shadow-lg lg:border-t dark:border-coolgray-300"] {
+  border-radius: var(--radius-lg);
+}
+
+div[class="flex flex-col gap-4 max-w-2xl"] {
+  max-width: none;
+}
+
+input.dark\:bg-coolgray-100:where(.dark, .dark *) {
+  padding: calc(var(--spacing) * 2.75);
+  background-color: var(--card);
+  border-radius: 4px;
+  transition: background .18s;
+}
+
+div[class*="p-4 border dark:border-coolgray-300"] {
+  padding: calc(var(--spacing) * 4);
+  border-radius: var(--radius-lg);
+  background: var(--background);
+}
+
+.dark\:hover\:bg-coolgray-100:where(.dark, .dark *):hover {
+  background: none;
+}
+
+button[isHighlighted]:not(:disabled) {
+  border-color: var(--primary);
+}
+
+button.button, .button {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button.button:focus-visible, .button:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button.button[aria-invalid="true"], .button[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button.button[aria-invalid="true"], :where(.dark, .dark *) .button[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button.button:disabled, .button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button.button:active, .button:active {
+  scale: .96;
+}
+
+button.button:active:not([aria-haspopup]), .button:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button.button:active:after, .button:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button.button, .button {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-xs);
+}
+
+button.button:hover, .button:hover {
+  background: color-mix(in srgb, var(--primary) 90%, transparent);
+}
+
+:where(.dark, .dark *) button.button:hover, :where(.dark, .dark *) .button:hover {
+  background: color-mix(in srgb, var(--primary) 80%, var(--input));
+}
+
+button.secondary, .secondary {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button.secondary:focus-visible, .secondary:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button.secondary[aria-invalid="true"], .secondary[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button.secondary[aria-invalid="true"], :where(.dark, .dark *) .secondary[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button.secondary:disabled, .secondary:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button.secondary:active, .secondary:active {
+  scale: .96;
+}
+
+button.secondary:active:not([aria-haspopup]), .secondary:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button.secondary:active:after, .secondary:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button.secondary, .secondary {
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  box-shadow: var(--shadow-xs);
+}
+
+button.secondary:hover, .secondary:hover {
+  background: color-mix(in srgb, var(--secondary) 80%, transparent);
+}
+
+:where(.dark, .dark *) button.secondary:hover, :where(.dark, .dark *) .secondary:hover {
+  background: color-mix(in srgb, var(--secondary) 60%, var(--input));
+}
+
+button.destructive, button[isError], .destructive {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button.destructive:focus-visible, button[isError]:focus-visible, .destructive:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button.destructive[aria-invalid="true"], button[isError][aria-invalid="true"], .destructive[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button.destructive[aria-invalid="true"], :where(.dark, .dark *) button[isError][aria-invalid="true"], :where(.dark, .dark *) .destructive[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button.destructive:disabled, button[isError]:disabled, .destructive:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button.destructive:active, button[isError]:active, .destructive:active {
+  scale: .96;
+}
+
+button.destructive:active:not([aria-haspopup]), button[isError]:active:not([aria-haspopup]), .destructive:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button.destructive:active:after, button[isError]:active:after, .destructive:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button.destructive, button[isError], .destructive {
+  background: var(--destructive) !important;
+  color: var(--destructive-foreground) !important;
+  box-shadow: var(--shadow-xs) !important;
+  border-color: color-mix(in srgb, var(--destructive) 40%, transparent) !important;
+}
+
+button.destructive:hover, button[isError]:hover, .destructive:hover {
+  background: color-mix(in srgb, var(--destructive) 90%, transparent) !important;
+}
+
+:where(.dark, .dark *) button.destructive:hover, :where(.dark, .dark *) button[isError]:hover, :where(.dark, .dark *) .destructive:hover {
+  background: color-mix(in srgb, var(--destructive) 80%, var(--input)) !important;
+  color: var(--destructive-foreground) !important;
+}
+
+:where(.dark, .dark *) button.destructive, :where(.dark, .dark *) button[isError], :where(.dark, .dark *) .destructive {
+  background: color-mix(in srgb, var(--destructive) 60%, var(--input)) !important;
+  color: var(--destructive-foreground) !important;
+  border-color: color-mix(in srgb, var(--destructive) 40%, var(--input)) !important;
+}
+
+button.destructive:disabled, button[isError]:disabled, .destructive:disabled {
+  background: color-mix(in srgb, var(--destructive) 40%, transparent) !important;
+  color: var(--destructive-foreground) !important;
+}
+
+button.outline, .outline {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button.outline:focus-visible, .outline:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button.outline[aria-invalid="true"], .outline[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button.outline[aria-invalid="true"], :where(.dark, .dark *) .outline[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button.outline:disabled, .outline:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button.outline:active, .outline:active {
+  scale: .96;
+}
+
+button.outline:active:not([aria-haspopup]), .outline:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button.outline:active:after, .outline:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button.outline, .outline {
+  background: var(--background);
+  color: var(--foreground);
+  border-color: var(--border);
+  box-shadow: var(--shadow-xs);
+}
+
+button.outline:hover, .outline:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+:where(.dark, .dark *) button.outline, :where(.dark, .dark *) .outline {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+  border-color: var(--input);
+}
+
+:where(.dark, .dark *) button.outline:hover, :where(.dark, .dark *) .outline:hover {
+  background: color-mix(in srgb, var(--input) 50%, transparent);
+  color: var(--accent-foreground);
+}
+
+button.ghost, .ghost {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button.ghost:focus-visible, .ghost:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button.ghost[aria-invalid="true"], .ghost[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button.ghost[aria-invalid="true"], :where(.dark, .dark *) .ghost[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button.ghost:disabled, .ghost:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button.ghost:active, .ghost:active {
+  scale: .96;
+}
+
+button.ghost:active:not([aria-haspopup]), .ghost:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button.ghost:active:after, .ghost:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button.ghost, .ghost {
+  color: var(--foreground);
+  background: none;
+}
+
+button.ghost:hover, .ghost:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+:where(.dark, .dark *) button.ghost:hover, :where(.dark, .dark *) .ghost:hover {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent-foreground);
+}
+
+button.link, .link {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button.link:focus-visible, .link:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button.link[aria-invalid="true"], .link[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button.link[aria-invalid="true"], :where(.dark, .dark *) .link[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button.link:disabled, .link:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button.link:active, .link:active {
+  scale: .96;
+}
+
+button.link:active:not([aria-haspopup]), .link:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button.link:active:after, .link:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button.link, .link {
+  color: var(--primary);
+  text-underline-offset: 4px;
+  background: none;
+  text-decoration: none;
+}
+
+button.link:hover, .link:hover {
+  text-decoration: underline;
+}
+
+:where(input:disabled, input[disabled]) ~ :is(button:not(:disabled), [role="button"], [x-on\:click], [\@click]), :where(div, label).relative:has( > :is(input:disabled, input[disabled])) :is(button:not(:disabled), [role="button"], [x-on\:click], [\@click]), fieldset[disabled] :is(button:not(:disabled), [role="button"], [x-on\:click], [\@click]) {
+  z-index: 2;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+
+input.input, input.input-sticky, textarea.input, select.select {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  box-shadow: var(--shadow-xs);
+  background: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+:where(.dark, .dark *) input.input, :where(.dark, .dark *) input.input-sticky, :where(.dark, .dark *) textarea.input, :where(.dark, .dark *) select.select {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+input.input:hover, input.input-sticky:hover, textarea.input:hover, select.select:hover {
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+}
+
+:where(.dark, .dark *) input.input:hover, :where(.dark, .dark *) input.input-sticky:hover, :where(.dark, .dark *) textarea.input:hover, :where(.dark, .dark *) select.select:hover {
+  background: color-mix(in srgb, var(--input) 40%, transparent);
+}
+
+input.input:focus-visible, input.input-sticky:focus-visible, textarea.input:focus-visible, select.select:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+input.input::placeholder, input.input-sticky::placeholder, textarea.input::placeholder, select.select::placeholder {
+  color: var(--muted-foreground);
+  opacity: .7;
+}
+
+input.input[aria-invalid="true"], input.input-sticky[aria-invalid="true"], textarea.input[aria-invalid="true"], select.select[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) input.input[aria-invalid="true"], :where(.dark, .dark *) input.input-sticky[aria-invalid="true"], :where(.dark, .dark *) textarea.input[aria-invalid="true"], :where(.dark, .dark *) select.select[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+input.input:disabled, input.input-sticky:disabled, textarea.input:disabled, select.select:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+input.input::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+input.input-sticky::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+textarea.input::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+select.select::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+input[x-model="search"], input.input--search {
+  position: relative;
+}
+
+input[x-model="search"]:has( + svg), input[x-model="search"]:has( + svg[aria-hidden]), input[x-model="search"]:has( + svg[class*="w-4"]), input.input--search:has( + svg), input.input--search:has( + svg[aria-hidden]), input.input--search:has( + svg[class*="w-4"]) {
+  padding-left: calc(var(--spacing) * 10);
+}
+
+input[x-model="search"] + svg, input[x-model="search"] svg[aria-hidden][class*="w-4"], input.input--search + svg, input.input--search svg[aria-hidden][class*="w-4"] {
+  left: calc(var(--spacing) * 3);
+  pointer-events: none;
+  color: var(--muted-foreground);
+  height: calc(var(--spacing) * 4);
+  width: calc(var(--spacing) * 4);
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+input[type="checkbox"], input[type="radio"] {
+  padding: calc(var(--spacing) * 2.75);
+  background-color: var(--muted);
+  box-shadow: none;
+  border: var(--border);
+  color: var(--muted-foreground);
+  border-radius: 4px;
+  transition: background-color .18s, box-shadow .18s;
+}
+
+input[type="checkbox"]:focus-visible, input[type="radio"]:focus-visible {
+  background-color: color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+label {
+  margin: calc(var(--spacing) * 1);
+  font-weight: 600;
+}
+
+select {
+  appearance: base-select;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  background: none;
+  align-items: center;
+  transition: border-color .2s, background .2s, box-shadow .2s;
+  display: inline-flex;
+}
+
+:where(.dark, .dark *) select {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+select:disabled {
+  border-color: var(--muted-foreground);
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+  pointer-events: none;
+  opacity: .5;
+}
+
+select:not([disabled]):hover, select:not([disabled]):focus {
+  border-color: var(--input);
+  background: var(--accent);
+}
+
+select::picker-icon {
+  color: var(--muted-foreground);
+  content: "";
+  width: calc(var(--spacing) * 4);
+  height: calc(var(--spacing) * 4.5);
+  background-color: currentColor;
+  transition: rotate .4s;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/caret-down-bold.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/caret-down-bold.svg") center / contain no-repeat;
+}
+
+select:open::picker-icon {
+  rotate: 180deg;
+}
+
+select {
+  appearance: base-select;
+}
+
+select::picker(select) {
+  appearance: base-select;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--popover);
+  top: calc(anchor(bottom) + 4px);
+  opacity: 0;
+  transition: opacity .2s ease, transform .2s cubic-bezier(0, 0, .3, 1), display .2s allow-discrete, overlay .2s allow-discrete;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-4px);
+}
+
+select:open::picker(select) {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@starting-style {
+  select:open::picker(select) {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+option {
+  padding: calc(var(--spacing) * 2.5);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  justify-content: flex-start;
+  gap: calc(var(--spacing) * 5);
+  transition: all .4s;
+  display: flex;
+}
+
+option:first-of-type {
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+option:last-of-type {
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+option:not(:last-of-type) {
+  border-bottom: none;
+}
+
+option:hover:not(:disabled), option:focus:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+option .icon {
+  text-box: trim-both cap alphabetic;
+  font-size: 1.6rem;
+}
+
+option selectedcontent .icon {
+  display: none;
+}
+
+option:checked {
+  font-weight: bold;
+}
+
+option::checkmark {
+  content: "";
+  width: calc(var(--spacing) * 4);
+  height: calc(var(--spacing) * 4);
+  background-color: currentColor;
+  order: 1;
+  margin-left: auto;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/regular/check.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/regular/check.svg") center / contain no-repeat;
+}
+
+option:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+  pointer-events: none;
+}
+
+table {
+  min-width: 100%;
+  margin-top: calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+  overflow: hidden;
+}
+
+table > :not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+table thead {
+  background: var(--secondary);
+  text-transform: uppercase;
+}
+
+table thead tr th {
+  padding-block: calc(var(--spacing) * 3.5);
+  padding-inline: calc(var(--spacing) * 3);
+  text-align: left;
+  font-weight: var(--font-weight-medium);
+  color: var(--secondary-foreground) !important;
+}
+
+table thead tr th:first-child {
+  padding-left: calc(var(--spacing) * 4);
+}
+
+@media (width >= 40rem) {
+  table thead tr th:first-child {
+    padding-left: calc(var(--spacing) * 6);
+  }
+}
+
+@media (hover: hover) {
+  table thead tr:hover {
+    background: color-mix(in srgb, var(--muted) 50%, transparent);
+  }
+}
+
+table tbody > :not(:last-child) {
+  border-bottom: 1px solid var(--border);
+}
+
+table tbody tr td {
+  padding-block: calc(var(--spacing) * 4);
+  padding-inline: calc(var(--spacing) * 3);
+  white-space: nowrap;
+  color: var(--secondary-foreground) !important;
+}
+
+table tbody tr td:first-child {
+  padding-left: calc(var(--spacing) * 4);
+  font-weight: var(--font-weight-bold);
+}
+
+@media (width >= 40rem) {
+  table tbody tr td:first-child {
+    padding-left: calc(var(--spacing) * 6);
+  }
+}
+
+@media (hover: hover) {
+  table tbody tr:hover {
+    background: color-mix(in srgb, var(--muted) 50%, transparent);
+  }
+}
+
+.badge-dashboard, .badge {
+  width: calc(var(--spacing) * 4.5);
+  height: calc(var(--spacing) * 4.5);
+  border-radius: none;
+  border: none;
+}
+
+ul[x-data] li > span {
+  border: 1px solid var(--border);
+  background: var(--card);
+  backdrop-filter: blur(var(--blur));
+  font-family: Inter, sans-serif;
+}
+
+@keyframes wiggle {
+  0%, 100% {
+    transform: rotate(0);
+  }
+
+  25% {
+    transform: rotate(-3deg);
+  }
+
+  75% {
+    transform: rotate(3deg);
+  }
+}
+
+.toast-no-description svg[fill="currentColor"] {
+  animation: .6s wiggle;
+}
+
+[x-show="dropdownOpen"] > div {
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item, [x-show="dropdownOpen"] > div .dropdown-item-no-padding {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:focus-visible, [x-show="dropdownOpen"] > div .dropdown-item-no-padding:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item[aria-invalid="true"], [x-show="dropdownOpen"] > div .dropdown-item-no-padding[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) [x-show="dropdownOpen"] > div .dropdown-item[aria-invalid="true"], :where(.dark, .dark *) [x-show="dropdownOpen"] > div .dropdown-item-no-padding[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:disabled, [x-show="dropdownOpen"] > div .dropdown-item-no-padding:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:active, [x-show="dropdownOpen"] > div .dropdown-item-no-padding:active {
+  scale: .96;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:active:not([aria-haspopup]), [x-show="dropdownOpen"] > div .dropdown-item-no-padding:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:active:after, [x-show="dropdownOpen"] > div .dropdown-item-no-padding:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item, [x-show="dropdownOpen"] > div .dropdown-item-no-padding {
+  text-align: left;
+  width: 100%;
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+  color: var(--popover-foreground);
+  background: var(--popover);
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:hover, [x-show="dropdownOpen"] > div .dropdown-item-no-padding:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item:focus, [x-show="dropdownOpen"] > div .dropdown-item-no-padding:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  border-color: var(--ring);
+  outline: none;
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item-no-padding {
+  padding: calc(var(--spacing) * 1);
+}
+
+[x-show="dropdownOpen"] > div .dropdown-item-no-padding:focus {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ring) 50%, transparent);
+  border-color: var(--ring);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]) {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  box-shadow: var(--shadow-xs);
+  background: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+:where(.dark, .dark *) div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]) {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]):hover {
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+}
+
+:where(.dark, .dark *) div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]):hover {
+  background: color-mix(in srgb, var(--input) 40%, transparent);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]):focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"])::placeholder {
+  color: var(--muted-foreground);
+  opacity: .7;
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"])[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"])[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]):disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"])::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div:has(input[x-ref="searchInput"]) {
+  padding: calc(var(--spacing) * 2.25);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) > div[\@click="openDropdown()"] {
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  background: none;
+  padding: 0;
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) div[x-show^="open"] {
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) div[x-show^="open"] > div {
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+  color: var(--popover-foreground);
+  background: var(--popover);
+  transition: background .15s, color .15s;
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) div[x-show^="open"] > div:first-child {
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) div[x-show^="open"] > div:last-child {
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+
+div[x-data]:has(div.absolute[x-show^="open"]):has(div[\@click="openDropdown()"]) div[x-show^="open"] > div:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+div[x-data*="activeTab"] div.flex.border-b > button {
+  border-radius: 0;
+}
+
+.box, .box-without-bg, .coolbox {
+  padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-2xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s, box-shadow .2s, background .18s, border-color .18s, scale .15s, translate .15s;
+  position: relative;
+  overflow: hidden;
+}
+
+.box:active, .box-without-bg:active, .coolbox:active {
+  scale: .96;
+}
+
+.box:active:not([aria-haspopup]), .box-without-bg:active:not([aria-haspopup]), .coolbox:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+.box:active:after, .box-without-bg:active:after, .coolbox:active:after {
+  content: "";
+  z-index: -1;
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+.box-title {
+  -webkit-line-clamp: 4;
+  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  font-size: 1.05rem;
+  font-weight: 600;
+  display: -webkit-box;
+  overflow: hidden;
+}
+
+.box-description {
+  color: var(--muted-foreground);
+}
+
+div[data-testid="resources-grid"], div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) {
+  gap: calc(var(--spacing) * 2.5);
+  margin-top: calc(var(--spacing) * 2.5);
+  padding: calc(var(--spacing) * 4) calc(var(--spacing) * 4);
+  border-radius: var(--radius-3xl);
+  background: var(--accent);
+  color: var(--accent-foreground);
+  overflow: hidden;
+}
+
+div[data-testid="resources-grid"] h1, div[data-testid="resources-grid"] h2, div[data-testid="resources-grid"] h3, div[data-testid="resources-grid"] h4, div[data-testid="resources-grid"] h5, div[data-testid="resources-grid"] h6, div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) h1, div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) h2, div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) h3, div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) h4, div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) h5, div.grid[class*="cols"]:is(:has( > .coolbox), :has( > .box), :has( > span > .coolbox), :has( > span > .box), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]) h6 {
+  color: var(--accent-foreground);
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+@media screen and (width >= 640px) {
+  div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media screen and (width >= 1024px) {
+  div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media screen and (width >= 1280px) {
+  div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media screen and (width >= 1536px) {
+  div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box {
+  height: 150px;
+  padding: calc(var(--spacing) * 4) calc(var(--spacing) * 5);
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox > div, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box > div {
+  margin: 0;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox > div:has( > div + div), div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox:has( > div + div), div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box > div:has( > div + div), div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box:has( > div + div) {
+  flex-direction: column-reverse;
+  justify-content: space-between;
+  align-items: start;
+  display: flex;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox div:has( > .box-title), div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box div:has( > .box-title) {
+  flex: none;
+  justify-content: flex-start;
+  width: 100%;
+  padding-inline: 0;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox div:has( > .box-title) + div, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box div:has( > .box-title) + div {
+  justify-content: flex-end;
+  gap: calc(var(--spacing) * 2);
+  width: 100%;
+  margin-inline: 0;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox .box-description, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox .box-title, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box .box-description, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box .box-title {
+  padding: 0;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox .box-description[x-text="item.description"], div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box .box-description[x-text="item.description"] {
+  margin-top: auto;
+  padding-bottom: 2px;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/edit"], div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/new"], div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/edit"], div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/new"] {
+  padding: calc(var(--spacing) * 1.5);
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  border-radius: var(--radius-md);
+  margin-inline: 0;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/edit"] > *, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/new"] > *, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/edit"] > *, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/new"] > * {
+  display: none;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/new"], div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/new"] {
+  text-indent: -9999px;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+  position: relative;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/new"]:before, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/new"]:before {
+  content: "";
+  width: calc(var(--spacing) * 4);
+  height: calc(var(--spacing) * 4);
+  color: var(--color-text);
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/plus-bold.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/plus-bold.svg") center / contain no-repeat;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/edit"], div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/edit"] {
+  text-indent: -9999px;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+  position: relative;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/edit"]:before, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/edit"]:before {
+  content: "";
+  width: calc(var(--spacing) * 4);
+  height: calc(var(--spacing) * 4);
+  color: var(--color-text);
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/gear-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/gear-fill.svg") center / contain no-repeat;
+}
+
+div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/new"]:hover, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .coolbox a[href*="/edit"]:hover, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/new"]:hover, div.grid[class*="cols"]:is(:has(a[href*="/project/"][class="absolute inset-0"]), :has([wire\:click^="navigateToProject"]), :has([\@click^="$wire.navigateToProject"]), [x-show^="filteredApplications"], [x-show^="filteredServices"], [x-show^="filteredDatabases"]:has( > span > a.coolbox), [x-show^="filteredDatabases"]:has( > span > a.box)) .box a[href*="/edit"]:hover {
+  background-color: color-mix(in srgb, var(--accent) 80%, transparent);
+  color: var(--accent-foreground);
+  opacity: 1;
+}
+
+div.grid[wire\:poll\.3000ms="loadDeployments"] > .grid:has(a[href^="/project/"]) {
+  padding: 0;
+}
+
+.grid:has(a[href*="/server/"]), .grid:has(a[href*="/source/"]), .grid:has(a[href*="/destination/"]), .grid:has(a[href*="/security/"]) {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+}
+
+.navbar-main {
+  padding: calc(var(--spacing) * 1.75) calc(var(--spacing) * 3.5);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--sidebar);
+  backdrop-filter: blur(var(--blur));
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+}
+
+.navbar-main nav {
+  align-items: center;
+  gap: calc(var(--spacing) * 3.25);
+  padding-block: 0;
+  display: flex;
+}
+
+.navbar-main nav::-webkit-scrollbar {
+  display: none;
+}
+
+.navbar-main nav a {
+  padding: calc(var(--spacing) * 1.25);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: background .18s, color .18s;
+}
+
+.navbar-main nav a:hover, .navbar-main nav a[class*="dark:text-white"], .navbar-main nav a[aria-current="page"] {
+  color: var(--sidebar-foreground);
+}
+
+.navbar-main .flex-1 {
+  flex: auto;
+}
+
+.navbar-main div button[class*="button"] > svg {
+  color: var(--primary-foreground);
+}
+
+.menu-item[title="Theme"]:active {
+  translate: 0 !important;
+  scale: 1 !important;
+}
+
+.menu-item[title="Theme"]:active:after {
+  content: none !important;
+}
+
+.menu-item[title="Theme"] > div {
+  background: var(--sidebar-accent);
+  border-radius: var(--radius-sm);
+}
+
+.menu-item[title="Theme"] > div button {
+  color: var(--sidebar-foreground);
+  opacity: .55;
+  flex: 1;
+  transition: opacity .15s, scale .15s;
+}
+
+.menu-item[title="Theme"] > div button[class*="shadow-sm"] {
+  opacity: 1;
+  background: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
+  box-shadow: none !important;
+}
+
+.menu-item[title="Theme"] > div button:hover {
+  opacity: 1;
+  scale: 1.15;
+  background: var(--sidebar) !important;
+  color: var(--sidebar-foreground) !important;
+}
+
+.menu-item[title="Theme"] > div button svg > * {
+  display: none;
+}
+
+.menu-item[title="Theme"] > div button[title="Light"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sun-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sun-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Theme"] > div button[title="System default"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/monitor-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/monitor-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Theme"] > div button[title="Dark"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/moon-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/moon-fill.svg") center / contain no-repeat;
+}
+
+li:has(div.menu-item[title="Theme"]) button.menu-item .menu-item-icon[x-show*="light"] {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sun-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sun-fill.svg") center / contain no-repeat;
+}
+
+li:has(div.menu-item[title="Theme"]) button.menu-item .menu-item-icon[x-show*="system"] {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/monitor-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/monitor-fill.svg") center / contain no-repeat;
+}
+
+li:has(div.menu-item[title="Theme"]) button.menu-item .menu-item-icon[x-show*="dark"] {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/moon-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/moon-fill.svg") center / contain no-repeat;
+}
+
+div.lg\:fixed:has(nav a[title="Dashboard"]) {
+  width: var(--navigation-sidebar-width);
+}
+
+nav[x-data]:has(a[title="Dashboard"]) {
+  border-right: 1px solid var(--border);
+  background: var(--sidebar);
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent) transparent;
+  width: 100%;
+  overflow: hidden auto;
+}
+
+nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-6 pb-4 pl-2"] > div, nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-4 pb-4 pl-2"] > div {
+  height: 100%;
+  margin-inline: calc(var(--spacing) * .5);
+  justify-content: center;
+  align-items: center;
+}
+
+nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-6 pb-4 pl-2"] > div:first-child, nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-4 pb-4 pl-2"] > div:first-child {
+  align-items: flex-start;
+}
+
+nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-6 pb-4 pl-2"] > div:has( > button[title*="Search"]):not([class*="lg:hidden"]), nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-4 pb-4 pl-2"] > div:has( > button[title*="Search"]):not([class*="lg:hidden"]) {
+  justify-content: flex-end;
+}
+
+nav[x-data]:has(a[title="Dashboard"]) > ul {
+  padding-inline: calc(var(--spacing) * 2);
+}
+
+nav[x-data] > div:has(select[wire\:model\.live="selectedTeamId"]) {
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 2) calc(var(--spacing) * 7);
+  flex-shrink: 0;
+}
+
+nav[x-data] > div:has(select[wire\:model\.live="selectedTeamId"]) select {
+  width: 100%;
+  min-height: calc(var(--spacing) * 10);
+}
+
+aside::-webkit-scrollbar {
+  width: 8px;
+}
+
+aside::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+}
+
+nav > ul > li > ul > li {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+@layer base {
+  .menu-item, .sub-menu-item, nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-6 pb-4 pl-2"] > div, nav[x-data]:has(a[title="Dashboard"]) > div[class*="flex pt-4 pb-4 pl-2"] > div {
+    display: flex;
+  }
+}
+
+.menu-item, .sub-menu-item {
+  width: 100%;
+  min-width: 0;
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 3.75);
+  border-radius: var(--radius-lg);
+  align-items: center;
+  gap: calc(var(--spacing) * 2.5);
+  font-weight: 500;
+  transition: background .18s, color .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+.menu-item:active, .sub-menu-item:active {
+  scale: .98;
+}
+
+.menu-item:active:not([aria-haspopup]), .sub-menu-item:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+.menu-item:active:after, .sub-menu-item:active:after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  scale: 1.03;
+}
+
+.menu-item {
+  color: var(--sidebar-foreground);
+}
+
+div > .menu-item, .sub-menu-item {
+  color: var(--foreground);
+}
+
+.menu-item:hover, .menu-item-active {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
+div > .menu-item:hover, div > .menu-item-active, .sub-menu-item:hover, .sub-menu-item-active {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.menu-item .icon, .menu-item .menu-item-icon, .sub-menu-item .icon, .sub-menu-item .sub-menu-item-icon {
+  stroke-width: 1.6px;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
+.menu-item .icon > *, .menu-item .menu-item-icon > *, .sub-menu-item .icon > *, .sub-menu-item .sub-menu-item-icon > * {
+  display: none;
+}
+
+.menu-item[title="Dashboard"] .icon, .menu-item[title="Dashboard"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/house-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/house-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Projects"] .icon, .menu-item[title="Projects"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/folder-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/folder-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Servers"] .icon, .menu-item[title="Servers"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/hard-drives-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/hard-drives-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Sources"] .icon, .menu-item[title="Sources"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/github-logo-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/github-logo-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Destinations"] .icon, .menu-item[title="Destinations"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/map-pin-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/map-pin-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="S3 Storages"] .icon, .menu-item[title="S3 Storages"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/database-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/database-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Shared variables"] .icon, .menu-item[title="Shared variables"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/function-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/function-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Notifications"] .icon, .menu-item[title="Notifications"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/bell-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/bell-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Keys & Tokens"] .icon, .menu-item[title="Keys & Tokens"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/key-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/key-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Tags"] .icon, .menu-item[title="Tags"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/tag-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/tag-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Terminal"] .icon, .menu-item[title="Terminal"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/terminal-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/terminal-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Profile"] .icon, .menu-item[title="Profile"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/user-circle-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/user-circle-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Teams"] .icon, .menu-item[title="Teams"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/users-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/users-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Settings"] .icon, .menu-item[title="Settings"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/gear-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/gear-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Sponsor us"] .icon, .menu-item[title="Sponsor us"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/heart-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/heart-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Send us feedback or get help!"] .icon, .menu-item[title="Send us feedback or get help!"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/chat-text-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/chat-text-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Logout"] .icon, .menu-item[title="Logout"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sign-out-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sign-out-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="Theme"] .icon, .menu-item[title="Theme"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/paint-brush-household-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/paint-brush-household-fill.svg") center / contain no-repeat;
+}
+
+.menu-item[title="What's New"] .icon, .menu-item[title="What's New"] .menu-item-icon {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sparkle-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/sparkle-fill.svg") center / contain no-repeat;
+}
+
+@media screen and (width >= 1024px) {
+  aside[class*="sidebar"] {
+    z-index: 60;
+    transform: translateX(calc(-1 * var(--sidebar-width)));
+    transition: transform .25s;
+    position: fixed;
+    inset: 0;
+  }
+
+  body.sidebar-open aside {
+    transform: none;
+  }
+
+  body.sidebar-open:after {
+    z-index: 50;
+    background: var(--color-overlay);
+    content: "";
+    position: fixed;
+    inset: 0;
+  }
+
+  body:has(nav[class*="dark:border-coolgray-200"]) main {
+    padding-left: calc(var(--navigation-sidebar-width) + calc(var(--spacing) * 6));
+  }
+}
+
+.sub-menu-wrapper {
+  min-width: var(--sidebar-width);
+  align-items: flex-start;
+  gap: calc(var(--spacing) * 2);
+  flex-direction: column;
+  width: 100%;
+  display: flex;
+}
+
+@media screen and (width >= 640px) {
+  .sub-menu-wrapper {
+    top: calc(var(--spacing) * 2);
+    flex-shrink: 1;
+    width: auto;
+    max-width: 100%;
+    height: min-content;
+    position: sticky;
+  }
+}
+
+button:has([title="Settings"]), button:has([title="Preferences"]) {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button:has([title="Settings"]):focus-visible, button:has([title="Preferences"]):focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button:has([title="Settings"])[aria-invalid="true"], button:has([title="Preferences"])[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button:has([title="Settings"])[aria-invalid="true"], :where(.dark, .dark *) button:has([title="Preferences"])[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button:has([title="Settings"]):disabled, button:has([title="Preferences"]):disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button:has([title="Settings"]):active, button:has([title="Preferences"]):active {
+  scale: .96;
+}
+
+button:has([title="Settings"]):active:not([aria-haspopup]), button:has([title="Preferences"]):active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button:has([title="Settings"]):active:after, button:has([title="Preferences"]):active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button:has([title="Settings"]), button:has([title="Preferences"]) {
+  color: var(--muted-foreground);
+  padding-inline: calc(var(--spacing) * 2);
+  padding-block: calc(var(--spacing) * 2);
+  margin-right: calc(var(--spacing) * 2);
+  width: calc(var(--spacing) * 10);
+  height: calc(var(--spacing) * 10);
+  border-radius: 10px;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+}
+
+button:has([title="Settings"]):hover, button:has([title="Preferences"]):hover {
+  background: color-mix(in srgb, var(--secondary) 80%, transparent);
+  color: var(--foreground);
+}
+
+button:has([title="Settings"]) > span > div, button:has([title="Preferences"]) > span > div {
+  justify-content: center;
+}
+
+button:has([title="Settings"]) > svg.w-5.h-5, button:has([title="Preferences"]) > svg.w-5.h-5 {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/faders-fill.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/fill/faders-fill.svg") center / contain no-repeat;
+}
+
+.dropdown-item-no-padding[wire\:click="openWhatsNewModal"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/list-magnifying-glass-duotone.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/list-magnifying-glass-duotone.svg") center / contain no-repeat;
+}
+
+.dropdown-item-no-padding[\@click^="setTheme('dark')"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/moon-duotone.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/moon-duotone.svg") center / contain no-repeat;
+}
+
+.dropdown-item-no-padding[\@click^="setTheme('light')"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/sun-duotone.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/sun-duotone.svg") center / contain no-repeat;
+}
+
+.dropdown-item-no-padding[\@click^="setTheme('system')"] svg {
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/desktop-duotone.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/duotone/desktop-duotone.svg") center / contain no-repeat;
+}
+
+.relative:has( > button[title="Preferences"] + div[x-show="dropdownOpen"]:not([style*="display: none"])) > button[title="Preferences"] {
+  color: var(--foreground);
+  background: var(--secondary);
+}
+
+div[x-show="dropdownOpen"]:has(button[\@click*="setTheme"]) {
+  right: calc(var(--spacing) * 2);
+  top: calc(var(--spacing) * 10);
+}
+
+button[\@click^="switchWidth"], button[\@click^="setZoom"], div[class*="font-bold border-b dark:border-coolgray-500 border-neutral-300 dark:text-white"] {
+  display: none;
+}
+
+button[\@click^="$dispatch('open-global-search')"] {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+button[\@click^="$dispatch('open-global-search')"]:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+button[\@click^="$dispatch('open-global-search')"][aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) button[\@click^="$dispatch('open-global-search')"][aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+button[\@click^="$dispatch('open-global-search')"]:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+button[\@click^="$dispatch('open-global-search')"]:active {
+  scale: .96;
+}
+
+button[\@click^="$dispatch('open-global-search')"]:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+button[\@click^="$dispatch('open-global-search')"]:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+button[\@click^="$dispatch('open-global-search')"] {
+  padding-inline: calc(var(--spacing) * 2);
+  padding-block: calc(var(--spacing) * 2);
+  border: var(--border);
+  width: calc(var(--spacing) * 10);
+  height: calc(var(--spacing) * 10);
+  background: none;
+  border-radius: 10px;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+}
+
+button[\@click^="$dispatch('open-global-search')"]:hover {
+  background: color-mix(in srgb, var(--secondary) 80%, transparent);
+}
+
+button[\@click^="$dispatch('open-global-search')"]:hover > svg.w-4.h-4 {
+  color: var(--foreground);
+}
+
+button[\@click^="$dispatch('open-global-search')"] > svg.w-4.h-4 {
+  width: calc(var(--spacing) * 5);
+  height: calc(var(--spacing) * 5);
+  color: var(--muted-foreground);
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/magnifying-glass-bold.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/magnifying-glass-bold.svg") center / contain no-repeat;
+}
+
+button[\@click^="$dispatch('open-global-search')"] kbd {
+  display: none;
+}
+
+body:has(div[x-show="modalOpen"]:not([style*="display: none"]) input[x-ref="searchInput"]) button[\@click^="$dispatch('open-global-search')"] {
+  background-color: var(--secondary);
+}
+
+body:has(div[x-show="modalOpen"]:not([style*="display: none"]) input[x-ref="searchInput"]) button[\@click^="$dispatch('open-global-search')"] > svg.w-4.h-4 {
+  color: var(--foreground);
+}
+
+svg.animate-spin {
+  color: var(--primary);
+}
+
+svg.animate-spin circle {
+  opacity: .75;
+  stroke: var(--primary-foreground);
+  stroke-width: 2px;
+}
+
+.search-result-item {
+  border-radius: 0;
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  box-shadow: var(--shadow-xs);
+  background: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+:where(.dark, .dark *) div.flex.flex-1:has(button[x-show="searchQuery"]) input {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input:hover {
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+}
+
+:where(.dark, .dark *) div.flex.flex-1:has(button[x-show="searchQuery"]) input:hover {
+  background: color-mix(in srgb, var(--input) 40%, transparent);
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input::placeholder {
+  color: var(--muted-foreground);
+  opacity: .7;
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) div.flex.flex-1:has(button[x-show="searchQuery"]) input[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+div.flex.flex-1:has(button[x-show="searchQuery"]) input {
+  padding-left: calc(var(--spacing) * 7);
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12 {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  box-shadow: var(--shadow-xs);
+  background: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+:where(.dark, .dark *) [x-show="modalOpen"] input[x-ref="searchInput"].pl-12 {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12:hover {
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+}
+
+:where(.dark, .dark *) [x-show="modalOpen"] input[x-ref="searchInput"].pl-12:hover {
+  background: color-mix(in srgb, var(--input) 40%, transparent);
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12::placeholder {
+  color: var(--muted-foreground);
+  opacity: .7;
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) [x-show="modalOpen"] input[x-ref="searchInput"].pl-12[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+[x-show="modalOpen"] input[x-ref="searchInput"].pl-12 {
+  padding: calc(var(--spacing) * 3) calc(var(--spacing) * 36) calc(var(--spacing) * 3) calc(var(--spacing) * 12);
+  background: var(--input) !important;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5 {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5:active {
+  scale: .96;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5 {
+  background: none;
+}
+
+:where(.dark, .dark *) div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5 {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5 {
+  border: 1px solid var(--input);
+  color: var(--foreground);
+  box-shadow: none !important;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[\@click*="openCategoryDropdown"].py-1\.5 > span {
+  color: var(--foreground);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute {
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  flex-direction: column;
+  display: flex;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"] {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  color: var(--foreground);
+  box-shadow: var(--shadow-xs);
+  background: none;
+  transition: border-color .15s, background .15s, box-shadow .15s;
+}
+
+:where(.dark, .dark *) div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"] {
+  background: color-mix(in srgb, var(--input) 30%, transparent);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"]:hover {
+  background: color-mix(in srgb, var(--secondary) 10%, transparent);
+}
+
+:where(.dark, .dark *) div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"]:hover {
+  background: color-mix(in srgb, var(--input) 40%, transparent);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"]:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"]::placeholder {
+  color: var(--muted-foreground);
+  opacity: .7;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"][aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"][aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"]:disabled {
+  cursor: not-allowed;
+  opacity: .5;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"]::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute input[x-ref="categorySearchInput"] {
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+  color: var(--foreground);
+  background: var(--background) !important;
+  box-shadow: none !important;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar {
+  border-radius: var(--radius-lg);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:active {
+  scale: .96;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div {
+  text-align: left;
+  width: 100%;
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+  color: var(--popover-foreground);
+  background: var(--popover);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:hover {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar > div:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  border-color: var(--ring);
+  outline: none;
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) div[x-show="openCategoryDropdown"].absolute .scrollbar {
+  padding: calc(var(--spacing) * 1);
+}
+
+div.relative:has( > div[\@click*="openCategoryDropdown"] ~ div[x-show="openCategoryDropdown"]) {
+  padding: 0;
+}
+
+div.border-l.border-dashed.box-without-bg-without-border {
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+  padding: calc(var(--spacing) * 4) 0 calc(var(--spacing) * 4) calc(var(--spacing) * 4);
+  background-clip: padding-box;
+  border-style: solid;
+  overflow: hidden;
+}
+
+div.border-l-2.bg-white.dark\:bg-coolgray-100, a.border-l-2.bg-white.dark\:bg-coolgray-100 {
+  border-radius: var(--radius-lg);
+  padding: calc(var(--spacing) * 4);
+  background-clip: padding-box;
+  border-style: solid;
+  overflow: hidden;
+}
+
+.bg-white.dark\:bg-coolgray-100 {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: var(--border);
+}
+
+.bg-gray-100.dark\:bg-coolgray-200.rounded-sm {
+  background: var(--card);
+  color: var(--card-foreground);
+  padding: calc(var(--spacing) * 4);
+  border-radius: var(--radius-lg);
+  border: var(--border);
+}
+
+div.bg-white.border.dark\:bg-base.dark\:border-coolgray-300.border-neutral-200 {
+  border-radius: var(--radius-lg);
+}
+
+div.bg-white.border.dark\:border-coolgray-300.dark\:bg-coolgray-100.border-neutral-200 {
+  background: var(--card);
+  color: var(--card-foreground);
+  padding: calc(var(--spacing) * 4);
+  border-radius: var(--radius-lg);
+  border: var(--border);
+}
+
+.info-helper-popup {
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: s(2);
+  color: var(--popover-foreground);
+  font-size: .875rem;
+  line-height: 1.25rem;
+}
+
+.add-tag {
+  color: var(--accent-foreground);
+}
+
+.add-tag:hover {
+  color: var(--foreground);
+}
+
+.tag {
+  color: var(--muted-foreground);
+  background: var(--card);
+  border-radius: var(--radius-xl);
+  border: var(--border);
+}
+
+.tag:hover {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--foreground);
+}
+
+.min-w-32.coolbox.dark\:text-white.font-bold.flex.justify-center.items-center {
+  background: var(--card);
+  color: var(--card-foreground);
+  border: var(--border);
+}
+
+.min-w-32.coolbox.dark\:text-white.font-bold.flex.justify-center.items-center:hover {
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--foreground);
+}
+
+.min-w-32.coolbox.dark\:text-white.font-bold.flex.justify-center.items-center.dark\:bg-coollabs {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border: var(--border);
+}
+
+img.w-full.h-full.p-2.transition-all.object-contain, svg.w-\[4\.5rem\].h-\[4\.5rem\].p-2.dark\:bg-white\/10.bg-black\/10, div.w-\[4\.5rem\].h-\[4\.5rem\].p-2.dark\:bg-white\/10.bg-black\/10 {
+  border-radius: var(--radius-lg);
+  filter: none;
+  opacity: 1;
+  width: 3.5rem;
+  min-width: 3.5rem;
+  height: 3.5rem;
+  min-height: 3.5rem;
+  padding: calc(var(--spacing) * 1.5);
+  overflow: hidden;
+}
+
+div.w-\[4\.5rem\].h-\[4\.5rem\].p-2.dark\:bg-white\/10.bg-black\/10 > svg {
+  transform-origin: center;
+  transform: translateX(-23px) translateY(-8px) scaleX(.8) scaleY(.7);
+}
+
+div.w-\[4\.5rem\].h-\[4\.5rem\].p-2.dark\:bg-white\/10.bg-black\/10 > svg#svg1326 {
+  transform-origin: center;
+  transform: translateX(-19px) translateY(-9px) scaleX(.8) scaleY(.7);
+}
+
+input.input-sticky {
+  backdrop-filter: blur(var(--blur));
+  background: none;
+}
+
+div:has([x-show^="filteredGitBasedApplications.length > 0 || filteredDockerBasedApplications.length > 0"]) .grid[class*="cols"] {
+  padding: calc(var(--spacing) * .5);
+  background: none;
+  border-radius: 0;
+}
+
+div:has([x-show^="filteredGitBasedApplications.length > 0 || filteredDockerBasedApplications.length > 0"]) .grid[class*="cols"] h4 {
+  color: var(--foreground);
+}
+
+div:has([x-show^="filteredGitBasedApplications.length > 0 || filteredDockerBasedApplications.length > 0"]) .grid[class*="cols"] .coolbox {
+  padding: calc(var(--spacing) * 1);
+}
+
+div:has([x-show^="filteredDatabases"]:has( > div.grid[class*="cols"] > div[x-on\:click="setType(database.id)"])) .grid[class*="cols"] {
+  padding: calc(var(--spacing) * .5);
+  background: none;
+  border-radius: 0;
+}
+
+div:has([x-show^="filteredDatabases"]:has( > div.grid[class*="cols"] > div[x-on\:click="setType(database.id)"])) .grid[class*="cols"] .coolbox {
+  padding: calc(var(--spacing) * 1);
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div[x-init="loadResources"] button {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  border-radius: var(--radius-md);
+  text-indent: 0;
+  margin-inline: 0;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div[x-init="loadResources"] button > * {
+  display: none;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div[x-init="loadResources"] button {
+  text-indent: -9999px;
+  justify-content: center;
+  align-items: center;
+  display: inline-flex;
+  position: relative;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div[x-init="loadResources"] button:before {
+  content: "";
+  width: calc(var(--spacing) * 4);
+  height: calc(var(--spacing) * 4);
+  color: var(--color-text);
+  background-color: currentColor;
+  -webkit-mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/arrows-clockwise-bold.svg") center / contain no-repeat;
+  mask: url("https://cdn.jsdelivr.net/npm/@phosphor-icons/core@2.1.1/assets/bold/arrows-clockwise-bold.svg") center / contain no-repeat;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div[x-init="loadResources"] button {
+  text-indent: 0;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div[x-init="loadResources"] button:hover {
+  background-color: color-mix(in srgb, var(--accent) 80%, transparent);
+  color: var(--accent-foreground);
+  opacity: 1;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div.relative.p-4.border.rounded-lg.bg-blue-50.dark\:bg-blue-900\/30.border-blue-300.dark\:border-blue-800 {
+  margin: calc(var(--spacing) * .5);
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div.grid[class*="cols"]:has(.coolbox) {
+  padding: calc(var(--spacing) * .5);
+  background: none;
+}
+
+div[x-show="filteredServices.length > 0"]:has( > div[x-init="loadResources"]) div.grid[class*="cols"]:has(.coolbox) .coolbox {
+  min-height: 100%;
+  padding: calc(var(--spacing) * 1);
+}
+
+.sticky.z-10.top-0:has(input[x-ref="searchInput"]) {
+  top: calc(var(--spacing) * 1);
+  border-radius: var(--radius-lg);
+  padding: calc(var(--spacing) * 4);
+  background: var(--popover) !important;
+  box-shadow: var(--shadow-xs) !important;
+  border: none !important;
+}
+
+.sticky.z-10.top-0:has(input[x-ref="searchInput"]) input[x-ref="searchInput"] {
+  box-shadow: none !important;
+}
+
+.p-4.my-4.border.dark\:border-coolgray-200.border-neutral-200 {
+  padding: calc(var(--spacing) * 4);
+  margin-top: calc(var(--spacing) * 4);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+}
+
+div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) {
+  margin-inline: calc(var(--spacing) * 4);
+}
+
+@media (width >= 640px) {
+  div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) {
+    margin-inline: calc(var(--spacing) * 6);
+  }
+}
+
+@media (width >= 1024px) {
+  div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) {
+    left: var(--navigation-sidebar-width);
+    margin-inline: calc(var(--spacing) * 8);
+    width: calc(100% - var(--navigation-sidebar-width));
+  }
+
+  div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) > div {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+  }
+}
+
+div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) button {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) button > span, div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) button > svg:last-child {
+  color: var(--accent-foreground) !important;
+}
+
+div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) button {
+  border-color: var(--border);
+  border-radius: var(--radius-xl);
+}
+
+div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) [x-show="expanded"] {
+  background: var(--popover);
+}
+
+div.fixed.bottom-0.mb-4.left-0.ml-4:has(button) [x-show="expanded"] a {
+  background: var(--card);
+  border-radius: var(--radius-lg);
+  color: var(--card-foreground);
+  border: 1px solid var(--border);
+}
+
+div#screen {
+  background: var(--card);
+  color: var(--card-foreground);
+  border-radius: var(--radius-lg);
+  border: var(--border);
+  overflow: hidden;
+}
+
+div#screen > div[x-show="expanded"] {
+  padding: 0;
+}
+
+div#screen > div[x-show="expanded"] div[class*="flex"] > form[wire\:submit="getLogs(true)"] > input {
+  padding-right: calc(var(--spacing) * 2);
+  padding-left: calc(var(--spacing) * 11);
+}
+
+div#screen > div[x-show="expanded"] > div {
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0;
+}
+
+div#screen > div[x-show="expanded"] input {
+  box-shadow: none;
+  padding-block: calc(var(--spacing) * 1.5);
+}
+
+div:has( > div#screen) {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+
+div[class="flex flex-col items-center justify-center p-10 mx-2 mt-10 bg-white border rounded-lg shadow-sm lg:p-20 dark:bg-transparent dark:border-none max-w-7xl border-neutral-200"] {
+  background-color: var(--accent);
+  padding: calc(var(--spacing) * 10);
+}
+
+.box-boarding {
+  padding: calc(var(--spacing) * 2.25) calc(var(--spacing) * 4);
+  border-radius: var(--radius-md);
+  border: 1px solid #0000;
+  height: auto;
+  font-weight: 600;
+  transition: background .18s, color .18s, box-shadow .18s, scale .18s, translate .18s;
+  position: relative;
+}
+
+.box-boarding:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 50%, transparent);
+  outline: none;
+}
+
+.box-boarding[aria-invalid="true"] {
+  border-color: var(--destructive);
+}
+
+:where(.dark, .dark *) .box-boarding[aria-invalid="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--destructive) 40%, transparent);
+}
+
+.box-boarding:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.box-boarding:active {
+  scale: .96;
+}
+
+.box-boarding:active:not([aria-haspopup]) {
+  translate: 0 1px;
+}
+
+.box-boarding:active:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  scale: 1.06;
+}
+
+.box-without-bg.bg-coollabs.dark\:bg-coollabs, .coolbox.bg-coollabs.dark\:bg-coollabs {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: color-mix(in srgb, var(--primary) 80%, transparent);
+}

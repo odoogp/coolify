@@ -69,6 +69,7 @@
     <link rel="icon" href="{{ asset('gpsh-logo.svg') }}" type="image/svg+xml" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/js/app.js', 'resources/css/app.css'])
+    <link rel="stylesheet" href="{{ asset('css/coolify-tweaks.css') }}?v=4.1.2">
     <script>
         // Update theme-color meta tag (non-critical, can run async)
         const t = localStorage.theme || 'dark';
