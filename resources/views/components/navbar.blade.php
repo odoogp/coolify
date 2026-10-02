@@ -35,10 +35,10 @@
                 const userSettings = localStorage.getItem('theme') || 'dark';
                 localStorage.setItem('theme', userSettings);
                 let isDark = false;
-                if (userSettings === 'dark' || userSettings === 'custom') {
+                if (userSettings === 'dark' || userSettings === 'custom' || userSettings === 'crystal') {
                     document.documentElement.classList.add('dark');
                     isDark = true;
-                } else if (userSettings === 'light') {
+                } else if (userSettings === 'light' || userSettings === 'crystal-light') {
                     document.documentElement.classList.remove('dark');
                 } else if (darkModePreference) {
                     document.documentElement.classList.add('dark');
@@ -46,7 +46,7 @@
                 } else {
                     document.documentElement.classList.remove('dark');
                 }
-                document.documentElement.dataset.theme = userSettings === 'custom' ? 'custom' : (isDark ? 'dark' : 'light');
+                document.documentElement.dataset.theme = userSettings === 'custom' ? 'custom' : (userSettings === 'crystal' ? 'crystal' : (userSettings === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
                 document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#07080e' : '#f6f4f1');
             }
     }">

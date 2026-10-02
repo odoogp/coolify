@@ -1216,6 +1216,108 @@ html.dark main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
     color: #d2d2d7;
 }
 
+/* Crystal is a separate appearance. Dark tiles fade from the reference hues
+   into black so the type stays white and readable. Light uses the same hues washed out. */
+html[data-theme="crystal"] {
+    --color-panel: #050607;
+    --color-app: #050607;
+    --color-base: #050607;
+    --color-fg: #f5f5f7;
+    --color-fg-dim: #e6e6ea;
+    --color-fg-faint: #c4c4ca;
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm,
+html[data-theme="crystal"] .empty-state {
+    border-color: rgb(255 255 255 / 0.2);
+    color: #ffffff;
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.38),
+        0 18px 40px rgb(0 0 0 / 0.4);
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, a),
+html[data-theme="crystal"] .empty-state h2 {
+    color: #ffffff;
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm p,
+html[data-theme="crystal"] .empty-state p {
+    color: rgb(255 255 255 / 0.84);
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
+    background: rgb(255 255 255 / 0.18);
+    border-color: rgb(255 255 255 / 0.28);
+    color: #ffffff;
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 1) {
+    background: linear-gradient(180deg, #ff8d72 0%, #e2553c 40%, #160908 100%);
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 2) {
+    background: linear-gradient(180deg, #f0c85a 0%, #a88422 42%, #141006 100%);
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 3) {
+    background: linear-gradient(180deg, #b9a6ff 0%, #6d4dff 42%, #0c0a18 100%);
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 4) {
+    background: linear-gradient(180deg, #8fd9a0 0%, #2f8f55 42%, #07140c 100%);
+}
+
+html[data-theme="crystal"] .empty-state {
+    background: linear-gradient(180deg, #b9a6ff 0%, #5b3ee0 36%, #0c0a16 100%);
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm,
+html[data-theme="crystal-light"] .empty-state {
+    border-color: rgb(255 255 255 / 0.8);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
+        0 12px 32px rgb(40 24 80 / 0.08);
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm,
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, a),
+html[data-theme="crystal-light"] .empty-state,
+html[data-theme="crystal-light"] .empty-state h2 {
+    color: #1d1d1f;
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm p,
+html[data-theme="crystal-light"] .empty-state p {
+    color: #3a3a3c;
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
+    background: rgb(255 255 255 / 0.7);
+    border-color: rgb(0 0 0 / 0.06);
+    color: #1d1d1f;
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 1) {
+    background: linear-gradient(180deg, #ffe1d6 0%, #fff7f4 100%);
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 2) {
+    background: linear-gradient(180deg, #f8efc4 0%, #fffaf0 100%);
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 3) {
+    background: linear-gradient(180deg, #e6dcff 0%, #f8f5ff 100%);
+}
+
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 4) {
+    background: linear-gradient(180deg, #d9f3e0 0%, #f4fbf6 100%);
+}
+
+html[data-theme="crystal-light"] .empty-state {
+    background: linear-gradient(180deg, #f3eeff 0%, #ffffff 100%);
+}
+
 html[data-theme="custom"] input::placeholder,
 html[data-theme="custom"] textarea::placeholder {
     color: var(--theme-placeholder-color) !important;

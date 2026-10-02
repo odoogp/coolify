@@ -15,11 +15,12 @@
         window.applyStoredTheme = () => {
             const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
             const themeColor = localStorage.themeColor || '#6b16ed';
-            const isDark = theme === 'dark' || theme === 'custom' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+            const isDark = theme === 'dark' || theme === 'custom' || theme === 'crystal' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+            const surface = theme === 'custom' ? 'custom' : (theme === 'crystal' ? 'crystal' : (theme === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
 
             localStorage.theme = theme;
             document.documentElement.classList.toggle('dark', isDark);
-            document.documentElement.dataset.theme = theme === 'custom' ? 'custom' : (isDark ? 'dark' : 'light');
+            document.documentElement.dataset.theme = surface;
             document.documentElement.style.setProperty('--theme-base-color', themeColor);
             document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(themeColor));
             document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
@@ -72,7 +73,7 @@
     <script>
         // Update theme-color meta tag (non-critical, can run async)
         const t = localStorage.theme || 'dark';
-        const isDark = t === 'dark' || t === 'custom' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+        const isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
     </script>
     <style>
@@ -175,7 +176,7 @@
             if (theme == 'system') {
                 theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
             }
-            if (theme == 'dark' || theme == 'custom') {
+            if (theme == 'dark' || theme == 'custom' || theme == 'crystal') {
                 cpuColor = '#1e90ff'
                 ramColor = '#00ced1'
                 textColor = '#ffffff'

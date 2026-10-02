@@ -32,9 +32,10 @@
         }
 
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const isDark = type === 'dark' || type === 'custom' || (type === 'system' && prefersDark);
+        const isDark = type === 'dark' || type === 'custom' || type === 'crystal' || (type === 'system' && prefersDark);
+        const surface = type === 'custom' ? 'custom' : (type === 'crystal' ? 'crystal' : (type === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
         document.documentElement.classList.toggle('dark', isDark);
-        document.documentElement.dataset.theme = type === 'custom' ? 'custom' : (isDark ? 'dark' : 'light');
+        document.documentElement.dataset.theme = surface;
         document.documentElement.style.setProperty('--theme-base-color', localStorage.themeColor || '#6b16ed');
         document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(this.themeColor));
         document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
@@ -129,6 +130,8 @@
                 ['value' => 'light', 'label' => __('Light')],
                 ['value' => 'system', 'label' => __('System')],
                 ['value' => 'dark', 'label' => __('Dark')],
+                ['value' => 'crystal', 'label' => __('Crystal')],
+                ['value' => 'crystal-light', 'label' => __('Crystal light')],
                 ['value' => 'custom', 'label' => __('Custom')],
             ] as $option)
                 @if ($option['value'] === 'custom')

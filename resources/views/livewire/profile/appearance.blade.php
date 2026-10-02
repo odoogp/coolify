@@ -45,9 +45,10 @@
         },
         applyTheme() {
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const isDark = this.theme === 'dark' || this.theme === 'custom' || (this.theme === 'system' && prefersDark);
+            const isDark = this.theme === 'dark' || this.theme === 'custom' || this.theme === 'crystal' || (this.theme === 'system' && prefersDark);
+            const surface = this.theme === 'custom' ? 'custom' : (this.theme === 'crystal' ? 'crystal' : (this.theme === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
             document.documentElement.classList.toggle('dark', isDark);
-            document.documentElement.dataset.theme = this.theme === 'custom' ? 'custom' : (isDark ? 'dark' : 'light');
+            document.documentElement.dataset.theme = surface;
             document.documentElement.style.setProperty('--theme-base-color', this.themeColor);
             document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(this.themeColor));
             document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
@@ -65,6 +66,8 @@
                     ['value' => 'light', 'label' => __('Light'), 'description' => __('Bright surfaces and dark text.'), 'preview' => 'bg-white'],
                     ['value' => 'system', 'label' => __('System'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
                     ['value' => 'dark', 'label' => __('Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
+                    ['value' => 'crystal', 'label' => __('Crystal'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
+                    ['value' => 'crystal-light', 'label' => __('Crystal light'), 'description' => __('The same glass in light tones.'), 'preview' => 'bg-gradient-to-b from-[#ffe4dc] via-[#efe8ff] to-white'],
                     ['value' => 'custom', 'label' => __('Custom'), 'description' => __('Choose any color for dark surfaces.'), 'preview' => ''],
                 ] as $option)
                     <div role="button" tabindex="0"
