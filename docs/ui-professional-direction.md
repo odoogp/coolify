@@ -35,9 +35,9 @@ acento amarillo en oscuro. El producto usa este otro acabado:
 - Lienzo claro cálido y lienzo oscuro azul profundo.
 - Tarjetas a 16px, anillo fino y sombra suave.
 - Acento violeta en los dos temas. El amarillo de oscuro no entra.
-- En oscuro el panel es un mosaico de cristal: lienzo casi negro y
-  tarjetas luminosas (coral, oliva, violeta, verde) con brillo superior y
-  borde de luz. El claro usa el mismo cristal sobre degradados suaves.
+- El panel usa cristal neutro, del tipo vidrio esmerilado: el fondo se
+  transparenta, el borde lleva una línea de luz y el texto queda oscuro en
+  claro y claro en oscuro. El color fuerte se reserva al botón principal.
 - El cristal del acceso se queda en el login. El resto no copia widgets de
   banca: los datos son proyectos, entornos, servidores y despliegues.
 

@@ -1118,147 +1118,102 @@ html.dark main .grid > :is(a, article).rounded-xl.shadow-sm,
 html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm {
     position: relative;
     overflow: hidden;
-    border-radius: 26px;
-    border: 1px solid rgb(255 255 255 / 0.34);
-    min-height: 9.5rem;
-    padding: 1.05rem;
+    border-radius: 22px;
+    min-height: 8.5rem;
+    padding: 1rem;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.46));
+    border: 1px solid rgb(255 255 255 / 0.72);
     box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.62),
-        inset 0 -20px 28px rgb(80 40 40 / 0.08),
-        0 18px 40px rgb(40 24 80 / 0.12);
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
+        0 0 0 1px rgb(0 0 0 / 0.05),
+        0 12px 32px rgb(0 0 0 / 0.06);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
     transition: transform 180ms ease, box-shadow 180ms ease;
 }
 
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm::before,
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(128deg, rgb(255 255 255 / 0.42), transparent 34%, transparent 62%, rgb(255 255 255 / 0.1));
-    pointer-events: none;
+html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm,
+html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, a) {
+    color: #1d1d1f;
+}
+
+html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm p {
+    color: #3a3a3c;
+}
+
+html.dark main .grid > :is(a, article).rounded-xl.shadow-sm {
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.1), rgb(255 255 255 / 0.04));
+    border-color: rgb(255 255 255 / 0.14);
+    box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.18),
+        0 0 0 1px rgb(255 255 255 / 0.06),
+        0 16px 40px rgb(0 0 0 / 0.32);
+}
+
+html.dark main .grid > :is(a, article).rounded-xl.shadow-sm,
+html.dark main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, a) {
+    color: #f5f5f7;
+}
+
+html.dark main .grid > :is(a, article).rounded-xl.shadow-sm p {
+    color: #d2d2d7;
 }
 
 html.dark main .grid > :is(a, article).rounded-xl.shadow-sm:hover,
 html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm:hover {
-    transform: translateY(-3px);
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm {
-    border-color: rgb(255 255 255 / 0.22);
-    color: #fffaf8;
-    box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.48),
-        inset 0 -24px 32px rgb(0 0 0 / 0.2),
-        0 22px 46px rgb(0 0 0 / 0.38);
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3) {
-    color: #fffaf8;
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm p {
-    color: rgb(255 250 248 / 0.82);
-}
-
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3) {
-    color: #1c1730;
-}
-
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm p {
-    color: #5c5670;
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 1) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.28), transparent 42%),
-        linear-gradient(165deg, #ffb199 0%, #e25b45 55%, #9a3412 100%);
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 2) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.3), transparent 42%),
-        linear-gradient(165deg, #efe7a4 0%, #c4ae3d 52%, #6d6420 100%);
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 3) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.32), transparent 42%),
-        linear-gradient(165deg, #d7c8ff 0%, #7c5cff 52%, #3d2d86 100%);
-}
-
-html.dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 4) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.3), transparent 42%),
-        linear-gradient(165deg, #c9f0d4 0%, #3d9a62 52%, #1d5c38 100%);
-}
-
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 1) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.72), transparent 46%),
-        linear-gradient(165deg, #fff1eb 0%, #ffd4c6 100%);
-}
-
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 2) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.72), transparent 46%),
-        linear-gradient(165deg, #f8f6e4 0%, #e7e2b6 100%);
-}
-
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 3) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.74), transparent 46%),
-        linear-gradient(165deg, #f4efff 0%, #ddd2ff 100%);
-}
-
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 4) {
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.74), transparent 46%),
-        linear-gradient(165deg, #eef8f1 0%, #cfe8d8 100%);
+    transform: translateY(-2px);
 }
 
 main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
-    background: rgb(255 255 255 / 0.24);
-    border-color: rgb(255 255 255 / 0.4);
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55);
-    color: inherit;
-    backdrop-filter: blur(8px);
+    background: rgb(255 255 255 / 0.45);
+    border-color: rgb(0 0 0 / 0.06);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.8);
+    color: #1d1d1f;
 }
 
-html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
-    background: rgb(255 255 255 / 0.72);
-    border-color: rgb(28 23 48 / 0.08);
-    color: #3b2a86;
+html.dark main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
+    background: rgb(255 255 255 / 0.08);
+    border-color: rgb(255 255 255 / 0.12);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16);
+    color: #f5f5f7;
 }
 
 .empty-state {
     border-style: solid;
     border-radius: 28px;
-    border-color: rgb(255 255 255 / 0.7);
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.7), transparent 42%),
-        linear-gradient(165deg, #f7f3ff 0%, #efe8ff 100%);
+    border-color: rgb(255 255 255 / 0.72);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.78), rgb(255 255 255 / 0.5));
     box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.85),
-        0 18px 40px rgb(80 60 140 / 0.08);
+        inset 0 1px 0 rgb(255 255 255 / 0.9),
+        0 0 0 1px rgb(0 0 0 / 0.05),
+        0 16px 40px rgb(0 0 0 / 0.05);
+    backdrop-filter: blur(40px) saturate(1.6);
+    -webkit-backdrop-filter: blur(40px) saturate(1.6);
+}
+
+.empty-state h2 {
+    color: #1d1d1f;
+}
+
+.empty-state p {
+    color: #3a3a3c;
 }
 
 .dark .empty-state {
-    border-color: rgb(255 255 255 / 0.16);
-    background:
-        linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 38%),
-        linear-gradient(165deg, #6d5cff 0%, #2a2158 46%, #12101c 100%);
+    border-color: rgb(255 255 255 / 0.14);
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.03));
     box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.34),
-        0 24px 50px rgb(0 0 0 / 0.35);
+        inset 0 1px 0 rgb(255 255 255 / 0.16),
+        0 0 0 1px rgb(255 255 255 / 0.06),
+        0 20px 48px rgb(0 0 0 / 0.32);
 }
 
-.dark .empty-state :is(h2, p) {
-    color: #f4f2fb;
+.dark .empty-state h2 {
+    color: #f5f5f7;
 }
 
 .dark .empty-state p {
-    color: #c9c4d8;
+    color: #d2d2d7;
 }
 
 html[data-theme="custom"] input::placeholder,
