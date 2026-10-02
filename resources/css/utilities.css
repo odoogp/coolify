@@ -419,7 +419,21 @@
         display: none;
     }
 
-    /* Collapsed: the icon springs up and the name sits in the tip above it. */
+    /* Icon + label rows (main sidebar open, settings, and the other navs) lift a little. */
+    .menu-item:has(.menu-item-label),
+    .menu-subitem:has(.menu-item-label) {
+        transition:
+            transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+            background-color 0.15s ease,
+            color 0.15s ease;
+    }
+
+    .menu-item:has(.menu-item-label):hover,
+    .menu-subitem:has(.menu-item-label):hover {
+        transform: translateY(-2px);
+    }
+
+    /* Collapsed main sidebar: the icon springs up and the name sits to its right. */
     .app-sidebar.sidebar-collapsed > ul {
         padding-top: 0.75rem;
     }
@@ -443,21 +457,13 @@
         background-color: #2c2c2e;
         box-shadow: 0 12px 20px -8px rgb(0 0 0 / 0.72);
     }
-
-    /* Expanded: the label is already visible, so the row only lifts a little. */
-    .app-sidebar:not(.sidebar-collapsed) .menu-item {
-        transition:
-            transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
-            background-color 0.15s ease,
-            color 0.15s ease;
-    }
-
-    .app-sidebar:not(.sidebar-collapsed) .menu-item:hover {
-        transform: translateY(-2px);
-    }
 }
 
 @media (min-width: 1024px) and (prefers-reduced-motion: reduce) {
+    .menu-item:has(.menu-item-label),
+    .menu-item:has(.menu-item-label):hover,
+    .menu-subitem:has(.menu-item-label),
+    .menu-subitem:has(.menu-item-label):hover,
     .app-sidebar .menu-item,
     .app-sidebar .menu-item:hover {
         transition: background-color 0.15s ease, color 0.15s ease;

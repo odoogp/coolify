@@ -49,23 +49,25 @@ it('does not animate navbar padding when restoring collapsed state', function ()
         ->not->toContain('overflow-hidden motion-safe:transition-all');
 });
 
-it('lifts sidebar rows on hover and shows the name above collapsed icons', function () {
+it('lifts labeled nav rows and places the collapsed name to the right of the icon', function () {
     $navbar = file_get_contents(resource_path('views/components/navbar.blade.php'));
     $css = file_get_contents(resource_path('css/utilities.css'));
 
     expect($navbar)
         ->toContain('class="app-sidebar ')
         ->toContain('if (!collapsed) return;')
-        ->toContain('tooltip.x = rect.left + rect.width / 2;')
-        ->toContain('tooltip.y = rect.top - 14;')
+        ->toContain('tooltip.x = rect.right + 8;')
+        ->toContain('tooltip.y = rect.top + rect.height / 2;')
         ->toContain('x-show="collapsed && tooltip.show"')
         ->toContain('app-sidebar-tip')
-        ->toContain('-translate-x-1/2 -translate-y-full')
+        ->toContain('-translate-y-1/2')
+        ->not->toContain('-translate-x-1/2 -translate-y-full')
         ->and($css)
+        ->toContain('.menu-item:has(.menu-item-label):hover')
+        ->toContain('.menu-subitem:has(.menu-item-label):hover')
+        ->toContain('transform: translateY(-2px);')
         ->toContain('.app-sidebar.sidebar-collapsed .menu-item:hover')
         ->toContain('transform: translateY(-6px);')
-        ->toContain('.app-sidebar:not(.sidebar-collapsed) .menu-item:hover')
-        ->toContain('transform: translateY(-2px);')
         ->toContain('prefers-reduced-motion: reduce');
 });
 
