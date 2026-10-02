@@ -6,7 +6,10 @@ use App\Models\Environment;
 use App\Models\EnvironmentVariable;
 use App\Models\OdooComposeTemplate;
 use App\Models\Project;
+use App\Models\Server;
 use App\Models\Service;
+use App\Models\StandaloneDocker;
+use App\Models\SwarmDocker;
 use App\Support\OdooGit;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -25,6 +28,8 @@ class Index extends Component
     public Collection $allEnvironments;
 
     public array $parameters;
+
+    public ?string $serverId = null;
 
     protected Collection $applications;
 
@@ -215,6 +220,10 @@ class Index extends Component
             'clickhousesJs' => $this->toSearchableArray($this->clickhouses, 'database', 'Database'),
             'servicesJs' => $this->toSearchableArray($this->services, 'service', 'Service'),
             'odooOnly' => $this->project->odooProfile()->exists(),
+            'serverChoices' => OdooGit::launchChoices(),
+            'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
+            'needsServer' => ! auth()->user()?->canLaunchOnInstanceServer() && OdooGit::allowedLaunchServers()->isEmpty(),
+            'canAddServer' => (bool) auth()->user()?->canAddServers(),
         ]);
     }
 
@@ -225,7 +234,14 @@ class Index extends Component
             if ($this->project->odooProfile === null) {
                 return;
             }
-            $service = $this->existingOdooService() ?? $this->createOdooService(start: true);
+            if ($this->serverId === 'new') {
+                if (! auth()->user()?->canAddServers()) {
+                    throw new \RuntimeException(__('The owner has to add a server, or allow you to add servers, before you can create a project.'));
+                }
+
+                return redirect()->route('server.create');
+            }
+            $service = $this->existingOdooService() ?? $this->createOdooService(start: true, destination: $this->chosenDestination());
             if (! $service instanceof Service) {
                 return;
             }
@@ -247,14 +263,33 @@ class Index extends Component
         );
     }
 
-    private function createOdooService(bool $start): ?Service
+    private function chosenDestination(): StandaloneDocker|SwarmDocker
+    {
+        if ($this->serverId === null || $this->serverId === '') {
+            throw new \RuntimeException(__('Choose a server.'));
+        }
+
+        $server = OdooGit::allowedLaunchServers()->firstWhere('id', (int) $this->serverId);
+        if (! $server instanceof Server) {
+            throw new \RuntimeException(__('Choose a server.'));
+        }
+
+        $destination = $server->standaloneDockers()->first() ?? $server->swarmDockers()->first();
+        if ($destination === null) {
+            throw new \RuntimeException(__('This server has no Docker destination.'));
+        }
+
+        return $destination;
+    }
+
+    private function createOdooService(bool $start, StandaloneDocker|SwarmDocker|null $destination = null): ?Service
     {
         $profile = $this->project->odooProfile;
         if ($profile === null) {
             return null;
         }
 
-        $destination = OdooGit::firstLaunchDestination();
+        $destination ??= OdooGit::firstLaunchDestination();
         if ($destination === null) {
             $this->dispatch('error', __('No server is available for this Odoo service.'));
 

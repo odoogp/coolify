@@ -1331,15 +1331,40 @@ BASH;
     {
         $user = auth()->user();
 
-        return Server::ownedByCurrentTeam()->orderBy('name')->get()
-            ->filter(function (Server $server) use ($user): bool {
-                if ((int) $server->id !== 0) {
-                    return true;
-                }
-
-                return $user?->canLaunchOnInstanceServer() ?? false;
-            })
+        $servers = Server::ownedByCurrentTeam()->orderBy('name')->get()
+            ->reject(fn (Server $server): bool => (int) $server->id === 0)
             ->values();
+
+        if ($user?->canLaunchOnInstanceServer()) {
+            $local = Server::query()->find(0);
+            if ($local instanceof Server) {
+                $servers->prepend($local);
+            }
+        }
+
+        return $servers;
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function launchChoices(): array
+    {
+        $choices = self::allowedLaunchServers()
+            ->map(fn (Server $server): array => [
+                'value' => (string) $server->id,
+                'label' => (int) $server->id === 0
+                    ? __('Launch on the server where GPSH is installed')
+                    : $server->name,
+            ])
+            ->values()
+            ->all();
+
+        if (auth()->user()?->canAddServers()) {
+            $choices[] = ['value' => 'new', 'label' => __('Create a new server')];
+        }
+
+        return $choices;
     }
 
     public static function firstLaunchDestination(): StandaloneDocker|SwarmDocker|null

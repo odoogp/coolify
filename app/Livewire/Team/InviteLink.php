@@ -189,41 +189,42 @@ class InviteLink extends Component
             'can_launch_on_instance_server' => false,
         ];
 
-        if (! auth()->user()->can('updateCreationLimits', $team)) {
+        if (! auth()->user()->can('updateCreationLimits', $team) || ! in_array($this->role, ['admin', 'member'], true)) {
             return $attributes;
         }
 
-        if ($this->role === 'admin') {
-            foreach (['maxProjects', 'maxEnvironments', 'maxMembers', 'maxProductionBranches', 'maxStagingBranches', 'maxServices', 'githubAppId'] as $field) {
-                $this->{$field} = $this->{$field} === '' ? null : $this->{$field};
-            }
-            $this->validate([
-                'maxProjects' => ['nullable', 'integer', 'min:0'],
-                'maxEnvironments' => ['nullable', 'integer', 'min:0'],
-                'maxMembers' => ['nullable', 'integer', 'min:0'],
-                'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
-                'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
-                'maxServices' => ['nullable', 'integer', 'min:0'],
-                'githubAppId' => ['nullable', 'integer'],
+        foreach (['maxProjects', 'maxEnvironments', 'maxMembers', 'maxProductionBranches', 'maxStagingBranches', 'maxServices', 'githubAppId'] as $field) {
+            $this->{$field} = $this->{$field} === '' ? null : $this->{$field};
+        }
+        $this->validate([
+            'maxProjects' => ['nullable', 'integer', 'min:0'],
+            'maxEnvironments' => ['nullable', 'integer', 'min:0'],
+            'maxMembers' => ['nullable', 'integer', 'min:0'],
+            'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
+            'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
+            'maxServices' => ['nullable', 'integer', 'min:0'],
+            'githubAppId' => ['nullable', 'integer'],
+        ]);
+        if ($this->role === 'admin' && $this->githubAppId !== null && ! OdooGit::connectedApps($team->id)->contains('id', (int) $this->githubAppId)) {
+            throw ValidationException::withMessages([
+                'githubAppId' => __('Select a connected GitHub account.'),
             ]);
-            if ($this->githubAppId !== null && ! OdooGit::connectedApps($team->id)->contains('id', (int) $this->githubAppId)) {
-                throw ValidationException::withMessages([
-                    'githubAppId' => __('Select a connected GitHub account.'),
-                ]);
-            }
+        }
 
-            return [
-                ...$attributes,
-                'max_projects' => $this->maxProjects,
-                'max_environments' => $this->maxEnvironments,
-                'max_members' => $this->maxMembers,
-                'max_production_branches' => $this->maxProductionBranches,
-                'max_staging_branches' => $this->maxStagingBranches,
-                'max_services' => $this->maxServices,
-                'github_app_id' => $this->githubAppId,
-                'can_add_servers' => $this->canAddServers,
-                'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
-            ];
+        $attributes = [
+            ...$attributes,
+            'max_projects' => $this->maxProjects,
+            'max_environments' => $this->maxEnvironments,
+            'max_members' => $this->maxMembers,
+            'max_production_branches' => $this->maxProductionBranches,
+            'max_staging_branches' => $this->maxStagingBranches,
+            'max_services' => $this->maxServices,
+        ];
+
+        if ($this->role === 'admin') {
+            $attributes['github_app_id'] = $this->githubAppId;
+            $attributes['can_add_servers'] = $this->canAddServers;
+            $attributes['can_launch_on_instance_server'] = $this->canLaunchOnInstanceServer;
         }
 
         if ($this->role === 'member') {

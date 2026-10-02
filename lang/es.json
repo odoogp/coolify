@@ -3490,6 +3490,7 @@
     "Create your account to get started.": "Crea tu cuenta para empezar.",
     "Copy details": "Copiar detalles",
     "Leave empty for no limit.": "Déjalo vacío para no poner límite.",
+    "Leave empty for no limit. These limits are saved when the user is created, before the sign-in link.": "Déjalo vacío para no poner límite. Estos límites se guardan al crear el usuario, antes del enlace para entrar.",
     "Production branches": "Ramas de producción",
     "Staging branches": "Ramas de staging",
     "Save limits": "Guardar límites",

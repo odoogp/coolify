@@ -18,7 +18,7 @@ Before changing launch, a project screen, GitHub, or Odoo: check the phase that 
 
 The deployment experience to reach is Odoo.sh: one project, production and staging, one Odoo per environment, a branch, and a public HTTPS link. The client does not manage a scattered list of Coolify services. That project screen is phase 6 and is still the gap. Do not hide Coolify's own tools from the owner: adding servers, S3, and the cloud providers Coolify already has (Hetzner, Vultr, DigitalOcean, and the rest of the server create screen) stay available.
 
-The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set when the user is created, on the invitation, not after the first login: staging quota, `can_add_servers`, `can_launch_on_instance_server`, and `odoo.*` abilities. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server, S3, or terminal access. Do not replace Coolify roles with a new role system.
+The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set on the invitation, before the sign-in link, for admin and member: projects, environments, members, production branches, staging branches, and services. Admin also gets the GitHub account, `can_add_servers`, and `can_launch_on_instance_server`. Member also gets `odoo.*` abilities. Server flags stay off for a member. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server, S3, or terminal access. Do not replace Coolify roles with a new role system.
 
 `App\Livewire\Project\Resource\Index` keeps resource lists in `protected` properties. Livewire drops them on the next request, including Install Odoo. `render()` reloads them from the public project and environment. Install Odoo is only shown when that environment is empty. If another service is already there, the list shows that service's name and there is no Install Odoo button.
 
@@ -62,7 +62,7 @@ A push to the saved `git_branch` reclones addons and restarts only the Odoo cont
 
 Launch is not done until the certificate is Let's Encrypt (not the Traefik default) and the public URL answers (not 503 / "no available server"). While Odoo installs, the public URL shows a Spanish auto-refresh page. Do not re-download the image (`pullLatestImages false`, `--pull never`). Do not re-enable the image healthcheck. Do not reintroduce `gpsh-enter`. Listen stays `0.0.0.0:8069`.
 
-In the new-project wizard, ask where it runs. Local (server id 0) is a choice only when `canLaunchOnInstanceServer()`. Without that permission and with no other server, the only question is whether to create a server, and the project is not created. With permission, also offer creating a new server. If servers already exist, ask which one. Choosing a new server goes to server create and does not create the project yet. Owners can always use server id 0.
+In the new-project wizard and on an empty Odoo environment (Install Odoo), ask where it runs. Local is server id 0, included even when that server belongs to the instance team, and only when `canLaunchOnInstanceServer()`. Without that permission and with no other server, the only question is whether to create a server. With permission, also offer creating a new server. If servers already exist, ask which one. Read the flag from `team_user`, not a stale team list. Owners can always use server id 0.
 
 ## Phases 3–10 — do not drop these
 

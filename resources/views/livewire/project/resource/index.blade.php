@@ -42,9 +42,29 @@
                     icon-name="layers">
                     @can('createAnyResource')
                         <x-slot:contents>
-                            <button type="button" class="button" wire:click="installOdoo">
-                                {{ __('Install Odoo') }}
-                            </button>
+                            @if ($needsServer)
+                                <p class="mb-3 text-[13px]">{{ __('Do you want to create a server?') }}</p>
+                                @if ($canAddServer)
+                                    <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
+                                        {{ __('Create a new server') }}
+                                    </a>
+                                @else
+                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
+                                    </p>
+                                @endif
+                            @else
+                                @if ($serverChoices !== [])
+                                    <div class="mb-3 w-full max-w-sm text-left">
+                                        <x-forms.listbox id="serverId" portal
+                                            label="{{ $hasOtherServers ? __('Which server should run this project?') : __('Do you want to create a new server?') }}"
+                                            :options="$serverChoices" />
+                                    </div>
+                                @endif
+                                <button type="button" class="button" wire:click="installOdoo">
+                                    {{ __('Install Odoo') }}
+                                </button>
+                            @endif
                         </x-slot:contents>
                     @endcan
                 </x-empty>

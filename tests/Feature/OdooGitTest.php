@@ -13,6 +13,7 @@ use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\InstanceSettings;
 use App\Models\OdooEnvironmentBranch;
+use App\Models\PrivateKey;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
@@ -553,6 +554,33 @@ it('asks for a server before a project when the coolify host is not allowed', fu
         ->call('submit');
 
     expect(Project::query()->where('name', 'Sin servidor')->exists())->toBeFalse();
+});
+
+it('offers the local server to an admin who is allowed to launch there', function () {
+    $instanceTeam = Team::factory()->create();
+    $key = PrivateKey::factory()->create(['team_id' => $instanceTeam->id]);
+    Server::unguarded(fn () => Server::query()->forceCreate([
+        'id' => 0,
+        'name' => 'localhost',
+        'ip' => '127.0.0.1',
+        'user' => 'root',
+        'port' => 22,
+        'team_id' => $instanceTeam->id,
+        'private_key_id' => $key->id,
+    ]));
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, [
+        'role' => 'admin',
+        'can_launch_on_instance_server' => true,
+        'can_add_servers' => true,
+    ]);
+    $this->actingAs($admin);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(AddEmpty::class)
+        ->assertSee('Launch on the server where GPSH is installed')
+        ->assertSee('Create a new server')
+        ->assertDontSee('Do you want to create a server?');
 });
 
 it('returns from github to the project so the repository can be chosen', function () {

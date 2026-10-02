@@ -240,6 +240,33 @@ describe('privilege escalation prevention', function () {
             ->and((bool) $pivot->can_launch_on_instance_server)->toBeFalse();
     });
 
+    test('a member is created with the limits chosen before the sign-in link', function () {
+        $this->actingAs($this->owner);
+        session(['currentTeam' => $this->team]);
+
+        Livewire::test(InviteLink::class)
+            ->set('email', 'client-member@example.com')
+            ->set('role', 'member')
+            ->set('maxProjects', 1)
+            ->set('maxProductionBranches', 1)
+            ->set('maxStagingBranches', 2)
+            ->set('maxServices', 3)
+            ->set('canAddServers', true)
+            ->set('odooAbilities', ['odoo.staging.deploy'])
+            ->call('viaLink')
+            ->assertDispatched('success');
+
+        $invited = User::whereEmail('client-member@example.com')->firstOrFail();
+        $pivot = $invited->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        expect($pivot->role)->toBe('member')
+            ->and((int) $pivot->max_projects)->toBe(1)
+            ->and((int) $pivot->max_production_branches)->toBe(1)
+            ->and((int) $pivot->max_staging_branches)->toBe(2)
+            ->and((int) $pivot->max_services)->toBe(3)
+            ->and((bool) $pivot->can_add_servers)->toBeFalse()
+            ->and($pivot->odoo_abilities)->toContain('odoo.staging.deploy');
+    });
+
     test('an admin cannot grant server access while inviting', function () {
         $this->actingAs($this->admin);
         session(['currentTeam' => $this->team]);

@@ -35,8 +35,8 @@
                     ]))" />
                 </div>
 
-                @if ($canAssignPermissions && $role === 'admin')
-                    <p class="mt-4 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Leave empty for no limit.') }}</p>
+                @if ($canAssignPermissions && in_array($role, ['admin', 'member'], true))
+                    <p class="mt-4 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Leave empty for no limit. These limits are saved when the user is created, before the sign-in link.') }}</p>
                     <div class="mt-3 grid gap-3 sm:grid-cols-3">
                         <x-forms.input id="maxProjects" type="number" min="0" label="{{ __('Projects') }}" />
                         <x-forms.input id="maxEnvironments" type="number" min="0" label="{{ __('Environments') }}" />
@@ -44,10 +44,12 @@
                         <x-forms.input id="maxProductionBranches" type="number" min="0" label="{{ __('Production branches') }}" />
                         <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
                         <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
-                        <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}" :options="$githubApps" />
-                        <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
-                        <x-forms.checkbox id="canLaunchOnInstanceServer"
-                            label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+                        @if ($role === 'admin')
+                            <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}" :options="$githubApps" />
+                            <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
+                            <x-forms.checkbox id="canLaunchOnInstanceServer"
+                                label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+                        @endif
                     </div>
                 @endif
 

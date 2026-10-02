@@ -488,12 +488,14 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 
     private function teamFlag(string $column): bool
     {
-        $team = $this->currentTeam();
-        if ($team === null) {
+        $teamId = $this->currentTeam()?->id;
+        if ($teamId === null) {
             return false;
         }
 
-        return (bool) data_get($this->teams->firstWhere('id', $team->id), 'pivot.'.$column);
+        $value = $this->teams()->where('teams.id', $teamId)->first()?->pivot?->{$column};
+
+        return $value === true || $value === 1 || $value === '1' || $value === 't' || $value === 'true';
     }
 
     /**

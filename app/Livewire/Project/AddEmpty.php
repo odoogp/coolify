@@ -252,21 +252,7 @@ class AddEmpty extends Component
      */
     private function serverChoices(): array
     {
-        $choices = $this->launchServers()
-            ->map(fn (Server $server): array => [
-                'value' => (string) $server->id,
-                'label' => (int) $server->id === 0
-                    ? __('Launch on the server where GPSH is installed')
-                    : $server->name,
-            ])
-            ->values()
-            ->all();
-
-        if (auth()->user()?->canAddServers()) {
-            $choices[] = ['value' => 'new', 'label' => __('Create a new server')];
-        }
-
-        return $choices;
+        return OdooGit::launchChoices();
     }
 
     private function launchServers()
