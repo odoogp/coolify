@@ -119,3 +119,57 @@ window.scrollToSettingsSection = function scrollToSettingsSection(id) {
 
     rafId = window.requestAnimationFrame(tick);
 };
+
+const tileSelector = 'main .grid > a.rounded-xl.shadow-sm, main .grid > article.rounded-xl.shadow-sm, .empty-state';
+
+function placeTileSpot(card, event) {
+    const rect = card.getBoundingClientRect();
+
+    if (rect.width === 0 || rect.height === 0) {
+        return;
+    }
+
+    card.style.setProperty('--spot-x', `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    card.style.setProperty('--spot-y', `${((event.clientY - rect.top) / rect.height) * 100}%`);
+}
+
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.addEventListener('pointermove', (event) => {
+        const card = event.target.closest?.(tileSelector);
+
+        if (!card) {
+            return;
+        }
+
+        placeTileSpot(card, event);
+    }, { passive: true });
+
+    document.addEventListener('pointerdown', (event) => {
+        const card = event.target.closest?.(tileSelector);
+
+        if (!card) {
+            return;
+        }
+
+        card.classList.add('is-pressed');
+        placeTileSpot(card, event);
+    });
+
+    document.addEventListener('pointerup', () => {
+        document.querySelectorAll('.is-pressed').forEach((card) => {
+            card.classList.remove('is-pressed');
+        });
+    });
+
+    document.addEventListener('pointerout', (event) => {
+        const card = event.target.closest?.(tileSelector);
+
+        if (!card || card.contains(event.relatedTarget)) {
+            return;
+        }
+
+        card.classList.remove('is-pressed');
+        card.style.removeProperty('--spot-x');
+        card.style.removeProperty('--spot-y');
+    });
+}

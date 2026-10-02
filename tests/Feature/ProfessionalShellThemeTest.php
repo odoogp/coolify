@@ -33,8 +33,12 @@ test('crystal is its own appearance and keeps readable type on colored glass', f
         ->toContain("theme === 'crystal-light'")
         ->and($styles)
         ->toContain('html[data-theme="crystal"]')
-        ->toContain('radial-gradient(90% 75% at 12% 0%, #ff9a7a 0%, rgb(226 85 60 / 0.28) 42%, transparent 68%)')
+        ->toContain('radial-gradient(90% 75% at var(--spot-x) var(--spot-y), #ff9a7a 0%, rgb(226 85 60 / 0.28) 42%, transparent 68%)')
         ->toContain('color: #ffffff;')
+        ->toContain('--spot-x: 28%;')
         ->toContain('html[data-theme="crystal-light"]')
-        ->toContain('color: #1d1d1f;');
+        ->toContain('color: #1d1d1f;')
+        ->and(file_get_contents(resource_path('js/app.js')))
+        ->toContain('placeTileSpot')
+        ->toContain('is-pressed');
 });
