@@ -895,6 +895,7 @@
         </template>
     </div>
 
+    @if (isInstanceOwner())
     <div x-data="{ modalOpen: false }" @open-create-modal-source.window="modalOpen = true"
         @keydown.window.escape="modalOpen=false" class="relative w-auto h-auto">
         <template x-teleport="body">
@@ -937,5 +938,6 @@
             </div>
         </template>
     </div>
+    @endif
 
 </div>

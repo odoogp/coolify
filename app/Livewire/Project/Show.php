@@ -262,7 +262,7 @@ class Show extends Component
 
     private function cloneCacheKey(): string
     {
-        return 'odoo-clone-'.$this->project->id;
+        return 'odoo-clone-'.$this->project->id.'-'.auth()->id();
     }
 
     private function loadCloneProgress(): void

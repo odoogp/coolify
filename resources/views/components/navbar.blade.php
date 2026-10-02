@@ -87,7 +87,7 @@
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Projects') }}</span>
                 </a>
             </li>
-            @can('canAccessTerminal')
+            @if (auth()->user()?->isInstanceOwner() || auth()->user()?->isOwner())
                 <li>
                     <a title="{{ __('Terminal') }}"
                         class="{{ request()->is('terminal*') ? 'menu-item-active menu-item' : 'menu-item' }}"
@@ -96,7 +96,7 @@
                         <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Terminal') }}</span>
                     </a>
                 </li>
-            @endcan
+            @endif
             {{-- Infrastructure --}}
             <li class="nav-section mt-3" :class="collapsed && 'lg:hidden'">{{ __('Infrastructure') }}</li>
             <li>
@@ -107,14 +107,16 @@
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Servers') }}</span>
                 </a>
             </li>
-            <li>
-                <a title="{{ __('Sources') }}" {{ wireNavigate() }}
-                    class="{{ request()->is('source*') ? 'menu-item-active menu-item' : 'menu-item' }}"
-                    :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('source.all') }}">
-                    <x-reicon name="sources" class="menu-item-icon" />
-                    <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Sources') }}</span>
-                </a>
-            </li>
+            @if (isInstanceOwner())
+                <li>
+                    <a title="{{ __('Sources') }}" {{ wireNavigate() }}
+                        class="{{ request()->is('source*') ? 'menu-item-active menu-item' : 'menu-item' }}"
+                        :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('source.all') }}">
+                        <x-reicon name="sources" class="menu-item-icon" />
+                        <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Sources') }}</span>
+                    </a>
+                </li>
+            @endif
             <li>
                 <a title="{{ __('Destinations') }}" {{ wireNavigate() }}
                     class="{{ request()->is('destination*') ? 'menu-item-active menu-item' : 'menu-item' }}"

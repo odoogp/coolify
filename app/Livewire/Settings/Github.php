@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Models\GithubApp;
 use App\Models\InstanceSettings;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Validate;
@@ -21,7 +22,7 @@ class Github extends Component
 
     public function mount(): void
     {
-        if (! isInstanceAdmin()) {
+        if (! isInstanceOwner()) {
             $this->redirectRoute('dashboard');
 
             return;
@@ -53,6 +54,8 @@ class Github extends Component
 
     public function render()
     {
-        return view('livewire.settings.github');
+        return view('livewire.settings.github', [
+            'apps' => GithubApp::query()->with('team')->orderBy('name')->get(),
+        ]);
     }
 }

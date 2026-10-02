@@ -134,6 +134,7 @@ class InviteLink extends Component
             if (! $user->teams()->where('teams.id', $team->id)->exists()) {
                 $user->teams()->attach($team->id, $this->membershipAttributes($team));
             }
+            OdooGit::inviteEmailToRepositories((int) $team->id, $this->email);
             if ($sendEmail) {
                 $mail = new MailMessage;
                 $mail->view('emails.invitation-link', [

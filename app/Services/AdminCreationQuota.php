@@ -31,7 +31,7 @@ class AdminCreationQuota
                 $actor->id,
                 $teamId,
                 projects: 1,
-                environments: 1 + count($additionalEnvironments),
+                environments: $this->extraEnvironmentCount($additionalEnvironments),
             );
 
             $project = Project::create([
@@ -56,11 +56,12 @@ class AdminCreationQuota
     public function createEnvironment(User $actor, Project $project, array $attributes): Environment
     {
         return DB::transaction(function () use ($actor, $project, $attributes): Environment {
+            $name = (string) ($attributes['name'] ?? '');
             $this->assertWithinLimits(
                 $this->lockedMembership($actor->id, $project->team_id),
                 $actor->id,
                 $project->team_id,
-                environments: 1,
+                environments: $this->environmentConsumesQuota($project->id, $name) ? 1 : 0,
             );
 
             return $project->environments()->create([
@@ -126,7 +127,7 @@ class AdminCreationQuota
             ? $this->lockedMembership($actor->id, $teamId)
             : $this->membership($actor->id, $teamId);
 
-        $this->assertWithinLimits($membership, $actor->id, $teamId, projects: 1, environments: 1);
+        $this->assertWithinLimits($membership, $actor->id, $teamId, projects: 1);
     }
 
     public function guardEnvironment(Environment $environment): void
@@ -146,6 +147,10 @@ class AdminCreationQuota
 
         $teamId = Project::query()->whereKey($environment->project_id)->value('team_id');
         if ($teamId === null) {
+            return;
+        }
+
+        if (! $this->environmentConsumesQuota((int) $environment->project_id, (string) $environment->name)) {
             return;
         }
 
@@ -213,12 +218,91 @@ class AdminCreationQuota
             return;
         }
 
+        if ($this->includedOdooService($service)) {
+            return;
+        }
+
         $teamId = (int) $teamId;
         $membership = DB::transactionLevel() > 0
             ? $this->lockedMembership($actor->id, $teamId)
             : $this->membership($actor->id, $teamId);
 
         $this->assertWithinLimits($membership, $actor->id, $teamId, services: 1);
+    }
+
+    /**
+     * Production and the first staging of a project are part of that one instance.
+     * They do not spend an environment slot. Anything else does.
+     *
+     * @param  list<array<string, mixed>>  $additionalEnvironments
+     */
+    private function extraEnvironmentCount(array $additionalEnvironments): int
+    {
+        $stagingIncluded = false;
+        $extra = 0;
+        foreach ($additionalEnvironments as $environmentAttributes) {
+            $name = (string) ($environmentAttributes['name'] ?? '');
+            if (! $stagingIncluded && OdooStaging::isStagingName($name)) {
+                $stagingIncluded = true;
+
+                continue;
+            }
+            if (strcasecmp($name, 'production') === 0) {
+                continue;
+            }
+            $extra++;
+        }
+
+        return $extra;
+    }
+
+    private function environmentConsumesQuota(int $projectId, string $name): bool
+    {
+        if (strcasecmp($name, 'production') === 0) {
+            return false;
+        }
+
+        if (! OdooStaging::isStagingName($name)) {
+            return true;
+        }
+
+        $already = Environment::query()
+            ->where('project_id', $projectId)
+            ->get(['name'])
+            ->contains(fn (Environment $environment): bool => OdooStaging::isStagingName((string) $environment->name));
+
+        return $already;
+    }
+
+    private function includedOdooService(Service $service): bool
+    {
+        if ($service->environment_id === null || ! $this->looksLikeOdoo($service)) {
+            return false;
+        }
+
+        $environment = Environment::query()->find($service->environment_id);
+        if (! $environment instanceof Environment) {
+            return false;
+        }
+
+        if ($this->environmentConsumesQuota((int) $environment->project_id, (string) $environment->name)) {
+            return false;
+        }
+
+        return ! Service::query()
+            ->where('environment_id', $environment->id)
+            ->when($service->exists, fn ($query) => $query->whereKeyNot($service->id))
+            ->get()
+            ->contains(fn (Service $row): bool => $this->looksLikeOdoo($row));
+    }
+
+    private function looksLikeOdoo(Service $service): bool
+    {
+        if ($service->service_type === 'odoo') {
+            return true;
+        }
+
+        return $service->supportsOdooJupyter();
     }
 
     /**
@@ -502,7 +586,7 @@ class AdminCreationQuota
     /**
      * Owners are not capped. An empty admin limit means unlimited. Members cannot launch staging.
      */
-    public function canLaunchStaging(User $user, int $teamId): bool
+    public function canLaunchStaging(User $user, int $teamId, ?Project $project = null): bool
     {
         if ($user->isInstanceOwner() || $user->isOwnerOfTeam($teamId)) {
             return true;
@@ -513,11 +597,22 @@ class AdminCreationQuota
             return false;
         }
 
+        if ($project instanceof Project && ! $this->projectHasStaging($project)) {
+            return true;
+        }
+
         if ($membership->max_staging_branches === null) {
             return true;
         }
 
         return $this->stagingLaunchUsage($user->id, $teamId) < (int) $membership->max_staging_branches;
+    }
+
+    private function projectHasStaging(Project $project): bool
+    {
+        return $project->environments()
+            ->get(['name'])
+            ->contains(fn (Environment $environment): bool => OdooStaging::isStagingName((string) $environment->name));
     }
 
     public function stagingLaunchUsage(int $userId, int $teamId): int

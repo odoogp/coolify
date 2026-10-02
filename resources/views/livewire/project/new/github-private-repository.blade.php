@@ -8,14 +8,8 @@
                 </div>
             </div>
             <x-empty title="{{ __('No GitHub Apps') }}"
-                description="{{ __('Create an app to grant Coolify access to selected repositories.') }}"
-                icon-name="sources">
-                <x-slot:contents>
-                    <x-modal-input buttonTitle="+ Add GitHub App" title="{{ __('New GitHub App') }}" closeOutside="false">
-                        <livewire:source.github.create />
-                    </x-modal-input>
-                </x-slot:contents>
-            </x-empty>
+                description="{{ __('Ask the owner to register the GitHub App in Settings.') }}"
+                icon-name="sources" />
         </section>
     @elseif ($current_step === 'github_apps')
         <section class="application-settings-section">
@@ -24,9 +18,6 @@
                     <h2>{{ __('Choose GitHub App') }}</h2>
                     <p>{{ __('Select the installation that can access the repository you want to deploy.') }}</p>
                 </div>
-                <x-modal-input buttonTitle="+ Add GitHub App" title="{{ __('New GitHub App') }}" closeOutside="false">
-                    <livewire:source.github.create />
-                </x-modal-input>
             </div>
             <div class="application-settings-section-body p-0!">
                 @foreach ($github_apps as $ghapp)

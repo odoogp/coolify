@@ -18,7 +18,7 @@ Before changing launch, a project screen, GitHub, or Odoo: check the phase that 
 
 The deployment experience to reach is Odoo.sh: one project, production and staging, one Odoo per environment, a branch, and a public HTTPS link. The client does not manage a scattered list of Coolify services. That project screen is phase 6 and is still the gap. Do not hide Coolify's own tools from the owner: adding servers, S3, and the cloud providers Coolify already has (Hetzner, Vultr, DigitalOcean, and the rest of the server create screen) stay available.
 
-The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set on the invitation, before the sign-in link, for admin and member: projects, environments, members, production branches, staging branches, and services. Admin also gets the GitHub account, `can_add_servers`, and `can_launch_on_instance_server`. Member also gets `odoo.*` abilities. Server flags stay off for a member. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server, S3, or terminal access. Do not replace Coolify roles with a new role system.
+The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set on the invitation, before the sign-in link, for admin and member: projects, environments, members, production branches, staging branches, and services. Admin also gets the GitHub account, `can_add_servers`, and `can_launch_on_instance_server`. Member also gets `odoo.*` abilities. Server flags stay off for a member. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server, S3, or terminal access. An admin's terminal is only the instances they created or that were assigned to them. Do not replace Coolify roles with a new role system.
 
 `App\Livewire\Project\Resource\Index` keeps resource lists in `protected` properties. Livewire drops them on the next request, including Install Odoo. `render()` reloads them from the public project and environment. Install Odoo is only shown when that environment is empty, and it asks where to run: local only with permission, create a server when none exist, or which server when some exist. If another service is already there, the list shows that service's name and there is no Install Odoo button.
 
@@ -36,7 +36,7 @@ Reuse Coolify. Do not build a second deploy engine, a second Git checkout, a sec
 
 - `odoo_profiles`: one row per project. `odoo_version` is 17, 18, 19, or 20. Enabling Odoo only saves the profile. It does not create an empty staging.
 - Staging is an `Environment` named `staging` or `staging-N`. `production` is not staging. No `OdooStagingEnvironment` model.
-- Quota is on the user, written only by the owner. Not the old project columns. Rule: `OdooStaging::canCreateStagingEnvironment()`. No profile or a member: no. Owner, or admin with a null limit: yes. Admin with a number: staging environments they created, under that number. Production does not count.
+- Quota is on the user, written only by the owner. Not the old project columns. `max_projects` is the ceiling. A second project is refused when that number is reached, even if environments or services still have room. One allowed project includes one instance, and that instance includes its production branch and its staging branch. Those two branches do not spend a second project and do not need spare `max_environments` or `max_services` to exist. Rule: `OdooStaging::canCreateStagingEnvironment()`. No profile or a member: no. Owner, or admin with a null limit: yes. Admin with a number: staging environments they created, under that number. Production does not count. Any admin on the team can finish a staging launch on a project they can use. The other admin's quota does not block it, and the overlay must reach Done.
 - `Project::createNextStagingEnvironment()` is the only creator. Clone calls it. One new staging, never a second production. If `staging` exists, reuse it; the next is `staging-2`.
 - A project without a profile stays production only.
 
@@ -75,7 +75,7 @@ These are already started. Do not rip them out. Do not extend them unless the cu
 - 7. Version on the profile, workers, addon path, Jupyter optional per environment. The 17–20 selector on the service already exists.
 - 8. Audit log (user, action, project, environment, result, metadata, no secrets) and the notification channels that already exist.
 - 9. API `/api/v1/projects/{uuid}/odoo` calls the same actions as the UI.
-- 10. A member cannot create or change a server or S3. Staging does not write to production. Abilities `odoo.*` granted by the owner do not open servers, S3, or the terminal.
+- 10. A member cannot create or change a server or S3. Staging does not write to production. Abilities `odoo.*` granted by the owner do not open servers, S3, or the terminal. An admin's terminal is still limited to instances they created or were assigned.
 
 ## Corrections that override an older phase sentence
 
@@ -98,11 +98,15 @@ Member only: `odoo_abilities` (grantable list). A member stays without server fl
 
 `can_add_servers`: `ServerPolicy::create` is `canAddServers()`. `can_launch_on_instance_server`: may launch on server id 0. Read the flag with a fresh `teams()` query (`User::teamFlag`), not the in-memory team list. `OdooGit::allowedLaunchServers()` must `find(0)` when that flag is on. Server id 0 is the instance server and is often not on the client's team.
 
-Owners always can. Members never can, even if the column is true. Server update/delete and S3 create stay owner-only. `S3StoragePolicy` and `canAccessTerminal` stay as they are. `Storage\Create` is mounted on every page: authorize on submit, not on mount.
+Owners always can. Members never can, even if the column is true. Server update/delete and S3 create stay owner-only. `S3StoragePolicy` stays as it is. `Storage\Create` is mounted on every page: authorize on submit, not on mount.
+
+Terminal (`canAccessTerminal` plus the resource check): members never. The instance owner can open any terminal. An admin can open the terminal only for an instance they created (`created_by`) or that the owner assigned to them. Another admin on the same team does not inherit that terminal.
 
 ## Support
 
-WhatsApp: floating button on the logged-in layout. It asks the topic, then opens `wa.me`. The mark is the WhatsApp glyph, not a hand-drawn phone. Number is `instance_settings.whatsapp_support_number`, owner only, at `settings.whatsapp`. Empty hides the button. GitHub App name and icon are at `settings.github`, not on the general form.
+WhatsApp: floating button on the logged-in layout. It asks the topic, then opens `wa.me`. The mark is the WhatsApp glyph, not a hand-drawn phone. Number is `instance_settings.whatsapp_support_number`, owner only, at `settings.whatsapp`. Empty hides the button.
+
+GitHub App administration for an app a client created on their GitHub lives only in the owner's settings (`settings.github`: name, icon, and that app). Remove create/manage GitHub App from the project, the service page, the invite form, the sources navbar, and the new-repository modal. When an admin invites someone, attach them to the team with their limits and also add them as a collaborator on that project's main repository. An invite sent by a different admin on the same team does the same.
 
 ## Do not touch
 

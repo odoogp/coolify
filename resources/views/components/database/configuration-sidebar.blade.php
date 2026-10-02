@@ -15,7 +15,7 @@
         ['label' => __('Import Backup'), 'route' => 'project.database.import-backup', 'icon' => 'upload', 'navigate' => false, 'visible' => auth()->user()?->can('update', $database)],
         ['label' => __('Servers'), 'route' => 'project.database.servers', 'icon' => 'servers'],
         ['label' => __('Runtime Logs'), 'route' => 'project.database.logs', 'icon' => 'unordered-list', 'navigate' => false],
-        ['label' => __('Terminal'), 'route' => 'project.database.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->can('canAccessTerminal')],
+        ['label' => __('Terminal'), 'route' => 'project.database.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->canOpenTerminal($database)],
         ['label' => __('Webhooks'), 'route' => 'project.database.webhooks', 'icon' => 'notifications'],
         ['label' => __('Healthcheck'), 'route' => 'project.database.healthcheck', 'icon' => 'feedback'],
         ['label' => __('Resource Limits'), 'route' => 'project.database.resource-limits', 'icon' => 'cpu'],

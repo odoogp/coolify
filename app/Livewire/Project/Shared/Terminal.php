@@ -43,6 +43,9 @@ class Terminal extends Component
 
         $server = Server::ownedByCurrentTeam()->whereUuid($serverUuid)->firstOrFail();
         $this->authorize('view', $server);
+        if (! auth()->user()?->canOpenTerminal($server)) {
+            abort(403);
+        }
 
         if (! $server->isTerminalEnabled() || $server->isForceDisabled()) {
             abort(403, 'Terminal access is disabled on this server.');

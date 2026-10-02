@@ -109,11 +109,13 @@
         ? collect([
             ['label' => __('Dashboard'), 'href' => url('/')],
             ['label' => __('Projects'), 'href' => url('/projects')],
-            auth()->user()?->can('canAccessTerminal')
+            (auth()->user()?->isInstanceOwner() || auth()->user()?->isOwner())
                 ? ['label' => __('Terminal'), 'href' => route('terminal')]
                 : null,
             ['label' => __('Servers'), 'href' => url('/servers')],
-            ['label' => __('Sources'), 'href' => route('source.all')],
+            isInstanceOwner()
+                ? ['label' => __('Sources'), 'href' => route('source.all')]
+                : null,
             ['label' => __('Destinations'), 'href' => route('destination.index')],
             ['label' => __('S3 Storage'), 'href' => route('storage.index')],
             ['label' => __('Shared Variables'), 'href' => route('shared-variables.index')],

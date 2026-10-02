@@ -62,17 +62,26 @@ test('null quotas do not limit an admin', function () {
         ->and($project->environments()->first()->created_by)->toBe($this->admin->id);
 });
 
-test('a zero project quota blocks creation and an environment quota rolls the project back', function () {
+test('a zero project quota blocks creation and the included production does not need an environment slot', function () {
     $this->actingAs($this->admin);
     session(['currentTeam' => $this->team]);
-    setAdminCreationQuota(projects: 5, environments: 0);
+    setAdminCreationQuota(projects: 0, environments: 5);
 
     expect(fn () => app(AdminCreationQuota::class)->createProject($this->admin, [
         'name' => 'Needs production',
         'team_id' => $this->team->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 0 de 0 entornos en este equipo.');
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 0 de 0 proyectos en este equipo.');
 
     expect(Project::query()->where('team_id', $this->team->id)->count())->toBe(0);
+
+    setAdminCreationQuota(projects: 1, environments: 0);
+
+    $project = app(AdminCreationQuota::class)->createProject($this->admin, [
+        'name' => 'Included production',
+        'team_id' => $this->team->id,
+    ]);
+
+    expect($project->environments()->pluck('name')->all())->toBe(['production']);
 });
 
 test('reaching the project quota blocks the next create and deleting frees the slot', function () {
@@ -101,41 +110,29 @@ test('reaching the project quota blocks the next create and deleting frees the s
         ->and(Project::query()->where('created_by', $this->admin->id)->count())->toBe(1);
 });
 
-test('the automatic production environment counts and a direct create cannot pass the cap', function () {
+test('the project cap blocks another project even when environment slots remain', function () {
     $this->actingAs($this->admin);
     session(['currentTeam' => $this->team]);
-    setAdminCreationQuota(projects: 2, environments: 1);
+    setAdminCreationQuota(projects: 1, environments: 5);
 
     app(AdminCreationQuota::class)->createProject($this->admin, [
         'name' => 'With production',
         'team_id' => $this->team->id,
     ]);
 
-    expect(Environment::query()->where('created_by', $this->admin->id)->count())->toBe(1);
-
     expect(fn () => Project::create([
         'name' => 'Direct create',
         'team_id' => $this->team->id,
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 entornos en este equipo.');
+        'created_by' => $this->admin->id,
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 proyectos en este equipo.');
 
     expect(Project::query()->where('team_id', $this->team->id)->count())->toBe(1);
 });
 
-test('cloning a non-production environment reserves the extra environment in the same transaction', function () {
+test('the included staging does not spend an environment slot and an extra environment does', function () {
     $this->actingAs($this->admin);
     session(['currentTeam' => $this->team]);
-    setAdminCreationQuota(projects: 1, environments: 1);
-
-    expect(fn () => app(AdminCreationQuota::class)->createProject($this->admin, [
-        'name' => 'Clone target',
-        'team_id' => $this->team->id,
-    ], [
-        ['name' => 'staging'],
-    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 0 de 1 entornos en este equipo.');
-
-    expect(Project::query()->count())->toBe(0);
-
-    setAdminCreationQuota(projects: 1, environments: 2);
+    setAdminCreationQuota(projects: 1, environments: 0);
 
     $project = app(AdminCreationQuota::class)->createProject($this->admin, [
         'name' => 'Clone target',
@@ -144,8 +141,13 @@ test('cloning a non-production environment reserves the extra environment in the
         ['name' => 'staging'],
     ]);
 
-    expect($project->environments()->pluck('created_by')->map(fn ($id) => (int) $id)->unique()->values()->all())->toBe([$this->admin->id]);
-    expect($project->environments()->count())->toBe(2);
+    expect($project->environments()->pluck('name')->sort()->values()->all())->toBe(['production', 'staging']);
+
+    expect(fn () => Environment::create([
+        'name' => 'qa',
+        'project_id' => $project->id,
+        'created_by' => $this->admin->id,
+    ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 0 de 0 entornos en este equipo.');
 });
 
 test('resources without an author do not count and the owner ignores a quota', function () {
@@ -524,4 +526,58 @@ test('an admin cannot exceed production, staging, or service quotas', function (
         'destination_id' => $destination->id,
         'destination_type' => $destination->getMorphClass(),
     ]))->toThrow(AdminCreationQuotaExceeded::class, 'Has creado 1 de 1 servicios en este equipo.');
+});
+
+test('another admin can launch the included staging without spending environment slots', function () {
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+    setAdminCreationQuota(projects: 1, environments: 0);
+    $this->admin->teams()->updateExistingPivot($this->team->id, [
+        'max_staging_branches' => 0,
+    ]);
+
+    $project = app(AdminCreationQuota::class)->createProject($this->admin, [
+        'name' => 'Shared',
+        'team_id' => $this->team->id,
+    ]);
+    $project->enableOdoo('20');
+
+    $other = User::factory()->create();
+    $other->teams()->attach($this->team->id, [
+        'role' => 'admin',
+        'max_projects' => 0,
+        'max_environments' => 0,
+        'max_staging_branches' => 0,
+        'max_services' => 0,
+    ]);
+
+    $this->actingAs($other);
+    session(['currentTeam' => $this->team]);
+
+    expect($project->fresh()->canCreateStagingEnvironment())->toBeTrue();
+
+    $staging = $project->fresh()->createNextStagingEnvironment();
+
+    expect($staging->name)->toBe('staging-1')
+        ->and((int) $staging->created_by)->toBe($other->id);
+});
+
+test('an admin opens the terminal only on an instance they created', function () {
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    $project = Project::factory()->create([
+        'team_id' => $this->team->id,
+        'created_by' => $this->admin->id,
+    ]);
+    $other = User::factory()->create();
+    $other->teams()->attach($this->team->id, ['role' => 'admin']);
+
+    $this->actingAs($other);
+    session(['currentTeam' => $this->team]);
+
+    expect($this->admin->canOpenTerminal($project))->toBeTrue()
+        ->and($other->canOpenTerminal($project))->toBeFalse()
+        ->and($this->member->canOpenTerminal($project))->toBeFalse()
+        ->and($this->owner->canOpenTerminal($project))->toBeTrue();
 });

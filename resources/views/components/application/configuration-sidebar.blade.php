@@ -49,7 +49,7 @@
                 'route' => 'project.application.command',
                 'active' => $currentRoute === 'project.application.command',
                 'navigate' => false,
-                'visible' => ! $application->destination->server->isSwarm() && auth()->user()?->can('canAccessTerminal'),
+                'visible' => ! $application->destination->server->isSwarm() && auth()->user()?->canOpenTerminal($application),
             ],
             [
                 'label' => __('Deployment Logs'),

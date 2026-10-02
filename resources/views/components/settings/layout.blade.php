@@ -5,7 +5,6 @@
             ['label' => __('Advanced'), 'route' => 'settings.advanced', 'icon' => 'grid'],
             ['label' => __('Updates'), 'route' => 'settings.updates', 'icon' => 'refresh3'],
             ['label' => __('Odoo'), 'route' => 'settings.odoo', 'icon' => 'layers'],
-            ['label' => __('GitHub'), 'route' => 'settings.github', 'icon' => 'code'],
         ],
         'Instance' => [
             ['label' => __('Backup'), 'route' => 'settings.backup', 'icon' => 'database'],
@@ -16,6 +15,11 @@
     ];
 
     if (isInstanceOwner()) {
+        $settingsMenuSections['Configuration'][] = [
+            'label' => __('GitHub'),
+            'route' => 'settings.github',
+            'icon' => 'code',
+        ];
         $settingsMenuSections['Configuration'][] = [
             'label' => __('WhatsApp'),
             'route' => 'settings.whatsapp',

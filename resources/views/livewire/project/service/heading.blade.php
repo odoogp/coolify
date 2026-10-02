@@ -32,7 +32,7 @@
                 'route' => 'project.service.command',
                 'active' => request()->routeIs('project.service.command'),
                 'navigate' => false,
-                'visible' => auth()->user()?->can('canAccessTerminal'),
+                'visible' => auth()->user()?->canOpenTerminal($service),
             ],
         ];
 

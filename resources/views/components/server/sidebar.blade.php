@@ -90,7 +90,7 @@
             'icon' => 'browser-terminal',
             'group' => 'Operations',
             'navigate' => false,
-            'visible' => auth()->user()?->can('canAccessTerminal'),
+            'visible' => auth()->user()?->canOpenTerminal($server),
         ],
         [
             'label' => __('Destinations'),

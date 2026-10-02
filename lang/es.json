@@ -3795,5 +3795,9 @@
     "I want to launch a project": "Quiero lanzar un proyecto",
     "Something else": "Otra consulta",
     "Hello, I am :who on :product. I need help with: :topic.": "Hola, soy :who en :product. Necesito ayuda con: :topic.",
-    "Name and icon used the next time GPSH registers its GitHub App. An app that is already installed is reused.": "Nombre e icono que se usan la próxima vez que GPSH registra su app de GitHub. Si la app ya está instalada, se reutiliza."
+    "Name and icon used the next time GPSH registers its GitHub App. An app that is already installed is reused.": "Nombre e icono que se usan la próxima vez que GPSH registra su app de GitHub. Si la app ya está instalada, se reutiliza.",
+    "Installed apps": "Apps instaladas",
+    "GitHub Apps created from GPSH. This is the only place they are managed.": "Apps de GitHub creadas desde GPSH. Este es el único lugar donde se administran.",
+    "No GitHub App is installed yet.": "Todavía no hay una GitHub App instalada.",
+    "Ask the owner to register the GitHub App in Settings.": "Pide al owner que registre la GitHub App en Ajustes."
 }

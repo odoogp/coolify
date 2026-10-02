@@ -1034,6 +1034,58 @@ BASH;
             : $connected->sortByDesc('id')->first();
     }
 
+    /**
+     * Add the invited person to each Odoo project's repository.
+     * GitHub identifies collaborators by login, so an email GitHub cannot match is skipped.
+     * A failed call does not undo the team invite.
+     */
+    public static function inviteEmailToRepositories(int $teamId, string $email): void
+    {
+        if ($email === '' || ! str_contains($email, '@')) {
+            return;
+        }
+
+        $profiles = OdooProfile::query()
+            ->whereNotNull('git_repository')
+            ->whereHas('project', fn ($query) => $query->where('team_id', $teamId))
+            ->with('githubApp')
+            ->get();
+
+        foreach ($profiles as $profile) {
+            $app = $profile->githubApp;
+            $repository = (string) $profile->git_repository;
+            if (! $app instanceof GithubApp || ! str_contains($repository, '/')) {
+                continue;
+            }
+
+            try {
+                self::inviteCollaborator($app, $repository, $email);
+            } catch (\Throwable) {
+                // The team invite still stands when GitHub cannot add the collaborator.
+            }
+        }
+    }
+
+    public static function inviteCollaborator(GithubApp $app, string $repository, string $email): void
+    {
+        $login = self::githubLoginForEmail($app, $email);
+        if ($login === null || preg_match('#^[^/\s]+/[^/\s]+$#', $repository) !== 1) {
+            return;
+        }
+
+        githubApi($app, '/repos/'.$repository.'/collaborators/'.rawurlencode($login), 'put', [
+            'permission' => 'push',
+        ], false);
+    }
+
+    private static function githubLoginForEmail(GithubApp $app, string $email): ?string
+    {
+        $response = githubApi($app, '/search/users?q='.rawurlencode($email.' in:email'), 'get', null, false);
+        $login = data_get($response, 'data.items.0.login');
+
+        return is_string($login) && $login !== '' ? $login : null;
+    }
+
     public static function rememberForUser(int $userId, int $teamId, GithubApp $githubApp): void
     {
         DB::table('team_user')

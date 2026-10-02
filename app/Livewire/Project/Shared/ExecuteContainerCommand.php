@@ -46,6 +46,9 @@ class ExecuteContainerCommand extends Component
             $this->type = 'application';
             $this->resource = Application::ownedByCurrentTeam()->where('uuid', $this->parameters['application_uuid'])->firstOrFail();
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             if ($this->resource->destination->server->isFunctional()) {
                 $this->servers = $this->servers->push($this->resource->destination->server);
             }
@@ -62,6 +65,9 @@ class ExecuteContainerCommand extends Component
             }
             $this->resource = $resource;
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             if ($this->resource->destination->server->isFunctional()) {
                 $this->servers = $this->servers->push($this->resource->destination->server);
             }
@@ -69,6 +75,9 @@ class ExecuteContainerCommand extends Component
             $this->type = 'service';
             $this->resource = Service::ownedByCurrentTeam()->where('uuid', $this->parameters['service_uuid'])->firstOrFail();
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             if (! $this->resource->isRunning()) {
                 $this->containersLoaded = true;
             }
@@ -79,6 +88,9 @@ class ExecuteContainerCommand extends Component
             $this->type = 'server';
             $this->resource = Server::ownedByCurrentTeam()->where('uuid', $this->parameters['server_uuid'])->firstOrFail();
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             $this->servers = $this->servers->push($this->resource);
             $this->containersLoaded = true;
         }

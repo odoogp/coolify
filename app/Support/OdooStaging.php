@@ -44,7 +44,7 @@ class OdooStaging
             return false;
         }
 
-        return app(AdminCreationQuota::class)->canLaunchStaging($user, (int) $project->team_id);
+        return app(AdminCreationQuota::class)->canLaunchStaging($user, (int) $project->team_id, $project);
     }
 
     public static function nextName(Project $project): string

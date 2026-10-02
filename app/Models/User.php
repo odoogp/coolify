@@ -486,6 +486,74 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         return $this->isAdmin() && $this->teamFlag('can_launch_on_instance_server');
     }
 
+    /**
+     * Members never. The instance owner and the team owner can open any terminal.
+     * An admin only opens an instance they created or whose project or environment they created.
+     */
+    public function canOpenTerminal(mixed $resource = null): bool
+    {
+        if ($this->isMember()) {
+            return false;
+        }
+
+        if ($this->isInstanceOwner() || $this->isOwner()) {
+            return true;
+        }
+
+        if ($this->role() !== 'admin' || $resource === null) {
+            return false;
+        }
+
+        return $this->createdThisInstance($resource);
+    }
+
+    private function createdThisInstance(mixed $resource): bool
+    {
+        $id = (int) $this->id;
+
+        if ($resource instanceof Server) {
+            return Service::query()
+                ->where('server_id', $resource->id)
+                ->where(function ($query) use ($id): void {
+                    $query->where('created_by', $id)
+                        ->orWhereHas('environment', function ($environment) use ($id): void {
+                            $environment->where('created_by', $id)
+                                ->orWhereHas('project', fn ($project) => $project->where('created_by', $id));
+                        });
+                })
+                ->exists();
+        }
+
+        if ($resource instanceof Project) {
+            return (int) $resource->created_by === $id;
+        }
+
+        if ((int) data_get($resource, 'created_by') === $id) {
+            return true;
+        }
+
+        if ($resource instanceof Environment) {
+            $resource->loadMissing('project');
+
+            return (int) $resource->project?->created_by === $id;
+        }
+
+        $environment = is_object($resource) && method_exists($resource, 'environment')
+            ? $resource->environment
+            : null;
+        if (! $environment instanceof Environment) {
+            return false;
+        }
+
+        if ((int) $environment->created_by === $id) {
+            return true;
+        }
+
+        $environment->loadMissing('project');
+
+        return (int) $environment->project?->created_by === $id;
+    }
+
     private function teamFlag(string $column): bool
     {
         $teamId = $this->currentTeam()?->id;

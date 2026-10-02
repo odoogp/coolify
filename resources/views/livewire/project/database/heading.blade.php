@@ -34,7 +34,7 @@
                 'route' => 'project.database.command',
                 'active' => request()->routeIs('project.database.command'),
                 'navigate' => false,
-                'visible' => auth()->user()?->can('canAccessTerminal'),
+                'visible' => auth()->user()?->canOpenTerminal($database),
             ],
         ];
 

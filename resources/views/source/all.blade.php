@@ -24,16 +24,18 @@
 
                     <div x-cloak x-show="dropdownOpen" x-transition.origin.top.right role="menu"
                         class="listbox-panel left-auto! right-0! z-[90]! w-52! min-w-52!">
-                        <x-modal-input title="{{ __('New GitHub App') }}" :closeOutside="false">
-                            <x-slot:content>
-                                <button type="button" @click="dropdownOpen = false"
-                                    class="listbox-option justify-start! gap-2.5!" role="menuitem">
-                                    <x-git-icon class="size-3.5 shrink-0 opacity-70" git="App\Models\GithubApp" />
-                                    {{ __('GitHub App') }}
-                                </button>
-                            </x-slot:content>
-                            <livewire:source.github.create />
-                        </x-modal-input>
+                        @if (isInstanceOwner())
+                            <x-modal-input title="{{ __('New GitHub App') }}" :closeOutside="false">
+                                <x-slot:content>
+                                    <button type="button" @click="dropdownOpen = false"
+                                        class="listbox-option justify-start! gap-2.5!" role="menuitem">
+                                        <x-git-icon class="size-3.5 shrink-0 opacity-70" git="App\Models\GithubApp" />
+                                        {{ __('GitHub App') }}
+                                    </button>
+                                </x-slot:content>
+                                <livewire:source.github.create />
+                            </x-modal-input>
+                        @endif
                         <x-modal-input title="{{ __('New GitLab App') }}" :closeOutside="false">
                             <x-slot:content>
                                 <button type="button" @click="dropdownOpen = false"

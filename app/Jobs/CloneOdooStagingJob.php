@@ -160,6 +160,7 @@ class CloneOdooStagingJob implements ShouldQueue
         $copy->environment_id = $staging->id;
         $copy->config_hash = null;
         $copy->name = 'odoo-'.$staging->name;
+        $copy->created_by = auth()->id() ?? $original->created_by;
         $copy->save();
 
         foreach ($original->environment_variables as $variable) {

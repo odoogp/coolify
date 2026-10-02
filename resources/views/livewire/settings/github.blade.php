@@ -23,6 +23,21 @@
                     </div>
                 </div>
             </x-application.settings-section>
+            <x-application.settings-section title="{{ __('Installed apps') }}"
+                description="{{ __('GitHub Apps created from GPSH. This is the only place they are managed.') }}">
+                @if ($apps->isEmpty())
+                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No GitHub App is installed yet.') }}</p>
+                @else
+                    <ul class="flex flex-col gap-2">
+                        @foreach ($apps as $app)
+                            <li class="flex flex-wrap items-center justify-between gap-2">
+                                <span class="text-[13px]">{{ $app->name ?: __('GitHub App') }}@if ($app->team) · {{ $app->team->name }}@endif</span>
+                                <a class="button" href="{{ route('source.github.show', ['github_app_uuid' => $app->uuid]) }}">{{ __('Manage') }}</a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+            </x-application.settings-section>
         </form>
     </x-settings.layout>
 </div>
