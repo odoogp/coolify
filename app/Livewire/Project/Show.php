@@ -138,6 +138,11 @@ class Show extends Component
         $this->showCloneWizard = true;
     }
 
+    public function closeCloneWizard(): void
+    {
+        $this->showCloneWizard = false;
+    }
+
     public function selectEnvironment(string $uuid): void
     {
         $this->selectedEnvironmentUuid = $uuid;
@@ -341,6 +346,14 @@ class Show extends Component
                         'only' => 'odoo',
                     ])
                     : null;
+                $terminalHref = $odooOnly && $service instanceof Service && auth()->user()?->canOpenTerminal($service)
+                    ? route('project.service.command', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                        'shell' => 'odoo',
+                    ])
+                    : null;
 
                 return [
                     'uuid' => $environment->uuid,
@@ -353,6 +366,7 @@ class Show extends Component
                     'jupyterHref' => $jupyterHref,
                     'monitorHref' => $monitorHref,
                     'logsHref' => $logsHref,
+                    'terminalHref' => $terminalHref,
                     'environmentHref' => $odooOnly && $service instanceof Service
                         ? route('project.service.configuration', [
                             'project_uuid' => $this->project->uuid,

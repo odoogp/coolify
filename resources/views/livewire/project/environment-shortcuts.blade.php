@@ -27,3 +27,12 @@
     <span
         class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Logs') }}</span>
 </a>
+<a x-show="environment.terminalHref" x-cloak :href="environment.terminalHref" {{ wireNavigate() }} @click.stop
+    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+    aria-label="{{ __('Terminal') }}">
+    <span class="flex size-7 shrink-0 items-center justify-center">
+        <x-reicon name="terminal" class="size-3.5" />
+    </span>
+    <span
+        class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Terminal') }}</span>
+</a>

@@ -15,19 +15,6 @@
 
             <div class="flex w-fit shrink-0 items-center gap-2">
             @can('update', $project)
-                    @if ($project->odooProfile)
-                        <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
-                            {{ __('Clone to staging') }}
-                        </button>
-                    @endif
-            @endcan
-                    @if ($project->odooProfile)
-                        <a class="button button-highlighted" {{ wireNavigate() }}
-                            x-bind:href="selectedEnvironmentHref()">
-                            {{ __('Open environment') }}
-                        </a>
-                    @endif
-            @can('update', $project)
                     <a href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button"
@@ -144,6 +131,19 @@
                             @php
                                 $selectedOdoo = $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter());
                             @endphp
+                            @can('update', $project)
+                                @if ($selectedOdoo && strcasecmp($selectedEnvironment->name, 'production') === 0)
+                                    <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
+                                        {{ __('Clone') }}
+                                    </button>
+                                @endif
+                            @endcan
+                            <a class="button button-highlighted" {{ wireNavigate() }}
+                                href="{{ $selectedOdoo
+                                    ? route('project.service.configuration', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid])
+                                    : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid]) }}">
+                                {{ __('Open environment') }}
+                            </a>
                             @if ($selectedOdoo)
                                 <a class="button button-highlighted" target="_blank"
                                     href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid]) }}">
@@ -203,8 +203,11 @@
                         </div>
                     </div>
                 @elseif ($showCloneWizard)
-                    <div
-                        class="mb-3 space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    <div wire:click="closeCloneWizard"
+                        class="fixed inset-0 z-99 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
+                    <div wire:click.stop
+                        class="w-full max-w-lg space-y-3 rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                        <h2 class="text-base font-semibold">{{ __('Clone') }}</h2>
                         <p class="text-[13px] font-medium">
                             {{ __('This creates staging :name from production and starts Odoo. It copies the database and files, then neutralizes that copy. It does not create another production.', ['name' => \App\Support\OdooStaging::nextName($project)]) }}
                         </p>
@@ -235,9 +238,13 @@
                                 {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
                             </p>
                         @endif
-                        <button type="button" class="button button-highlighted" wire:click="cloneToStaging">
-                            {{ __('Create staging') }}
-                        </button>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" class="button" wire:click="closeCloneWizard">{{ __('Cancel') }}</button>
+                            <button type="button" class="button button-highlighted" wire:click="cloneToStaging">
+                                {{ __('Clone') }}
+                            </button>
+                        </div>
+                    </div>
                     </div>
                 @endif
             @endif
@@ -442,13 +449,6 @@
             },
             get rangeEnd() {
                 return Math.min(this.page * this.pageSize, this.filteredEnvironments.length);
-            },
-            selectedEnvironmentHref() {
-                const current = this.environments.find((environment) => environment.uuid === this.selected)
-                    || this.environments.find((environment) => environment.name === 'production')
-                    || this.environments[0];
-
-                return current?.environmentHref || '#';
             },
             setViewMode(mode) {
                 this.viewMode = mode;

@@ -510,6 +510,17 @@ class OdooGit
         return str_contains($name, 'odoo') || str_contains($name, 'postgres');
     }
 
+    /**
+     * Odoo, Jupyter, the owner Jupyter, and Grafana share the certificate Traefik issues for Odoo.
+     */
+    public static function usesSharedCertificate(string $serviceKey): bool
+    {
+        $name = strtolower($serviceKey);
+        $name = preg_replace('/_\d+$/', '', $name) ?? $name;
+
+        return in_array($name, ['odoo', 'jupyter', 'jupyterowner', 'monitor'], true);
+    }
+
     public static function isOdooContainerLog(string $container): bool
     {
         $name = strtolower(ltrim($container, '/'));
@@ -908,7 +919,7 @@ BASH;
     }
 
     /**
-     * One remote command. HTTPS starts only after Odoo, PostgreSQL and Jupyter are running.
+     * One remote command. HTTPS starts only after Odoo and PostgreSQL are running.
      */
     public static function containersReadyCommand(Service $service): string
     {
@@ -922,7 +933,7 @@ BASH;
 set -eu
 project=__UUID__
 service_id=__ID__
-need_jupyter=__JUPYTER__
+need_jupyter=0
 ready=0
 for i in $(seq 1 60); do
   ids="$(docker ps -q --filter "label=com.docker.compose.project=${project}"; docker ps -q --filter "label=coolify.serviceId=${service_id}")"
@@ -955,8 +966,8 @@ fi
 BASH;
 
         $script = str_replace(
-            ['__UUID__', '__ID__', '__JUPYTER__'],
-            [$uuid, $serviceId, $service->jupyter_enabled ? '1' : '0'],
+            ['__UUID__', '__ID__'],
+            [$uuid, $serviceId],
             $script,
         );
 

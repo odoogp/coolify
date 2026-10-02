@@ -577,6 +577,8 @@ it('shows editor, monitor, and odoo log icons on the project environments', func
         ->assertSee('Editor')
         ->assertSee('Monitor')
         ->assertSee('Logs')
+        ->assertSee('Terminal')
+        ->assertSee('shell=odoo')
         ->assertDontSee('Owner Jupyter');
 
     expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
@@ -589,7 +591,8 @@ it('shows editor, monitor, and odoo log icons on the project environments', func
         ->toContain("{{ __('Logs') }}")
         ->toContain('name="code"')
         ->toContain('name="dashboard"')
-        ->toContain('name="file-content"');
+        ->toContain('name="file-content"')
+        ->toContain('name="terminal"');
 });
 
 it('lets the instance owner add a module that the next start links read-only', function () {

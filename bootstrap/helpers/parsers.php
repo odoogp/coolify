@@ -1834,12 +1834,17 @@ function serviceParser(Service $resource): Collection
                 $isServiceApplication = $savedService instanceof ServiceApplication;
 
                 if ($isServiceApplication && blank($savedService->fqdn)) {
-                    $odooHttps = str_starts_with(strtolower((string) $fqdnFor), 'odoo');
-                    $fqdn = generateFqdn(server: $server, random: "$fqdnFor-$uuid", forceHttps: $odooHttps, parserVersion: $resource->compose_parsing_version);
-                    $url = generateUrl(server: $server, random: "$fqdnFor-$uuid", forceHttps: $odooHttps);
+                    $sharedCertificate = OdooGit::usesSharedCertificate((string) $fqdnFor);
+                    $fqdn = generateFqdn(server: $server, random: "$fqdnFor-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
+                    $url = generateUrl(server: $server, random: "$fqdnFor-$uuid", forceHttps: $sharedCertificate);
                 } elseif ($isServiceApplication) {
                     // FQDN may be a comma-separated list; use the first entry (same as updateCompose).
                     $firstFqdn = firstDomainFromList($savedService->fqdn);
+                    if (OdooGit::usesSharedCertificate((string) $fqdnFor) && str_starts_with((string) $firstFqdn, 'http://')) {
+                        $firstFqdn = 'https://'.substr((string) $firstFqdn, strlen('http://'));
+                        $savedService->fqdn = str_replace('http://', 'https://', (string) $savedService->fqdn);
+                        $savedService->save();
+                    }
                     $fqdn = getFqdnWithoutPort($firstFqdn);
                     $url = $fqdn;
                 } else {
@@ -1948,9 +1953,9 @@ function serviceParser(Service $resource): Collection
                 $command = parseCommandFromMagicEnvVariable($key);
                 if ($command->value() === 'FQDN') {
                     $fqdnFor = $key->after('SERVICE_FQDN_')->lower()->value();
-                    $odooHttps = str_starts_with(strtolower((string) $fqdnFor), 'odoo');
-                    $fqdn = generateFqdn(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps, parserVersion: $resource->compose_parsing_version);
-                    $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps);
+                    $sharedCertificate = OdooGit::usesSharedCertificate((string) $fqdnFor);
+                    $fqdn = generateFqdn(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
+                    $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
                     // Also check if a port-suffixed version exists (e.g., SERVICE_FQDN_UMAMI_3000)
@@ -1994,9 +1999,9 @@ function serviceParser(Service $resource): Collection
 
                 } elseif ($command->value() === 'URL') {
                     $urlFor = $key->after('SERVICE_URL_')->lower()->value();
-                    $odooHttps = str_starts_with(strtolower((string) $urlFor), 'odoo');
-                    $url = generateUrl(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps);
-                    $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $odooHttps, parserVersion: $resource->compose_parsing_version);
+                    $sharedCertificate = OdooGit::usesSharedCertificate((string) $urlFor);
+                    $url = generateUrl(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate);
+                    $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
                     // Also check if a port-suffixed version exists (e.g., SERVICE_URL_DASHBOARD_6791)

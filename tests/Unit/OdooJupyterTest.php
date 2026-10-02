@@ -374,7 +374,7 @@ test('the odoo deploy waits until its containers are running before https', func
         ->and($command)->toContain('service_id=15')
         ->and($command)->toContain('label=com.docker.compose.project=${project}')
         ->and($command)->toContain('label=coolify.serviceId=${service_id}')
-        ->and($command)->toContain('need_jupyter=1')
+        ->and($command)->toContain('need_jupyter=0')
         ->and($command)->toContain('*stdlib*|*jupyterowner*')
         ->and($command)->toContain('seq 1 60')
         ->and($command)->toContain('The service containers are running.');
@@ -428,7 +428,10 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::isOdooContainerLog('postgresql-abc'))->toBeFalse()
         ->and(OdooGit::isOdooContainerLog('jupyter-abc'))->toBeFalse()
         ->and(OdooGit::isOdooContainerLog('stdlib-abc'))->toBeFalse()
-        ->and(OdooGit::isOdooContainerLog('monitor-abc'))->toBeFalse();
+        ->and(OdooGit::isOdooContainerLog('monitor-abc'))->toBeFalse()
+        ->and(OdooGit::usesSharedCertificate('monitor_3000'))->toBeTrue()
+        ->and(OdooGit::usesSharedCertificate('jupyterowner'))->toBeTrue()
+        ->and(OdooGit::usesSharedCertificate('cadvisor'))->toBeFalse();
 
     $services['stdlib']['volumes'] = ['abc123_odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'];
     $services['odoo']['volumes'] = ['abc123_odoo-extra-addons:/mnt/extra-addons'];
@@ -467,4 +470,31 @@ test('the odoo terminal opens the odoo shell and the other containers keep their
     expect(OdooGit::terminalShell('odoo-abc123'))->toBe('exec odoo shell --no-http -d "$ODOO_DATABASE"')
         ->and(OdooGit::terminalShell('jupyter-abc123'))->toBeNull()
         ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull();
+});
+
+test('odoo shares its certificate and the owner jupyter starts later', function () {
+    $services = OdooJupyter::shareOdooCertificate([
+        'odoo' => ['labels' => [
+            'traefik.http.routers.https-0-abc.tls.domains[0].main=odoo-abc.sslip.io',
+            'traefik.http.routers.https-0-abc.tls.certresolver=letsencrypt',
+        ]],
+        'monitor' => ['labels' => [
+            'traefik.http.routers.https-0-abc-monitor.tls.domains[0].main=monitor-abc.sslip.io',
+            'traefik.http.routers.https-0-abc-monitor.tls.certresolver=letsencrypt',
+        ]],
+        'jupyter' => ['labels' => [
+            'traefik.http.routers.https-0-abc-jupyter.tls.domains[0].main=jupyter-abc.sslip.io',
+            'traefik.http.routers.https-0-abc-jupyter.tls.certresolver=letsencrypt',
+        ]],
+    ]);
+
+    expect(implode("\n", $services['odoo']['labels']))
+        ->toContain('traefik.http.routers.https-0-abc.tls.domains[0].sans=monitor-abc.sslip.io,jupyter-abc.sslip.io')
+        ->toContain('tls.certresolver=letsencrypt')
+        ->and(implode("\n", $services['monitor']['labels']))->not->toContain('certresolver')
+        ->and(implode("\n", $services['jupyter']['labels']))->not->toContain('certresolver')
+        ->and(OdooJupyter::backgroundStartCommand('/data/coolify/services/abc123', 'abc123'))
+        ->toContain('--profile gpsh-later')
+        ->toContain('stdlib jupyterowner')
+        ->toEndWith('&');
 });

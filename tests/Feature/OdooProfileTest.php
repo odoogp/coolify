@@ -4,16 +4,18 @@ use App\Jobs\CloneOdooStagingJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Show;
+use App\Livewire\Team\Member;
 use App\Livewire\Team\Member as TeamMember;
-use App\Models\Environment;
 use App\Models\Application;
+use App\Models\Environment;
 use App\Models\GithubApp;
-use App\Models\Service;
 use App\Models\InstanceSettings;
+use App\Models\OdooEnvironmentBranch;
 use App\Models\OdooProfile;
 use App\Models\Project;
 use App\Models\S3Storage;
 use App\Models\Server;
+use App\Models\Service;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
@@ -162,7 +164,7 @@ it('does not create a staging when the user limit is already full', function () 
     $this->project->enableOdoo('18');
     $this->project->createNextStagingEnvironment();
 
-    expect(fn () => $this->project->cloneProductionAsStaging())->toThrow(\RuntimeException::class);
+    expect(fn () => $this->project->cloneProductionAsStaging())->toThrow(RuntimeException::class);
     expect($this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->count())->toBe(1);
     expect($this->project->environments()->pluck('name')->all())->toEqualCanonicalizing(['production', 'staging-1']);
 });
@@ -189,7 +191,7 @@ it('rejects a negative staging limit and keeps it off the project page', functio
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->assertDontSee('Allow unlimited staging environments');
 
-    Livewire::test(\App\Livewire\Team\Member::class, ['member' => $admin])
+    Livewire::test(Member::class, ['member' => $admin])
         ->set('maxStagingBranches', -1)
         ->call('saveCreationLimits')
         ->assertHasErrors(['maxStagingBranches']);
@@ -348,7 +350,11 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertDontSee('Open environment')
+        ->assertDontSee('>Clone<')
+        ->call('selectEnvironment', $production->uuid)
         ->assertSee('Open environment')
+        ->assertDontSee('Clone')
         ->assertSee('Open Odoo')
         ->assertSee('production')
         ->assertSee(route('project.service.configuration', [
@@ -375,6 +381,8 @@ it('lists environments once and clones production into one staging', function ()
     expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
         ->not->toContain('project.odoo-summary')
         ->toContain('openCloneWizard')
+        ->toContain('closeCloneWizard')
+        ->not->toContain('Clone to staging')
         ->toContain('cloneToStaging')
         ->toContain('stagingBranch')
         ->toContain('Search branches')
@@ -427,7 +435,7 @@ it('copies the production service into the staging clone', function () {
 it('does not create a staging environment when the branch is already used', function () {
     $this->project->enableOdoo('20');
     $production = $this->project->environments()->where('name', 'production')->first();
-    \App\Models\OdooEnvironmentBranch::query()->create([
+    OdooEnvironmentBranch::query()->create([
         'environment_id' => $production->id,
         'git_branch' => 'main',
     ]);

@@ -3,7 +3,9 @@
 namespace App\Actions\Service;
 
 use App\Models\Service;
+use App\Notifications\Internal\GeneralNotification;
 use App\Support\OdooGit;
+use App\Support\OdooJupyter;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Lorisleiva\Actions\Decorators\JobDecorator;
 use Symfony\Component\Yaml\Yaml;
@@ -55,6 +57,10 @@ class StartService
         if ($httpsReady !== null) {
             $commands[] = "echo 'Waiting until HTTPS is applied and Odoo answers.'";
             $commands[] = $httpsReady;
+        }
+        if ($service->supportsOdooJupyter()) {
+            $commands[] = OdooJupyter::backgroundStartCommand($service->workdir(), (string) $service->uuid);
+            $service->environment?->project?->team?->notify(new GeneralNotification('Odoo is opening. The owner Jupyter starts in the background.'));
         }
         if (data_get($service, 'connect_to_docker_network')) {
             $compose = data_get($service, 'docker_compose', []);

@@ -5,6 +5,7 @@ namespace App\Livewire\Project\Shared;
 use App\Models\Application;
 use App\Models\Server;
 use App\Models\Service;
+use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
 use App\Support\ValidationPatterns;
@@ -33,6 +34,8 @@ class ExecuteContainerCommand extends Component
 
     public bool $containersLoaded = false;
 
+    public ?string $shell = null;
+
     protected $rules = [
         'server' => 'required',
         'container' => 'required',
@@ -42,6 +45,7 @@ class ExecuteContainerCommand extends Component
     public function mount(): void
     {
         $this->parameters = get_route_parameters();
+        $this->shell = request()->query('shell');
         $this->containers = collect();
         $this->servers = collect();
         if (data_get($this->parameters, 'application_uuid')) {
@@ -172,6 +176,15 @@ class ExecuteContainerCommand extends Component
         if ($this->containers->count() === 1) {
             $this->selected_container = data_get($this->containers->first(), 'container.Names');
             $this->connectToContainer();
+        }
+        if ($this->shell === 'odoo') {
+            $odoo = $this->containers->first(function (mixed $row): bool {
+                return OdooGit::terminalShell((string) data_get($row, 'container.Names')) !== null;
+            });
+            if ($odoo !== null) {
+                $this->selected_container = (string) data_get($odoo, 'container.Names');
+                $this->connectToContainer();
+            }
         }
 
         $this->containersLoaded = true;

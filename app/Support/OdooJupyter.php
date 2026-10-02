@@ -33,6 +33,8 @@ class OdooJupyter
 
     public const ODOO_LOG = '/mnt/extra-addons/.gpsh/odoo.log';
 
+    public const LATER_PROFILE = 'gpsh-later';
+
     public static function proxyPort(string $serviceName, ?string $detected): ?string
     {
         if ($serviceName === self::SERVICE_NAME || $serviceName === self::OWNER_SERVICE_NAME) {
@@ -150,6 +152,7 @@ class OdooJupyter
             'image' => $image,
             'user' => '0:0',
             'restart' => 'unless-stopped',
+            'profiles' => [self::LATER_PROFILE],
             'entrypoint' => ['sleep'],
             'command' => ['infinity'],
             'volumes' => [$volume.':'.self::IMAGE_ADDONS],
@@ -533,6 +536,88 @@ BASH));
         if (isset($services[self::OWNER_SERVICE_NAME]) && is_array($services[self::OWNER_SERVICE_NAME])) {
             $services[self::OWNER_SERVICE_NAME]['volumes'] = self::ownerVolumes($services, $source);
         }
+        foreach ([self::STDLIB_SERVICE_NAME, self::OWNER_SERVICE_NAME] as $later) {
+            if (isset($services[$later]) && is_array($services[$later])) {
+                $services[$later]['profiles'] = [self::LATER_PROFILE];
+            }
+        }
+
+        return self::shareOdooCertificate($services);
+    }
+
+    /**
+     * The owner Jupyter and the image-addon container stay out of the main start.
+     * The shell backgrounds them after Odoo answers, so the launch queue is not a thread pool.
+     */
+    public static function backgroundStartCommand(string $workdir, string $project): string
+    {
+        if (preg_match('#\A[A-Za-z0-9._/-]+\z#', $workdir) !== 1 || preg_match('/\A[A-Za-z0-9]+\z/', $project) !== 1) {
+            throw new \RuntimeException('The background start was refused.');
+        }
+
+        return "docker compose --project-directory {$workdir} -f {$workdir}/docker-compose.yml --project-name {$project} --profile ".self::LATER_PROFILE.' up -d --no-recreate '.self::STDLIB_SERVICE_NAME.' '.self::OWNER_SERVICE_NAME." >/tmp/gpsh-later-{$project}.log 2>&1 &";
+    }
+
+    /**
+     * One certificate, requested by Odoo, lists the other public hosts as alternate names.
+     *
+     * @param  array<string, mixed>  $services
+     * @return array<string, mixed>
+     */
+    public static function shareOdooCertificate(array $services): array
+    {
+        $sans = [];
+        foreach ($services as $name => $service) {
+            if (! is_array($service) || $name === 'odoo' || ! OdooGit::usesSharedCertificate((string) $name)) {
+                continue;
+            }
+            $labels = $service['labels'] ?? [];
+            if ($labels instanceof \Illuminate\Support\Collection) {
+                $labels = $labels->all();
+            }
+            if (! is_array($labels)) {
+                continue;
+            }
+            foreach ($labels as $label) {
+                if (! is_string($label) || ! preg_match('/tls\.domains\[0\]\.main=([A-Za-z0-9.-]+)$/', $label, $matches)) {
+                    continue;
+                }
+                $sans[] = $matches[1];
+            }
+        }
+        $sans = array_values(array_unique($sans));
+        $odooLabels = $services['odoo']['labels'] ?? null;
+        if ($odooLabels instanceof \Illuminate\Support\Collection) {
+            $odooLabels = $odooLabels->all();
+        }
+        if ($sans !== [] && is_array($odooLabels)) {
+            $services['odoo']['labels'] = $odooLabels;
+            foreach ($services['odoo']['labels'] as $label) {
+                if (! is_string($label) || ! preg_match('/^(traefik\.http\.routers\.[^.]+)\.tls\.domains\[0\]\.main=/', $label, $matches)) {
+                    continue;
+                }
+                $line = $matches[1].'.tls.domains[0].sans='.implode(',', $sans);
+                if (! in_array($line, $services['odoo']['labels'], true)) {
+                    $services['odoo']['labels'][] = $line;
+                }
+            }
+        }
+        foreach ($services as $name => $service) {
+            if (! is_array($service) || $name === 'odoo' || ! OdooGit::usesSharedCertificate((string) $name)) {
+                continue;
+            }
+            $labels = $service['labels'] ?? null;
+            if ($labels instanceof \Illuminate\Support\Collection) {
+                $labels = $labels->all();
+            }
+            if (! is_array($labels)) {
+                continue;
+            }
+            $services[$name]['labels'] = array_values(array_filter(
+                $labels,
+                fn (mixed $label): bool => ! is_string($label) || ! str_contains($label, '.tls.certresolver='),
+            ));
+        }
 
         return $services;
     }
@@ -706,6 +791,7 @@ BASH));
             'user' => '0:0',
             'working_dir' => '/tmp',
             'restart' => 'unless-stopped',
+            'profiles' => [self::LATER_PROFILE],
             'expose' => [self::LISTEN_PORT],
             'depends_on' => [self::STDLIB_SERVICE_NAME],
             'entrypoint' => ['tini', '-g', '--', 'setpriv', '--reuid=100', '--regid=101', '--clear-groups'],
