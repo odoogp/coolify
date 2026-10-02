@@ -14,18 +14,30 @@
         <span class="auth-stage-shard auth-stage-shard-c"></span>
         <span class="auth-stage-shard auth-stage-shard-d"></span>
         <div class="auth-stage-mark-slot">
-        <svg class="auth-stage-mark" viewBox="0 0 200 200">
-            <defs>
-                <linearGradient id="auth-crystal" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
-                    <stop offset="0.45" stop-color="#c9bdff" stop-opacity="0.55"/>
-                    <stop offset="1" stop-color="#6d7dff" stop-opacity="0.28"/>
-                </linearGradient>
-            </defs>
-            <polygon points="100,16 168,54 168,132 100,170 32,132 32,54" fill="url(#auth-crystal)" stroke="rgba(255,255,255,0.72)" stroke-width="2"/>
-            <polygon points="100,46 136,66 136,112 100,132 64,112 64,66" fill="rgba(255,255,255,0.16)" stroke="rgba(255,255,255,0.4)"/>
-            <path d="M78 108 L100 68 L122 108 L110 108 L100 90 L90 108 Z" fill="rgba(255,255,255,0.92)"/>
-        </svg>
+            <span class="auth-stage-flare"></span>
+            <svg class="auth-stage-mark" viewBox="0 0 200 200">
+                <defs>
+                    <linearGradient id="auth-glass" x1="28" y1="8" x2="172" y2="188" gradientUnits="userSpaceOnUse">
+                        <stop offset="0" stop-color="#ffffff" stop-opacity="0.94"/>
+                        <stop offset="0.32" stop-color="#efeaff" stop-opacity="0.5"/>
+                        <stop offset="0.68" stop-color="#8ea0ff" stop-opacity="0.26"/>
+                        <stop offset="1" stop-color="#241a4a" stop-opacity="0.18"/>
+                    </linearGradient>
+                    <linearGradient id="auth-rim" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
+                        <stop offset="0.5" stop-color="#c9bdff" stop-opacity="0.4"/>
+                        <stop offset="1" stop-color="#ffffff" stop-opacity="0.12"/>
+                    </linearGradient>
+                    <filter id="auth-crystal-blur" x="-40%" y="-40%" width="180%" height="180%">
+                        <feGaussianBlur stdDeviation="8"/>
+                    </filter>
+                </defs>
+                <polygon points="100,18 166,56 166,130 100,168 34,130 34,56" fill="#b7a6ff" opacity="0.45" filter="url(#auth-crystal-blur)"/>
+                <polygon points="100,16 168,54 168,132 100,170 32,132 32,54" fill="url(#auth-glass)" stroke="url(#auth-rim)" stroke-width="2.4"/>
+                <polygon points="100,16 168,54 100,92 32,54" fill="rgb(255 255 255 / 0.28)"/>
+                <polygon points="100,48 134,67 134,110 100,130 66,110 66,67" fill="rgb(255 255 255 / 0.08)" stroke="rgb(255 255 255 / 0.62)" stroke-width="1.5"/>
+                <path d="M78 112 L100 70 L122 112 L109 112 L100 94 L91 112 Z" fill="#ffffff"/>
+            </svg>
         </div>
         <span class="auth-stage-ridge auth-stage-ridge-a"></span>
         <span class="auth-stage-ridge auth-stage-ridge-b"></span>

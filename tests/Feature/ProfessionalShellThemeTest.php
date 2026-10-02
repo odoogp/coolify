@@ -8,7 +8,7 @@ test('the signed-in shell uses the professional canvas and violet accent', funct
         ->toContain('--color-panel: #07080e;')
         ->toContain('background-color: #f6f4f1;')
         ->toContain('linear-gradient(90deg, #7c5cff, #4f7dff)')
-        ->toContain('linear-gradient(165deg, #5c3038 0%, #241418 58%, #141018 100%)')
+        ->toContain('linear-gradient(165deg, #ffb199 0%, #e25b45 55%, #9a3412 100%)')
         ->toContain('linear-gradient(165deg, #fff1eb 0%, #ffd4c6 100%)')
         ->toContain('.empty-state')
         ->toContain('border-radius: 28px;')
