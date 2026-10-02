@@ -100,7 +100,6 @@
                         </button>
                     @endif
                     @foreach ($groupedItems as $groupLabel => $groupItems)
-                        @continue($odooIsOdoo)
                         @unless ($loop->first)
                             <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]"
                                 aria-hidden="true"></div>

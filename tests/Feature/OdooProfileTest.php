@@ -351,7 +351,7 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
         ->assertSee('Open environment')
         ->assertSee('Open Odoo')
         ->assertSee('production')
-        ->assertSee(route('project.service.odoo.enter', [
+        ->assertSee(route('project.service.configuration', [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $production->uuid,
             'service_uuid' => $service->uuid,
@@ -366,7 +366,7 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $production->uuid,
         'service_uuid' => $service->uuid,
-    ]))->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
+    ]))->assertOk();
 });
 
 it('lists environments once and clones production into one staging', function () {

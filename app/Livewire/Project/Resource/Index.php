@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project\Resource;
 
+use App\Jobs\LaunchOdooProjectJob;
 use App\Models\Environment;
 use App\Models\EnvironmentVariable;
 use App\Models\OdooComposeTemplate;
@@ -14,6 +15,7 @@ use App\Support\OdooGit;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
 class Index extends Component
@@ -241,10 +243,14 @@ class Index extends Component
 
                 return redirect()->route('server.create');
             }
-            $service = $this->existingOdooService() ?? $this->createOdooService(start: true, destination: $this->chosenDestination());
+            $service = $this->existingOdooService() ?? $this->createOdooService(start: false, destination: $this->chosenDestination());
             if (! $service instanceof Service) {
                 return;
             }
+
+            $launchKey = 'launch-odoo-'.$service->uuid;
+            Cache::put($launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
+            LaunchOdooProjectJob::dispatch($service->id, $launchKey, (int) auth()->id());
 
             return redirect()->route('project.service.configuration', [
                 'project_uuid' => $this->project->uuid,

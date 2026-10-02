@@ -87,7 +87,8 @@
         <div class="w-full xl:hidden">
             @if ($odooEnterUrl)
                 <a class="button button-highlighted mb-3" target="_blank" href="{{ $odooEnterUrl }}">{{ __('Open Odoo') }}</a>
-            @elseif ($service->isDeployable)
+            @endif
+            @if ($service->isDeployable)
                 @can('deploy', $service)
                 <div id="service-mobile-actions" class="relative mb-3"
                     x-data="{ open: false }" @click.outside="open = false"
@@ -198,7 +199,8 @@
                 <div class="resource-heading-actions flex shrink-0 items-center gap-0.5">
                     @if ($odooEnterUrl)
                         <a class="button button-highlighted" target="_blank" href="{{ $odooEnterUrl }}">{{ __('Open Odoo') }}</a>
-                    @elseif ($service->isDeployable)
+                    @endif
+                    @if ($service->isDeployable)
                         <div class="resource-heading-menus shrink-0">
                             <x-services.links :service="$service" />
                         </div>

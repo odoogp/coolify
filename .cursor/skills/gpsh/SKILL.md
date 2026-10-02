@@ -20,7 +20,7 @@ The deployment experience to reach is Odoo.sh: one project, production and stagi
 
 The owner runs the platform. Admin and member are client profiles. Their limits are specific and are set on the invitation, before the sign-in link, for admin and member: projects, environments, members, production branches, staging branches, and services. Admin also gets the GitHub account, `can_add_servers`, and `can_launch_on_instance_server`. Member also gets `odoo.*` abilities. Server flags stay off for a member. Only the owner can write those on the invite. An admin who invites someone does not grant servers. Members never gain server, S3, or terminal access. Do not replace Coolify roles with a new role system.
 
-`App\Livewire\Project\Resource\Index` keeps resource lists in `protected` properties. Livewire drops them on the next request, including Install Odoo. `render()` reloads them from the public project and environment. Install Odoo is only shown when that environment is empty. If another service is already there, the list shows that service's name and there is no Install Odoo button.
+`App\Livewire\Project\Resource\Index` keeps resource lists in `protected` properties. Livewire drops them on the next request, including Install Odoo. `render()` reloads them from the public project and environment. Install Odoo is only shown when that environment is empty, and it asks where to run: local only with permission, create a server when none exist, or which server when some exist. If another service is already there, the list shows that service's name and there is no Install Odoo button.
 
 ## Phase 0
 
@@ -54,9 +54,9 @@ Not installed: create the app, then send them to install repositories (`getInsta
 
 One repository per project (`owner/name` on the profile). It cannot belong to two projects. New repo slug is the project name (`Mi Empresa` → `mi-empresa`). Each environment stores its own `git_branch` in `odoo_environment_branches`. Two environments cannot share a branch. Without GitHub there is no branch row; the panel says JupyterLab.
 
-Inside the project there is one list. A row is selected with one click. The only clone button is in the header and says the destination is a staging. While it runs, the screen says it is creating that staging and starting Odoo. An Odoo project does not offer other service types. The project header has Open environment beside Settings. It opens the selected environment (production when none is selected). The gear on the environment name is that environment's settings. A member can open the environment and Odoo. The service screen stays off this path except `launch=choose`. Those screens stay for every project that is not Odoo. `launch=choose` is the only Odoo visit to the service page, and it shows the repository choice, not the service list.
+Inside the project there is one list. A row is selected with one click. The only clone button is in the header and says the destination is a staging. While it runs, the screen says it is creating that staging and starting Odoo. An Odoo project does not offer other service types. The project header has Open environment beside Settings. It opens the selected branch straight on the service panel (status, logs, actions), not the resource list. The gear on the environment name is that environment's settings. A member can open the environment and Odoo. If that branch has no service yet, the empty environment still asks where to install. While a launch is in progress, the service panel shows the loading steps. Do not redirect that panel back to the project.
 
-On the service, Odoo, PostgreSQL, and Jupyter (if on) are listed first, each with a way in. GitHub is its own section. The public URL is `https://` without port `:8069` and opens the admin session at `/_odoo/paas/connect`. Odoo starts with `--proxy-mode` and `--no-database-list`, filtered to its own database. Each start writes `web.base.url` as `https://` in Postgres. HTTPS redirect must still allow `/.well-known/acme-challenge/`. A new Odoo version is a template under Settings.
+Production is the environment, not a list of Compose services. Open Odoo from the project (`project.service.odoo.enter`). GitHub on `launch=choose` is the repository choice, not the mounted-service list. The public URL is `https://` without port `:8069` and opens the admin session at `/_odoo/paas/connect`. Odoo starts with `--proxy-mode` and `--no-database-list`, filtered to its own database. Each start writes `web.base.url` as `https://` in Postgres. HTTPS redirect must still allow `/.well-known/acme-challenge/`. A new Odoo version is a template under Settings.
 
 A push to the saved `git_branch` reclones addons and restarts only the Odoo container. Pull requests do nothing. No second webhook.
 
@@ -88,16 +88,21 @@ These are already started. Do not rip them out. Do not extend them unless the cu
 
 ## Permissions
 
-Pivot `team_user`, set by the owner on an admin:
+The invite form (`InviteLink`) is where the owner sets this, before Generate link. The user is attached to the team with those values already. Empty number means no limit. An admin who invites cannot grant servers.
 
-- `can_add_servers`: `ServerPolicy::create` is `canAddServers()`.
-- `can_launch_on_instance_server`: may launch on server id 0.
+Written for admin and member: `max_projects`, `max_environments`, `max_members`, `max_production_branches`, `max_staging_branches`, `max_services`.
+
+Admin only: `github_app_id`, `can_add_servers`, `can_launch_on_instance_server`.
+
+Member only: `odoo_abilities` (grantable list). A member stays without server flags even if the form sends them.
+
+`can_add_servers`: `ServerPolicy::create` is `canAddServers()`. `can_launch_on_instance_server`: may launch on server id 0. Read the flag with a fresh `teams()` query (`User::teamFlag`), not the in-memory team list. `OdooGit::allowedLaunchServers()` must `find(0)` when that flag is on. Server id 0 is the instance server and is often not on the client's team.
 
 Owners always can. Members never can, even if the column is true. Server update/delete and S3 create stay owner-only. `S3StoragePolicy` and `canAccessTerminal` stay as they are. `Storage\Create` is mounted on every page: authorize on submit, not on mount.
 
 ## Support
 
-WhatsApp: floating button on the logged-in layout. It asks the topic, then opens `wa.me`. Number is `instance_settings.whatsapp_support_number`, owner only, at `settings.whatsapp`. Empty hides the button. GitHub App name and icon are at `settings.github`, not on the general form.
+WhatsApp: floating button on the logged-in layout. It asks the topic, then opens `wa.me`. The mark is the WhatsApp glyph, not a hand-drawn phone. Number is `instance_settings.whatsapp_support_number`, owner only, at `settings.whatsapp`. Empty hides the button. GitHub App name and icon are at `settings.github`, not on the general form.
 
 ## Do not touch
 

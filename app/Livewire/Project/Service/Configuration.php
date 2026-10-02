@@ -116,16 +116,22 @@ class Configuration extends Component
             $project->loadMissing('odooProfile');
             $environment->loadMissing('odooBranch');
             $this->odooIsOdoo = $this->service->supportsOdooJupyter();
-            if ($this->odooIsOdoo && request()->query('launch') !== 'choose') {
-                return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
-            }
             $this->syncOdooGithub();
+            if ($this->odooIsOdoo) {
+                $this->launchKey = 'launch-odoo-'.$this->service->uuid;
+                $status = Cache::get($this->launchKey);
+                if (is_array($status) && ($status['done'] ?? false) !== true) {
+                    $this->launchRunning = true;
+                    $this->launchStep = (int) ($status['step'] ?? 1);
+                    $this->launchError = is_string($status['error'] ?? null) ? $status['error'] : null;
+                }
+            }
             $this->awaitingRepositoryChoice = request()->query('launch') === 'choose'
                 && blank($project->odooProfile?->git_repository);
             if ($this->odooAccountChanged || $this->awaitingRepositoryChoice) {
                 $this->odooPanel = 'github';
             }
-            if ($this->odooIsOdoo && ! $this->awaitingRepositoryChoice && OdooGit::useHttps($this->service)) {
+            if ($this->odooIsOdoo && request()->query('launch') === 'choose' && ! $this->awaitingRepositoryChoice && OdooGit::useHttps($this->service)) {
                 $this->service->unsetRelation('applications');
                 if ($this->service->server?->isFunctional()) {
                     OdooGit::startIfPossible($this->service);
