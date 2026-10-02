@@ -9,6 +9,31 @@ use Livewire\Component;
 
 class GpshNoticeBell extends Component
 {
+    public function openNotice(int $noticeId)
+    {
+        $user = Auth::user();
+        if ($user === null) {
+            return null;
+        }
+
+        $notice = GpshNotices::forUser($user)->with('service.environment.project')->whereKey($noticeId)->first();
+        if (! $notice instanceof GpshNotice) {
+            return null;
+        }
+
+        $notice->reads()->firstOrCreate(['user_id' => $user->id]);
+        $href = $notice->href();
+        if ($href === null || $href === '') {
+            return null;
+        }
+
+        if (str_starts_with($href, url('/'))) {
+            return redirect()->to($href);
+        }
+
+        return redirect()->away($href);
+    }
+
     public function markRead(int $noticeId): void
     {
         $user = Auth::user();
@@ -37,7 +62,7 @@ class GpshNoticeBell extends Component
     public function render()
     {
         $user = Auth::user();
-        $notices = $user === null ? collect() : GpshNotices::forUser($user)->limit(15)->get();
+        $notices = $user === null ? collect() : GpshNotices::forUser($user)->with('service.environment.project')->limit(15)->get();
         $unread = 0;
         if ($user !== null) {
             $unread = GpshNotices::forUser($user)

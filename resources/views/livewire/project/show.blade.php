@@ -127,11 +127,16 @@
                     class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
                     <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
                     <div class="flex flex-wrap items-center gap-2">
+                        @php
+                            $selectedOdoo = $project->odooProfile
+                                ? $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter())
+                                : null;
+                            $openOdooUrl = $selectedOdoo instanceof \App\Models\Service && \App\Support\OdooGit::odooIsUp($selectedOdoo)
+                                ? \App\Support\OdooGit::enterUrl($selectedOdoo)
+                                : '';
+                        @endphp
                         @unless (($activities[$selectedEnvironment->uuid] ?? null) || $cloneRunning)
                         @if ($project->odooProfile)
-                            @php
-                                $selectedOdoo = $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter());
-                            @endphp
                             @can('update', $project)
                                 @if ($selectedOdoo && strcasecmp($selectedEnvironment->name, 'production') === 0)
                                     <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
@@ -145,18 +150,18 @@
                                     : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid]) }}">
                                 {{ __('Open environment') }}
                             </a>
-                            @if ($selectedOdoo)
-                                <a class="button button-highlighted" target="_blank"
-                                    href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid]) }}">
-                                    {{ __('Open Odoo') }}
-                                </a>
-                            @endif
                         @endif
                         @can('delete', $selectedEnvironment)
                             <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
                                 :key="'delete-environment-'.$selectedEnvironment->id" />
                         @endcan
                         @endunless
+                        @if ($openOdooUrl !== '')
+                            <a class="button button-highlighted" target="_blank"
+                                href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid]) }}">
+                                {{ __('Open Odoo') }}
+                            </a>
+                        @endif
                     </div>
                 </div>
                 @if ($showCloneWizard)

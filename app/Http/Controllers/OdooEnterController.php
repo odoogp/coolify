@@ -21,7 +21,12 @@ class OdooEnterController extends Controller
         $this->authorize('view', $service);
 
         $url = OdooGit::enterUrl($service);
-        abort_if($url === '', 404);
+        if ($url === '') {
+            return redirect()->route('project.show', [
+                'project_uuid' => $project_uuid,
+                'environment' => $environment_uuid,
+            ]);
+        }
 
         return redirect()->away($url);
     }

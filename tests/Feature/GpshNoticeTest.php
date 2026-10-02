@@ -8,6 +8,7 @@ use App\Models\GpshNoticeSetting;
 use App\Models\InstanceSettings;
 use App\Models\Project;
 use App\Models\Service;
+use App\Models\ServiceApplication;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\GpshNotices;
@@ -100,10 +101,30 @@ it('announces when the instance is up and when it can be opened', function () {
     GpshNotices::watch($service, 'The service containers are running.', 'in_progress', $mounted, $accessible);
     GpshNotices::watch($service, 'The service containers are running.', 'finished', $mounted, $accessible);
 
+    $mounted = GpshNotice::query()->where('kind', 'mounted')->first();
+    $accessible = GpshNotice::query()->where('kind', 'accessible')->first();
+
     expect(GpshNotice::query()->where('kind', 'mounted')->count())->toBe(1)
         ->and(GpshNotice::query()->where('kind', 'accessible')->count())->toBe(1)
-        ->and(GpshNotice::query()->where('kind', 'mounted')->value('team_id'))->toBe($this->clientTeam->id);
+        ->and($mounted->team_id)->toBe($this->clientTeam->id)
+        ->and($mounted->href())->toContain($project->uuid)
+        ->and($mounted->href())->toContain('environment='.$environment->uuid)
+        ->and($accessible->href())->toContain($project->uuid);
+
+    ServiceApplication::query()->create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://odoo.example.test',
+        'status' => 'running:healthy',
+    ]);
+
+    expect($accessible->fresh()->href())->toStartWith('https://odoo.example.test');
 
     $this->actingAs($this->client);
-    Livewire::test(GpshNoticeBell::class)->assertSee('Odoo is up')->assertSee('Odoo is accessible');
+    Livewire::test(GpshNoticeBell::class)
+        ->assertSee('Odoo is up')
+        ->assertSee('Odoo is accessible')
+        ->call('openNotice', $mounted->id)
+        ->assertRedirect($mounted->href());
 });

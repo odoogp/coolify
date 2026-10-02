@@ -1328,3 +1328,60 @@ it('shows a launch or a clone on the environment row', function () {
     expect($failed)->toContain('The staging service did not start.')
         ->and($failed)->toContain('pending-clone');
 });
+
+it('shows open odoo when the odoo container is up and the rest of the stack is not', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n  jupyter:\n    image: jupyter:1\n",
+    ]);
+    ServiceApplication::query()->create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://odoo.example.test',
+        'status' => 'running:healthy',
+    ]);
+    ServiceApplication::query()->create([
+        'service_id' => $service->id,
+        'name' => 'jupyter',
+        'image' => 'jupyter:1',
+        'status' => 'exited',
+    ]);
+
+    expect(OdooGit::odooIsUp($service->fresh()))->toBeTrue()
+        ->and($service->fresh()->isRunning())->toBeFalse();
+
+    $href = route('project.service.odoo.enter', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+        'service_uuid' => $service->uuid,
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->assertSeeHtml($href);
+
+    $service->applications()->where('name', 'odoo')->update(['status' => 'exited']);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->assertDontSeeHtml($href);
+});
+
+it('sends an empty odoo link back to the project', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    $this->get(route('project.service.odoo.enter', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+        'service_uuid' => $service->uuid,
+    ]))->assertRedirect(route('project.show', [
+        'project_uuid' => $this->project->uuid,
+        'environment' => $production->uuid,
+    ]));
+});

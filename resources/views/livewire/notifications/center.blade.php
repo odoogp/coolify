@@ -87,7 +87,13 @@
                                 <span>{{ $notice->audienceLabel() }}</span>
                                 <span>{{ $notice->created_at?->diffForHumans() }}</span>
                             </div>
-                            <p class="mt-1 text-sm font-medium">{{ $notice->title }}</p>
+                            @php($noticeHref = $notice->href())
+                            @if ($noticeHref)
+                                <a href="{{ $noticeHref }}" @unless (str_starts_with($noticeHref, url('/'))) target="_blank" rel="noopener" @endunless
+                                    class="mt-1 block text-sm font-medium hover:underline">{{ $notice->title }}</a>
+                            @else
+                                <p class="mt-1 text-sm font-medium">{{ $notice->title }}</p>
+                            @endif
                             <p class="mt-1 text-sm text-neutral-600 dark:text-fg-dim">{{ $notice->body }}</p>
                         </div>
                     @empty

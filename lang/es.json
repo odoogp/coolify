@@ -3818,7 +3818,7 @@
     "GitHub Apps created from GPSH. This is the only place they are managed.": "Apps de GitHub creadas desde GPSH. Este es el único lugar donde se administran.",
     "No GitHub App is installed yet.": "Todavía no hay una GitHub App instalada.",
     "Ask the owner to register the GitHub App in Settings.": "Pide al owner que registre la GitHub App en Ajustes.",
-    "Waiting until Odoo can be opened": "Esperando a que Odoo se pueda abrir",
+    "Waiting for Odoo": "Esperando a Odoo",
     "Notification center": "Centro de notificaciones",
     "Which notices to show": "Qué avisos mostrar",
     "Turn a kind off to hide it and to stop sending it.": "Apaga un tipo para ocultarlo y dejar de enviarlo.",

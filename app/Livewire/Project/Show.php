@@ -90,6 +90,10 @@ class Show extends Component
                         ->orderBy('created_at'),
                 ])
                 ->firstOrFail();
+            $requested = request()->query('environment');
+            if (is_string($requested) && $this->project->environments->contains(fn (Environment $environment): bool => $environment->uuid === $requested)) {
+                $this->selectedEnvironmentUuid = $requested;
+            }
             $this->absorbWork(redirectOnDone: false);
             $this->markWorkRunning();
             $this->project->loadMissing('environments.odooBranch', 'environments.services');
@@ -370,6 +374,11 @@ class Show extends Component
 
                     return;
                 }
+                if ($service->isStarting()) {
+                    $this->workRunning = true;
+
+                    return;
+                }
             }
         }
 
@@ -431,7 +440,7 @@ class Show extends Component
             1 => __('Mounting the environment'),
             2 => __('Copying the service'),
             3 => __('Cloning the branch'),
-            4 => __('Waiting until Odoo can be opened'),
+            4 => __('Waiting for Odoo'),
             default => __('Done'),
         };
     }
@@ -441,7 +450,7 @@ class Show extends Component
         return match ($step) {
             1 => __('Creating the project'),
             2 => __('Starting the containers'),
-            3 => __('Waiting until Odoo can be opened'),
+            3 => __('Waiting for Odoo'),
             default => __('Done'),
         };
     }
@@ -539,7 +548,7 @@ class Show extends Component
                     'service_uuid' => $service->uuid,
                 ])
                 : null;
-            $enterHref = $odooOnly && $service instanceof Service && $service->isRunning() && ! $service->isExited()
+            $enterHref = $odooOnly && $service instanceof Service && OdooGit::odooIsUp($service) && OdooGit::enterUrl($service) !== ''
                 ? route('project.service.odoo.enter', [
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $environment->uuid,

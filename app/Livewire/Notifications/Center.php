@@ -101,7 +101,7 @@ class Center extends Component
         $user = Auth::user();
 
         return view('livewire.notifications.center', [
-            'notices' => $user === null ? collect() : GpshNotices::forUser($user)->limit(50)->get(),
+            'notices' => $user === null ? collect() : GpshNotices::forUser($user)->with('service.environment.project')->limit(50)->get(),
             'teams' => Team::query()->where('id', '>', 0)->orderBy('name')->get(['id', 'name']),
         ]);
     }

@@ -18,7 +18,7 @@
         </div>
         <div class="max-h-96 overflow-y-auto">
             @forelse ($notices as $notice)
-                <button type="button" wire:click="markRead({{ $notice->id }})"
+                <button type="button" wire:click="openNotice({{ $notice->id }})"
                     class="block w-full border-b border-neutral-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-neutral-50 dark:border-white/[0.04] dark:hover:bg-white/[0.03]">
                     <span class="flex items-center gap-2 text-[11px] text-neutral-500 dark:text-fg-faint">
                         <span>{{ $notice->kindLabel() }}</span>

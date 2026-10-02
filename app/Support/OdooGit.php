@@ -442,6 +442,24 @@ class OdooGit
         }
     }
 
+    /**
+     * The Odoo container is up. Sidecars and the service-wide "starting" flag do not count.
+     */
+    public static function odooIsUp(Service $service): bool
+    {
+        $service->loadMissing('applications');
+        $application = $service->applications->first(
+            fn ($application): bool => $application instanceof ServiceApplication && self::isOdooApplication($application)
+        );
+        if (! $application instanceof ServiceApplication) {
+            return false;
+        }
+
+        $status = strtolower((string) $application->status);
+
+        return str_contains($status, 'running') && ! str_contains($status, 'exited');
+    }
+
     public static function publicHttpsUrl(Service $service): string
     {
         $application = $service->applications()->get()->first(

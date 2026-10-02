@@ -8,8 +8,10 @@
         </path>
     </svg>
     <span x-show="environment.activity && environment.activity.running"
-        class="max-w-48 truncate text-[11px] text-neutral-500 dark:text-fg-dim"
+        class="max-w-48 truncate text-[11px] normal-case text-neutral-500 dark:text-fg-dim"
         x-text="environment.activity ? environment.activity.message : ''"></span>
+    <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
+        class="button button-highlighted h-7 shrink-0 px-2 text-[11px] normal-case">{{ __('Open Odoo') }}</a>
     <button type="button" x-show="environment.activity && environment.activity.error"
         class="flex size-6 shrink-0 items-center justify-center rounded-full border border-red-500/40 text-[13px] font-bold text-red-500"
         @click.stop="openError = openError === environment.uuid ? null : environment.uuid"
