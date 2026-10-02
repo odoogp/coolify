@@ -21,7 +21,7 @@
                                 {{ __('New destination') }}
                             </button>
                         </x-slot:content>
-                        <livewire:destination.new.docker />
+                        <livewire:destination.new.docker key="destination-create-header" />
                     </x-modal-input>
                 </div>
             @endcan
@@ -31,7 +31,25 @@
     @if ($destinations->isEmpty())
         <x-empty title="{{ __('No destinations yet') }}"
             description="{{ __('Add a Docker network endpoint to choose where your resources are deployed.') }}"
-            icon-name="destinations" />
+            icon-name="destinations">
+            @if ($servers->count() > 0)
+                @can('createAnyResource')
+                    <x-slot:contents>
+                        <x-modal-input title="{{ __('New Destination') }}">
+                            <x-slot:content>
+                                <button type="button" class="button button-highlighted">
+                                    {{ __('Create destination') }}
+                                </button>
+                            </x-slot:content>
+                            <livewire:destination.new.docker key="destination-create-empty" />
+                        </x-modal-input>
+                        <a href="https://coolify.io/docs" target="_blank" rel="noopener noreferrer" class="button">
+                            {{ __('Documentation') }}
+                        </a>
+                    </x-slot:contents>
+                @endcan
+            @endif
+        </x-empty>
     @else
         @php
             $items = $destinations->map(fn ($destination) => [

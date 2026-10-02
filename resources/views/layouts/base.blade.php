@@ -69,7 +69,7 @@
     <title>{{ $name }}{{ $pageTitle }}</title>
     <link rel="icon" href="{{ asset('gpsh-logo.svg') }}" type="image/svg+xml" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/js/app.js', 'resources/css/app.css'])
+    @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css'])
     <script>
         // Update theme-color meta tag (non-critical, can run async)
         const t = localStorage.theme || 'dark';
