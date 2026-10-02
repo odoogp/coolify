@@ -498,6 +498,18 @@ class OdooGit
     /**
      * Odoo opens its own shell. PostgreSQL and Jupyter keep the container shell.
      */
+    public static function clientSeesLog(string $container): bool
+    {
+        $name = strtolower(ltrim($container, '/'));
+        foreach (['jupyter', 'stdlib', 'cadvisor', 'prometheus', 'monitor'] as $hidden) {
+            if (str_contains($name, $hidden)) {
+                return false;
+            }
+        }
+
+        return str_contains($name, 'odoo') || str_contains($name, 'postgres');
+    }
+
     public static function terminalShell(string $container): ?string
     {
         $name = strtolower(ltrim($container, '/'));
@@ -586,6 +598,7 @@ pick() {
   for id in $ids; do
     image=$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
     name=$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+    case "$name" in *stdlib*|*jupyter*|*cadvisor*|*prometheus*|*monitor*) continue ;; esac
     subtype=$(docker inspect --format '{{ index .Config.Labels "coolify.service.subType" }}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
     state=$(docker inspect --format '{{.State.Running}}' "$id" 2>/dev/null || true)
     match=0
@@ -622,6 +635,7 @@ docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" ps
 docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" dropdb --if-exists -U __DST_USER__ __DST_DB__
 docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" createdb -U __DST_USER__ __DST_DB__
 docker exec -i -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" psql -U __DST_USER__ -d __DST_DB__ -v ON_ERROR_STOP=1 < "$dump"
+docker exec -e PGPASSWORD="$(printf '%s' '__DST_PW__' | base64 -d)" "$dst_pg" psql -U __DST_USER__ -d __DST_DB__ -v ON_ERROR_STOP=1 -c "DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets, orm_signaling_default, orm_signaling_templates, orm_signaling_routing, orm_signaling_groups CASCADE"
 src_vol=$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/var/lib/odoo" }}{{ .Name }}{{ end }}{{ end }}' "$src_odoo")
 dst_vol=$(docker inspect --format '{{ range .Mounts }}{{ if eq .Destination "/var/lib/odoo" }}{{ .Name }}{{ end }}{{ end }}' "$dst_odoo")
 if [ -z "$src_vol" ] || [ -z "$dst_vol" ] || [ "$src_vol" = "$dst_vol" ]; then

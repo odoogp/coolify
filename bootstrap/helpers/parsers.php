@@ -1752,8 +1752,12 @@ function serviceParser(Service $resource): Collection
                 'name' => $serviceName,
                 'service_id' => $resource->id,
             ], [
-                'is_gzip_enabled' => true,
+                'is_gzip_enabled' => $serviceName !== OdooMonitor::SERVICE_NAME,
             ]);
+            if ($serviceName === OdooMonitor::SERVICE_NAME && $savedService->is_gzip_enabled) {
+                $savedService->is_gzip_enabled = false;
+                $savedService->save();
+            }
         }
         // Check if image changed
         if ($savedService->image !== $image) {

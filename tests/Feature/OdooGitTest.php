@@ -448,7 +448,7 @@ it('opens jupyter outside the platform and keeps odoo logs on the panel', functi
         ->toContain("{{ __('Logs') }}");
 });
 
-it('shows owner jupyter only to the instance owner', function () {
+it('shows owner jupyter to an instance admin and not to a client', function () {
     $environment = $this->project->environments()->where('name', 'production')->first();
     $odoo = Service::factory()->create([
         'environment_id' => $environment->id,
@@ -477,7 +477,7 @@ it('shows owner jupyter only to the instance owner', function () {
     $rootTeam = Team::factory()->make(['name' => 'Root jupyter']);
     $rootTeam->id = 0;
     $rootTeam->save();
-    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'admin']);
     $this->actingAs($this->user->fresh());
 
     Livewire::test(Heading::class, [
@@ -1175,9 +1175,10 @@ it('copies the production database and files into staging and neutralizes only t
         ['key' => 'SERVICE_USER_POSTGRES', 'value' => 'odoo', 'is_preview' => false],
         ['key' => 'SERVICE_PASSWORD_POSTGRES', 'value' => $targetPassword, 'is_preview' => false],
     ]);
-    ServiceApplication::factory()->create([
+    ServiceApplication::create([
         'service_id' => $target->id,
         'name' => 'odoo',
+        'human_name' => 'Odoo',
         'image' => 'odoo:20',
         'fqdn' => 'https://staging.example.test',
     ]);
@@ -1185,10 +1186,10 @@ it('copies the production database and files into staging and neutralizes only t
     $command = OdooGit::copyProductionDataCommand($source, $target);
 
     expect($command)->toContain('pg_dump')
-        ->toContain('label=com.docker.compose.project='.$source->uuid)
-        ->toContain('label=com.docker.compose.project='.$target->uuid)
-        ->toContain('label=coolify.serviceId='.$source->id)
-        ->toContain('label=coolify.serviceId='.$target->id)
+        ->toContain('pick '.$source->id.' '.$source->uuid.' postgres')
+        ->toContain('pick '.$target->id.' '.$target->uuid.' postgres')
+        ->toContain('label=com.docker.compose.project=${project}')
+        ->toContain('label=coolify.serviceId=${service_id}')
         ->toContain('docker ps -aq')
         ->toContain('*postgres*')
         ->toContain('acme_production')
@@ -1202,6 +1203,8 @@ it('copies the production database and files into staging and neutralizes only t
         ->toContain('filestore/acme_staging_1')
         ->toContain('dropdb')
         ->toContain('acme_staging_1')
+        ->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
+        ->toContain('*stdlib*')
         ->toContain('neutralize -d acme_staging_1')
         ->toContain('container:$dst_pg')
         ->toContain('--db_host=127.0.0.1')

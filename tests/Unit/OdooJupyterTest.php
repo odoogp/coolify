@@ -321,6 +321,9 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('gpsh-connect-state')
         ->and($command)->toContain('gpsh_autoconnect')
         ->and($command)->toContain('_odoo/paas/connect')
+        ->and($command)->toContain('Estamos preparando todo.')
+        ->and($command)->toContain('Es mejor que vayas por un café.')
+        ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
         ->and($command)->toContain('Preparando Odoo.')
         ->and($command)->toContain('Instalando la base.')
         ->and($command)->toContain('Abriendo Odoo.')
@@ -415,7 +418,12 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(json_encode($owner))->not->toContain('docker.sock')
         ->and(OdooJupyter::injectOwner($compose))->toBe($compose)
         ->and(OdooJupyter::hidesTerminal('jupyterowner'))->toBeTrue()
-        ->and(OdooJupyter::hidesTerminal('jupyter'))->toBeFalse();
+        ->and(OdooJupyter::hidesTerminal('jupyter'))->toBeFalse()
+        ->and(OdooGit::clientSeesLog('odoo-abc'))->toBeTrue()
+        ->and(OdooGit::clientSeesLog('postgresql-abc'))->toBeTrue()
+        ->and(OdooGit::clientSeesLog('monitor-abc'))->toBeFalse()
+        ->and(OdooGit::clientSeesLog('jupyterowner-abc'))->toBeFalse()
+        ->and(OdooGit::clientSeesLog('stdlib-abc'))->toBeFalse();
 
     $services['stdlib']['volumes'] = ['abc123_odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'];
     $services['odoo']['volumes'] = ['abc123_odoo-extra-addons:/mnt/extra-addons'];
@@ -440,6 +448,7 @@ test('launching odoo adds grafana for that stack and only odoo and postgresql', 
         ->and($services['monitor']['command'][0])->toContain('gpsh-odoo')
         ->and($services['monitor']['command'][0])->toContain('$${container:regex}')
         ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_3000')
+        ->and($services['monitor']['environment'])->toContain('GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}')
         ->and($services['cadvisor']['volumes'])->toBe(['/var/run/docker.sock:/var/run/docker.sock:ro'])
         ->and(json_encode($services))->not->toContain('jupyter')
         ->and(OdooMonitor::dashboardUrl('https://monitor.example.test', 'odoo-abc123', 'postgresql-abc123'))
