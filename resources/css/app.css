@@ -1229,11 +1229,29 @@ html[data-theme="crystal"] {
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm,
 html[data-theme="crystal"] .empty-state {
-    border-color: rgb(255 255 255 / 0.2);
+    position: relative;
+    border-radius: 28px;
+    border-color: rgb(255 255 255 / 0.14);
     color: #ffffff;
     box-shadow:
-        inset 0 1px 0 rgb(255 255 255 / 0.38),
-        0 18px 40px rgb(0 0 0 / 0.4);
+        inset 0 1px 0 rgb(255 255 255 / 0.28),
+        0 24px 48px rgb(0 0 0 / 0.45);
+}
+
+html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm::after,
+html[data-theme="crystal"] .empty-state::after {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.16), transparent 36%);
+    pointer-events: none;
+}
+
+html[data-theme="crystal"] .empty-state > * {
+    position: relative;
+    z-index: 1;
 }
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, a),
@@ -1247,29 +1265,68 @@ html[data-theme="crystal"] .empty-state p {
 }
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
-    background: rgb(255 255 255 / 0.18);
-    border-color: rgb(255 255 255 / 0.28);
+    border-radius: 14px;
+    background: rgb(255 255 255 / 0.14);
+    border-color: rgb(255 255 255 / 0.22);
     color: #ffffff;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.28);
 }
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 1) {
-    background: linear-gradient(180deg, #ff8d72 0%, #e2553c 40%, #160908 100%);
+    background:
+        radial-gradient(90% 75% at 12% 0%, #ff9a7a 0%, rgb(226 85 60 / 0.28) 42%, transparent 68%),
+        linear-gradient(180deg, #2a1412 0%, #0c0808 100%);
 }
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 2) {
-    background: linear-gradient(180deg, #f0c85a 0%, #a88422 42%, #141006 100%);
+    background:
+        radial-gradient(80% 70% at 85% 0%, #c4b5fd 0%, transparent 55%),
+        radial-gradient(75% 80% at 0% 100%, #f472b6 0%, transparent 52%),
+        #120c1e;
 }
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 3) {
-    background: linear-gradient(180deg, #b9a6ff 0%, #6d4dff 42%, #0c0a18 100%);
+    background:
+        radial-gradient(85% 55% at 50% 115%, #22d3ee 0%, transparent 58%),
+        #070b12;
 }
 
 html[data-theme="crystal"].dark main .grid > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 4) {
-    background: linear-gradient(180deg, #8fd9a0 0%, #2f8f55 42%, #07140c 100%);
+    background:
+        radial-gradient(90% 80% at 70% 0%, #9cba6a 0%, transparent 58%),
+        linear-gradient(180deg, #1a2214 0%, #0a0e0a 100%);
+}
+
+html[data-theme="crystal"].dark main .grid[data-crystal-shift] > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 1) {
+    background:
+        radial-gradient(90% 80% at 70% 0%, #9cba6a 0%, transparent 58%),
+        linear-gradient(180deg, #1a2214 0%, #0a0e0a 100%);
+}
+
+html[data-theme="crystal"].dark main .grid[data-crystal-shift] > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 2) {
+    background:
+        radial-gradient(80% 70% at 20% 0%, #34d399 0%, transparent 55%),
+        #071410;
+}
+
+html[data-theme="crystal"].dark main .grid[data-crystal-shift] > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 3) {
+    background:
+        radial-gradient(90% 75% at 12% 0%, #ff9a7a 0%, rgb(226 85 60 / 0.28) 42%, transparent 68%),
+        linear-gradient(180deg, #2a1412 0%, #0c0808 100%);
+}
+
+html[data-theme="crystal"].dark main .grid[data-crystal-shift] > :is(a, article).rounded-xl.shadow-sm:nth-child(4n + 4) {
+    background:
+        radial-gradient(80% 70% at 85% 0%, #c4b5fd 0%, transparent 55%),
+        radial-gradient(75% 80% at 0% 100%, #f472b6 0%, transparent 52%),
+        #120c1e;
 }
 
 html[data-theme="crystal"] .empty-state {
-    background: linear-gradient(180deg, #b9a6ff 0%, #5b3ee0 36%, #0c0a16 100%);
+    background:
+        radial-gradient(80% 70% at 85% 0%, #c4b5fd 0%, transparent 55%),
+        radial-gradient(70% 80% at 10% 110%, #f472b6 0%, transparent 50%),
+        #100c18;
 }
 
 html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm,
