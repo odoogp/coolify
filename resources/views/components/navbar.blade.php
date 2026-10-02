@@ -8,8 +8,8 @@
         if (!text) return;
         const rect = el.getBoundingClientRect();
         tooltip.text = text;
-        tooltip.x = rect.left + rect.width / 2;
-        tooltip.y = rect.top - 14;
+        tooltip.x = rect.right + 8;
+        tooltip.y = rect.top + rect.height / 2;
         tooltip.show = true;
     "
     @mouseleave="tooltip.show = false"
@@ -242,6 +242,6 @@
     </div>
     <div x-show="collapsed && tooltip.show" x-cloak x-transition.opacity.duration.150ms
         :style="`left: ${tooltip.x}px; top: ${tooltip.y}px;`"
-        class="app-sidebar-tip fixed z-[10000] max-lg:hidden -translate-x-1/2 -translate-y-full px-2 py-1 text-[11px] font-medium leading-none rounded-md whitespace-nowrap pointer-events-none shadow-lg border bg-neutral-900 text-white border-neutral-700 dark:bg-white dark:text-neutral-900 dark:border-neutral-200"
+        class="app-sidebar-tip fixed z-[10000] max-lg:hidden -translate-y-1/2 px-2 py-1 text-[11px] font-medium leading-none rounded-md whitespace-nowrap pointer-events-none shadow-lg border bg-neutral-900 text-white border-neutral-700 dark:bg-white dark:text-neutral-900 dark:border-neutral-200"
         x-text="tooltip.text"></div>
 </nav>
