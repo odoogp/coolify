@@ -199,6 +199,10 @@ class Logs extends Component
 
     private function clientCanSeeContainer(string $name): bool
     {
+        if (is_array($this->query) && ($this->query['only'] ?? null) === 'odoo') {
+            return OdooGit::isOdooContainerLog($name);
+        }
+
         if (! $this->resource instanceof Service || ! $this->resource->supportsOdooJupyter() || isInstanceOwner()) {
             return true;
         }

@@ -126,7 +126,7 @@ class GetLogs extends Component
 
     public function getLogs($refresh = false)
     {
-        if (! Server::ownedByCurrentTeam()->where('id', $this->server->id)->exists()) {
+        if (! $this->canReadThisServer()) {
             $this->outputs = 'Unauthorized.';
 
             return;
@@ -231,7 +231,7 @@ class GetLogs extends Component
 
     public function downloadAllLogs(): string
     {
-        if (! Server::ownedByCurrentTeam()->where('id', $this->server->id)->exists()) {
+        if (! $this->canReadThisServer()) {
             return '';
         }
         if (! $this->server->isFunctional() || ! $this->container) {
@@ -316,5 +316,34 @@ class GetLogs extends Component
     public function render()
     {
         return view('livewire.project.shared.get-logs');
+    }
+
+    private function canReadThisServer(): bool
+    {
+        if (isInstanceOwner()) {
+            return true;
+        }
+        if (Server::ownedByCurrentTeam()->whereKey($this->server->id)->exists()) {
+            return true;
+        }
+
+        return $this->resourceServerId() === (int) $this->server->id;
+    }
+
+    private function resourceServerId(): ?int
+    {
+        $resource = $this->resource;
+        if ($resource === null) {
+            return null;
+        }
+        if (isset($resource->server_id) && $resource->server_id !== null) {
+            return (int) $resource->server_id;
+        }
+        $destination = $resource->destination ?? null;
+        if (is_object($destination) && isset($destination->server_id) && $destination->server_id !== null) {
+            return (int) $destination->server_id;
+        }
+
+        return null;
     }
 }

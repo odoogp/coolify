@@ -36,8 +36,9 @@ class OdooMonitor
         $services['cadvisor'] = [
             'image' => 'gcr.io/cadvisor/cadvisor:v0.49.1',
             'restart' => 'unless-stopped',
-            'command' => ['--docker_only=true', '--housekeeping_interval=30s'],
-            'volumes' => ['/var/run/docker.sock:/var/run/docker.sock:ro'],
+            'privileged' => true,
+            'command' => ['--docker_only=true', '--housekeeping_interval=30s', '--store_container_labels=true'],
+            'volumes' => self::cadvisorVolumes(),
         ];
         $services['prometheus'] = [
             'image' => 'prom/prometheus:v2.55.1',
@@ -103,6 +104,37 @@ class OdooMonitor
         return $base.'/d/gpsh-odoo/odoo?orgId=1&kiosk&var-container='.rawurlencode($odoo).'&var-container='.rawurlencode($postgres);
     }
 
+    /**
+     * The service parser rewrites host binds other than the Docker socket.
+     * cAdvisor needs the host cgroup and Docker directories or it lists containers and exports no samples.
+     *
+     * @param  array<string, mixed>  $services
+     * @return array<string, mixed>
+     */
+    public static function alignServices(array $services): array
+    {
+        if (! isset($services['cadvisor']) || ! is_array($services['cadvisor'])) {
+            return $services;
+        }
+
+        $services['cadvisor']['privileged'] = true;
+        $services['cadvisor']['volumes'] = self::cadvisorVolumes();
+
+        return $services;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function cadvisorVolumes(): array
+    {
+        return [
+            '/var/run/docker.sock:/var/run/docker.sock:ro',
+            '/sys:/sys:ro',
+            '/var/lib/docker:/var/lib/docker:ro',
+        ];
+    }
+
     public static function hidesTerminal(string $name): bool
     {
         return in_array(strtolower($name), ['cadvisor', 'prometheus', self::SERVICE_NAME], true);
@@ -150,10 +182,10 @@ BASH;
                 ]],
             ],
             'panels' => [
-                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{name=~".*${container:regex}.*",id!="/"}[5m])) by (name)'),
-                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{name=~".*${container:regex}.*",id!="/"}) by (name)'),
-                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{name=~".*${container:regex}.*",id!="/"}[5m])) by (name)', 8),
-                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{name=~".*${container:regex}.*",id!="/"}[5m])) by (name)', 8),
+                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{name=~".*(${container:regex}).*",id!="/"}[5m])) by (name)'),
+                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{name=~".*(${container:regex}).*",id!="/"}) by (name)'),
+                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{name=~".*(${container:regex}).*",id!="/"}[5m])) by (name)', 8),
+                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{name=~".*(${container:regex}).*",id!="/"}[5m])) by (name)', 8),
             ],
         ], JSON_UNESCAPED_SLASHES));
 

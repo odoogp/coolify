@@ -270,6 +270,7 @@
                                 </p>
 
                                 <div class="relative z-10 flex shrink-0 items-center gap-0.5">
+                                    @include('livewire.project.environment-shortcuts')
                                     <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
                                         class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
                                     <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref"
@@ -341,6 +342,7 @@
                             x-text="environment.branch || environment.description || '-'"></p>
 
                         <div class="relative flex items-center justify-end gap-0.5">
+                            @include('livewire.project.environment-shortcuts')
                             <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
                                 class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
                             <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref" {{ wireNavigate() }}

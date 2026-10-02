@@ -5,6 +5,7 @@ use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Service\Heading;
+use App\Livewire\Project\Show;
 use App\Livewire\Settings\Odoo;
 use App\Models\Application;
 use App\Models\GithubApp;
@@ -528,6 +529,67 @@ it('opens grafana for the odoo and postgresql containers only', function () {
         'query' => [],
     ])->assertSee($expected)
         ->assertDontSee('jupyter-'.$service->uuid);
+});
+
+it('shows editor, monitor, and odoo log icons on the project environments', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'jupyter_enabled' => true,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'jupyter',
+        'human_name' => 'Jupyter',
+        'image' => 'jupyter/datascience-notebook:latest',
+        'fqdn' => 'https://jupyter.example.test',
+    ]);
+    ServiceDatabase::create([
+        'service_id' => $service->id,
+        'name' => 'postgresql',
+        'human_name' => 'PostgreSQL',
+        'image' => 'postgres:16-alpine',
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'monitor',
+        'human_name' => 'Monitor',
+        'image' => 'grafana/grafana-oss',
+        'fqdn' => 'https://monitor.example.test',
+    ]);
+    $service->environment_variables()->create([
+        'key' => 'SERVICE_PASSWORD_JUPYTER',
+        'value' => 'labtoken',
+        'is_preview' => false,
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee('jupyter.example.test?token=labtoken')
+        ->assertSee('monitor.example.test')
+        ->assertSee('only=odoo')
+        ->assertSee('Editor')
+        ->assertSee('Monitor')
+        ->assertSee('Logs')
+        ->assertDontSee('Owner Jupyter');
+
+    expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
+        ->toContain('environment-shortcuts')
+        ->and(substr_count(file_get_contents(resource_path('views/livewire/project/show.blade.php')), 'environment-shortcuts'))->toBe(2)
+        ->and(file_get_contents(resource_path('views/livewire/project/environment-shortcuts.blade.php')))
+        ->toContain('group-hover/tool')
+        ->toContain("{{ __('Editor') }}")
+        ->toContain("{{ __('Monitor') }}")
+        ->toContain("{{ __('Logs') }}")
+        ->toContain('name="code"')
+        ->toContain('name="dashboard"')
+        ->toContain('name="file-content"');
 });
 
 it('lets the instance owner add a module that the next start links read-only', function () {

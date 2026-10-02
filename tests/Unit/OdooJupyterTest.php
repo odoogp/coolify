@@ -423,7 +423,12 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::clientSeesLog('postgresql-abc'))->toBeTrue()
         ->and(OdooGit::clientSeesLog('monitor-abc'))->toBeFalse()
         ->and(OdooGit::clientSeesLog('jupyterowner-abc'))->toBeFalse()
-        ->and(OdooGit::clientSeesLog('stdlib-abc'))->toBeFalse();
+        ->and(OdooGit::clientSeesLog('stdlib-abc'))->toBeFalse()
+        ->and(OdooGit::isOdooContainerLog('odoo-abc'))->toBeTrue()
+        ->and(OdooGit::isOdooContainerLog('postgresql-abc'))->toBeFalse()
+        ->and(OdooGit::isOdooContainerLog('jupyter-abc'))->toBeFalse()
+        ->and(OdooGit::isOdooContainerLog('stdlib-abc'))->toBeFalse()
+        ->and(OdooGit::isOdooContainerLog('monitor-abc'))->toBeFalse();
 
     $services['stdlib']['volumes'] = ['abc123_odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'];
     $services['odoo']['volumes'] = ['abc123_odoo-extra-addons:/mnt/extra-addons'];
@@ -449,7 +454,9 @@ test('launching odoo adds grafana for that stack and only odoo and postgresql', 
         ->and($services['monitor']['command'][0])->toContain('$${container:regex}')
         ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_3000')
         ->and($services['monitor']['environment'])->toContain('GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}')
-        ->and($services['cadvisor']['volumes'])->toBe(['/var/run/docker.sock:/var/run/docker.sock:ro'])
+        ->and($services['cadvisor']['volumes'])->toBe(OdooMonitor::cadvisorVolumes())
+        ->and($services['cadvisor']['privileged'])->toBeTrue()
+        ->and(OdooMonitor::alignServices(['cadvisor' => ['volumes' => ['rewritten:/sys']]])['cadvisor']['volumes'])->toBe(OdooMonitor::cadvisorVolumes())
         ->and(json_encode($services))->not->toContain('jupyter')
         ->and(OdooMonitor::dashboardUrl('https://monitor.example.test', 'odoo-abc123', 'postgresql-abc123'))
         ->toBe('https://monitor.example.test/d/gpsh-odoo/odoo?orgId=1&kiosk&var-container=odoo-abc123&var-container=postgresql-abc123')

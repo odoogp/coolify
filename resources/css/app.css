@@ -4469,14 +4469,14 @@ html[data-theme="custom"] .logs-viewer-timestamp {
     grid-template-columns:
         minmax(220px, 1.5fr)
         minmax(90px, 0.55fr)
-        minmax(240px, 1.6fr)
-        6rem;
+        minmax(160px, 1.2fr)
+        minmax(14rem, max-content);
     column-gap: 1rem;
 }
 
 @media (max-width: 900px) {
     .environments-table-grid {
-        grid-template-columns: minmax(220px, 1fr) 6rem 6rem;
+        grid-template-columns: minmax(180px, 1fr) 4.5rem auto;
     }
 
     .environments-table-grid .environment-description {
@@ -4486,7 +4486,7 @@ html[data-theme="custom"] .logs-viewer-timestamp {
 
 @media (max-width: 640px) {
     .environments-table-grid {
-        grid-template-columns: minmax(0, 1fr) 5rem;
+        grid-template-columns: minmax(0, 1fr) auto;
         column-gap: 0.75rem;
     }
 

@@ -138,6 +138,25 @@ describe('GetLogs Livewire action validation', function () {
             ->assertSet('outputs', 'Unauthorized.');
     });
 
+    test('the instance owner can read logs on a server outside the current team', function () {
+        $root = Team::factory()->make(['name' => 'Root logs']);
+        $root->id = 0;
+        $root->save();
+        $this->user->teams()->attach($root->id, ['role' => 'owner']);
+        $this->actingAs($this->user->fresh());
+
+        $otherTeam = Team::factory()->create();
+        $otherServer = Server::factory()->create(['team_id' => $otherTeam->id]);
+
+        Livewire::test(GetLogs::class, [
+            'server' => $otherServer,
+            'resource' => $this->application,
+            'container' => 'test-container',
+        ])
+            ->call('getLogs')
+            ->assertSet('outputs', '');
+    });
+
     test('downloadAllLogs returns empty for invalid container name', function () {
         $this->server->settings->fill([
             'is_reachable' => true,

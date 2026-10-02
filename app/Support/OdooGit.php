@@ -510,6 +510,15 @@ class OdooGit
         return str_contains($name, 'odoo') || str_contains($name, 'postgres');
     }
 
+    public static function isOdooContainerLog(string $container): bool
+    {
+        $name = strtolower(ltrim($container, '/'));
+
+        return str_contains($name, 'odoo')
+            && ! str_contains($name, 'jupyter')
+            && ! str_contains($name, 'stdlib');
+    }
+
     public static function terminalShell(string $container): ?string
     {
         $name = strtolower(ltrim($container, '/'));

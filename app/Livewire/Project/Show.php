@@ -4,11 +4,13 @@ namespace App\Livewire\Project;
 
 use App\Jobs\CloneOdooStagingJob;
 use App\Models\Environment;
+use App\Models\GithubApp;
 use App\Models\Project;
 use App\Models\Service;
 use App\Services\AdminCreationQuota;
-use App\Models\GithubApp;
 use App\Support\OdooGit;
+use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use App\Support\OdooStaging;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
@@ -329,6 +331,16 @@ class Show extends Component
                         'service_uuid' => $service->uuid,
                     ])
                     : null;
+                $jupyterHref = $odooOnly && $service instanceof Service ? OdooJupyter::sessionUrl($service) : null;
+                $monitorHref = $odooOnly && $service instanceof Service ? OdooMonitor::urlFor($service) : null;
+                $logsHref = $odooOnly && $service instanceof Service
+                    ? route('project.service.logs', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                        'only' => 'odoo',
+                    ])
+                    : null;
 
                 return [
                     'uuid' => $environment->uuid,
@@ -338,6 +350,9 @@ class Show extends Component
                     'odoo' => $odooOnly,
                     'serviceHref' => $serviceHref,
                     'enterHref' => $enterHref,
+                    'jupyterHref' => $jupyterHref,
+                    'monitorHref' => $monitorHref,
+                    'logsHref' => $logsHref,
                     'environmentHref' => $odooOnly && $service instanceof Service
                         ? route('project.service.configuration', [
                             'project_uuid' => $this->project->uuid,

@@ -3575,6 +3575,7 @@
     "The module name can only use letters, numbers, and underscores.": "El nombre del módulo solo puede usar letras, números y guiones bajos.",
     "Owner module saved. Redeploy Odoo to link it.": "Módulo del propietario guardado. Vuelve a desplegar Odoo para enlazarlo.",
     "Owner module removed. Redeploy Odoo to drop the link.": "Módulo del propietario quitado. Vuelve a desplegar Odoo para soltar el enlace.",
+    "Editor": "Editor",
     "Monitor": "Monitor",
     "The Compose file needs an Odoo service.": "El Compose necesita un servicio Odoo.",
     "Invalid PostgreSQL version.": "Versión de PostgreSQL inválida.",
