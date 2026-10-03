@@ -61,3 +61,110 @@ html[data-accent="on"]:not([data-theme="light"]) .menu-subitem-active {
     background-image: none;
     color: var(--theme-accent-foreground, #ffffff);
 }
+
+/*
+ * Spinning card border, from the bento card hover. The ring uses the accent
+ * chosen for the active theme, and the theme accent when that theme is original.
+ */
+@property --card-border-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+html {
+    --card-border-accent: var(--theme-base-color, var(--color-accent, #7b3ff2));
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    .application-settings-section,
+    main .grid > a.rounded-xl.shadow-sm,
+    main .grid > article.rounded-xl.shadow-sm
+) {
+    position: relative;
+    isolation: isolate;
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    .application-settings-section,
+    main .grid > a.rounded-xl.shadow-sm,
+    main .grid > article.rounded-xl.shadow-sm
+):not(.coolbox-loading)::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: conic-gradient(from var(--card-border-angle), transparent, var(--card-border-accent), transparent 32%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity .4s;
+    pointer-events: none;
+    z-index: -1;
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    main .grid > a.rounded-xl.shadow-sm,
+    main .grid > article.rounded-xl.shadow-sm
+):hover {
+    transform: translateY(-4px);
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    .application-settings-section,
+    main .grid > a.rounded-xl.shadow-sm,
+    main .grid > article.rounded-xl.shadow-sm
+):not(.coolbox-loading):hover::before {
+    opacity: 1;
+    animation: card-border-spin 2.6s linear infinite;
+}
+
+@keyframes card-border-spin {
+    to {
+        --card-border-angle: 360deg;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :is(
+        .box,
+        .coolbox,
+        .box-boarding,
+        .empty-state,
+        main .grid > a.rounded-xl.shadow-sm,
+        main .grid > article.rounded-xl.shadow-sm
+    ):hover {
+        transform: none;
+    }
+
+    :is(
+        .box,
+        .coolbox,
+        .box-boarding,
+        .empty-state,
+        .application-settings-section,
+        main .grid > a.rounded-xl.shadow-sm,
+        main .grid > article.rounded-xl.shadow-sm
+    ):hover::before {
+        animation: none;
+    }
+}
