@@ -1980,11 +1980,14 @@ html:not(.dark) .auth-locale select {
 /* Layer card root: elevated shell with a hairline ring. overflow stays
    visible so floating panels (listbox, tooltips) can escape the card. */
 .application-settings-section {
+    /* One radius for the shell. A nested face that touches an edge uses this
+       same radius there. A face inset by padding uses outer radius minus that padding. */
+    --shell-radius: 16px;
     margin: 0;
     display: flex;
     width: 100%;
     flex-direction: column;
-    border-radius: 16px;
+    border-radius: var(--shell-radius);
     border: none;
     background: var(--coollabs-elevated);
     box-shadow:
@@ -2044,7 +2047,7 @@ html:not(.dark) .auth-locale select {
     justify-content: space-between;
     gap: 0.5rem;
     padding: 0.5rem 0.5rem 0.5rem 1rem;
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--shell-radius) var(--shell-radius) 0 0;
     background: var(--coollabs-elevated);
     font-weight: 500;
     color: var(--coollabs-subtle);
@@ -2065,10 +2068,11 @@ html:not(.dark) .auth-locale select {
     color: var(--coollabs-subtle);
 }
 
-/* Layer card body: nested rounded panel with base bg + fill ring */
+/* Layer card body. Flush with the shell on the sides and bottom, so those
+   corners match the shell. The top meets the header on a straight edge. */
 .application-settings-section-body {
     position: relative;
-    border-radius: 8px;
+    border-radius: 0 0 var(--shell-radius) var(--shell-radius);
     background: var(--coollabs-base);
     box-shadow: 0 0 0 1px var(--coollabs-fill);
     padding: 1rem;
@@ -2169,6 +2173,8 @@ html:not(.dark) .auth-locale select {
     padding-right: 0.75rem;
     font-size: 0.875rem;
     box-shadow: none !important;
+    /* Concentric with the shell: inner radius = outer radius − the body padding. */
+    border-radius: max(8px, calc(var(--shell-radius) - 1rem));
 }
 
 /* Reserve the trailing area used by the native select chevron. */
@@ -2254,8 +2260,9 @@ html:not(.dark) .auth-locale select {
 }
 
 .application-settings-workspace .form-control,
-.application-settings-form .form-control {
-    border-radius: 8px;
+.application-settings-form .form-control,
+html[data-theme="light"] :is(.application-settings-workspace, .application-settings-form) :is(.input, .select, textarea.input, .listbox-trigger, .form-control) {
+    border-radius: max(8px, calc(var(--shell-radius) - 1rem));
 }
 
 .dark .application-settings-workspace .form-control:hover,
@@ -2844,7 +2851,11 @@ input[type="search"]::-webkit-search-results-decoration {
     color: var(--coollabs-subtle);
     background: rgba(0, 0, 0, 0.02);
     border-bottom: 1px solid var(--coollabs-fill);
-    border-radius: 16px 16px 0 0;
+    border-radius: var(--shell-radius, 16px) var(--shell-radius, 16px) 0 0;
+}
+
+.application-settings-section-body .data-table-header {
+    border-radius: 0;
 }
 
 .dark .data-table-header {

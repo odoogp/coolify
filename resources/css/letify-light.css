@@ -57,8 +57,9 @@ html[data-theme="light"] .application-settings-section,
 html[data-theme="light"] .box,
 html[data-theme="light"] .coolbox,
 html[data-theme="light"] .box-boarding {
+    --shell-radius: 28px;
     border: 0;
-    border-radius: 28px;
+    border-radius: var(--shell-radius);
     background: #ffffff;
     box-shadow: 0 10px 40px var(--letify-glow);
 }
