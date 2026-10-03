@@ -1,7 +1,7 @@
 <div>
     <x-slot:title>Appearance | Coolify</x-slot>
     <div x-data="{
-        theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark'),
+        theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'light'),
         themeColor: localStorage.getItem('themeColor') || '#6b16ed',
         accents: {},
         pageWidth: localStorage.getItem('pageWidth') || 'full',

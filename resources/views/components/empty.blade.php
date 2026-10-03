@@ -56,26 +56,26 @@
     ]) }}>
     <div class="letify-empty-art" aria-hidden="true">
         <svg viewBox="0 0 280 180" class="h-36 w-auto" fill="none">
-            <ellipse cx="140" cy="156" rx="78" ry="10" fill="var(--letify-primary, #7B3FF2)" opacity="0.12" />
+            <ellipse cx="140" cy="156" rx="78" ry="10" fill="var(--letify-primary, #1b2c6f)" opacity="0.12" />
             <rect x="78" y="48" width="124" height="88" rx="28" fill="url(#{{ $artId }}-card)" />
             <rect x="96" y="68" width="52" height="34" rx="12" fill="url(#{{ $artId }}-orange)" />
             <circle cx="168" cy="86" r="16" fill="var(--letify-soft, #F6F2FD)" />
-            <path d="M160 86h16M168 78v16" stroke="var(--letify-primary, #7B3FF2)" stroke-width="2.4" stroke-linecap="round" />
+            <path d="M160 86h16M168 78v16" stroke="var(--letify-primary, #1b2c6f)" stroke-width="2.4" stroke-linecap="round" />
             <rect x="96" y="110" width="88" height="8" rx="4" fill="#F6F2FD" />
             <circle cx="196" cy="58" r="18" fill="url(#{{ $artId }}-purple)" />
-            <circle cx="64" cy="96" r="14" fill="color-mix(in srgb, var(--letify-primary, #7B3FF2) 70%, white)" />
+            <circle cx="64" cy="96" r="14" fill="color-mix(in srgb, var(--letify-primary, #1b2c6f) 70%, white)" />
             <defs>
                 <linearGradient id="{{ $artId }}-card" x1="78" y1="48" x2="202" y2="136" gradientUnits="userSpaceOnUse">
                     <stop stop-color="#FFFFFF" />
                     <stop offset="1" stop-color="#F6F2FD" />
                 </linearGradient>
                 <linearGradient id="{{ $artId }}-orange" x1="96" y1="68" x2="148" y2="102" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="var(--letify-primary, #7B3FF2)" />
-                    <stop offset="1" stop-color="color-mix(in srgb, var(--letify-primary, #7B3FF2) 55%, white)" />
+                    <stop stop-color="var(--letify-primary, #1b2c6f)" />
+                    <stop offset="1" stop-color="color-mix(in srgb, var(--letify-primary, #1b2c6f) 55%, white)" />
                 </linearGradient>
                 <linearGradient id="{{ $artId }}-purple" x1="178" y1="40" x2="214" y2="76" gradientUnits="userSpaceOnUse">
-                    <stop stop-color="var(--letify-primary, #7B3FF2)" />
-                    <stop offset="1" stop-color="color-mix(in srgb, var(--letify-primary, #7B3FF2) 62%, white)" />
+                    <stop stop-color="var(--letify-primary, #1b2c6f)" />
+                    <stop offset="1" stop-color="color-mix(in srgb, var(--letify-primary, #1b2c6f) 62%, white)" />
                 </linearGradient>
             </defs>
         </svg>

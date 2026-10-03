@@ -16,7 +16,7 @@
             const stored = localStorage.getItem('themeAccents');
 
             if (stored === null) {
-                const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
+                const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
                 const seeded = localStorage.themeColor ? { [theme]: true } : {};
                 localStorage.setItem('themeAccents', JSON.stringify(seeded));
 
@@ -32,7 +32,7 @@
             }
         };
         window.applyStoredTheme = () => {
-            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
+            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
             const themeColor = localStorage.themeColor || '#6b16ed';
             const usesAccent = window.readThemeAccents()[theme] === true;
             const isDark = theme === 'dark' || theme === 'custom' || theme === 'crystal' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -55,7 +55,7 @@
             document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
         };
         window.previewThemeAccent = (color) => {
-            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
+            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
             const accents = window.readThemeAccents();
 
             localStorage.themeColor = color;
@@ -121,7 +121,7 @@
     @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
     <script>
         // Update theme-color meta tag (non-critical, can run async)
-        const t = localStorage.theme || 'dark';
+        const t = localStorage.theme || 'light';
         const isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
     </script>
@@ -210,7 +210,7 @@
 
         // Initialize theme if not set
         if (!('theme' in localStorage)) {
-            localStorage.theme = 'dark';
+            localStorage.theme = 'light';
         }
 
         let theme = localStorage.theme

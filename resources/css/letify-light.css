@@ -4,7 +4,7 @@
  * A future Letify Dark can reuse these token names under html[data-theme="letify-dark"].
  */
 html[data-theme="light"] {
-    --letify-primary: #7b3ff2;
+    --letify-primary: #1b2c6f;
     --letify-soft: color-mix(in srgb, var(--letify-primary) 14%, white);
     --letify-soft-hover: color-mix(in srgb, var(--letify-primary) 22%, white);
     --letify-ink-accent: color-mix(in srgb, var(--letify-primary) 72%, black);

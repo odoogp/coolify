@@ -34,7 +34,7 @@
             },
             queryTheme() {
                 const darkModePreference = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                const userSettings = localStorage.getItem('theme') || 'dark';
+                const userSettings = localStorage.getItem('theme') || 'light';
                 localStorage.setItem('theme', userSettings);
                 let isDark = false;
                 if (userSettings === 'dark' || userSettings === 'custom' || userSettings === 'crystal') {

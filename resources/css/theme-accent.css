@@ -3,7 +3,7 @@
  * (html[data-accent="on"]). Reset removes the attribute and the original returns.
  */
 html[data-theme="light"][data-accent="on"] {
-    --letify-primary: var(--theme-base-color, #7b3ff2);
+    --letify-primary: var(--theme-base-color, #1b2c6f);
 }
 
 html[data-accent="on"][data-theme="dark"] {

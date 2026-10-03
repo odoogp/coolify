@@ -49,7 +49,7 @@ it('changes appearance from a submenu instead of navigating to a separate page',
     expect($menu)
         ->toContain('appearanceOpen: false')
         ->toContain('@click.outside="open = false; appearanceOpen = false"')
-        ->toContain("theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark')")
+        ->toContain("theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'light')")
         ->toContain('setTheme(type, closeMenu = true)')
         ->toContain("this.setTheme('custom', false)")
         ->not->toContain('@change="appearanceOpen = false; open = false"')

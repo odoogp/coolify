@@ -11,7 +11,7 @@
 <div @class(['relative', 'min-w-0' => $sidebar]) x-data="{
     open: false,
     appearanceOpen: false,
-    theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark'),
+    theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'light'),
     pageWidth: localStorage.getItem('pageWidth') || 'full',
     themeColor: localStorage.getItem('themeColor') || '#6b16ed',
     accents: {},
