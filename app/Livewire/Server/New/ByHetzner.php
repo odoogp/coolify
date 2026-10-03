@@ -329,22 +329,31 @@ class ByHetzner extends Component
             $images = $hetznerService->getImages();
 
             $this->images = collect($images)
-                ->filter(function ($image) {
-                    // Only system images
-                    if (! isset($image['type']) || $image['type'] !== 'system') {
-                        return false;
+                ->filter(fn (array $image): bool => HetznerService::imageIsOrderable($image))
+                ->sort(function (array $left, array $right): int {
+                    $byFlavor = $this->imageFlavorRank($left) <=> $this->imageFlavorRank($right);
+
+                    if ($byFlavor !== 0) {
+                        return $byFlavor;
                     }
 
-                    // Filter out deprecated images
-                    if (isset($image['deprecated']) && $image['deprecated'] === true) {
-                        return false;
+                    $byVersion = version_compare(
+                        (string) ($right['os_version'] ?? '0'),
+                        (string) ($left['os_version'] ?? '0'),
+                    );
+
+                    if ($byVersion !== 0) {
+                        return $byVersion;
                     }
 
-                    return true;
+                    return strcmp(
+                        (string) ($left['description'] ?? $left['name'] ?? ''),
+                        (string) ($right['description'] ?? $right['name'] ?? ''),
+                    );
                 })
-                ->sortBy('name')
+                ->unique('id')
                 ->values()
-                ->toArray();
+                ->all();
             // Load SSH keys from Hetzner
             $this->hetznerSshKeys = $hetznerService->getSshKeys();
             $this->hetznerFirewalls = collect($hetznerService->getFirewalls())
@@ -372,6 +381,22 @@ class ByHetzner extends Component
         }
 
         return "{$providerName} API error: {$details}";
+    }
+
+    private function imageFlavorRank(array $image): int
+    {
+        $flavor = (string) ($image['os_flavor'] ?? '');
+
+        if ($flavor === '') {
+            $flavor = str((string) ($image['name'] ?? ''))->before('-')->toString();
+        }
+
+        return match ($flavor) {
+            'ubuntu' => 0,
+            'debian' => 1,
+            'fedora' => 2,
+            default => 3,
+        };
     }
 
     private function getCpuVendorInfo(array $serverType): ?string

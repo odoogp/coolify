@@ -71,8 +71,14 @@ class HetznerService
     {
         $allResults = [];
         $page = 1;
+        $seenPages = [];
 
         do {
+            if (isset($seenPages[$page])) {
+                break;
+            }
+
+            $seenPages[$page] = true;
             $data['page'] = $page;
             $data['per_page'] = 50;
 
@@ -82,9 +88,15 @@ class HetznerService
                 $allResults = array_merge($allResults, $response[$resourceKey]);
             }
 
+            $lastPage = (int) ($response['meta']['pagination']['last_page'] ?? $page);
             $nextPage = $response['meta']['pagination']['next_page'] ?? null;
-            $page = $nextPage;
-        } while ($nextPage !== null);
+
+            if ($nextPage === null && $page < $lastPage) {
+                $nextPage = $page + 1;
+            }
+
+            $page = is_numeric($nextPage) ? (int) $nextPage : 0;
+        } while ($page > 0 && $page <= 20);
 
         return $allResults;
     }
@@ -96,9 +108,107 @@ class HetznerService
 
     public function getImages(): array
     {
-        return $this->requestPaginated('get', '/images', 'images', [
-            'type' => 'system',
-        ]);
+        $images = [];
+
+        foreach (['x86', 'arm'] as $architecture) {
+            $images = array_merge($images, $this->requestPaginated('get', '/images', 'images', [
+                'type' => 'system',
+                'architecture' => $architecture,
+                'status' => 'available',
+            ]));
+        }
+
+        $images = $this->withMissingUbuntuImages($images);
+        $unique = [];
+
+        foreach ($images as $image) {
+            $id = $image['id'] ?? null;
+
+            if ($id === null || ! self::imageIsOrderable($image)) {
+                continue;
+            }
+
+            $unique[$id] = $image;
+        }
+
+        return array_values($unique);
+    }
+
+    /**
+     * Hetzner can omit current Ubuntu images from the first pages of /images.
+     * Ask for each supported release by name when it is missing.
+     *
+     * @param  array<int, array<string, mixed>>  $images
+     * @return array<int, array<string, mixed>>
+     */
+    private function withMissingUbuntuImages(array $images): array
+    {
+        $present = [];
+
+        foreach ($images as $image) {
+            $present[($image['name'] ?? '').'|'.($image['architecture'] ?? '')] = true;
+        }
+
+        foreach (['x86', 'arm'] as $architecture) {
+            foreach (['ubuntu-22.04', 'ubuntu-24.04', 'ubuntu-26.04'] as $name) {
+                if (isset($present[$name.'|'.$architecture])) {
+                    continue;
+                }
+
+                $response = $this->request('get', '/images', [
+                    'type' => 'system',
+                    'name' => $name,
+                    'architecture' => $architecture,
+                    'per_page' => 5,
+                ]);
+
+                foreach ($response['images'] ?? [] as $image) {
+                    if (($image['name'] ?? null) !== $name || ($image['architecture'] ?? null) !== $architecture) {
+                        continue;
+                    }
+
+                    $images[] = $image;
+                    $present[$name.'|'.$architecture] = true;
+                }
+            }
+        }
+
+        return $images;
+    }
+
+    /**
+     * @param  array<string, mixed>  $image
+     */
+    public static function imageIsOrderable(array $image): bool
+    {
+        if (($image['type'] ?? null) !== 'system') {
+            return false;
+        }
+
+        if (($image['status'] ?? 'available') !== 'available') {
+            return false;
+        }
+
+        if (($image['deprecated'] ?? null) === true) {
+            return false;
+        }
+
+        foreach ([
+            $image['deprecated'] ?? null,
+            data_get($image, 'deprecation.unavailable_after'),
+        ] as $unavailableAt) {
+            if (! is_string($unavailableAt) || $unavailableAt === '') {
+                continue;
+            }
+
+            $timestamp = strtotime($unavailableAt);
+
+            if ($timestamp !== false && $timestamp <= time()) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function getServerTypes(): array

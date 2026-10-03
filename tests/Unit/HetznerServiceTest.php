@@ -150,3 +150,97 @@ it('findServerByIp matches correct server among multiple', function () {
         ->and($result['id'])->toBe(22222)
         ->and($result['name'])->toBe('server-b');
 });
+
+it('loads ubuntu images that are missing from the paged system list', function () {
+    Http::fake(function ($request) {
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+        $name = $query['name'] ?? null;
+        $architecture = $query['architecture'] ?? 'x86';
+
+        if ($name === 'ubuntu-24.04') {
+            return Http::response([
+                'images' => [[
+                    'id' => $architecture === 'arm' ? 161547270 : 161547269,
+                    'name' => 'ubuntu-24.04',
+                    'description' => 'Ubuntu 24.04',
+                    'type' => 'system',
+                    'status' => 'available',
+                    'architecture' => $architecture,
+                    'os_flavor' => 'ubuntu',
+                    'os_version' => '24.04',
+                    'deprecated' => null,
+                ]],
+                'meta' => ['pagination' => ['page' => 1, 'next_page' => null, 'last_page' => 1]],
+            ]);
+        }
+
+        if ($name !== null) {
+            return Http::response([
+                'images' => [],
+                'meta' => ['pagination' => ['page' => 1, 'next_page' => null, 'last_page' => 1]],
+            ]);
+        }
+
+        $page = (int) ($query['page'] ?? 1);
+
+        if ($page === 1) {
+            return Http::response([
+                'images' => [[
+                    'id' => $architecture === 'arm' ? 11 : 10,
+                    'name' => 'debian-13',
+                    'description' => 'Debian 13',
+                    'type' => 'system',
+                    'status' => 'available',
+                    'architecture' => $architecture,
+                    'os_flavor' => 'debian',
+                    'os_version' => '13',
+                    'deprecated' => null,
+                ]],
+                'meta' => ['pagination' => ['page' => 1, 'next_page' => null, 'last_page' => 2]],
+            ]);
+        }
+
+        return Http::response([
+            'images' => [[
+                'id' => $architecture === 'arm' ? 21 : 20,
+                'name' => 'fedora-43',
+                'description' => 'Fedora 43',
+                'type' => 'system',
+                'status' => 'available',
+                'architecture' => $architecture,
+                'os_flavor' => 'fedora',
+                'os_version' => '43',
+                'deprecated' => null,
+            ]],
+            'meta' => ['pagination' => ['page' => 2, 'next_page' => null, 'last_page' => 2]],
+        ]);
+    });
+
+    $names = collect((new HetznerService('fake-token'))->getImages())->pluck('name')->unique()->values()->all();
+
+    expect($names)->toContain('ubuntu-24.04', 'debian-13', 'fedora-43');
+});
+
+it('hides system images that can no longer be ordered', function () {
+    expect(HetznerService::imageIsOrderable([
+        'type' => 'system',
+        'status' => 'available',
+        'deprecated' => '2020-01-01T00:00:00Z',
+    ]))->toBeFalse()
+        ->and(HetznerService::imageIsOrderable([
+            'type' => 'system',
+            'status' => 'available',
+            'deprecated' => true,
+        ]))->toBeFalse()
+        ->and(HetznerService::imageIsOrderable([
+            'type' => 'snapshot',
+            'status' => 'available',
+            'deprecated' => null,
+        ]))->toBeFalse()
+        ->and(HetznerService::imageIsOrderable([
+            'type' => 'system',
+            'status' => 'available',
+            'deprecated' => null,
+            'os_flavor' => 'ubuntu',
+        ]))->toBeTrue();
+});

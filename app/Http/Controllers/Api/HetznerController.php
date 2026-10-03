@@ -344,18 +344,7 @@ class HetznerController extends Controller
             $hetznerService = new HetznerService($token->token);
             $images = $hetznerService->getImages();
 
-            // Filter out deprecated images (same as UI)
-            $filtered = array_filter($images, function ($image) {
-                if (isset($image['type']) && $image['type'] !== 'system') {
-                    return false;
-                }
-
-                if (isset($image['deprecated']) && $image['deprecated'] === true) {
-                    return false;
-                }
-
-                return true;
-            });
+            $filtered = array_filter($images, fn (array $image): bool => HetznerService::imageIsOrderable($image));
 
             return response()->json(array_values($filtered));
         } catch (\Throwable $e) {

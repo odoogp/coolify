@@ -91,9 +91,11 @@
                             <x-forms.listbox id="selected_server_type" label="{{ __('Server type') }}" required live
                                 :disabled="!$selected_location" placeholder="{{ __('Select a server type') }}"
                                 :options="$serverTypeOptions" />
-                            <x-forms.listbox id="selected_image" label="{{ __('Image') }}" required
-                                :disabled="!$selected_server_type" placeholder="{{ __('Select an image') }}"
-                                :options="$imageOptions" />
+                            <div wire:key="hetzner-images-{{ $selected_server_type }}-{{ count($imageOptions) }}">
+                                <x-forms.listbox id="selected_image" label="{{ __('Image') }}" required
+                                    :disabled="!$selected_server_type" placeholder="{{ __('Select an image') }}"
+                                    :options="$imageOptions" />
+                            </div>
                             @if ($private_keys->isEmpty())
                                 <div>
                                     <label class="mb-1.5 flex w-fit items-center gap-1.5">Private key
