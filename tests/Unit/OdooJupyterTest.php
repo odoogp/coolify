@@ -455,6 +455,19 @@ test('owner jupyter omits an empty volumes key and leftover volumes are the unus
             ['abc_odoo-extra-addons', 'abc_odoo-web-data', 'abc_postgresql-data', 'odoo-stdlib-18', 'coolify-db', 'xyz_odoo-web-data'],
             ['xyz_odoo-web-data'],
         ))->toBe(['abc_odoo-extra-addons', 'abc_odoo-web-data', 'abc_postgresql-data', 'odoo-stdlib-18'])
+        ->and(OdooJupyter::leftoverVolumeRows(
+            ['abc_odoo-extra-addons', 'odoo-stdlib-18'],
+            [],
+            ['abc_odoo-extra-addons' => ['client' => 'Cliente 1', 'environment' => 'production']],
+        ))->toBe([
+            ['name' => 'abc_odoo-extra-addons', 'client' => 'Cliente 1', 'environment' => 'production'],
+            ['name' => 'odoo-stdlib-18', 'client' => 'Shared across clients', 'environment' => 'Odoo 18'],
+        ])
+        ->and(OdooJupyter::pageVolumeRows(array_map(fn (int $i): array => ['name' => "v{$i}", 'client' => 'c', 'environment' => 'e'], range(1, 25)), 3)['rows'])->toHaveCount(5)
+        ->and(implode("\n", Yaml::parse($compose)['services']['jupyter']['labels']))
+        ->toContain('!PathPrefix(`/.well-known/acme-challenge/`)')
+        ->toContain('tls.certresolver=letsencrypt')
+        ->toContain('tls.domains[0].main=jupyter.example.test')
         ->and($copy[1])->toContain('.gpsh')
         ->and($copy[1])->toContain('rm -rf')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Actions/Service/DeleteService.php'))->toContain('docker rm -f gpsh-owner-jupyter');

@@ -63,6 +63,7 @@
     confirmWithText: @js($confirmWithText && !$disableTwoStepConfirmation),
     confirmWithPassword: @js($confirmWithPassword && !$skipPasswordConfirmation),
     submitAction: @js($submitAction),
+    hasCheckboxes: @js($checkboxes !== []),
     dispatchAction: @js($dispatchAction),
     submitting: false,
     passwordError: '',
@@ -110,8 +111,7 @@
         // This ensures consistent method signature for backend Livewire methods
         params.push(this.confirmWithPassword ? this.password : '');
 
-        // Only pass selectedActions if there are checkboxes with selections
-        if (this.selectedActions.length > 0) {
+        if (this.hasCheckboxes || this.selectedActions.length > 0) {
             params.push(this.selectedActions);
         }
         return $wire[methodName](...params)

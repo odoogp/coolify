@@ -58,17 +58,47 @@
             </x-application.settings-section>
             <x-application.settings-section title="{{ __('Leftover volumes') }}"
                 description="{{ __('These volumes are not used by a current environment. Deleting one removes its files.') }}">
-                <ul class="max-w-xl divide-y divide-neutral-200 dark:divide-white/10">
-                    @forelse ($leftoverVolumes as $volume)
-                        <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="leftover-volume-{{ $volume }}">
-                            <span class="font-mono">{{ $volume }}</span>
-                            <button type="button" class="text-red-500" wire:click="deleteLeftoverVolume('{{ $volume }}')"
-                                wire:confirm="{{ __('Delete this volume and its files?') }}">{{ __('Delete volume') }}</button>
-                        </li>
-                    @empty
-                        <li class="py-2 text-sm text-neutral-500">{{ __('No leftover volumes.') }}</li>
-                    @endforelse
-                </ul>
+                <div class="mb-3 flex flex-wrap items-center gap-3">
+                    <button type="button" class="text-sm" wire:click="selectAllVolumes">{{ __('Select all') }}</button>
+                    <button type="button" class="text-sm text-red-500" wire:click="deleteSelectedVolumes"
+                        wire:confirm="{{ __('Delete the selected volumes and their files?') }}"
+                        @disabled($selectedVolumes === [])>{{ __('Delete selected') }}</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[36rem] text-left text-sm">
+                        <thead class="text-neutral-500">
+                            <tr>
+                                <th class="w-8 py-2"></th>
+                                <th class="py-2 pr-4">{{ __('Client') }}</th>
+                                <th class="py-2 pr-4">{{ __('Instance') }}</th>
+                                <th class="py-2">{{ __('Volume') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-200 dark:divide-white/10">
+                            @forelse ($volumes['rows'] as $volume)
+                                <tr wire:key="leftover-volume-{{ $volume['name'] }}">
+                                    <td class="py-2">
+                                        <input type="checkbox" value="{{ $volume['name'] }}" wire:model.live="selectedVolumes">
+                                    </td>
+                                    <td class="py-2 pr-4">{{ $volume['client'] !== '' ? __($volume['client']) : '—' }}</td>
+                                    <td class="py-2 pr-4">{{ $volume['environment'] !== '' ? $volume['environment'] : '—' }}</td>
+                                    <td class="py-2 font-mono">{{ $volume['name'] }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="py-2 text-neutral-500">{{ __('No leftover volumes.') }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($volumes['pages'] > 1)
+                    <div class="mt-3 flex items-center justify-between gap-3 text-sm">
+                        <button type="button" wire:click="previousVolumePage" @disabled($volumes['page'] <= 1)>{{ __('Previous') }}</button>
+                        <span>{{ __('Page :current of :last', ['current' => $volumes['page'], 'last' => $volumes['pages']]) }}</span>
+                        <button type="button" wire:click="nextVolumePage" @disabled($volumes['page'] >= $volumes['pages'])>{{ __('Next') }}</button>
+                    </div>
+                @endif
             </x-application.settings-section>
         </div>
     </x-settings.layout>

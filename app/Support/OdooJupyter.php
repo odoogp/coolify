@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\Environment;
 use App\Models\LocalPersistentVolume;
 use App\Models\Server;
 use App\Models\Service;
@@ -194,23 +195,32 @@ class OdooJupyter
                 'jupyter',
                 'lab',
                 '--ServerApp.token='.$token,
+                '--ServerApp.port='.self::LISTEN_PORT,
                 '--ServerApp.allow_password_change=False',
+                '--ServerApp.allow_remote_access=True',
+                '--ServerApp.trust_xheaders=True',
                 '--ServerApp.root_dir=/workspace',
                 '--MappingKernelManager.cull_idle_timeout=1800',
                 '--MappingKernelManager.cull_interval=300',
                 '--TerminalManager.cull_inactive_timeout=1800',
                 '--TerminalManager.cull_interval=300',
                 '--ip=0.0.0.0',
+                '--port='.self::LISTEN_PORT,
                 '--allow-root',
                 '--no-browser',
             ],
             'labels' => [
                 'traefik.enable=true',
                 'traefik.docker.network=gpsh-owner-jupyter',
+                'traefik.http.routers.gpsh-owner-jupyter-http.rule=Host(`'.$host.'`) && !PathPrefix(`/.well-known/acme-challenge/`)',
+                'traefik.http.routers.gpsh-owner-jupyter-http.entryPoints=http',
+                'traefik.http.routers.gpsh-owner-jupyter-http.middlewares=redirect-to-https',
+                'traefik.http.routers.gpsh-owner-jupyter-http.service=gpsh-owner-jupyter',
                 'traefik.http.routers.gpsh-owner-jupyter.rule=Host(`'.$host.'`)',
-                'traefik.http.routers.gpsh-owner-jupyter.entrypoints=https',
+                'traefik.http.routers.gpsh-owner-jupyter.entryPoints=https',
                 'traefik.http.routers.gpsh-owner-jupyter.tls=true',
                 'traefik.http.routers.gpsh-owner-jupyter.tls.certresolver=letsencrypt',
+                'traefik.http.routers.gpsh-owner-jupyter.tls.domains[0].main='.$host,
                 'traefik.http.services.gpsh-owner-jupyter.loadbalancer.server.port='.self::LISTEN_PORT,
             ],
             'volumes' => $mounts,
@@ -253,6 +263,7 @@ class OdooJupyter
         $compose = self::ownerCompose(self::ownerInstances(), $token, $host);
         if (! app()->runningUnitTests()) {
             $volumes = implode("\n", self::ownerExternalVolumes($compose));
+            $connectProxy = coolifyProxyNetworkConnectCommand('gpsh-owner-jupyter');
             instant_remote_process([<<<BASH
 set -eu
 dir=/data/coolify/gpsh-owner-jupyter
@@ -279,7 +290,7 @@ awk '
 ' "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
 mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
 docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
-docker network connect gpsh-owner-jupyter coolify-proxy >/dev/null 2>&1 || true
+{$connectProxy}
 BASH], $server);
         }
 
@@ -376,6 +387,115 @@ BASH], $server);
     }
 
     /**
+     * @param  list<string>  $present
+     * @param  list<string>  $inUse
+     * @param  array<string, array{client: string, environment: string}>  $owners
+     * @return list<array{name: string, client: string, environment: string}>
+     */
+    public static function leftoverVolumeRows(array $present, array $inUse, array $owners): array
+    {
+        $rows = [];
+        foreach (self::leftoverVolumes($present, $inUse) as $name) {
+            $owner = $owners[$name] ?? ['client' => '', 'environment' => ''];
+            if (preg_match('/\Aodoo-stdlib-(.+)\z/', $name, $matches) === 1) {
+                $owner = ['client' => 'Shared across clients', 'environment' => 'Odoo '.$matches[1]];
+            }
+            $rows[] = [
+                'name' => $name,
+                'client' => (string) ($owner['client'] ?? ''),
+                'environment' => (string) ($owner['environment'] ?? ''),
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{name: string, client: string, environment: string}>  $rows
+     * @return array{rows: list<array{name: string, client: string, environment: string}>, page: int, pages: int, total: int}
+     */
+    public static function pageVolumeRows(array $rows, int $page, int $perPage = 10): array
+    {
+        $perPage = max(1, $perPage);
+        $pages = max(1, (int) ceil(count($rows) / $perPage));
+        $page = min(max(1, $page), $pages);
+
+        return [
+            'rows' => array_values(array_slice($rows, ($page - 1) * $perPage, $perPage)),
+            'page' => $page,
+            'pages' => $pages,
+            'total' => count($rows),
+        ];
+    }
+
+    public static function rememberServiceVolumes(Service $service, ?Environment $environment = null): void
+    {
+        $environment ??= $service->environment;
+        $client = (string) ($environment?->project?->team?->name ?? '');
+        $instance = (string) ($environment?->name ?? '');
+        if ($client === '' && $instance === '') {
+            return;
+        }
+        $owners = Cache::get('gpsh-volume-owners', []);
+        if (! is_array($owners)) {
+            $owners = [];
+        }
+        $service->loadMissing(['applications.persistentStorages', 'databases.persistentStorages']);
+        $names = [
+            $service->uuid.'_odoo-extra-addons',
+            $service->uuid.'_odoo-web-data',
+            $service->uuid.'_postgresql-data',
+        ];
+        foreach ($service->applications as $application) {
+            foreach ($application->persistentStorages as $storage) {
+                $names[] = (string) $storage->name;
+            }
+        }
+        foreach ($service->databases as $database) {
+            foreach ($database->persistentStorages as $storage) {
+                $names[] = (string) $storage->name;
+            }
+        }
+        foreach (array_unique($names) as $name) {
+            if ($name !== '') {
+                $owners[$name] = ['client' => $client, 'environment' => $instance];
+            }
+        }
+        Cache::forever('gpsh-volume-owners', $owners);
+    }
+
+    /**
+     * @return array<string, array{client: string, environment: string}>
+     */
+    public static function volumeOwnerIndex(): array
+    {
+        $owners = Cache::get('gpsh-volume-owners', []);
+        if (! is_array($owners)) {
+            $owners = [];
+        }
+        foreach (Service::withTrashed()->with(['environment.project.team'])->get() as $service) {
+            if (! $service->supportsOdooJupyter()) {
+                continue;
+            }
+            $client = (string) ($service->environment?->project?->team?->name ?? '');
+            $instance = (string) ($service->environment?->name ?? '');
+            if ($client === '' && $instance === '') {
+                continue;
+            }
+            foreach ([
+                $service->uuid.'_odoo-extra-addons',
+                $service->uuid.'_odoo-web-data',
+                $service->uuid.'_postgresql-data',
+            ] as $name) {
+                $owners[$name] = ['client' => $client, 'environment' => $instance];
+            }
+        }
+        Cache::forever('gpsh-volume-owners', $owners);
+
+        return $owners;
+    }
+
+    /**
      * @return list<string>
      */
     public static function volumesInUse(): array
@@ -389,9 +509,9 @@ BASH], $server);
     }
 
     /**
-     * @return list<string>
+     * @return list<array{name: string, client: string, environment: string}>
      */
-    public static function leftoverVolumesOnInstance(): array
+    public static function leftoverVolumeRowsOnInstance(): array
     {
         if (app()->runningUnitTests()) {
             return [];
@@ -403,7 +523,7 @@ BASH], $server);
         $raw = instant_remote_process(['docker volume ls -q'], $server, false);
         $present = preg_split('/\R/', trim((string) $raw)) ?: [];
 
-        return self::leftoverVolumes($present, self::volumesInUse());
+        return self::leftoverVolumeRows($present, self::volumesInUse(), self::volumeOwnerIndex());
     }
 
     public static function deleteLeftoverVolume(string $name): void

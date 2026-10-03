@@ -22,6 +22,8 @@ class DeleteEnvironment extends Component
 
     public string $environmentName = '';
 
+    public bool $delete_volumes = true;
+
     public function mount()
     {
         $this->environmentName = Environment::ownedByCurrentTeam()->findOrFail($this->environment_id)->name;
@@ -37,16 +39,19 @@ class DeleteEnvironment extends Component
             $this->authorize('delete', $environment);
             $project = $environment->project;
             $projectUuid = $project?->uuid;
+            $deleteVolumes = in_array('delete_volumes', $selectedActions, true);
             if ($project !== null && strcasecmp((string) $environment->name, 'production') === 0) {
                 foreach ($project->environments as $staging) {
                     if ($staging->id === $environment->id || ! OdooStaging::isStagingName((string) $staging->name)) {
                         continue;
                     }
                     $this->releaseWork($staging);
+                    $staging->deleteVolumesWithResources = $deleteVolumes;
                     $staging->delete();
                 }
             }
             $this->releaseWork($environment);
+            $environment->deleteVolumesWithResources = $deleteVolumes;
             $environment->delete();
 
             if (! is_string($projectUuid) || $projectUuid === '') {
@@ -80,6 +85,9 @@ class DeleteEnvironment extends Component
 
         return view('livewire.project.delete-environment', [
             'actions' => $actions,
+            'checkboxes' => [
+                ['id' => 'delete_volumes', 'label' => __('resource.delete_volumes')],
+            ],
         ]);
     }
 

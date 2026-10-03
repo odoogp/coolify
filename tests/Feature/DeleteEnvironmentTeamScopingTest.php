@@ -75,12 +75,28 @@ test('deleting an environment also deletes the resources it has', function () {
 
     Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
         ->assertSee('Delete the resources in this environment: odoo')
-        ->call('delete', '')
+        ->assertSee('Permanently delete all volumes associated with this resource.')
+        ->assertSet('delete_volumes', true)
+        ->call('delete', '', ['delete_volumes'])
         ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
 
     expect(Environment::find($this->environmentA->id))->toBeNull();
     expect(Application::withTrashed()->find($application->id)?->trashed())->toBeTrue();
-    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id);
+    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id && $job->deleteVolumes === true);
+});
+
+test('deleting an environment keeps its volumes when that box is unchecked', function () {
+    Queue::fake();
+    $application = Application::factory()->create([
+        'environment_id' => $this->environmentA->id,
+        'name' => 'odoo',
+    ]);
+
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
+        ->call('delete', '', [])
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
+
+    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id && $job->deleteVolumes === false);
 });
 
 test('delete cannot resolve an environment from another team', function () {

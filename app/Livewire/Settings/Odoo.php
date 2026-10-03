@@ -27,6 +27,11 @@ class Odoo extends Component
 
     public string $moduleName = '';
 
+    public int $volumePage = 1;
+
+    /** @var list<string> */
+    public array $selectedVolumes = [];
+
     public function mount(): void
     {
         if (! isInstanceAdmin()) {
@@ -98,17 +103,39 @@ class Odoo extends Component
         $this->dispatch('success', __('Owner module removed. Redeploy Odoo to drop the link.'));
     }
 
-    public function deleteLeftoverVolume(string $name): void
+    public function selectAllVolumes(): void
     {
         $this->authorize('update', $this->settings);
-        if (! in_array($name, OdooJupyter::leftoverVolumes([$name], OdooJupyter::volumesInUse()), true)) {
-            $this->dispatch('error', __('That volume is still in use.'));
+        $names = array_column(OdooJupyter::leftoverVolumeRowsOnInstance(), 'name');
+        $selected = $this->selectedVolumes;
+        sort($selected);
+        sort($names);
+        $this->selectedVolumes = $selected === $names ? [] : $names;
+    }
 
-            return;
+    public function deleteSelectedVolumes(): void
+    {
+        $this->authorize('update', $this->settings);
+        $allowed = array_column(OdooJupyter::leftoverVolumeRowsOnInstance(), 'name');
+        foreach ($this->selectedVolumes as $name) {
+            if (in_array($name, $allowed, true)) {
+                OdooJupyter::deleteLeftoverVolume($name);
+            }
         }
-
-        OdooJupyter::deleteLeftoverVolume($name);
+        $this->selectedVolumes = [];
+        $this->volumePage = 1;
         $this->dispatch('success', __('Volume deleted.'));
+    }
+
+    public function previousVolumePage(): void
+    {
+        $this->volumePage = max(1, $this->volumePage - 1);
+    }
+
+    public function nextVolumePage(): void
+    {
+        $pages = OdooJupyter::pageVolumeRows(OdooJupyter::leftoverVolumeRowsOnInstance(), $this->volumePage)['pages'];
+        $this->volumePage = min($pages, $this->volumePage + 1);
     }
 
     public function render()
@@ -118,7 +145,7 @@ class Odoo extends Component
         return view('livewire.settings.odoo', [
             'versions' => array_values(array_unique([...OdooVersion::SUPPORTED, ...$saved, $this->version])),
             'ownerModules' => GpshOwnerModule::names(),
-            'leftoverVolumes' => OdooJupyter::leftoverVolumesOnInstance(),
+            'volumes' => OdooJupyter::pageVolumeRows(OdooJupyter::leftoverVolumeRowsOnInstance(), $this->volumePage),
         ]);
     }
 

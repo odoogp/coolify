@@ -2,6 +2,7 @@
 
 use App\Actions\CoolifyTask\RunRemoteProcess;
 use App\Enums\ProcessStatus;
+use App\Jobs\DeleteResourceJob;
 use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
@@ -1495,12 +1496,18 @@ it('deletes a loading environment and warns that production takes staging with i
 
     Livewire::test(DeleteEnvironment::class, ['environment_id' => $production->id])
         ->assertSee('Deleting production also deletes these staging environments: staging-1, staging-2.')
-        ->call('delete');
+        ->assertSee('Permanently delete all volumes associated with this resource.')
+        ->call('delete', null, ['delete_volumes']);
 
     expect($this->project->environments()->pluck('name')->all())->toBe([])
         ->and(Cache::get('launch-odoo-'.$service->uuid))->toBeNull()
         ->and(Cache::get('odoo-clone-project-'.$this->project->id))->toBeNull()
         ->and(data_get($activity->fresh(), 'properties.status'))->toBe(ProcessStatus::CANCELLED->value);
+    Queue::assertNotPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->deleteVolumes === false);
+    expect(Cache::get('gpsh-volume-owners')[$service->uuid.'_odoo-extra-addons'] ?? null)->toMatchArray([
+        'client' => $this->team->name,
+        'environment' => 'production',
+    ]);
 
     $this->withoutExceptionHandling();
     expect(fn () => $this->get(route('gpsh.owner-jupyter')))

@@ -4,9 +4,11 @@ namespace App\Models;
 
 use App\Jobs\DeleteResourceJob;
 use App\Services\AdminCreationQuota;
+use App\Support\OdooJupyter;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use OpenApi\Attributes as OA;
@@ -37,6 +39,11 @@ class Environment extends BaseModel
         'created_by',
     ];
 
+    /**
+     * Set by the delete dialog. Not a column.
+     */
+    public bool $deleteVolumesWithResources = true;
+
     protected static function booted()
     {
         static::creating(function (Environment $environment): void {
@@ -44,8 +51,11 @@ class Environment extends BaseModel
         });
         static::deleting(function (Environment $environment) {
             foreach ($environment->resources() as $resource) {
+                if ($resource instanceof Service) {
+                    OdooJupyter::rememberServiceVolumes($resource, $environment);
+                }
                 $resource->delete();
-                DeleteResourceJob::dispatch($resource);
+                DeleteResourceJob::dispatch($resource, $environment->deleteVolumesWithResources);
             }
             foreach ($environment->environment_variables as $sharedVariable) {
                 $sharedVariable->delete();
@@ -66,7 +76,7 @@ class Environment extends BaseModel
     /**
      * Applications, databases, and services that belong to this environment.
      *
-     * @return Collection<int, \Illuminate\Database\Eloquent\Model>
+     * @return Collection<int, Model>
      */
     public function resources(): Collection
     {
