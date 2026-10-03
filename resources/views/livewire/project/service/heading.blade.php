@@ -358,14 +358,14 @@
 
     @if ($service->isDeployable)
         <div class="hidden" aria-hidden="true">
-            <x-modal-confirmation title="{{ __('Confirm Service Restart?') }}" buttonTitle="Restart"
-                submitAction="restartEvent" :dispatchAction="true" :actions="['This service will be restarted.']"
+            <x-modal-confirmation title="{{ __('Confirm Service Restart?') }}" :buttonTitle="__('Restart')"
+                submitAction="restartEvent" :dispatchAction="true" :actions="[__('This service will be restarted.')]"
                 :confirmWithText="false" :confirmWithPassword="false" step2ButtonText="Confirm">
                 <x-slot:trigger>
                     <button id="service-restart-trigger" type="button">{{ __('Restart') }}</button>
                 </x-slot:trigger>
             </x-modal-confirmation>
-            <x-modal-confirmation title="{{ __('Confirm Service Stopping?') }}" buttonTitle="Stop"
+            <x-modal-confirmation title="{{ __('Confirm Service Stopping?') }}" :buttonTitle="__('Stop')"
                 submitAction="stop" :checkboxes="$checkboxes" :actions="[__('service.stop'), __('resource.non_persistent')]"
                 :confirmWithText="false" :confirmWithPassword="false" step1ButtonText="Continue"
                 step2ButtonText="Confirm">
@@ -380,7 +380,7 @@
         <script>
             $wire.$on('stopEvent', () => {
                 $wire.$dispatch('info',
-                    'Gracefully stopping service.<br/><br/>It could take a while depending on the service.');
+                    @js(__('Gracefully stopping service.<br/><br/>It could take a while depending on the service.')));
                 $wire.$call('stop');
             });
             $wire.$on('startEvent', async () => {
@@ -389,7 +389,7 @@
 
                     if (isDeploymentProgress) {
                         $wire.$dispatch('error',
-                            'There is a deployment in progress.<br><br>You can force deploy from the Actions menu.');
+                            @js(__('There is a deployment in progress.<br><br>You can force deploy from the Actions menu.')));
                         return;
                     }
 
@@ -403,23 +403,23 @@
 
                 if (isDeploymentProgress) {
                     $wire.$dispatch('error',
-                        'There is a deployment in progress.<br><br>You can force deploy from the Actions menu.');
+                        @js(__('There is a deployment in progress.<br><br>You can force deploy from the Actions menu.')));
                     return;
                 }
 
                 $wire.$dispatch('info',
-                    'Gracefully stopping service.<br/><br/>It could take a while depending on the service.');
+                    @js(__('Gracefully stopping service.<br/><br/>It could take a while depending on the service.')));
                 $wire.$call('restart');
             });
             $wire.$on('forceDeployEvent', () => $wire.$call('forceDeploy'));
             $wire.$on('pullAndRestartEvent', () => {
-                $wire.$dispatch('info', 'Pulling new images and restarting service.');
+                $wire.$dispatch('info', @js(__('Pulling new images and restarting service.')));
                 $wire.$call('pullAndRestartEvent');
             });
             $wire.$on('cleanupEvent', () => $wire.$call('stop', true));
             $wire.on('imagePulled', () => {
                 window.dispatchEvent(new CustomEvent('startservice'));
-                $wire.$dispatch('info', 'Restarting service.');
+                $wire.$dispatch('info', @js(__('Restarting service.')));
             });
         </script>
     @endscript

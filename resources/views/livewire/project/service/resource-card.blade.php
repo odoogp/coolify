@@ -65,11 +65,11 @@
             @can('update', $service)
                 <x-modal-confirmation
                     :title="$isApplication ? __('Confirm Service Application Restart?') : __('Confirm Service Database Restart?')"
-                    buttonTitle="Restart" submitAction="restart" :actions="$isApplication
-                        ? ['The selected service application will be unavailable during the restart.']
-                        : ['This service database will be unavailable during the restart.']"
+                    :buttonTitle="__('Restart')" submitAction="restart" :actions="$isApplication
+                        ? [__('The selected service application will be unavailable during the restart.')]
+                        : [__('This service database will be unavailable during the restart.')]"
                     :confirmWithText="false" :confirmWithPassword="false"
-                    :step2ButtonText="$isApplication ? 'Restart Service Container' : 'Restart Database'" />
+                    :step2ButtonText="$isApplication ? __('Restart Service Container') : __('Restart Database')" />
             @endcan
         @endif
         </div>

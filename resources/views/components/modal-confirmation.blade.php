@@ -42,8 +42,13 @@
     }
     // When password step is skipped, Step 2 becomes final - change button text from "Continue" to "Confirm"
     $effectiveStep2ButtonText = ($skipPasswordConfirmation && $step2ButtonText === 'Continue') ? 'Confirm' : $step2ButtonText;
+    $step1ButtonText = translateUiText($step1ButtonText);
+    $effectiveStep2ButtonText = translateUiText($effectiveStep2ButtonText);
+    $step3ButtonText = translateUiText($step3ButtonText);
+    $confirmationText = is_string($confirmationText) ? translateUiText($confirmationText) : $confirmationText;
+    $actions = collect($actions)->map(fn ($action) => is_string($action) ? translateUiText($action) : $action)->all();
     // Prefer a rich HTML button title when callers pass <x-slot:button-title> (ComponentSlot).
-    $resolvedButtonTitle = $buttonTitle instanceof ComponentSlot ? $buttonTitle : $buttonTitle;
+    $resolvedButtonTitle = $buttonTitle instanceof ComponentSlot ? $buttonTitle : translateUiText((string) $buttonTitle);
 @endphp
 
 <div {{ $ignoreWire ? 'wire:ignore' : '' }} x-data="{
@@ -87,7 +92,7 @@
     step3ButtonText: @js($step3ButtonText),
     validatePassword() {
         if (this.confirmWithPassword && !this.password) {
-            return 'Password is required.';
+            return @js(translateUiText('Password is required.'));
         }
         return '';
     },
@@ -252,7 +257,7 @@
                     <!-- Step 2: Confirm deletion -->
                     <div x-show="step === 2">
                         <x-callout type="danger" title="{{ __('Warning') }}" class="mb-4">
-                            {!! $warningMessage ?: 'This operation is permanent and cannot be undone. Please think again before proceeding!' !!}
+                            {!! $warningMessage ? translateUiText($warningMessage) : e(__('This operation is permanent and cannot be undone. Please think again before proceeding!')) !!}
                         </x-callout>
                         <div class="mb-2 text-[12px] font-medium text-neutral-700 dark:text-fg-dim">{{ __('The following actions will be performed:') }}</div>
                         <ul class="mb-4 space-y-2">

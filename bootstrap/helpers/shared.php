@@ -4555,6 +4555,29 @@ function isSafeTmpPath(?string $path): bool
  * @param  string  $status  The status string to format
  * @return string The formatted status string
  */
+function translateUiText(string $text): string
+{
+    if ($text === '') {
+        return $text;
+    }
+
+    $exact = __($text);
+
+    if ($exact !== $text) {
+        return $exact;
+    }
+
+    if (preg_match('/^(.*?) \((.*)\)$/', $text, $matches) === 1) {
+        $detail = collect(explode(', ', $matches[2]))
+            ->map(fn (string $part): string => translateUiText($part))
+            ->implode(', ');
+
+        return translateUiText($matches[1]).' ('.$detail.')';
+    }
+
+    return $text;
+}
+
 function formatContainerStatus(string $status): string
 {
     // Preserve Proxy statuses as-is (they follow different format)

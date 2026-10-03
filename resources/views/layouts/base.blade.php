@@ -156,6 +156,15 @@
 <body class="overflow-y-scroll dark:text-inherit text-black">
     <x-toast />
     <x-icon-tooltip />
+    @php
+        $gpshStrings = [];
+        if (app()->getLocale() !== 'en') {
+            $gpshLocalePath = lang_path(app()->getLocale().'.json');
+            if (is_file($gpshLocalePath)) {
+                $gpshStrings = json_decode(file_get_contents($gpshLocalePath), true) ?: [];
+            }
+        }
+    @endphp
     <script data-navigate-once>
         // Global HTML sanitization function using DOMPurify
         window.sanitizeHTML = function (html) {
@@ -307,6 +316,38 @@
             }
         }
         window.copyToClipboard = copyToClipboard;
+        window.gpshStrings = @json($gpshStrings);
+        window.gpshText = (value) => {
+            if (typeof value !== 'string' || value === '' || !window.gpshStrings) {
+                return value;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(window.gpshStrings, value)) {
+                return window.gpshStrings[value];
+            }
+
+            const wrapped = value.match(/^(.*?) \((.*)\)$/);
+
+            if (wrapped) {
+                const detail = wrapped[2].split(', ').map((part) => window.gpshText(part)).join(', ');
+
+                return `${window.gpshText(wrapped[1])} (${detail})`;
+            }
+
+            let prefix = '';
+
+            Object.keys(window.gpshStrings).forEach((key) => {
+                if ((key.endsWith(': ') || key.endsWith(' ')) && value.startsWith(key) && key.length > prefix.length) {
+                    prefix = key;
+                }
+            });
+
+            if (prefix !== '') {
+                return window.gpshStrings[prefix] + value.slice(prefix.length);
+            }
+
+            return value;
+        };
         document.addEventListener('livewire:init', () => {
             window.Livewire.on('reloadWindow', (timeout) => {
                 if (timeout) {
@@ -320,81 +361,81 @@
             })
             window.Livewire.on('info', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Info', {
+                    window.toast(window.gpshText('Info'), {
                         type: 'info',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Info', {
+                    window.toast(window.gpshText('Info'), {
                         type: 'info',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'info',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })
             window.Livewire.on('error', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Error', {
+                    window.toast(window.gpshText('Error'), {
                         type: 'danger',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Error', {
+                    window.toast(window.gpshText('Error'), {
                         type: 'danger',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'danger',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })
             window.Livewire.on('warning', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Warning', {
+                    window.toast(window.gpshText('Warning'), {
                         type: 'warning',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Warning', {
+                    window.toast(window.gpshText('Warning'), {
                         type: 'warning',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'warning',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })
             window.Livewire.on('success', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Success', {
+                    window.toast(window.gpshText('Success'), {
                         type: 'success',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Success', {
+                    window.toast(window.gpshText('Success'), {
                         type: 'success',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'success',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })

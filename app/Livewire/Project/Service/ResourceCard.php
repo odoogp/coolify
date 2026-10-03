@@ -48,8 +48,8 @@ class ResourceCard extends Component
             $this->authorize('update', $this->service);
             $this->resource->restart();
             $message = $this->resource instanceof ServiceApplication
-                ? 'Service application restarted successfully.'
-                : 'Service database restarted successfully.';
+                ? __('Service application restarted successfully.')
+                : __('Service database restarted successfully.');
             $this->dispatch('success', $message);
         } catch (\Throwable $e) {
             handleError($e, $this);
