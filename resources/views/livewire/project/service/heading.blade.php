@@ -99,7 +99,7 @@
 
         <div class="w-full xl:hidden">
             @if ($odooEnterUrl || $jupyterUrl || $ownerJupyterUrl || $odooLogsUrl || $monitorUrl)
-                <div class="mb-3 flex flex-wrap gap-2">
+                <div class="application-heading-actions mb-3 flex flex-wrap gap-2">
                     @if ($odooEnterUrl)
                         <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $odooEnterUrl }}">
                             <x-reicon name="external-link" class="size-3.5" />
@@ -134,7 +134,7 @@
             @endif
             @if ($service->isDeployable)
                 @can('deploy', $service)
-                <div id="service-mobile-actions" class="relative mb-3"
+                <div id="service-mobile-actions" class="application-heading-actions relative mb-3"
                     x-data="{ open: false }" @click.outside="open = false"
                     @keydown.escape.window="open = false">
                     <button type="button" class="button w-full justify-between" x-bind:disabled="deploying"

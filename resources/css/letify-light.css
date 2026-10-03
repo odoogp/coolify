@@ -89,6 +89,21 @@ html[data-theme="light"] .button:hover:not(:disabled) {
     color: var(--theme-accent-foreground, #ffffff);
 }
 
+html[data-theme="light"] .application-heading-actions .button:not(:disabled) {
+    min-height: 2rem;
+    height: 2rem;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    box-shadow: none;
+    font-size: 0.8125rem;
+    line-height: 1;
+}
+
+html[data-theme="light"] .application-heading-actions .button:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+}
+
 html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
     border-color: transparent;
     background-image: linear-gradient(135deg, var(--letify-primary) 0%, color-mix(in srgb, var(--letify-primary) 62%, white) 100%);
@@ -225,8 +240,13 @@ html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     backdrop-filter: none;
 }
 
+html[data-theme="light"] .listbox-panel {
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 12px 32px var(--letify-glow);
+}
+
 html[data-theme="light"] .modal-box,
-html[data-theme="light"] .listbox-panel,
 html[data-theme="light"] .top-user-menu-panel {
     border-radius: 28px;
     background: #ffffff;
