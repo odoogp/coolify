@@ -8,6 +8,7 @@ use App\Enums\ProcessStatus;
 use App\Models\Service;
 use App\Models\User;
 use App\Support\GpshNotices;
+use App\Support\OdooGit;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -59,8 +60,10 @@ class LaunchOdooProjectJob implements ShouldQueue
             }
 
             $this->progress(2);
-            $activity = StartService::run($service->fresh() ?? $service, pullLatestImages: false);
-            $this->waitForServiceStart($activity, $service);
+            OdooGit::whileServerIsFree($service->server, function () use ($service): void {
+                $activity = StartService::run($service->fresh() ?? $service, pullLatestImages: false);
+                $this->waitForServiceStart($activity, $service);
+            });
 
             $environment = $service->environment;
             $this->progress(4, done: true, redirect: [
@@ -90,18 +93,20 @@ class LaunchOdooProjectJob implements ShouldQueue
         $accessible = false;
         $deadline = time() + 1200;
         while (time() < $deadline) {
-            $activity->refresh();
-            $output = RunRemoteProcess::decodeOutput($activity);
-            if (is_string($output) && str_contains($output, 'HTTPS')) {
+            $status = RunRemoteProcess::readStatus($activity);
+            if (RunRemoteProcess::logContains($activity, 'HTTPS')) {
                 $this->progress(3);
             }
-            $status = (string) $activity->getExtraProperty('status');
-            GpshNotices::watch($service, is_string($output) ? $output : '', $status, $mounted, $accessible);
+            $output = RunRemoteProcess::logContains($activity, 'The service containers are running.')
+                ? 'The service containers are running.'
+                : '';
+            GpshNotices::watch($service, $output, $status, $mounted, $accessible);
             if ($status === ProcessStatus::FINISHED->value) {
                 return;
             }
             if (in_array($status, [ProcessStatus::ERROR->value, ProcessStatus::KILLED->value, ProcessStatus::CANCELLED->value], true)) {
-                $line = collect(preg_split('/\R/', (string) $output) ?: [])
+                $activity->refresh();
+                $line = collect(preg_split('/\R/', RunRemoteProcess::decodeOutput($activity)) ?: [])
                     ->map(fn ($line): string => trim((string) $line))
                     ->filter(fn (string $line): bool => $line !== '')
                     ->last();

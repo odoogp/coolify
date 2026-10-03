@@ -407,20 +407,25 @@ test('an owner module is linked into the addon folder and odoo logs go to the sh
 });
 
 test('owner jupyter mounts the image addons, owner modules, and branch addons', function () {
-    $compose = OdooJupyter::injectOwner(odooCompose());
+    $compose = OdooJupyter::ownerCompose([
+        ['team' => 'Cliente 1', 'environment' => 'production', 'custom' => 'abc_odoo-extra-addons', 'files' => 'abc_odoo-web-data', 'image' => 'odoo:18'],
+        ['team' => 'Cliente 1', 'environment' => 'staging-1', 'custom' => 'def_odoo-extra-addons', 'files' => null, 'image' => 'odoo:18'],
+    ], 'abcdef0123456789', 'jupyter.example.test');
     $services = Yaml::parse($compose)['services'];
-    $owner = $services['jupyterowner'];
+    $owner = $services['jupyter'];
 
-    expect($services['stdlib']['image'])->toBe('odoo:18')
-        ->and($services['stdlib']['volumes'])->toBe(['odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'])
-        ->and($owner['volumes'])->toBe([
-            'odoo-stdlib-18:/workspace/addons/odoo:ro',
-            '/data/coolify/gpsh-owner-modules:/workspace/addons/owner:ro',
-            'odoo-extra-addons:/workspace/addons/custom:ro',
-        ])
-        ->and($owner['environment'])->toContain('SERVICE_URL_JUPYTEROWNER_8888')
+    expect($services)->not->toHaveKey('jupyterowner')
+        ->and($services['stdlib-18']['image'])->toBe('odoo:18')
+        ->and($services['stdlib-18']['volumes'])->toBe(['odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'])
+        ->and($owner['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-web-data:/workspace/cliente-1/production/files:ro')
+        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/staging-1/custom:ro')
+        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/staging-1/odoo:ro')
         ->and(json_encode($owner))->not->toContain('docker.sock')
         ->and(OdooJupyter::injectOwner($compose))->toBe($compose)
+        ->and(OdooJupyter::ownerExternalVolumes($compose))->toBe(['abc_odoo-extra-addons', 'abc_odoo-web-data', 'def_odoo-extra-addons'])
         ->and(OdooJupyter::hidesTerminal('jupyterowner'))->toBeTrue()
         ->and(OdooJupyter::hidesTerminal('jupyter'))->toBeFalse()
         ->and(OdooGit::clientSeesLog('odoo-abc'))->toBeTrue()
@@ -436,16 +441,24 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::usesSharedCertificate('monitor_3000'))->toBeTrue()
         ->and(OdooGit::usesSharedCertificate('jupyterowner'))->toBeTrue()
         ->and(OdooGit::usesSharedCertificate('cadvisor'))->toBeFalse();
+});
 
-    $services['stdlib']['volumes'] = ['abc123_odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'];
-    $services['odoo']['volumes'] = ['abc123_odoo-extra-addons:/mnt/extra-addons'];
-    $aligned = OdooJupyter::alignParsedServices($services);
+test('client jupyter mounts that environment addon volume', function () {
+    $aligned = OdooJupyter::alignParsedServices([
+        'odoo' => [
+            'image' => 'odoo:20',
+            'command' => 'already-set',
+            'volumes' => ['abc_odoo-extra-addons:/mnt/extra-addons'],
+        ],
+        'jupyter' => [
+            'image' => 'jupyter/datascience-notebook:latest',
+            'volumes' => ['wrong:/workspace/addons'],
+        ],
+    ]);
 
-    expect($aligned['jupyterowner']['volumes'])->toBe([
-        'abc123_odoo-stdlib-18:/workspace/addons/odoo:ro',
-        '/data/coolify/gpsh-owner-modules:/workspace/addons/owner:ro',
-        'abc123_odoo-extra-addons:/workspace/addons/custom:ro',
-    ])->and($aligned['stdlib']['command'])->toBe(['infinity']);
+    expect($aligned['jupyter']['volumes'])->toBe([
+        'abc_odoo-extra-addons:/workspace/addons',
+    ]);
 });
 
 test('launching odoo adds grafana for that stack and only odoo and postgresql', function () {
@@ -512,7 +525,5 @@ test('odoo shares its certificate and the owner jupyter starts later', function 
         ->and(implode("\n", $services['monitor']['labels']))->not->toContain('certresolver')
         ->and(implode("\n", $services['jupyter']['labels']))->not->toContain('certresolver')
         ->and(OdooJupyter::backgroundStartCommand('/data/coolify/services/abc123', 'abc123'))
-        ->toContain('--profile gpsh-later')
-        ->toContain('stdlib jupyterowner')
-        ->toEndWith('&');
+        ->toBe('true');
 });

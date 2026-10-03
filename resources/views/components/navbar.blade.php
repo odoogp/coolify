@@ -189,6 +189,14 @@
             </li>
             @if (isInstanceAdmin())
                 <li>
+                    <a title="{{ __('Owner Jupyter') }}" target="_blank" rel="noopener noreferrer"
+                        class="menu-item"
+                        :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('gpsh.owner-jupyter') }}">
+                        <x-reicon name="external-link" class="menu-item-icon" />
+                        <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Owner Jupyter') }}</span>
+                    </a>
+                </li>
+                <li>
                     <a title="{{ __('Settings') }}" {{ wireNavigate() }}
                         class="{{ request()->is('settings*') ? 'menu-item-active menu-item' : 'menu-item' }}"
                         :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('settings.index') }}">

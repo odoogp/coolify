@@ -18,6 +18,7 @@ use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Models\User;
 use App\Rules\ValidGitBranch;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -27,7 +28,6 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
-use Spatie\Activitylog\Models\Activity;
 
 /**
  * GitHub is optional. Without a repository, JupyterLab is the file manager.
@@ -486,11 +486,32 @@ class OdooGit
     private static function startFinished(Service $service): bool
     {
         try {
-            $activity = Activity::query()->where('properties->type_uuid', $service->uuid)->latest()->first();
+            $status = data_get($service->latestProcessActivity(), 'properties.status');
 
-            return (string) data_get($activity, 'properties.status') === ProcessStatus::FINISHED->value;
+            return (string) $status === ProcessStatus::FINISHED->value;
         } catch (\Throwable) {
             return false;
+        }
+    }
+
+    /**
+     * One start or database copy at a time on a server.
+     * ponytail: the waiter gives up after 10 minutes; the lock itself expires after 30 if the job dies. A single dump is not size-capped.
+     */
+    public static function whileServerIsFree(Server $server, callable $work): mixed
+    {
+        $lock = Cache::lock('gpsh-host-'.$server->id, 1800);
+
+        try {
+            $lock->block(600);
+        } catch (LockTimeoutException) {
+            throw new RuntimeException(__('Another environment is still being copied on this server. Try again when it finishes.'));
+        }
+
+        try {
+            return $work();
+        } finally {
+            $lock->release();
         }
     }
 
@@ -747,6 +768,7 @@ BASH;
             $urlSql = 'docker exec -e PGPASSWORD="$(printf \'%s\' \''.base64_encode($targetPassword).'\' | base64 -d)" "$dst_pg" psql -U '.$targetUser.' -d '.$targetDatabase.' -v ON_ERROR_STOP=1 -c '.escapeshellarg($sql);
         }
 
+        // ponytail: one-shot containers are capped so the kernel kills the copy, not a neighbor. Raise 2g if a large database fails to neutralize. A dump bigger than the free disk can still fill it.
         $script = <<<'BASH'
 set -eu
 dump=__DUMP__
@@ -788,6 +810,9 @@ if [ -z "$src_pg" ]; then echo "The database container of the service being clon
 if [ -z "$dst_pg" ]; then echo "The database container of the new staging service was not found." >&2; exit 1; fi
 if [ -z "$src_odoo" ]; then echo "The Odoo container of the service being cloned was not found." >&2; exit 1; fi
 if [ -z "$dst_odoo" ]; then echo "The Odoo container of the new staging service was not found." >&2; exit 1; fi
+avail=$(df -Pk "$(dirname "$dump")" | awk 'NR==2 {print $4}')
+if [ "${avail:-0}" -lt 1048576 ]; then echo "Not enough free disk to clone without filling the server." >&2; exit 1; fi
+if [ -d /var/lib/docker ]; then avail=$(df -Pk /var/lib/docker | awk 'NR==2 {print $4}'); if [ "${avail:-0}" -lt 1048576 ]; then echo "Not enough free disk to clone without filling the server." >&2; exit 1; fi; fi
 docker start "$src_pg" >/dev/null
 docker start "$dst_pg" >/dev/null
 docker stop "$dst_odoo" >/dev/null 2>&1 || true
@@ -808,10 +833,10 @@ uid=$(docker exec "$src_odoo" id -u)
 gid=$(docker exec "$src_odoo" id -g)
 case "$uid" in ''|*[!0-9]*) echo "The Odoo data directory could not be made writable." >&2; exit 1 ;; esac
 case "$gid" in ''|*[!0-9]*) echo "The Odoo data directory could not be made writable." >&2; exit 1 ;; esac
-docker run --rm -v "$src_vol":/source:ro -v "$dst_vol":/target alpine sh -c "find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; mkdir -p /target/sessions; chown -R ${uid}:${gid} /target; chmod -R u+rwX /target"
+docker run --rm --memory=512m --cpus=1 -v "$src_vol":/source:ro -v "$dst_vol":/target alpine sh -c "find /target -mindepth 1 -maxdepth 1 -exec rm -rf {} +; cp -a /source/. /target/; if [ -d /target/filestore/__SRC_DB__ ]; then rm -rf /target/filestore/__DST_DB__; mv /target/filestore/__SRC_DB__ /target/filestore/__DST_DB__; fi; mkdir -p /target/sessions; chown -R ${uid}:${gid} /target; chmod -R u+rwX /target"
 __URL_SQL__
 image=$(docker inspect --format '{{.Image}}' "$src_odoo")
-docker run --pull never --rm --network "container:$dst_pg" --entrypoint odoo "$image" neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
+docker run --pull never --rm --memory=2g --cpus=1 --network "container:$dst_pg" --entrypoint odoo "$image" neutralize -d __DST_DB__ --db_host=127.0.0.1 --db_port=5432 --db_user=__DST_USER__ --db_password="$(printf '%s' '__DST_PW__' | base64 -d)" --stop-after-init
 docker start "$dst_odoo"
 BASH;
 

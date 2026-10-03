@@ -51,7 +51,7 @@
             ])
             : null;
         $jupyterUrl = $odooHeading ? \App\Support\OdooJupyter::sessionUrl($service) : null;
-        $ownerJupyterUrl = $odooHeading ? \App\Support\OdooJupyter::ownerSessionUrl($service) : null;
+        $ownerJupyterUrl = $odooHeading && isInstanceAdmin() ? route('gpsh.owner-jupyter') : null;
         $odooLogsUrl = $odooHeading && $service->environment?->project
             ? route('project.service.logs', [
                 'project_uuid' => $service->environment->project->uuid,

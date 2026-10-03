@@ -151,11 +151,11 @@
                                 {{ __('Open environment') }}
                             </a>
                         @endif
+                        @endunless
                         @can('delete', $selectedEnvironment)
                             <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
                                 :key="'delete-environment-'.$selectedEnvironment->id" />
                         @endcan
-                        @endunless
                         @if ($openOdooUrl !== '')
                             <a class="button button-highlighted" target="_blank"
                                 href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid]) }}">

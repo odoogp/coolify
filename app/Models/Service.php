@@ -162,11 +162,21 @@ class Service extends BaseModel
         return (bool) str($this->status)->contains('exited');
     }
 
+    /**
+     * Latest process row without the command log. The log lives in description and grows for the whole start.
+     */
+    public function latestProcessActivity(): ?Activity
+    {
+        return Activity::query()
+            ->where('properties->type_uuid', $this->uuid)
+            ->latest()
+            ->first(['id', 'properties']);
+    }
+
     public function isStarting(): bool
     {
         try {
-            $activity = Activity::where('properties->type_uuid', $this->uuid)->latest()->first();
-            $status = data_get($activity, 'properties.status');
+            $status = data_get($this->latestProcessActivity(), 'properties.status');
 
             return $status === ProcessStatus::QUEUED->value || $status === ProcessStatus::IN_PROGRESS->value;
         } catch (\Throwable) {

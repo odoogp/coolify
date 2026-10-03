@@ -1,8 +1,11 @@
 <?php
 
+use App\Actions\CoolifyTask\RunRemoteProcess;
+use App\Enums\ProcessStatus;
 use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
+use App\Livewire\Project\DeleteEnvironment;
 use App\Livewire\Project\Edit;
 use App\Livewire\Project\Service\Heading;
 use App\Livewire\Project\Show;
@@ -33,6 +36,7 @@ use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
 use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
 uses(RefreshDatabase::class);
@@ -487,7 +491,8 @@ it('shows owner jupyter to an instance admin and not to a client', function () {
         'parameters' => [],
         'query' => [],
     ])->assertSee('Owner Jupyter')
-        ->assertSee('https://jupyterowner.example.test?token=ownertoken');
+        ->assertSee(route('gpsh.owner-jupyter'))
+        ->assertDontSee('https://jupyterowner.example.test?token=ownertoken');
 });
 
 it('opens grafana for the odoo and postgresql containers only', function () {
@@ -1272,6 +1277,11 @@ it('copies the production database and files into staging and neutralizes only t
         ->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
         ->toContain('*stdlib*')
         ->toContain('neutralize -d acme_staging_1')
+        ->toContain('--memory=512m')
+        ->toContain('--memory=2g')
+        ->toContain('Not enough free disk to clone without filling the server.')
+        ->toContain('docker stop "$dst_odoo"')
+        ->not->toContain('docker stop "$src_odoo"')
         ->toContain('container:$dst_pg')
         ->toContain('--db_host=127.0.0.1')
         ->toContain('--pull never')
@@ -1423,4 +1433,76 @@ it('sends an empty odoo link back to the project', function () {
         'project_uuid' => $this->project->uuid,
         'environment' => $production->uuid,
     ]));
+});
+
+it('reads whether a service is starting without loading the command log', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $activity = Activity::create([
+        'log_name' => 'default',
+        'description' => str_repeat('x', 5000),
+        'properties' => [
+            'type_uuid' => $service->uuid,
+            'status' => ProcessStatus::IN_PROGRESS->value,
+        ],
+    ]);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    expect($service->isStarting())->toBeTrue();
+    $statusSql = collect(DB::getQueryLog())->pluck('query')->first(
+        fn ($query): bool => str_contains((string) $query, 'activity_log')
+    );
+    DB::disableQueryLog();
+
+    expect($statusSql)->toBeString()
+        ->and($statusSql)->toContain('properties')
+        ->and($statusSql)->not->toContain('description')
+        ->and($statusSql)->not->toContain('*')
+        ->and(RunRemoteProcess::readStatus($activity))->toBe(ProcessStatus::IN_PROGRESS->value)
+        ->and(RunRemoteProcess::logContains($activity, 'The service containers are running.'))->toBeFalse();
+
+    $activity->description = json_encode([['order' => 1, 'output' => 'The service containers are running.']], JSON_THROW_ON_ERROR);
+    $activity->save();
+
+    expect(RunRemoteProcess::logContains($activity->fresh(), 'The service containers are running.'))->toBeTrue();
+});
+
+it('deletes a loading environment and warns that production takes staging with it', function () {
+    Queue::fake();
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    Cache::put('launch-odoo-'.$service->uuid, ['step' => 2, 'done' => false], 60);
+    Cache::put('odoo-clone-project-'.$this->project->id, ['step' => 4, 'done' => false], 60);
+    $activity = Activity::create([
+        'log_name' => 'default',
+        'description' => 'log',
+        'properties' => [
+            'type_uuid' => $service->uuid,
+            'status' => ProcessStatus::IN_PROGRESS->value,
+        ],
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->assertSee('Delete');
+
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $production->id])
+        ->assertSee('Deleting production also deletes these staging environments: staging-1, staging-2.')
+        ->call('delete');
+
+    expect($this->project->environments()->pluck('name')->all())->toBe([])
+        ->and(Cache::get('launch-odoo-'.$service->uuid))->toBeNull()
+        ->and(Cache::get('odoo-clone-project-'.$this->project->id))->toBeNull()
+        ->and(data_get($activity->fresh(), 'properties.status'))->toBe(ProcessStatus::CANCELLED->value);
+
+    $this->withoutExceptionHandling();
+    expect(fn () => $this->get(route('gpsh.owner-jupyter')))
+        ->toThrow(fn (HttpException $exception): bool => $exception->getStatusCode() === 403);
 });

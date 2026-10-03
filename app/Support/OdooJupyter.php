@@ -2,14 +2,17 @@
 
 namespace App\Support;
 
+use App\Models\Server;
 use App\Models\Service;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
 
 /**
  * Optional JupyterLab service for an Odoo compose stack.
  *
- * Jupyter mounts the same addon source Odoo already uses:
- * that source on /mnt/extra-addons, and the same source on /workspace/addons.
+ * The client Jupyter mounts that environment's addon volume on /workspace/addons.
+ * It does not mount production when the environment is staging.
  * It does not copy files and it does not receive the Docker socket,
  * Odoo config, PostgreSQL, or the instance data directory.
  */
@@ -66,28 +69,6 @@ class OdooJupyter
         return getFqdnWithoutPort(firstDomainFromList((string) $jupyter->fqdn)).'?token='.urlencode((string) $token);
     }
 
-    /**
-     * Jupyter for the instance owner: image addons, owner modules, and this branch's custom addons.
-     */
-    public static function ownerSessionUrl(Service $service): ?string
-    {
-        if (! $service->supportsOdooJupyter() || ! isInstanceAdmin()) {
-            return null;
-        }
-
-        $jupyter = $service->applications()->get()->firstWhere('name', self::OWNER_SERVICE_NAME);
-        if (! filled($jupyter?->fqdn)) {
-            return null;
-        }
-
-        $token = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTEROWNER')->first()?->value;
-        if (! filled($token)) {
-            return null;
-        }
-
-        return getFqdnWithoutPort(firstDomainFromList((string) $jupyter->fqdn)).'?token='.urlencode((string) $token);
-    }
-
     public static function hidesTerminal(string $name): bool
     {
         return in_array(strtolower($name), [self::OWNER_SERVICE_NAME, self::STDLIB_SERVICE_NAME], true);
@@ -130,44 +111,225 @@ class OdooJupyter
 
     public static function injectOwner(string $compose): string
     {
-        $yaml = self::parse($compose);
-        if (! is_array($yaml)) {
-            return $compose;
+        return $compose;
+    }
+
+    /**
+     * One Jupyter for the instance owner, outside every client stack.
+     * ponytail: only volumes on server id 0. A client on another machine is absent until that host has its own copy.
+     *
+     * @param  list<array{team: string, environment: string, custom: ?string, files: ?string, image: string}>  $instances
+     */
+    public static function ownerCompose(array $instances, string $token, string $host): string
+    {
+        if (preg_match('/\A[A-Za-z0-9]{16,}\z/', $token) !== 1 || preg_match('/\A[A-Za-z0-9.-]+\z/', $host) !== 1) {
+            throw new \RuntimeException('The owner Jupyter was refused.');
         }
 
-        $services = $yaml['services'] ?? null;
-        if (! is_array($services) || isset($services[self::OWNER_SERVICE_NAME])) {
-            return $compose;
+        $mounts = ['/data/coolify/gpsh-owner-modules:/workspace/owner:ro'];
+        $stdlib = [];
+        $external = [];
+        $used = [];
+        foreach ($instances as $instance) {
+            $team = Str::slug((string) ($instance['team'] ?? ''));
+            $environment = Str::slug((string) ($instance['environment'] ?? ''));
+            if ($team === '' || $environment === '') {
+                continue;
+            }
+            $folder = $team.'/'.$environment;
+            $suffix = 2;
+            while (isset($used[$folder])) {
+                $folder = $team.'/'.$environment.'-'.$suffix;
+                $suffix++;
+            }
+            $used[$folder] = true;
+            $root = '/workspace/'.$folder;
+            foreach (['custom' => 'custom', 'files' => 'files'] as $key => $name) {
+                $volume = (string) ($instance[$key] ?? '');
+                if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', $volume) !== 1) {
+                    continue;
+                }
+                $mounts[] = $volume.':'.$root.'/'.$name.':ro';
+                $external[$volume] = ['name' => $volume, 'external' => true];
+            }
+            $image = (string) ($instance['image'] ?? '');
+            if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1) {
+                continue;
+            }
+            $volume = self::stdlibVolumeName($image);
+            $stdlib[$volume] = $image;
+            $mounts[] = $volume.':'.$root.'/odoo:ro';
         }
 
-        $odoo = self::odooService($services);
-        $image = (string) ($odoo['image'] ?? '');
-        if ($odoo === null || preg_match('/^[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}$/', $image) !== 1) {
-            return $compose;
+        $services = [];
+        foreach ($stdlib as $volume => $image) {
+            $services['stdlib-'.substr($volume, strlen('odoo-stdlib-'))] = [
+                'image' => $image,
+                'user' => '0:0',
+                'restart' => 'unless-stopped',
+                'entrypoint' => ['sleep'],
+                'command' => ['infinity'],
+                'volumes' => [$volume.':'.self::IMAGE_ADDONS],
+            ];
         }
-
-        $volume = self::stdlibVolumeName($image);
-        $source = self::addonVolumeSource($odoo['volumes'] ?? []);
-        $services[self::STDLIB_SERVICE_NAME] = [
-            'image' => $image,
+        $services['jupyter'] = [
+            'image' => self::IMAGE,
+            'container_name' => 'gpsh-owner-jupyter',
             'user' => '0:0',
+            'working_dir' => '/tmp',
             'restart' => 'unless-stopped',
-            'profiles' => [self::LATER_PROFILE],
-            'entrypoint' => ['sleep'],
-            'command' => ['infinity'],
-            'volumes' => [$volume.':'.self::IMAGE_ADDONS],
+            'networks' => ['gpsh-owner-jupyter'],
+            'expose' => [self::LISTEN_PORT],
+            'healthcheck' => ['disable' => true],
+            'environment' => [
+                'JUPYTER_ENABLE_LAB=yes',
+                'HOME=/tmp',
+                'JUPYTER_CONFIG_DIR=/tmp/jupyter-config',
+                'JUPYTER_DATA_DIR=/tmp/jupyter-data',
+                'JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime',
+                'JUPYTER_TOKEN='.$token,
+            ],
+            'command' => [
+                'jupyter',
+                'lab',
+                '--ServerApp.token='.$token,
+                '--ServerApp.allow_password_change=False',
+                '--ServerApp.root_dir=/workspace',
+                '--MappingKernelManager.cull_idle_timeout=1800',
+                '--MappingKernelManager.cull_interval=300',
+                '--TerminalManager.cull_inactive_timeout=1800',
+                '--TerminalManager.cull_interval=300',
+                '--ip=0.0.0.0',
+                '--allow-root',
+                '--no-browser',
+            ],
+            'labels' => [
+                'traefik.enable=true',
+                'traefik.docker.network=gpsh-owner-jupyter',
+                'traefik.http.routers.gpsh-owner-jupyter.rule=Host(`'.$host.'`)',
+                'traefik.http.routers.gpsh-owner-jupyter.entrypoints=https',
+                'traefik.http.routers.gpsh-owner-jupyter.tls=true',
+                'traefik.http.routers.gpsh-owner-jupyter.tls.certresolver=letsencrypt',
+                'traefik.http.services.gpsh-owner-jupyter.loadbalancer.server.port='.self::LISTEN_PORT,
+            ],
+            'volumes' => $mounts,
         ];
-        $volumes = [
-            $volume.':'.self::WORKSPACE.'/odoo:ro',
-            '/data/coolify/gpsh-owner-modules:'.self::WORKSPACE.'/owner:ro',
-        ];
-        if ($source !== null) {
-            $volumes[] = $source.':'.self::WORKSPACE.'/custom:ro';
+        foreach ($stdlib as $volume => $image) {
+            $external[$volume] = ['name' => $volume];
         }
-        $services[self::OWNER_SERVICE_NAME] = self::ownerServiceDefinition($volumes);
-        $yaml['services'] = $services;
 
-        return Yaml::dump($yaml, 8, 2);
+        $yaml = Yaml::dump([
+            'services' => $services,
+            'networks' => [
+                'gpsh-owner-jupyter' => ['name' => 'gpsh-owner-jupyter'],
+            ],
+        ], 8, 2);
+        $yaml .= "volumes:\n";
+        foreach ($external as $name => $spec) {
+            $yaml .= ($spec['external'] ?? false) === true
+                ? "  {$name}: {name: {$name}, external: true}\n"
+                : "  {$name}: {name: {$name}}\n";
+        }
+
+        return $yaml;
+    }
+
+    public static function ensureOwner(): string
+    {
+        $server = Server::query()->find(0);
+        if (! $server instanceof Server || ! $server->isFunctional()) {
+            throw new \RuntimeException('No server is available for the owner Jupyter.');
+        }
+        $token = Cache::get('gpsh-owner-jupyter-token');
+        if (! is_string($token) || preg_match('/\A[A-Za-z0-9]{16,}\z/', $token) !== 1) {
+            $token = bin2hex(random_bytes(16));
+            Cache::forever('gpsh-owner-jupyter-token', $token);
+        }
+        $host = explode('/', (string) preg_replace('#\Ahttps?://#', '', generateFqdn($server, 'gpsh-owner', forceHttps: true)))[0];
+        $compose = self::ownerCompose(self::ownerInstances(), $token, $host);
+        if (! app()->runningUnitTests()) {
+            $volumes = implode("\n", self::ownerExternalVolumes($compose));
+            instant_remote_process([<<<BASH
+set -eu
+dir=/data/coolify/gpsh-owner-jupyter
+mkdir -p "\$dir"
+cat > "\$dir/docker-compose.yml" <<'EOF'
+{$compose}
+EOF
+while IFS= read -r volume; do
+  [ -n "\$volume" ] || continue
+  docker volume inspect "\$volume" >/dev/null 2>&1 || sed -i "/\${volume}/d" "\$dir/docker-compose.yml"
+done <<'VOLS'
+{$volumes}
+VOLS
+docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
+docker network connect gpsh-owner-jupyter coolify-proxy >/dev/null 2>&1 || true
+BASH], $server);
+        }
+
+        return 'https://'.$host.'?token='.urlencode($token);
+    }
+
+    /**
+     * @return list<array{team: string, environment: string, custom: ?string, files: ?string, image: string}>
+     */
+    public static function ownerInstances(): array
+    {
+        $rows = [];
+        foreach (Service::query()->with(['environment.project.team', 'applications.persistentStorages'])->get() as $service) {
+            if (! $service->supportsOdooJupyter() || (string) $service->server_id !== '0') {
+                continue;
+            }
+            $environment = $service->environment;
+            $team = $environment?->project?->team;
+            if ($environment === null || $team === null) {
+                continue;
+            }
+            $custom = null;
+            $files = null;
+            $image = '';
+            foreach ($service->applications as $application) {
+                $name = strtolower((string) $application->name);
+                if (! str_contains($name, 'odoo') || str_contains($name, 'jupyter')) {
+                    continue;
+                }
+                $image = (string) $application->image;
+                foreach ($application->persistentStorages as $storage) {
+                    $path = (string) $storage->mount_path;
+                    if (str_contains($path, 'extra-addons')) {
+                        $custom = (string) $storage->name;
+                    }
+                    if ($path === '/var/lib/odoo') {
+                        $files = (string) $storage->name;
+                    }
+                }
+            }
+            $rows[] = [
+                'team' => (string) $team->name,
+                'environment' => (string) $environment->name,
+                'custom' => $custom,
+                'files' => $files,
+                'image' => $image !== '' ? $image : 'odoo:20',
+            ];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function ownerExternalVolumes(string $compose): array
+    {
+        $yaml = self::parse($compose);
+        $names = [];
+        foreach (($yaml['volumes'] ?? []) as $name => $volume) {
+            if (is_array($volume) && ($volume['external'] ?? false) === true && preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', (string) $name) === 1) {
+                $names[] = (string) $name;
+            }
+        }
+
+        return $names;
     }
 
     /**
@@ -546,8 +708,7 @@ BASH));
     }
 
     /**
-     * The owner Jupyter and the image-addon container stay out of the main start.
-     * The shell backgrounds them after Odoo answers, so the launch queue is not a thread pool.
+     * The owner Jupyter is one container outside the client stacks, so a client start does not launch another one.
      */
     public static function backgroundStartCommand(string $workdir, string $project): string
     {
@@ -555,7 +716,7 @@ BASH));
             throw new \RuntimeException('The background start was refused.');
         }
 
-        return "docker compose --project-directory {$workdir} -f {$workdir}/docker-compose.yml --project-name {$project} --profile ".self::LATER_PROFILE.' up -d --no-recreate '.self::STDLIB_SERVICE_NAME.' '.self::OWNER_SERVICE_NAME." >/tmp/gpsh-later-{$project}.log 2>&1 &";
+        return 'true';
     }
 
     /**

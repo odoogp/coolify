@@ -101,14 +101,16 @@ class CloneOdooStagingJob implements ShouldQueue
             $this->progress(4);
             $started = true;
             if ($copied instanceof Service && $copied->server?->isFunctional()) {
-                $activity = StartService::run($copied, pullLatestImages: false);
-                $this->waitForServiceStart($activity, $copied);
-                $original = $production->services()->get()->first(
-                    fn (Service $service): bool => $service->supportsOdooJupyter()
-                );
-                if ($original instanceof Service) {
-                    OdooGit::copyProductionData($original, $copied);
-                }
+                OdooGit::whileServerIsFree($copied->server, function () use ($copied, $production): void {
+                    $activity = StartService::run($copied, pullLatestImages: false);
+                    $this->waitForServiceStart($activity, $copied);
+                    $original = $production->services()->get()->first(
+                        fn (Service $service): bool => $service->supportsOdooJupyter()
+                    );
+                    if ($original instanceof Service) {
+                        OdooGit::copyProductionData($original, $copied);
+                    }
+                });
                 try {
                     OdooGit::waitUntilOpen($copied->fresh() ?? $copied);
                 } catch (Throwable $openError) {
@@ -202,10 +204,11 @@ class CloneOdooStagingJob implements ShouldQueue
         $accessible = true;
         $deadline = time() + 3600;
         while (time() < $deadline) {
-            $activity->refresh();
-            $output = RunRemoteProcess::decodeOutput($activity);
-            $status = (string) $activity->getExtraProperty('status');
-            GpshNotices::watch($service, is_string($output) ? $output : '', $status, $mounted, $accessible);
+            $status = RunRemoteProcess::readStatus($activity);
+            $output = RunRemoteProcess::logContains($activity, 'The service containers are running.')
+                ? 'The service containers are running.'
+                : '';
+            GpshNotices::watch($service, $output, $status, $mounted, $accessible);
             if ($status === ProcessStatus::FINISHED->value) {
                 return;
             }
@@ -213,6 +216,8 @@ class CloneOdooStagingJob implements ShouldQueue
                 if (OdooGit::loginAnswers($service)) {
                     return;
                 }
+
+                $activity->refresh();
 
                 throw new RuntimeException($this->startFailureMessage($activity));
             }

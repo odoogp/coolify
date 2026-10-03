@@ -36,7 +36,7 @@ class Heading extends Component
             $this->dispatch('configurationChanged');
         }
 
-        $activity = Activity::where('properties->type_uuid', $this->service->uuid)->latest()->first();
+        $activity = $this->service->latestProcessActivity();
         $status = data_get($activity, 'properties.status');
         if ($activity && in_array($status, [ProcessStatus::QUEUED->value, ProcessStatus::IN_PROGRESS->value], true)) {
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
@@ -100,7 +100,7 @@ class Heading extends Component
         $this->authorizeService('view');
 
         try {
-            $activity = Activity::where('properties->type_uuid', $this->service->uuid)->latest()->first();
+            $activity = $this->service->latestProcessActivity();
             $status = data_get($activity, 'properties.status');
             if ($status === ProcessStatus::QUEUED->value || $status === ProcessStatus::IN_PROGRESS->value) {
                 $this->isDeploymentProgress = true;

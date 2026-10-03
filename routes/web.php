@@ -2,8 +2,9 @@
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\LocaleController;
-use App\Http\Controllers\OdooEnterController;
 use App\Http\Controllers\OauthController;
+use App\Http\Controllers\OdooEnterController;
+use App\Http\Controllers\OwnerJupyterController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProjectIconController;
 use App\Http\Controllers\UploadController;
@@ -80,10 +81,10 @@ use App\Livewire\Settings\Advanced as SettingsAdvanced;
 use App\Livewire\Settings\Github as SettingsGithub;
 use App\Livewire\Settings\Index as SettingsIndex;
 use App\Livewire\Settings\Odoo as SettingsOdoo;
-use App\Livewire\Settings\Whatsapp as SettingsWhatsapp;
 use App\Livewire\Settings\ScheduledJobs as SettingsScheduledJobs;
 use App\Livewire\Settings\ServiceTemplates as SettingsServiceTemplates;
 use App\Livewire\Settings\Updates as SettingsUpdates;
+use App\Livewire\Settings\Whatsapp as SettingsWhatsapp;
 use App\Livewire\SettingsBackup;
 use App\Livewire\SettingsEmail;
 use App\Livewire\SettingsOauth;
@@ -110,7 +111,9 @@ use App\Livewire\Terminal\Index as TerminalIndex;
 use App\Models\ScheduledDatabaseBackupExecution;
 use App\Models\ScheduledVolumeBackupExecution;
 use App\Models\Server;
+use App\Models\Service;
 use App\Models\ServiceDatabase;
+use App\Models\StandaloneDocker;
 use App\Providers\RouteServiceProvider;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
@@ -164,6 +167,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/subscription', SubscriptionShow::class)->name('subscription.show');
     Route::get('/subscription/new', SubscriptionIndex::class)->name('subscription.index');
 
+    Route::get('/owner-jupyter', OwnerJupyterController::class)->name('gpsh.owner-jupyter');
     Route::get('/settings', SettingsIndex::class)->name('settings.index');
     Route::get('/settings/advanced', SettingsAdvanced::class)->name('settings.advanced');
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
@@ -236,22 +240,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         $user = auth()->user();
         $team = $user->currentTeam();
         $teamIds = $user->teams()->pluck('teams.id');
-        $services = \App\Models\Service::query()
+        $services = Service::query()
             ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
             ->get(['server_id', 'destination_id', 'destination_type']);
         $serviceServerIds = $services->pluck('server_id');
         $dockerIds = $services
-            ->where('destination_type', \App\Models\StandaloneDocker::class)
+            ->where('destination_type', StandaloneDocker::class)
             ->pluck('destination_id')
             ->filter();
         if ($dockerIds->isNotEmpty()) {
             $serviceServerIds = $serviceServerIds->merge(
-                \App\Models\StandaloneDocker::query()->whereIn('id', $dockerIds)->pluck('server_id')
+                StandaloneDocker::query()->whereIn('id', $dockerIds)->pluck('server_id')
             );
         }
         $serviceServerIds = $serviceServerIds->push(0)->filter(fn ($id) => $id !== null && $id !== '')->unique()->values();
 
-        $ipAddresses = \App\Models\Server::query()
+        $ipAddresses = Server::query()
             ->where(function ($query) use ($team, $serviceServerIds) {
                 $query->where('team_id', $team->id);
                 if ($serviceServerIds->isNotEmpty()) {

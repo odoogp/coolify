@@ -229,33 +229,38 @@ class Show extends Component
     public function refreshCloneProgress()
     {
         $this->authorize('view', $this->project);
-        $this->project->unsetRelation('environments');
-        $this->project->load([
-            'environments' => fn ($query) => $query
-                ->withCount([
-                    'applications',
-                    'services',
-                    'postgresqls',
-                    'redis',
-                    'keydbs',
-                    'dragonflies',
-                    'clickhouses',
-                    'mongodbs',
-                    'mysqls',
-                    'mariadbs',
-                ])
-                ->orderBy('created_at'),
-            'environments.odooBranch',
-            'environments.services',
-        ]);
-        $redirect = $this->absorbWork(redirectOnDone: true);
-        $this->markWorkRunning();
-        $this->environmentPayload = $this->environmentRows(
-            auth()->user()->can('update', $this->project),
-            $this->project->odooProfile()->exists(),
-        );
-        if ($redirect !== null) {
-            return $redirect;
+
+        try {
+            $this->project->unsetRelation('environments');
+            $this->project->load([
+                'environments' => fn ($query) => $query
+                    ->withCount([
+                        'applications',
+                        'services',
+                        'postgresqls',
+                        'redis',
+                        'keydbs',
+                        'dragonflies',
+                        'clickhouses',
+                        'mongodbs',
+                        'mysqls',
+                        'mariadbs',
+                    ])
+                    ->orderBy('created_at'),
+                'environments.odooBranch',
+                'environments.services',
+            ]);
+            $redirect = $this->absorbWork(redirectOnDone: true);
+            $this->markWorkRunning();
+            $this->environmentPayload = $this->environmentRows(
+                auth()->user()->can('update', $this->project),
+                $this->project->odooProfile()->exists(),
+            );
+            if ($redirect !== null) {
+                return $redirect;
+            }
+        } catch (\Throwable $exception) {
+            report($exception);
         }
     }
 

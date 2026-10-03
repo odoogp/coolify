@@ -73,6 +73,21 @@ class RunRemoteProcess
             ->implode('');
     }
 
+    public static function readStatus(Activity $activity): string
+    {
+        $properties = Activity::query()->whereKey($activity->getKey())->value('properties');
+
+        return (string) data_get($properties, 'status');
+    }
+
+    public static function logContains(Activity $activity, string $needle): bool
+    {
+        return Activity::query()
+            ->whereKey($activity->getKey())
+            ->where('description', 'like', '%'.$needle.'%')
+            ->exists();
+    }
+
     public function __invoke(): ProcessResult
     {
         $this->time_start = hrtime(true);
