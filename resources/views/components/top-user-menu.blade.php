@@ -45,6 +45,19 @@
         localStorage.setItem('pageWidth', width);
         window.dispatchEvent(new CustomEvent('page-width-changed', { detail: width }));
     },
+    previewLetifyColor(color) {
+        this.themeColor = color;
+        if (this.theme !== 'light') {
+            this.setTheme('light', false);
+        }
+        document.documentElement.style.setProperty('--theme-base-color', color);
+        document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(color));
+    },
+    saveLetifyColor(color) {
+        this.previewLetifyColor(color);
+        localStorage.setItem('themeColor', color);
+        localStorage.setItem('theme', 'light');
+    },
     previewThemeColor(color) {
         this.themeColor = color;
 
@@ -134,7 +147,28 @@
                 ['value' => 'crystal-light', 'label' => __('Crystal Light')],
                 ['value' => 'custom', 'label' => __('Custom Dark')],
             ] as $option)
-                @if ($option['value'] === 'custom')
+                @if ($option['value'] === 'light')
+                    <div class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-neutral-600">
+                        <span class="relative size-3.5 shrink-0">
+                            <span class="block size-3.5 rounded-full border border-black/10"
+                                :style="`background: ${themeColor}`"></span>
+                            <input type="color" :value="themeColor"
+                                @input="previewLetifyColor($event.target.value)"
+                                @change="saveLetifyColor($event.target.value)"
+                                aria-label="{{ __('Letify accent color') }}"
+                                class="absolute -inset-1 z-10 cursor-pointer opacity-0" />
+                        </span>
+                        <button type="button" @click="setTheme('light')"
+                            class="min-w-0 flex-1 truncate rounded-md text-left hover:text-neutral-950">
+                            {{ $option['label'] }}
+                        </button>
+                        <svg x-show="theme === 'light'" class="size-3.5 shrink-0 text-coollabs" viewBox="0 0 12 12"
+                            fill="none" aria-hidden="true">
+                            <path d="m2.5 6.25 2.1 2.1 4.9-5" stroke="currentColor" stroke-width="1.4"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                @elseif ($option['value'] === 'custom')
                     <div
                         class="relative flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
                         <span class="flex items-center gap-2">

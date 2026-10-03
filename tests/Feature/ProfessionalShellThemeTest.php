@@ -49,12 +49,16 @@ test('letify light is a named light theme and does not restyle dark appearances'
     $styles = file_get_contents(resource_path('css/letify-light.css'));
     $layout = file_get_contents(resource_path('views/layouts/base.blade.php'));
 
+    $menu = file_get_contents(resource_path('views/components/top-user-menu.blade.php'));
+
     expect($styles)
         ->toContain('html[data-theme="light"]')
-        ->toContain('#7b3ff2')
-        ->toContain('#fcfaff')
-        ->toContain('linear-gradient(135deg, #7b3ff2 0%, #d946ef 100%)')
+        ->toContain('var(--theme-base-color, #7b3ff2)')
+        ->toContain('linear-gradient(135deg, var(--letify-primary)')
         ->toContain('border-radius: 28px')
+        ->and($menu)
+        ->toContain('previewLetifyColor')
+        ->toContain('saveLetifyColor')
         ->not->toContain('html[data-theme="crystal"]')
         ->not->toContain('html.dark')
         ->and($layout)

@@ -19,6 +19,20 @@
             localStorage.setItem('pageWidth', width);
             window.dispatchEvent(new CustomEvent('page-width-changed', { detail: width }));
         },
+        previewLetifyColor(color) {
+            this.themeColor = color;
+            if (this.theme !== 'light') {
+                this.theme = 'light';
+                localStorage.setItem('theme', 'light');
+            }
+            this.applyTheme();
+            document.documentElement.style.setProperty('--theme-base-color', color);
+        },
+        saveLetifyColor(color) {
+            this.previewLetifyColor(color);
+            localStorage.setItem('themeColor', color);
+            localStorage.setItem('theme', 'light');
+        },
         previewThemeColor(color) {
             this.themeColor = color;
 
@@ -63,7 +77,7 @@
             </div>
             <div class="application-settings-section-body grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ([
-                    ['value' => 'light', 'label' => __('Letify Light'), 'description' => __('Lavender canvas, purple gradients, and floating cards.'), 'preview' => 'bg-[#FCFAFF]'],
+                    ['value' => 'light', 'label' => __('Letify Light'), 'description' => __('Floating cards tinted with the color you pick.'), 'preview' => ''],
                     ['value' => 'system', 'label' => __('Match system'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
                     ['value' => 'dark', 'label' => __('Midnight Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
                     ['value' => 'crystal', 'label' => __('Crystal Dark'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
@@ -80,9 +94,10 @@
                             ? 'ring-1 ring-coollabs/30 border-coollabs/40 dark:ring-warning/30 dark:border-warning/40'
                             : ''">
                         <div class="h-20 {{ $option['preview'] }} border-b border-neutral-200 dark:border-white/[0.07]"
-                            @if ($option['value'] === 'custom') :style="`background: color-mix(in oklab, ${themeColor} 28%, #101011)`" @endif>
+                            @if ($option['value'] === 'custom') :style="`background: color-mix(in oklab, ${themeColor} 28%, #101011)`" @endif
+                            @if ($option['value'] === 'light') :style="`background: color-mix(in srgb, ${themeColor} 8%, white)`" @endif>
                             <div class="flex h-full items-center justify-center">
-                                @if ($option['value'] === 'custom')
+                                @if (in_array($option['value'], ['custom', 'light'], true))
                                     <div class="h-10 w-20 rounded-md border border-white/15 p-1 shadow-sm">
                                         <div class="h-full w-full rounded-sm" :style="`background: ${themeColor}`"></div>
                                     </div>
@@ -110,6 +125,11 @@
                                 @change="saveThemeColor($event.target.value)"
                                 aria-label="{{ __('Custom theme color') }}"
                                 class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
+                        @elseif ($option['value'] === 'light')
+                            <input type="color" :value="themeColor" @click.stop @input="previewLetifyColor($event.target.value)"
+                                @change="saveLetifyColor($event.target.value)"
+                                aria-label="{{ __('Letify accent color') }}"
+                                class="absolute top-6 left-1/2 z-10 size-10 -translate-x-1/2 cursor-pointer opacity-0" />
                         @endif
                     </div>
                 @endforeach
