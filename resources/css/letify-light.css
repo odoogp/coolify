@@ -217,7 +217,9 @@ html[data-theme="light"] .empty-state .empty-icon {
 
 html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     border-radius: 28px;
-    background: #ffffff;
+    background:
+        radial-gradient(240px circle at var(--spot-x) var(--spot-y), color-mix(in srgb, var(--letify-primary) 20%, transparent), transparent 58%),
+        #ffffff;
     border: 0;
     box-shadow: 0 10px 40px var(--letify-glow);
     backdrop-filter: none;
