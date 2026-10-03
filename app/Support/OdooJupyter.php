@@ -317,16 +317,27 @@ before=missing
 docker inspect gpsh-owner-jupyter >/dev/null 2>&1 && before=present
 dir=/data/coolify/gpsh-owner-jupyter
 mkdir -p "\$dir"
-cat > "\$dir/docker-compose.yml" <<'EOF'
+cat > "\$dir/docker-compose.yml.new" <<'EOF'
 {$compose}
 EOF
-docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
-if docker network inspect {$quotedNetwork} >/dev/null 2>&1; then
-  docker inspect gpsh-owner-jupyter --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}' | grep -qw {$quotedNetwork} || docker network connect {$quotedNetwork} gpsh-owner-jupyter || true
+changed=0
+if [ ! -f "\$dir/docker-compose.yml" ] || ! cmp -s "\$dir/docker-compose.yml" "\$dir/docker-compose.yml.new"; then
+  changed=1
 fi
+mv "\$dir/docker-compose.yml.new" "\$dir/docker-compose.yml"
 running=false
 if docker inspect -f '{{.State.Running}}' gpsh-owner-jupyter 2>/dev/null | grep -qx true; then
   running=true
+fi
+if [ "\$changed" = 1 ] || [ "\$running" != true ]; then
+  docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
+  if docker network inspect {$quotedNetwork} >/dev/null 2>&1; then
+    docker inspect gpsh-owner-jupyter --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}' | grep -qw {$quotedNetwork} || docker network connect {$quotedNetwork} gpsh-owner-jupyter || true
+  fi
+  running=false
+  if docker inspect -f '{{.State.Running}}' gpsh-owner-jupyter 2>/dev/null | grep -qx true; then
+    running=true
+  fi
 fi
 cert=pending
 if docker exec coolify-proxy grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null 2>&1; then
@@ -335,7 +346,17 @@ fi
 if [ "\$cert" = pending ]; then
   curl -fsS -o /dev/null -k --connect-timeout 5 --max-time 15 --resolve {$quotedHost}:443:127.0.0.1 https://{$quotedHost}/ || true
 fi
-echo "gpsh-owner-status before=\$before running=\$running cert=\$cert"
+ready=000
+i=0
+while [ "\$i" -lt 12 ]; do
+  ready=\$(curl -sk -o /dev/null -w '%{http_code}' --connect-timeout 2 --max-time 5 --resolve {$quotedHost}:443:127.0.0.1 https://{$quotedHost}/ || true)
+  case "\$ready" in
+    502|503|000|"") sleep 2 ;;
+    *) break ;;
+  esac
+  i=\$((i + 1))
+done
+echo "gpsh-owner-status before=\$before running=\$running cert=\$cert ready=\$ready"
 BASH], $server);
             $message = self::ownerRepairMessage((string) $output, $host);
             if ($message !== null && ! Cache::has('gpsh-owner-jupyter-notified')) {
@@ -407,6 +428,10 @@ BASH], $server);
                 'image' => $image !== '' ? $image : 'odoo:20',
             ];
         }
+
+        usort($rows, function (array $a, array $b): int {
+            return [$a['team'], $a['environment']] <=> [$b['team'], $b['environment']];
+        });
 
         return $rows;
     }

@@ -616,7 +616,7 @@ class OdooGit
     public static function clientSeesLog(string $container): bool
     {
         $name = strtolower(ltrim($container, '/'));
-        foreach (['jupyter', 'stdlib', 'cadvisor', 'prometheus', 'monitor'] as $hidden) {
+        foreach (['jupyter', 'stdlib', 'cadvisor', 'prometheus', 'monitor', 'beszel'] as $hidden) {
             if (str_contains($name, $hidden)) {
                 return false;
             }
@@ -782,7 +782,7 @@ pick() {
   for id in $ids; do
     image=$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
     name=$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
-    case "$name" in *stdlib*|*jupyter*|*cadvisor*|*prometheus*|*monitor*) continue ;; esac
+    case "$name" in *stdlib*|*jupyter*|*cadvisor*|*prometheus*|*monitor*|*beszel*) continue ;; esac
     subtype=$(docker inspect --format '{{ index .Config.Labels "coolify.service.subType" }}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
     state=$(docker inspect --format '{{.State.Running}}' "$id" 2>/dev/null || true)
     match=0

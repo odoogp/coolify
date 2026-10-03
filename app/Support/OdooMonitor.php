@@ -6,8 +6,8 @@ use App\Models\Service;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Grafana for one Odoo branch. Launch adds it to that stack.
- * Prometheus keeps only that stack's Odoo and PostgreSQL containers.
+ * Beszel for one Odoo branch. Launch adds the hub, an agent, and a socket
+ * filter that reports only that stack's Odoo and PostgreSQL containers.
  */
 class OdooMonitor
 {
@@ -29,45 +29,69 @@ class OdooMonitor
         }
 
         $services = $yaml['services'] ?? null;
-        if (! is_array($services) || isset($services[self::SERVICE_NAME])) {
+        if (! is_array($services)) {
+            return $compose;
+        }
+        $image = (string) data_get($services, self::SERVICE_NAME.'.image', '');
+        if (isset($services['beszelagent'], $services['beszelfilter'], $services[self::SERVICE_NAME]) && str_contains($image, 'henrygd/beszel')) {
             return $compose;
         }
 
-        $services['cadvisor'] = [
-            'image' => 'gcr.io/cadvisor/cadvisor:v0.49.1',
-            'restart' => 'unless-stopped',
-            'privileged' => true,
-            'cgroup' => 'host',
-            'command' => ['--docker_only=true', '--housekeeping_interval=30s', '--store_container_labels=true'],
-            'volumes' => self::cadvisorVolumes(),
-        ];
-        $services['prometheus'] = [
-            'image' => 'prom/prometheus:v2.55.1',
+        unset($services['cadvisor'], $services['prometheus']);
+        $allow = 'odoo-'.$project.',postgresql-'.$project.',postgres-'.$project;
+        $services['beszelfilter'] = [
+            'image' => 'python:3.12-alpine',
             'restart' => 'unless-stopped',
             'user' => '0:0',
-            'entrypoint' => ['sh', '-ec'],
-            'command' => [self::prometheusCommand($project)],
-            'depends_on' => ['cadvisor'],
+            'entrypoint' => ['python', '-c'],
+            'command' => [self::filterScript()],
+            'environment' => [
+                'HUB=http://monitor:8090',
+                'TOKEN=${SERVICE_PASSWORD_MONITOR}',
+                'ALLOW='.$allow,
+                'RETIRE=cadvisor-'.$project.',prometheus-'.$project,
+            ],
+            'volumes' => self::filterVolumes(),
+            'depends_on' => [self::SERVICE_NAME],
+        ];
+        $services['beszelagent'] = [
+            'image' => 'henrygd/beszel-agent:latest',
+            'restart' => 'unless-stopped',
+            'environment' => [
+                'HUB_URL=http://monitor:8090',
+                'TOKEN=${SERVICE_PASSWORD_MONITOR}',
+                'KEY_FILE=/run/beszel/key',
+                'DOCKER_HOST=unix:///run/beszel/docker.sock',
+                'SYSTEM_NAME=odoo-'.$project,
+                'DISABLE_SSH=true',
+                'SKIP_GPU=true',
+                'DOCKER_IMAGE_CHECK=false',
+            ],
+            'volumes' => ['beszel-run:/run/beszel'],
+            'depends_on' => ['beszelfilter'],
         ];
         $services[self::SERVICE_NAME] = [
-            'image' => 'grafana/grafana-oss',
+            'image' => 'henrygd/beszel:latest',
             'restart' => 'unless-stopped',
-            'entrypoint' => ['sh', '-ec'],
-            'command' => [self::grafanaCommand($project)],
             'environment' => [
-                'SERVICE_URL_MONITOR_3000',
-                'GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}',
-                'GF_SERVER_SERVE_FROM_SUB_PATH=false',
-                'GF_SECURITY_ADMIN_USER=admin',
-                'GF_SECURITY_ADMIN_PASSWORD=${SERVICE_PASSWORD_MONITOR}',
-                'GF_AUTH_ANONYMOUS_ENABLED=true',
-                'GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer',
-                'GF_USERS_ALLOW_SIGN_UP=false',
-                'GF_PATHS_PROVISIONING=/tmp/grafana-provisioning',
+                'SERVICE_URL_MONITOR_8090',
+                'APP_URL=https://${SERVICE_FQDN_MONITOR}',
+                'AUTO_LOGIN=monitor@gpsh.local',
+                'USER_EMAIL=monitor@gpsh.local',
+                'USER_PASSWORD=${SERVICE_PASSWORD_MONITOR}',
+                'DISABLE_SSH=true',
+                'CONTAINER_DETAILS=true',
             ],
-            'depends_on' => ['prometheus'],
+            'volumes' => ['beszel-data:/beszel_data'],
         ];
         $yaml['services'] = $services;
+        $volumes = $yaml['volumes'] ?? [];
+        if (! is_array($volumes)) {
+            $volumes = [];
+        }
+        $volumes['beszel-data'] = ['driver' => 'local'];
+        $volumes['beszel-run'] = ['driver' => 'local'];
+        $yaml['volumes'] = $volumes;
 
         return Yaml::dump($yaml, 8, 2);
     }
@@ -102,25 +126,30 @@ class OdooMonitor
             return null;
         }
 
-        return $base.'/d/gpsh-odoo/odoo?orgId=1&kiosk&var-container='.rawurlencode($odoo).'&var-container='.rawurlencode($postgres);
+        return $base;
     }
 
     /**
      * The service parser rewrites host binds other than the Docker socket.
-     * cAdvisor needs the host cgroup and Docker directories or it lists containers and exports no samples.
+     * The filter is the only container that may hold that socket.
      *
      * @param  array<string, mixed>  $services
      * @return array<string, mixed>
      */
     public static function alignServices(array $services): array
     {
-        if (! isset($services['cadvisor']) || ! is_array($services['cadvisor'])) {
+        if (! isset($services['beszelfilter']) || ! is_array($services['beszelfilter'])) {
             return $services;
         }
 
-        $services['cadvisor']['privileged'] = true;
-        $services['cadvisor']['cgroup'] = 'host';
-        $services['cadvisor']['volumes'] = self::cadvisorVolumes();
+        $kept = [];
+        foreach ($services['beszelfilter']['volumes'] ?? [] as $volume) {
+            if (is_string($volume) && ! str_starts_with($volume, '/var/run/docker.sock:')) {
+                $kept[] = $volume;
+            }
+        }
+        array_unshift($kept, '/var/run/docker.sock:/var/run/docker.sock:ro');
+        $services['beszelfilter']['volumes'] = $kept;
 
         return $services;
     }
@@ -128,112 +157,195 @@ class OdooMonitor
     /**
      * @return list<string>
      */
-    public static function cadvisorVolumes(): array
+    public static function filterVolumes(): array
     {
         return [
             '/var/run/docker.sock:/var/run/docker.sock:ro',
-            '/sys/fs/cgroup:/sys/fs/cgroup:ro',
-            '/var/lib/docker:/var/lib/docker:ro',
+            'beszel-run:/run/beszel',
         ];
     }
 
     public static function hidesTerminal(string $name): bool
     {
-        return in_array(strtolower($name), ['cadvisor', 'prometheus', self::SERVICE_NAME], true);
-    }
-
-    private static function prometheusCommand(string $project): string
-    {
-        return <<<BASH
-cat > /tmp/prometheus.yml << 'EOF'
-global:
-  scrape_interval: 30s
-scrape_configs:
-  - job_name: cadvisor
-    static_configs:
-      - targets: ['cadvisor:8080']
-    metric_relabel_configs:
-      - source_labels: [name]
-        regex: .*(odoo|postgresql|postgres)-{$project}.*
-        action: keep
-EOF
-exec prometheus --config.file=/tmp/prometheus.yml --storage.tsdb.path=/prometheus
-BASH;
-    }
-
-    private static function grafanaCommand(string $project): string
-    {
-        $dashboard = str_replace('$', '$$', json_encode([
-            'uid' => 'gpsh-odoo',
-            'title' => 'Odoo',
-            'editable' => false,
-            'schemaVersion' => 39,
-            'timezone' => 'browser',
-            'time' => ['from' => 'now-1h', 'to' => 'now'],
-            'templating' => [
-                'list' => [[
-                    'name' => 'container',
-                    'type' => 'custom',
-                    'multi' => true,
-                    'includeAll' => false,
-                    'query' => 'none',
-                    'current' => ['selected' => true, 'text' => 'none', 'value' => 'none'],
-                ]],
-            ],
-            'panels' => [
-                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}[5m])) by (name)'),
-                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}) by (name)'),
-                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}[5m])) by (name)', 8),
-                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}[5m])) by (name)', 8),
-            ],
-        ], JSON_UNESCAPED_SLASHES));
-
-        return <<<BASH
-mkdir -p /tmp/grafana-provisioning/datasources /tmp/grafana-provisioning/dashboards /tmp/grafana-dashboards
-cat > /tmp/grafana-provisioning/datasources/prometheus.yml << 'EOF'
-apiVersion: 1
-datasources:
-  - name: Prometheus
-    uid: prometheus
-    type: prometheus
-    access: proxy
-    url: http://prometheus:9090
-    isDefault: true
-EOF
-cat > /tmp/grafana-provisioning/dashboards/provider.yml << 'EOF'
-apiVersion: 1
-providers:
-  - name: gpsh
-    orgId: 1
-    type: file
-    disableDeletion: true
-    options:
-      path: /tmp/grafana-dashboards
-EOF
-cat > /tmp/grafana-dashboards/odoo.json << 'EOF'
-{$dashboard}
-EOF
-exec /run.sh
-BASH;
+        return in_array(strtolower($name), ['beszelagent', 'beszelfilter', self::SERVICE_NAME], true);
     }
 
     /**
-     * @return array<string, mixed>
+     * ponytail: Beszel's agent can exclude names, not include them. This proxy
+     * is the include list. If Beszel grows an allow-list, delete this script.
      */
-    private static function panel(int $id, string $title, int $x, string $expr, int $y = 0): array
+    private static function filterScript(): string
     {
-        return [
-            'id' => $id,
-            'type' => 'timeseries',
-            'title' => $title,
-            'gridPos' => ['h' => 8, 'w' => 12, 'x' => $x, 'y' => $y],
-            'datasource' => ['type' => 'prometheus', 'uid' => 'prometheus'],
-            'targets' => [[
-                'refId' => 'A',
-                'expr' => $expr,
-                'legendFormat' => '{{name}}',
-            ]],
-        ];
+        return <<<'PY'
+import json, os, socket, threading, time, urllib.parse, urllib.request
+from http.client import HTTPConnection
+from pathlib import Path
+
+ALLOW = {n for n in os.environ.get("ALLOW", "").split(",") if n}
+RETIRE = {n for n in os.environ.get("RETIRE", "").split(",") if n}
+HUB = os.environ.get("HUB", "http://monitor:8090")
+TOKEN = os.environ.get("TOKEN", "")
+SOCK = "/run/beszel/docker.sock"
+REAL = "/var/run/docker.sock"
+ids = set()
+lock = threading.Lock()
+
+class UnixHTTP(HTTPConnection):
+    def __init__(self, path):
+        super().__init__("localhost")
+        self._path = path
+    def connect(self):
+        self.sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.sock.settimeout(20)
+        self.sock.connect(self._path)
+
+def call(method, path):
+    up = UnixHTTP(REAL)
+    up.request(method, path)
+    resp = up.getresponse()
+    body = resp.read()
+    ctype = (resp.getheader("Content-Type") or "application/octet-stream").split("\n", 1)[0]
+    up.close()
+    return resp.status, ctype, body
+
+def retire():
+    try:
+        status, _ctype, body = call("GET", "/containers/json?all=1")
+        if status != 200:
+            return
+        for item in json.loads(body):
+            names = [n.lstrip("/") for n in item.get("Names") or []]
+            if not any(n in RETIRE for n in names):
+                continue
+            cid = item.get("Id") or ""
+            if cid:
+                call("POST", "/containers/" + cid + "/stop?t=2")
+                call("DELETE", "/containers/" + cid + "?force=1")
+    except Exception:
+        pass
+
+def bootstrap():
+    if not TOKEN:
+        return
+    auth = None
+    for _ in range(40):
+        try:
+            req = urllib.request.Request(
+                HUB + "/api/collections/users/auth-with-password",
+                data=json.dumps({"identity": "monitor@gpsh.local", "password": TOKEN}).encode(),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=3) as res:
+                auth = json.loads(res.read().decode()).get("token")
+            if auth:
+                break
+        except Exception:
+            time.sleep(2)
+    if not auth:
+        return
+    headers = {"Authorization": auth}
+    q = urllib.parse.urlencode({"enable": "1", "permanent": "1", "token": TOKEN})
+    for _ in range(10):
+        try:
+            req = urllib.request.Request(HUB + "/api/beszel/universal-token?" + q, headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as res:
+                data = json.loads(res.read().decode())
+            if data.get("active"):
+                break
+        except Exception:
+            time.sleep(1)
+    for _ in range(10):
+        try:
+            req = urllib.request.Request(HUB + "/api/beszel/getkey", headers=headers)
+            with urllib.request.urlopen(req, timeout=3) as res:
+                key = json.loads(res.read().decode()).get("key", "").strip()
+            if key:
+                Path("/run/beszel/key.tmp").write_text(key + "\n")
+                os.replace("/run/beszel/key.tmp", "/run/beszel/key")
+                return
+        except Exception:
+            time.sleep(1)
+
+def id_ok(cid):
+    if len(cid) < 12:
+        return False
+    with lock:
+        return any(cid == known or known.startswith(cid) for known in ids)
+
+def handle(conn):
+    try:
+        data = b""
+        while b"\r\n\r\n" not in data and len(data) < 65536:
+            chunk = conn.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+        head = data.split(b"\r\n", 1)[0].decode("latin1", "replace")
+        parts = head.split(" ")
+        if len(parts) < 2 or parts[0] != "GET":
+            conn.sendall(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            return
+        path = parts[1].split("?", 1)[0]
+        query = parts[1]
+        kind = None
+        if path in ("/version", "/info", "/_ping"):
+            kind = "pass"
+        elif path == "/containers/json":
+            kind = "list"
+        else:
+            bits = path.strip("/").split("/")
+            if len(bits) == 3 and bits[0] == "containers" and bits[2] in ("json", "stats", "logs") and id_ok(bits[1]):
+                kind = "pass"
+        if kind is None:
+            conn.sendall(b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            return
+        status, ctype, body = call("GET", parts[1] if kind == "pass" else "/containers/json")
+        if kind == "list" and status == 200:
+            kept = []
+            found = set()
+            for item in json.loads(body):
+                names = [n.lstrip("/") for n in item.get("Names") or []]
+                if not any(n in ALLOW for n in names):
+                    continue
+                kept.append(item)
+                cid = item.get("Id") or ""
+                if cid:
+                    found.add(cid)
+                    found.add(cid[:12])
+            with lock:
+                ids.clear()
+                ids.update(found)
+            body = json.dumps(kept).encode()
+            ctype = "application/json"
+            status = 200
+        payload = b"HTTP/1.1 " + str(status).encode() + b" OK\r\nContent-Type: " + ctype.encode() + b"\r\nContent-Length: " + str(len(body)).encode() + b"\r\nConnection: close\r\n\r\n" + body
+        conn.sendall(payload)
+    except Exception:
+        try:
+            conn.sendall(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+        except Exception:
+            pass
+    finally:
+        conn.close()
+
+def main():
+    os.makedirs("/run/beszel", exist_ok=True)
+    try:
+        os.unlink(SOCK)
+    except FileNotFoundError:
+        pass
+    threading.Thread(target=retire, daemon=True).start()
+    threading.Thread(target=bootstrap, daemon=True).start()
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv.bind(SOCK)
+    os.chmod(SOCK, 0o666)
+    srv.listen(32)
+    while True:
+        conn, _ = srv.accept()
+        threading.Thread(target=handle, args=(conn,), daemon=True).start()
+
+main()
+PY;
     }
 
     private static function containerName(Service $service, string $kind): ?string
