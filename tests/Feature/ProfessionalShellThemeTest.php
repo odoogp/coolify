@@ -51,18 +51,26 @@ test('letify light is a named light theme and does not restyle dark appearances'
 
     $menu = file_get_contents(resource_path('views/components/top-user-menu.blade.php'));
 
+    $accent = file_get_contents(resource_path('css/theme-accent.css'));
+
     expect($styles)
         ->toContain('html[data-theme="light"]')
-        ->toContain('var(--theme-base-color, #7b3ff2)')
+        ->toContain('--letify-primary: #7b3ff2;')
         ->toContain('linear-gradient(135deg, var(--letify-primary)')
         ->toContain('border-radius: 28px')
+        ->and($accent)
+        ->toContain('html[data-theme="light"][data-accent="on"]')
+        ->toContain('var(--theme-base-color, #7b3ff2)')
+        ->toContain('html[data-accent="on"][data-theme="dark"]')
+        ->toContain('html[data-accent="on"][data-theme="crystal"]')
         ->and($menu)
-        ->toContain('previewLetifyColor')
-        ->toContain('saveLetifyColor')
-        ->toContain("dataset.theme = 'light'")
-        ->not->toContain('previewThemeColor')
+        ->toContain('previewAccent')
+        ->toContain('resetAccent')
+        ->not->toContain('previewLetifyColor')
         ->not->toContain('html[data-theme="crystal"]')
         ->not->toContain('html.dark')
         ->and($layout)
-        ->toContain('resources/css/letify-light.css');
+        ->toContain('resources/css/letify-light.css')
+        ->toContain('resources/css/theme-accent.css')
+        ->toContain('window.resetThemeAccent');
 });

@@ -43,6 +43,7 @@ export default defineConfig(({ mode }) => {
                 input: [
                     "resources/css/app.css",
                     "resources/css/letify-light.css",
+                    "resources/css/theme-accent.css",
                     "resources/js/app.js",
                 ],
                 refresh: true,

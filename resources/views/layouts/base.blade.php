@@ -12,18 +12,67 @@
 
             return luminance > 0.179 ? '#000000' : '#ffffff';
         };
+        window.readThemeAccents = () => {
+            const stored = localStorage.getItem('themeAccents');
+
+            if (stored === null) {
+                const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
+                const seeded = localStorage.themeColor ? { [theme]: true } : {};
+                localStorage.setItem('themeAccents', JSON.stringify(seeded));
+
+                return seeded;
+            }
+
+            try {
+                const parsed = JSON.parse(stored);
+
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        };
         window.applyStoredTheme = () => {
             const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
             const themeColor = localStorage.themeColor || '#6b16ed';
+            const usesAccent = window.readThemeAccents()[theme] === true;
             const isDark = theme === 'dark' || theme === 'custom' || theme === 'crystal' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
             const surface = theme === 'custom' ? 'custom' : (theme === 'crystal' ? 'crystal' : (theme === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
+            const root = document.documentElement;
 
             localStorage.theme = theme;
-            document.documentElement.classList.toggle('dark', isDark);
-            document.documentElement.dataset.theme = surface;
-            document.documentElement.style.setProperty('--theme-base-color', themeColor);
-            document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(themeColor));
+            root.classList.toggle('dark', isDark);
+            root.dataset.theme = surface;
+            root.dataset.accent = usesAccent ? 'on' : 'off';
+
+            if (usesAccent) {
+                root.style.setProperty('--theme-base-color', themeColor);
+                root.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(themeColor));
+            } else {
+                root.style.removeProperty('--theme-base-color');
+                root.style.removeProperty('--theme-accent-foreground');
+            }
+
             document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+        };
+        window.previewThemeAccent = (color) => {
+            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
+            const accents = window.readThemeAccents();
+
+            localStorage.themeColor = color;
+            accents[theme] = true;
+            localStorage.themeAccents = JSON.stringify(accents);
+            window.applyStoredTheme();
+
+            return accents;
+        };
+        window.resetThemeAccent = (theme) => {
+            const accents = window.readThemeAccents();
+
+            accents[theme] = false;
+            localStorage.themeAccents = JSON.stringify(accents);
+            window.applyStoredTheme();
+
+            return accents;
         };
 
         document.addEventListener('livewire:navigated', window.applyStoredTheme);
@@ -69,7 +118,7 @@
     <title>{{ $name }}{{ $pageTitle }}</title>
     <link rel="icon" href="{{ asset('gpsh-logo.svg') }}" type="image/svg+xml" />
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css'])
+    @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
     <script>
         // Update theme-color meta tag (non-critical, can run async)
         const t = localStorage.theme || 'dark';

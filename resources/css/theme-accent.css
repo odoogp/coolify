@@ -1,0 +1,63 @@
+/*
+ * Optional accent. Each theme keeps its original CSS until that theme opts in
+ * (html[data-accent="on"]). Reset removes the attribute and the original returns.
+ */
+html[data-theme="light"][data-accent="on"] {
+    --letify-primary: var(--theme-base-color, #7b3ff2);
+}
+
+html[data-accent="on"][data-theme="dark"] {
+    --color-accent: var(--theme-base-color);
+    --color-coollabs: var(--theme-base-color);
+    --color-coollabs-100: color-mix(in srgb, var(--theme-base-color) 78%, white);
+    --color-coollabs-200: var(--theme-base-color);
+    --color-warning: var(--theme-base-color);
+    --color-app: color-mix(in oklab, var(--theme-base-color) 12%, #09090a);
+    --color-panel: color-mix(in oklab, var(--theme-base-color) 14%, #0c0c0d);
+    --color-surface: color-mix(in oklab, var(--theme-base-color) 18%, #101011);
+    --color-raised: color-mix(in oklab, var(--theme-base-color) 24%, #141416);
+    --color-selected: color-mix(in oklab, var(--theme-base-color) 32%, #18181a);
+    --coollabs-canvas: var(--color-app);
+    --coollabs-elevated: var(--color-surface);
+    --coollabs-base: color-mix(in oklab, var(--theme-base-color) 22%, #111112);
+    --coollabs-fill: color-mix(in oklab, var(--theme-base-color) 32%, #18181a);
+}
+
+html[data-accent="on"][data-theme="crystal"] {
+    --color-accent: var(--theme-base-color);
+    --color-coollabs: var(--theme-base-color);
+    --color-coollabs-100: color-mix(in srgb, var(--theme-base-color) 78%, white);
+    --color-coollabs-200: var(--theme-base-color);
+    --color-warning: var(--theme-base-color);
+    --color-app: color-mix(in oklab, var(--theme-base-color) 24%, #050607);
+    --color-panel: color-mix(in oklab, var(--theme-base-color) 18%, #050607);
+}
+
+html[data-accent="on"][data-theme="crystal-light"] {
+    --color-accent: var(--theme-base-color);
+    --color-coollabs: var(--theme-base-color);
+    --color-coollabs-100: color-mix(in srgb, var(--theme-base-color) 78%, white);
+    --color-coollabs-200: var(--theme-base-color);
+    --color-warning: var(--theme-base-color);
+    --color-app: color-mix(in srgb, var(--theme-base-color) 14%, white);
+    --color-panel: color-mix(in srgb, var(--theme-base-color) 8%, white);
+}
+
+html[data-accent="on"]:not([data-theme="light"]) .button:not(:disabled) {
+    border-color: transparent;
+    background: var(--theme-base-color);
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+html[data-accent="on"]:not([data-theme="light"]) :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
+    border-color: transparent;
+    background-image: linear-gradient(135deg, var(--theme-base-color) 0%, color-mix(in srgb, var(--theme-base-color) 62%, white) 100%);
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+html[data-accent="on"]:not([data-theme="light"]) .menu-item-active,
+html[data-accent="on"]:not([data-theme="light"]) .menu-subitem-active {
+    background-color: color-mix(in srgb, var(--theme-base-color) 28%, transparent);
+    background-image: none;
+    color: var(--theme-accent-foreground, #ffffff);
+}

@@ -14,7 +14,11 @@
     theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark'),
     pageWidth: localStorage.getItem('pageWidth') || 'full',
     themeColor: localStorage.getItem('themeColor') || '#6b16ed',
+    accents: {},
     avatarUrl: @js($user?->avatar_path ? route('profile.avatar', ['v' => $user->updated_at->timestamp]) : null),
+    init() {
+        this.accents = window.readThemeAccents();
+    },
     openPanel() {
         this.appearanceOpen = false;
         this.open = true;
@@ -30,36 +34,19 @@
             this.closePanel();
         }
 
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        const isDark = type === 'dark' || type === 'custom' || type === 'crystal' || (type === 'system' && prefersDark);
-        const surface = type === 'custom' ? 'custom' : (type === 'crystal' ? 'crystal' : (type === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
-        document.documentElement.classList.toggle('dark', isDark);
-        document.documentElement.dataset.theme = surface;
-        document.documentElement.style.setProperty('--theme-base-color', localStorage.themeColor || '#6b16ed');
-        document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(this.themeColor));
-        document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+        window.applyStoredTheme();
+    },
+    previewAccent(color) {
+        this.themeColor = color;
+        this.accents = window.previewThemeAccent(color);
+    },
+    resetAccent(type) {
+        this.accents = window.resetThemeAccent(type);
     },
     setWidth(width) {
         this.pageWidth = width;
         localStorage.setItem('pageWidth', width);
         window.dispatchEvent(new CustomEvent('page-width-changed', { detail: width }));
-    },
-    previewLetifyColor(color) {
-        this.themeColor = color;
-        if (this.theme !== 'light') {
-            this.theme = 'light';
-            localStorage.setItem('theme', 'light');
-        }
-        document.documentElement.classList.remove('dark');
-        document.documentElement.dataset.theme = 'light';
-        document.documentElement.style.setProperty('--theme-base-color', color);
-        document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(color));
-        document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#ffffff');
-    },
-    saveLetifyColor(color) {
-        this.previewLetifyColor(color);
-        localStorage.setItem('themeColor', color);
-        localStorage.setItem('theme', 'light');
     },
 }" @avatar-updated.window="avatarUrl = $event.detail.url" @keydown.escape.window="closePanel()"
     @click.outside="closePanel()">
@@ -87,7 +74,7 @@
     </button>
 
     <div x-show="open" x-cloak @class([
-            'top-user-menu-panel listbox-panel z-[90]! max-h-none! w-52! min-w-0! overflow-visible! animate-in fade-in zoom-in-95 duration-150',
+            'top-user-menu-panel listbox-panel z-[90]! max-h-none! w-60! min-w-0! overflow-visible! animate-in fade-in zoom-in-95 duration-150',
             'right-0! left-auto!' => ! $sidebar,
             'bottom-full! left-0! right-auto! top-auto! mb-1!' => $sidebar,
             'origin-bottom-left' => $sidebar,
@@ -118,6 +105,18 @@
             </svg>
         </button>
         <div x-show="appearanceOpen" x-collapse class="mx-1 grid gap-0.5 pb-1 pl-6">
+            <div class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs text-neutral-600 dark:text-fg-dim">
+                <span class="relative size-3.5 shrink-0">
+                    <span class="block size-3.5 rounded-full border border-black/10 dark:border-white/20"
+                        :style="`background: ${themeColor}`"></span>
+                    <input type="color" :value="themeColor"
+                        @input="previewAccent($event.target.value)"
+                        @change="previewAccent($event.target.value)"
+                        aria-label="{{ __('Accent color') }}"
+                        class="absolute -inset-1 z-10 cursor-pointer opacity-0" />
+                </span>
+                <span class="min-w-0 flex-1 truncate">{{ __('Accent color') }}</span>
+            </div>
             @foreach ([
                 ['value' => 'light', 'label' => __('Letify Light')],
                 ['value' => 'system', 'label' => __('Match system')],
@@ -126,39 +125,26 @@
                 ['value' => 'crystal-light', 'label' => __('Crystal Light')],
                 ['value' => 'custom', 'label' => __('Custom Dark')],
             ] as $option)
-                @if ($option['value'] === 'light')
-                    <div class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
-                        <span class="relative size-3.5 shrink-0">
-                            <span class="block size-3.5 rounded-full border border-black/10"
-                                :style="`background: ${themeColor}`"></span>
-                            <input type="color" :value="themeColor"
-                                @input="previewLetifyColor($event.target.value)"
-                                @change="saveLetifyColor($event.target.value)"
-                                aria-label="{{ __('Letify accent color') }}"
-                                class="absolute -inset-1 z-10 cursor-pointer opacity-0" />
-                        </span>
-                        <button type="button" @click="setTheme('light')"
-                            class="min-w-0 flex-1 truncate rounded-md text-left hover:text-neutral-950">
-                            {{ $option['label'] }}
-                        </button>
-                        <svg x-show="theme === 'light'" class="size-3.5 shrink-0 text-coollabs" viewBox="0 0 12 12"
-                            fill="none" aria-hidden="true">
-                            <path d="m2.5 6.25 2.1 2.1 4.9-5" stroke="currentColor" stroke-width="1.4"
-                                stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                    </div>
-                @else
+                <div class="flex h-8 w-full items-center gap-1 rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
                     <button type="button" @click="setTheme('{{ $option['value'] }}')"
-                        class="flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
-                        <span>{{ $option['label'] }}</span>
-                        <svg x-show="theme === '{{ $option['value'] }}'"
-                            class="size-3.5 text-coollabs dark:text-warning" viewBox="0 0 12 12" fill="none"
-                            aria-hidden="true">
-                            <path d="m2.5 6.25 2.1 2.1 4.9-5" stroke="currentColor" stroke-width="1.4"
-                                stroke-linecap="round" stroke-linejoin="round" />
+                        class="min-w-0 flex-1 truncate text-left">
+                        {{ $option['label'] }}
+                    </button>
+                    <button type="button" @click.stop="resetAccent('{{ $option['value'] }}')"
+                        :disabled="!accents['{{ $option['value'] }}']"
+                        aria-label="{{ __('Reset :theme', ['theme' => $option['label']]) }}"
+                        class="shrink-0 rounded p-0.5 text-neutral-400 enabled:hover:text-neutral-950 disabled:opacity-25 dark:text-fg-faint dark:enabled:hover:text-fg">
+                        <svg class="size-3.5" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                            <path d="M2.2 6a3.8 3.8 0 1 0 1-2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+                            <path d="M2 1.8v2.2h2.2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
                     </button>
-                @endif
+                    <svg x-show="theme === '{{ $option['value'] }}'" class="size-3.5 shrink-0 text-coollabs dark:text-warning"
+                        viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="m2.5 6.25 2.1 2.1 4.9-5" stroke="currentColor" stroke-width="1.4"
+                            stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </div>
             @endforeach
             <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
             <div class="px-2 pt-1 pb-0.5 text-[10px] font-medium tracking-wide text-neutral-400 uppercase dark:text-fg-faint">

@@ -3,58 +3,60 @@
     <div x-data="{
         theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark'),
         themeColor: localStorage.getItem('themeColor') || '#6b16ed',
+        accents: {},
         pageWidth: localStorage.getItem('pageWidth') || 'full',
         init() {
+            this.accents = window.readThemeAccents();
             localStorage.setItem('theme', this.theme);
-            this.applyTheme();
+            window.applyStoredTheme();
         },
         setTheme(type) {
             this.theme = type;
             localStorage.setItem('theme', type);
-            this.applyTheme();
+            window.applyStoredTheme();
+        },
+        previewAccent(color) {
+            this.themeColor = color;
+            this.accents = window.previewThemeAccent(color);
+        },
+        resetAccent(type) {
+            this.accents = window.resetThemeAccent(type);
         },
         setWidth(width) {
             this.pageWidth = width;
             localStorage.setItem('pageWidth', width);
             window.dispatchEvent(new CustomEvent('page-width-changed', { detail: width }));
         },
-        previewLetifyColor(color) {
-            this.themeColor = color;
-            this.theme = 'light';
-            localStorage.setItem('theme', 'light');
-            this.applyTheme();
-        },
-        saveLetifyColor(color) {
-            this.previewLetifyColor(color);
-            localStorage.setItem('themeColor', color);
-            localStorage.setItem('theme', 'light');
-        },
-        applyTheme() {
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const isDark = this.theme === 'dark' || this.theme === 'custom' || this.theme === 'crystal' || (this.theme === 'system' && prefersDark);
-            const surface = this.theme === 'custom' ? 'custom' : (this.theme === 'crystal' ? 'crystal' : (this.theme === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
-            document.documentElement.classList.toggle('dark', isDark);
-            document.documentElement.dataset.theme = surface;
-            document.documentElement.style.setProperty('--theme-base-color', this.themeColor);
-            document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(this.themeColor));
-            document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
-        },
     }" class="mt-8 flex w-full max-w-none flex-col gap-6 lg:mt-3">
         <section class="application-settings-section">
             <div class="application-settings-section-header">
                 <div>
                     <h2>{{ __('Color theme') }}</h2>
-                    <p>{{ __('Choose the color scheme used in this browser.') }}</p>
+                    <p>{{ __('Choose a theme. The accent color applies only to the theme you have selected.') }}</p>
                 </div>
+                <label class="flex items-center gap-3 text-sm text-black dark:text-fg">
+                    <span class="relative size-8 shrink-0">
+                        <span class="block size-8 rounded-full border border-black/10 dark:border-white/20"
+                            :style="`background: ${themeColor}`"></span>
+                        <input type="color" :value="themeColor" @input="previewAccent($event.target.value)"
+                            @change="previewAccent($event.target.value)"
+                            aria-label="{{ __('Accent color') }}"
+                            class="absolute inset-0 z-10 cursor-pointer opacity-0" />
+                    </span>
+                    <span>
+                        <span class="block font-semibold">{{ __('Accent color') }}</span>
+                        <span class="block text-xs text-neutral-500 dark:text-fg-dim">{{ __('Use it on any theme. Reset a theme to restore its original design.') }}</span>
+                    </span>
+                </label>
             </div>
             <div class="application-settings-section-body grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 @foreach ([
-                    ['value' => 'light', 'label' => __('Letify Light'), 'description' => __('Floating cards tinted with the color you pick.'), 'preview' => ''],
+                    ['value' => 'light', 'label' => __('Letify Light'), 'description' => __('Original Letify light design.'), 'preview' => 'bg-[#f3eefe]'],
                     ['value' => 'system', 'label' => __('Match system'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
                     ['value' => 'dark', 'label' => __('Midnight Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
                     ['value' => 'crystal', 'label' => __('Crystal Dark'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
                     ['value' => 'crystal-light', 'label' => __('Crystal Light'), 'description' => __('The same glass in light tones.'), 'preview' => 'bg-gradient-to-b from-[#ffe4dc] via-[#efe8ff] to-white'],
-                    ['value' => 'custom', 'label' => __('Custom Dark'), 'description' => __('Dark surfaces with the accent chosen on Letify Light.'), 'preview' => ''],
+                    ['value' => 'custom', 'label' => __('Custom Dark'), 'description' => __('Original dark accent.'), 'preview' => 'bg-[#2a1848]'],
                 ] as $option)
                     <div role="button" tabindex="0"
                         @click="setTheme('{{ $option['value'] }}')"
@@ -64,18 +66,10 @@
                             ? 'ring-1 ring-coollabs/30 border-coollabs/40 dark:ring-warning/30 dark:border-warning/40'
                             : ''">
                         <div class="h-20 {{ $option['preview'] }} border-b border-neutral-200 dark:border-white/[0.07]"
-                            @if ($option['value'] === 'custom') :style="`background: color-mix(in oklab, ${themeColor} 28%, #101011)`" @endif
-                            @if ($option['value'] === 'light') :style="`background: color-mix(in srgb, ${themeColor} 8%, white)`" @endif>
+                            :style="accents['{{ $option['value'] }}'] ? `background: color-mix(in srgb, ${themeColor} {{ in_array($option['value'], ['light', 'crystal-light'], true) ? '16%, white' : '28%, #101011' }})` : ''">
                             <div class="flex h-full items-center justify-center">
-                                @if (in_array($option['value'], ['custom', 'light'], true))
-                                    <div class="h-10 w-20 rounded-md border border-white/15 p-1 shadow-sm">
-                                        <div class="h-full w-full rounded-sm" :style="`background: ${themeColor}`"></div>
-                                    </div>
-                                @else
-                                    <div
-                                    class="h-8 w-20 rounded-md border border-black/10 bg-neutral-100/80 shadow-sm dark:border-white/10 dark:bg-black/20">
-                                    </div>
-                                @endif
+                                <div class="h-8 w-20 rounded-md border border-black/10 bg-white/80 shadow-sm dark:border-white/10 dark:bg-black/20"
+                                    :style="accents['{{ $option['value'] }}'] ? `background: ${themeColor}` : ''"></div>
                             </div>
                         </div>
                         <div class="p-3">
@@ -83,19 +77,21 @@
                                 <span class="text-sm font-semibold text-black dark:text-fg">
                                     {{ $option['label'] }}
                                 </span>
-                                <x-reicon name="check-circle" class="size-4 text-coollabs dark:text-warning"
-                                    x-show="theme === '{{ $option['value'] }}'" x-cloak />
+                                <span class="flex items-center gap-1">
+                                    <button type="button" @click.stop="resetAccent('{{ $option['value'] }}')"
+                                        :disabled="!accents['{{ $option['value'] }}']"
+                                        aria-label="{{ __('Reset :theme', ['theme' => $option['label']]) }}"
+                                        class="rounded px-1.5 py-0.5 text-[11px] text-neutral-500 enabled:hover:text-black disabled:opacity-30 dark:text-fg-faint dark:enabled:hover:text-fg">
+                                        {{ __('Reset') }}
+                                    </button>
+                                    <x-reicon name="check-circle" class="size-4 text-coollabs dark:text-warning"
+                                        x-show="theme === '{{ $option['value'] }}'" x-cloak />
+                                </span>
                             </div>
                             <p class="mt-1 text-xs leading-5 text-neutral-500 dark:text-fg-dim">
                                 {{ $option['description'] }}
                             </p>
                         </div>
-                        @if ($option['value'] === 'light')
-                            <input type="color" :value="themeColor" @click.stop @input="previewLetifyColor($event.target.value)"
-                                @change="saveLetifyColor($event.target.value)"
-                                aria-label="{{ __('Letify accent color') }}"
-                                class="absolute inset-x-0 top-0 z-10 h-20 w-full cursor-pointer opacity-0" />
-                        @endif
                     </div>
                 @endforeach
             </div>

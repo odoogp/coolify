@@ -64,7 +64,7 @@ function customThemeAccent() {
 }
 
 function createSystemTerminalTheme() {
-    if (document.documentElement.dataset.theme === 'custom') {
+    if (document.documentElement.dataset.theme === 'custom' && document.documentElement.dataset.accent === 'on') {
         return createApplicationTerminalTheme(customThemeAccent());
     }
 
@@ -276,7 +276,7 @@ export function initializeTerminalComponent() {
                 });
                 this.themeObserver.observe(document.documentElement, {
                     attributes: true,
-                    attributeFilter: ['class', 'data-theme', 'style'],
+                    attributeFilter: ['class', 'data-theme', 'data-accent', 'style'],
                 });
 
                 // Recover if a previous portal build left the terminal on <body>.
