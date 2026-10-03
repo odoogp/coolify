@@ -132,7 +132,7 @@
             </div>
 
             <div x-cloak x-show="viewMode === 'grid'"
-                class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 @foreach ($servers as $server)
                     @php
                         $serverRow = $serverRows->firstWhere('uuid', $server->uuid);
@@ -152,10 +152,10 @@
                                 <x-reicon name="servers" class="size-4" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <h2 class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
+                                <h2 class="break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
                                     {{ $serverRow['name'] }}
                                 </h2>
-                                <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
+                                <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint">
                                     {{ $serverRow['description'] }}
                                 </p>
                             </div>

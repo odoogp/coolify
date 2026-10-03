@@ -93,7 +93,7 @@
             </div>
 
             <div x-cloak x-show="viewMode === 'grid'">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <template x-for="tag in paginatedTags" :key="tag.id">
                         <article
                             class="group relative flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
@@ -305,7 +305,7 @@
                         description="{{ __('Add this tag to an application or service to see it here.') }}"
                         icon-name="tags" size="sm" />
                 @else
-                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                         @foreach ($applications ?? [] as $application)
                             <a {{ wireNavigate() }} href="{{ $application->link() }}"
                                 class="group flex min-h-24 flex-col rounded-lg border border-neutral-200 bg-neutral-50/70 p-3 transition-colors hover:border-neutral-300 hover:no-underline dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">

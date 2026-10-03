@@ -80,43 +80,35 @@ html {
     .box,
     .coolbox,
     .box-boarding,
-    .empty-state,
-    .application-settings-section,
-    main .grid > a.rounded-xl.shadow-sm,
-    main .grid > article.rounded-xl.shadow-sm
+    .application-settings-section
 ) {
     position: relative;
-    isolation: isolate;
+    --ring-radius: var(--shell-radius, 16px);
 }
 
-:is(
-    .box,
-    .coolbox,
-    .box-boarding,
-    .empty-state,
-    .application-settings-section,
-    main .grid > a.rounded-xl.shadow-sm,
-    main .grid > article.rounded-xl.shadow-sm
-):not(.coolbox-loading)::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    box-sizing: border-box;
-    border-radius: inherit;
-    border: 2px solid transparent;
-    background-image: conic-gradient(from var(--card-border-angle), color-mix(in srgb, var(--card-border-accent) 28%, transparent), var(--card-border-accent) 18%, color-mix(in srgb, var(--card-border-accent) 28%, transparent) 46%, color-mix(in srgb, var(--card-border-accent) 28%, transparent));
-    background-origin: border-box;
-    background-clip: border-box;
-    -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
-    mask-composite: exclude;
-    opacity: 0;
-    transition: opacity .4s;
-    pointer-events: none;
-    z-index: -1;
+.empty-state {
+    position: relative;
+    --ring-radius: 28px;
 }
 
+main .grid > :is(a, article).rounded-xl.shadow-sm {
+    position: relative;
+    --ring-radius: 22px;
+    --card-border-width: 1px;
+}
+
+html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm,
+html[data-theme="light"] :is(.box, .coolbox, .box-boarding, .empty-state, .application-settings-section) {
+    --ring-radius: 28px;
+    --card-border-width: 0px;
+}
+
+html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
+    --ring-radius: 28px;
+}
+
+/* Outline sits outside the border edge, so the stroke is not an inner
+   border with a gap, and overflow:hidden cannot hide it on Midnight. */
 :is(
     .box,
     .coolbox,
@@ -136,8 +128,38 @@ html {
     .application-settings-section,
     main .grid > a.rounded-xl.shadow-sm,
     main .grid > article.rounded-xl.shadow-sm
-):not(.coolbox-loading):hover::before {
-    opacity: 1;
+):not(.coolbox-loading):hover {
+    outline: 2px solid color-mix(in srgb, var(--card-border-accent) 55%, transparent);
+    outline-offset: 0;
+    overflow: visible;
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    .application-settings-section
+):not(.coolbox-loading):hover::before,
+html[data-theme="dark"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
+html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
+html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
+html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
+html[data-theme="custom"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
+main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after {
+    content: "";
+    position: absolute;
+    inset: calc((var(--card-border-width, 0px) + 2px) * -1);
+    box-sizing: border-box;
+    padding: 2px;
+    border-radius: calc(var(--ring-radius, 16px) + 2px);
+    background: conic-gradient(from var(--card-border-angle), transparent 0 58%, var(--card-border-accent) 74%, transparent 90%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 5;
     animation: card-border-spin 2.6s linear infinite;
 }
 
@@ -164,10 +186,9 @@ html {
         .coolbox,
         .box-boarding,
         .empty-state,
-        .application-settings-section,
-        main .grid > a.rounded-xl.shadow-sm,
-        main .grid > article.rounded-xl.shadow-sm
-    ):hover::before {
+        .application-settings-section
+    ):hover::before,
+    main .grid > :is(a, article).rounded-xl.shadow-sm:hover::after {
         animation: none;
     }
 }
