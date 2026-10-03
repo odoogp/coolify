@@ -4501,6 +4501,25 @@ html[data-theme="custom"] .logs-viewer-timestamp {
     column-gap: 1rem;
 }
 
+.notice-panel {
+    position: fixed;
+    top: 4.25rem;
+    right: 0.75rem;
+    left: 0.75rem;
+    display: flex;
+    max-height: min(70dvh, 28rem);
+    flex-direction: column;
+}
+
+@media (min-width: 1024px) {
+    .notice-panel {
+        top: 3.25rem;
+        right: 1rem;
+        left: auto;
+        width: 20rem;
+    }
+}
+
 .environments-table-grid {
     display: grid;
     grid-template-columns:

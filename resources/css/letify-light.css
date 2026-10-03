@@ -89,7 +89,8 @@ html[data-theme="light"] .button:hover:not(:disabled) {
     color: var(--theme-accent-foreground, #ffffff);
 }
 
-html[data-theme="light"] .application-heading-actions .button:not(:disabled) {
+html[data-theme="light"] .application-heading-actions .button:not(:disabled),
+html[data-theme="light"] .compact-actions .button:not(:disabled) {
     min-height: 2rem;
     height: 2rem;
     padding: 0 0.85rem;
@@ -99,7 +100,8 @@ html[data-theme="light"] .application-heading-actions .button:not(:disabled) {
     line-height: 1;
 }
 
-html[data-theme="light"] .application-heading-actions .button:hover:not(:disabled) {
+html[data-theme="light"] .application-heading-actions .button:hover:not(:disabled),
+html[data-theme="light"] .compact-actions .button:hover:not(:disabled) {
     transform: none;
     box-shadow: none;
 }

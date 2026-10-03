@@ -13,7 +13,7 @@
                 </p>
             </div>
 
-            <div class="flex w-fit shrink-0 items-center gap-2">
+            <div class="compact-actions flex w-fit shrink-0 flex-wrap items-center gap-2">
             @can('update', $project)
                     <a href="{{ route('project.edit', ['project_uuid' => $project->uuid]) }}"
                         {{ wireNavigate() }}
@@ -74,7 +74,7 @@
                 @if ($project->odooProfile)
                     @can('update', $project)
                         <x-slot:contents>
-                            <div class="mt-4 flex flex-wrap justify-center gap-2">
+                            <div class="compact-actions mt-4 flex flex-wrap justify-center gap-2">
                                 <button type="button" class="button button-highlighted" wire:click="continueOdoo">
                                     {{ __('Launch without GitHub') }}
                                 </button>
@@ -107,7 +107,7 @@
                     </button>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <div class="compact-actions flex flex-wrap items-center gap-2">
                     <x-table.dropdown panel-class="w-48!">
                         <x-slot:trigger>
                             <button type="button" class="button" aria-haspopup="listbox" :aria-expanded="open">
@@ -162,7 +162,7 @@
                 <div
                     class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
                     <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
-                    <div class="flex flex-wrap items-center gap-2">
+                    <div class="compact-actions flex flex-wrap items-center gap-2">
                         @php
                             $selectedOdoo = $project->odooProfile
                                 ? $selectedEnvironment->services->first(fn ($service) => $service->supportsOdooJupyter())
@@ -274,7 +274,7 @@
                                     x-text="`${environment.resourceCount} ${environment.resourceCount === 1 ? 'resource' : 'resources'}`">
                                 </p>
 
-                                <div class="relative z-10 flex shrink-0 items-center gap-0.5" x-show="!environment.activity">
+                                <div class="compact-actions relative z-10 flex shrink-0 items-center gap-0.5" x-show="!environment.activity">
                                     @include('livewire.project.environment-shortcuts')
                                     <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
                                         class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>
@@ -349,7 +349,7 @@
                         <p class="environment-description truncate text-[12px] text-neutral-500 dark:text-fg-dim"
                             x-text="environment.branch || environment.description || '-'"></p>
 
-                        <div class="relative flex items-center justify-end gap-0.5" x-show="!environment.activity">
+                        <div class="compact-actions relative flex items-center justify-end gap-0.5" x-show="!environment.activity">
                             @include('livewire.project.environment-shortcuts')
                             <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
                                 class="button button-highlighted h-7 px-2 text-[11px]">{{ __('Open Odoo') }}</a>

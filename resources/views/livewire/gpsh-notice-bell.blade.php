@@ -7,25 +7,25 @@
         @endif
     </button>
     <div x-cloak x-show="open"
-        class="absolute right-0 z-[60] mt-2 w-80 overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/[0.08] dark:bg-panel">
-        <div class="flex items-center justify-between border-b border-neutral-200 px-3 py-2 dark:border-white/[0.06]">
+        class="notice-panel z-[80] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/[0.08] dark:bg-panel">
+        <div class="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2 dark:border-white/[0.06]">
             <span class="text-[13px] font-medium">{{ __('Notices') }}</span>
             @if ($unread > 0)
-                <button type="button" wire:click="markAllRead" class="text-[12px] text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-white">
+                <button type="button" wire:click="markAllRead" class="shrink-0 text-[12px] text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-white">
                     {{ __('Mark as read') }}
                 </button>
             @endif
         </div>
-        <div class="max-h-96 overflow-y-auto">
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             @forelse ($notices as $notice)
                 <button type="button" wire:click="openNotice({{ $notice->id }})"
                     class="block w-full border-b border-neutral-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-neutral-50 dark:border-white/[0.04] dark:hover:bg-white/[0.03]">
-                    <span class="flex items-center gap-2 text-[11px] text-neutral-500 dark:text-fg-faint">
+                    <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
                         <span>{{ $notice->kindLabel() }}</span>
                         <span>{{ $notice->audienceLabel() }}</span>
                     </span>
-                    <span class="mt-0.5 block text-[13px] font-medium text-black dark:text-white">{{ $notice->title }}</span>
-                    <span class="mt-0.5 block text-[12px] leading-5 text-neutral-600 dark:text-fg-dim">{{ str($notice->body)->limit(140) }}</span>
+                    <span class="mt-0.5 block break-words text-[13px] font-medium text-black dark:text-white">{{ $notice->title }}</span>
+                    <span class="mt-0.5 block break-words text-[12px] leading-5 text-neutral-600 dark:text-fg-dim">{{ str($notice->body)->limit(140) }}</span>
                     @if ($notice->kind === 'accessible' && is_string($notice->href()) && ! str_starts_with((string) $notice->href(), url('/')))
                         <span class="mt-1 block text-[12px] font-medium text-coollabs dark:text-warning">{{ __('Open Odoo') }}</span>
                     @endif
@@ -36,7 +36,7 @@
         </div>
         @if (isInstanceOwner())
             <a href="{{ route('notifications.center') }}" {{ wireNavigate() }}
-                class="block border-t border-neutral-200 px-3 py-2 text-center text-[12px] font-medium text-black hover:bg-neutral-50 dark:border-white/[0.06] dark:text-white dark:hover:bg-white/[0.03]">
+                class="block shrink-0 border-t border-neutral-200 px-3 py-2 text-center text-[12px] font-medium text-black hover:bg-neutral-50 dark:border-white/[0.06] dark:text-white dark:hover:bg-white/[0.03]">
                 {{ __('Notification center') }}
             </a>
         @endif
