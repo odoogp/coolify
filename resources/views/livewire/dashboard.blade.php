@@ -19,10 +19,10 @@
         <section class="mb-0! min-w-0">
             <div class="mb-3 flex items-end justify-between gap-4">
                 <div>
-                    <h2 class="text-[14px]! leading-5! font-semibold! text-black dark:text-fg">
+                    <h2 class="text-xl! leading-6! font-semibold! tracking-tight text-black dark:text-fg">
                         {{ __('Projects') }}
                     </h2>
-                    <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
+                    <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-faint">
                         {{ __('Your deployment workspaces') }}
                     </p>
                 </div>
@@ -38,7 +38,7 @@
                     description="{{ __('Use New to create your first deployment workspace.') }}"
                     icon-name="projects" size="sm" />
             @else
-                <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                     @foreach ($dashboardProjects as $project)
                         @php
                             $firstEnvironment = $project->environments->first();
@@ -57,7 +57,7 @@
                         @endphp
 
                         <article
-                            class="group relative flex min-h-28 min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
+                            class="feature-tile group relative flex min-h-52 min-w-0 flex-col rounded-3xl border border-neutral-200 bg-white p-7 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
                             <a href="{{ $project->navigateTo() }}" {{ wireNavigate() }}
                                 class="absolute inset-0 rounded-xl"
                                 aria-label="Open {{ $project->name }}"></a>
@@ -75,10 +75,10 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h3
-                                        class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
+                                        class="feature-tile-title truncate text-black dark:text-fg">
                                         {{ $project->name }}
                                     </h3>
-                                    <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    <p class="feature-tile-copy truncate text-neutral-500 dark:text-fg-faint">
                                         {{ $project->description ?: 'No description' }}
                                     </p>
                                 </div>
@@ -127,10 +127,10 @@
         <section class="mb-0! min-w-0">
             <div class="mb-3 flex items-end justify-between gap-4">
                 <div>
-                    <h2 class="text-[14px]! leading-5! font-semibold! text-black dark:text-fg">
+                    <h2 class="text-xl! leading-6! font-semibold! tracking-tight text-black dark:text-fg">
                         {{ __('Servers') }}
                     </h2>
-                    <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
+                    <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-faint">
                         {{ __('Infrastructure available for deployments') }}
                     </p>
                 </div>
@@ -176,7 +176,7 @@
                     </x-empty>
                 @endif
             @else
-                <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-crystal-shift>
+                <div class="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3" data-crystal-shift>
                     @foreach ($dashboardServers as $server)
                         @php
                             $proxyNeedsAttention = $server->proxySet() && ($server->proxy->status !== 'running' || $server->hasCurrentTraefikOutdatedInfo());
@@ -194,7 +194,7 @@
 
                         <a href="{{ route('server.show', ['server_uuid' => $server->uuid]) }}"
                             {{ wireNavigate() }} aria-label="Open {{ $server->name }}"
-                            class="group relative flex min-h-28 min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
+                            class="feature-tile group relative flex min-h-52 min-w-0 flex-col rounded-3xl border border-neutral-200 bg-white p-7 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
                             @if ($server->isMetricsEnabled())
                                 <livewire:dashboard.server-metrics-chart :server="$server"
                                     :key="'dashboard-server-metrics-'.$server->uuid" />
@@ -207,10 +207,10 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h3
-                                        class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
+                                        class="feature-tile-title truncate text-black dark:text-fg">
                                         {{ $server->name }}
                                     </h3>
-                                    <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    <p class="feature-tile-copy truncate text-neutral-500 dark:text-fg-faint">
                                         {{ $server->description ?: 'No description' }}
                                     </p>
                                 </div>
