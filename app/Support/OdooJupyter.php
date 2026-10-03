@@ -265,7 +265,20 @@ class OdooJupyter
         }
         $compose = self::ownerCompose(self::ownerInstances(), $token, $host);
         if (! app()->runningUnitTests()) {
-            $volumes = implode("\n", self::ownerExternalVolumes($compose));
+            $volumes = self::ownerExternalVolumes($compose);
+            if ($volumes !== []) {
+                $listed = implode("\n", $volumes);
+                $missing = instant_remote_process([<<<BASH
+set -eu
+while IFS= read -r volume; do
+  [ -n "\$volume" ] || continue
+  docker volume inspect "\$volume" >/dev/null 2>&1 || printf '%s\n' "\$volume"
+done <<'VOLS'
+{$listed}
+VOLS
+BASH], $server);
+                $compose = self::withoutVolumes($compose, array_values(array_filter(explode("\n", trim((string) $missing)))));
+            }
             $needle = escapeshellarg('"main":"'.$host.'"');
             $needleSpaced = escapeshellarg('"main": "'.$host.'"');
             $quotedHost = escapeshellarg($host);
@@ -278,24 +291,6 @@ mkdir -p "\$dir"
 cat > "\$dir/docker-compose.yml" <<'EOF'
 {$compose}
 EOF
-while IFS= read -r volume; do
-  [ -n "\$volume" ] || continue
-  docker volume inspect "\$volume" >/dev/null 2>&1 && continue
-  grep -F -v -- "\$volume" "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
-  mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
-done <<'VOLS'
-{$volumes}
-VOLS
-awk '
-  /^volumes:[[:space:]]*$/ {
-    if ((getline nl) > 0) {
-      if (nl ~ /^[[:space:]]/) { print; print nl } else { print nl }
-    }
-    next
-  }
-  { print }
-' "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
-mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
 docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
 if docker network inspect coolify >/dev/null 2>&1; then
   docker inspect gpsh-owner-jupyter --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}' | grep -qw coolify || docker network connect coolify gpsh-owner-jupyter || true
@@ -401,6 +396,40 @@ BASH], $server);
         }
 
         return $names;
+    }
+
+    /**
+     * @param  list<string>  $missing
+     */
+    public static function withoutVolumes(string $compose, array $missing): string
+    {
+        $missing = array_fill_keys($missing, true);
+        if ($missing === []) {
+            return $compose;
+        }
+        $yaml = self::parse($compose);
+        if ($yaml === null) {
+            return $compose;
+        }
+        if (isset($yaml['volumes']) && is_array($yaml['volumes'])) {
+            foreach (array_keys($missing) as $name) {
+                unset($yaml['volumes'][$name]);
+            }
+            if ($yaml['volumes'] === []) {
+                unset($yaml['volumes']);
+            }
+        }
+        foreach ($yaml['services'] ?? [] as $serviceName => $service) {
+            if (! is_array($service) || ! isset($service['volumes']) || ! is_array($service['volumes'])) {
+                continue;
+            }
+            $yaml['services'][$serviceName]['volumes'] = array_values(array_filter(
+                $service['volumes'],
+                fn (mixed $mount): bool => ! is_string($mount) || ! array_key_exists(explode(':', $mount, 2)[0], $missing),
+            ));
+        }
+
+        return Yaml::dump($yaml, 8, 2);
     }
 
     /**

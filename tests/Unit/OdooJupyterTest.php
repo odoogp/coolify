@@ -444,6 +444,21 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::usesSharedCertificate('cadvisor'))->toBeFalse();
 });
 
+test('owner jupyter drops a missing volume without leaving a broken volumes key', function () {
+    $compose = OdooJupyter::ownerCompose([
+        ['team' => 'Cliente 1', 'environment' => 'production', 'custom' => 'abc_odoo-extra-addons', 'files' => 'abc_odoo-web-data', 'image' => 'odoo:18'],
+    ], 'abcdef0123456789', 'jupyter.example.test');
+    $stripped = Yaml::parse(OdooJupyter::withoutVolumes($compose, ['abc_odoo-extra-addons']));
+    $gone = Yaml::parse(OdooJupyter::withoutVolumes($compose, ['abc_odoo-extra-addons', 'abc_odoo-web-data', 'odoo-stdlib-18']));
+
+    expect($stripped['volumes'])->not->toHaveKey('abc_odoo-extra-addons')
+        ->and($stripped['volumes'])->toHaveKey('abc_odoo-web-data')
+        ->and($stripped['services']['jupyter']['volumes'])->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro')
+        ->and($stripped['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
+        ->and($gone)->not->toHaveKey('volumes')
+        ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro');
+});
+
 test('owner jupyter omits an empty volumes key and leftover volumes are the unused odoo ones', function () {
     $compose = OdooJupyter::ownerCompose([], 'abcdef0123456789', 'jupyter.example.test');
     $service = new Service;
