@@ -472,8 +472,43 @@ test('owner jupyter drops a missing volume without leaving a broken volumes key'
         ->and($stripped['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
         ->and($gone)->not->toHaveKey('volumes')
         ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
-        ->and($remote['services']['jupyter']['volumes'])->not->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($remote['services']['jupyter']['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
         ->and($remote['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro');
+});
+
+test('owner jupyter shows another server as that team folder with its custom addons and the image addons', function () {
+    $ready = OdooJupyter::prepareOwnerInstances([[
+        'team' => 'Cliente 1',
+        'environment' => 'production',
+        'custom' => 'abc_odoo-extra-addons',
+        'custom_fallback' => 'abc_odoo-extra-addons',
+        'files' => 'abc_odoo-web-data',
+        'files_fallback' => 'abc_odoo-web-data',
+        'image' => 'odoo:18',
+        'server_id' => '4',
+    ]], []);
+    $compose = OdooJupyter::ownerCompose($ready, 'abcdef0123456789', 'jupyter.example.test');
+    $volumes = Yaml::parse($compose)['services']['jupyter']['volumes'];
+
+    expect($ready[0]['custom'])->toBeNull()
+        ->and($ready[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom')
+        ->and($ready[0]['import_volume'])->toBe('abc_odoo-extra-addons')
+        ->and($volumes)->toContain('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom:/workspace/cliente-1/production/custom:ro')
+        ->and($volumes)->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($volumes)->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro');
+
+    $local = OdooJupyter::prepareOwnerInstances([[
+        'team' => 'Root Team',
+        'environment' => 'production',
+        'custom' => 'root_odoo-extra-addons',
+        'custom_fallback' => 'root_odoo-extra-addons',
+        'files' => null,
+        'image' => 'odoo:20',
+        'server_id' => '0',
+    ]], ['root_odoo-extra-addons']);
+
+    expect($local[0]['custom'])->toBe('root_odoo-extra-addons')
+        ->and($local[0]['custom_bind'])->toBeNull();
 });
 
 test('owner jupyter omits an empty volumes key and leftover volumes are the unused odoo ones', function () {

@@ -93,7 +93,14 @@ it('shows a client team in the owner jupyter even when its server is not the ins
         'resource_type' => $application->getMorphClass(),
     ]);
 
-    expect(array_column(OdooJupyter::ownerInstances(), 'team'))->toContain('Cliente 1');
+    $row = collect(OdooJupyter::ownerInstances())->firstWhere('team', 'Cliente 1');
+
+    expect($row)->not->toBeNull()
+        ->and($row['custom'])->toBe('client_odoo-extra-addons')
+        ->and($row['custom_fallback'])->toBe($service->uuid.'_odoo-extra-addons')
+        ->and($row['image'])->toBe('odoo:20')
+        ->and((string) $row['server_id'])->toBe((string) $server->id)
+        ->and(OdooJupyter::prepareOwnerInstances([$row], [])[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom');
 });
 
 it('stores each github branch without renaming production or staging', function () {
