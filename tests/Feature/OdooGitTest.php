@@ -666,6 +666,7 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('Launch production on a new repository')
         ->toContain('Use an existing repository')
         ->toContain('associateOdooRepository')
+        ->toContain('launchWithoutGithub')
         ->toContain('Open on GitHub')
         ->toContain('odooAccountChanged')
         ->toContain('odooRepositoryQuery')
@@ -1518,7 +1519,7 @@ it('creates production when an odoo project has no environments', function () {
     $this->project->environments->each->delete();
 
     $component = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
-        ->assertSee('Create production')
+        ->assertSee('Launch without GitHub')
         ->assertSee('Connect GitHub')
         ->call('continueOdoo');
 
@@ -1536,12 +1537,29 @@ it('opens the repository choice when github is already installed on a recovered 
     $this->project->environments->each->delete();
 
     $component = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee('Launch without GitHub')
         ->call('continueOdoo');
 
     $production = $this->project->environments()->where('name', 'production')->first();
     $component->assertRedirect(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $production->uuid,
-        'launch' => 'choose',
     ]));
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('continueOdoo', true)
+        ->assertRedirect(route('project.resource.index', [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $production->uuid,
+            'launch' => 'choose',
+        ]));
+});
+
+it('tells the owner when the owner jupyter or its certificate was missing', function () {
+    expect(OdooJupyter::ownerRepairMessage('gpsh-owner-status before=present running=true cert=applied', 'jupyter.example.test'))->toBeNull()
+        ->and(OdooJupyter::ownerRepairMessage('gpsh-owner-status before=missing running=true cert=pending', 'jupyter.example.test'))
+        ->toContain('was not running')
+        ->toContain('jupyter.example.test')
+        ->and(OdooJupyter::ownerRepairMessage('gpsh-owner-status before=present running=false cert=applied', 'jupyter.example.test'))
+        ->toContain('did not start');
 });

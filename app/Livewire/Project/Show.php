@@ -534,7 +534,7 @@ class Show extends Component
         ]);
     }
 
-    public function continueOdoo(): mixed
+    public function continueOdoo(bool $withGithub = false): mixed
     {
         try {
             $this->authorize('update', $this->project);
@@ -543,7 +543,7 @@ class Show extends Component
                 return null;
             }
 
-            return redirect()->route('project.resource.index', $this->productionRoute($production));
+            return redirect()->route('project.resource.index', $this->productionRoute($production, $withGithub));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -596,13 +596,13 @@ class Show extends Component
     /**
      * @return array{project_uuid: string, environment_uuid: string, launch?: string}
      */
-    private function productionRoute(Environment $production): array
+    private function productionRoute(Environment $production, bool $withGithub): array
     {
         $parameters = [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $production->uuid,
         ];
-        if ($this->repositoryChoiceIsOpen()) {
+        if ($withGithub && $this->repositoryChoiceIsOpen()) {
             $parameters['launch'] = 'choose';
         }
 
@@ -640,9 +640,8 @@ class Show extends Component
     {
         $canCreateResource = auth()->user()->can('createAnyResource') && ! $odooOnly;
         $activities = $this->activityMap();
-        $chooseRepository = $odooOnly && $this->repositoryChoiceIsOpen();
 
-        return $this->withPendingClone($this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly, $activities, $chooseRepository): array {
+        return $this->withPendingClone($this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly, $activities): array {
             $resourceCount = collect([
                 $environment->applications_count,
                 $environment->services_count,
@@ -711,7 +710,6 @@ class Show extends Component
                     : route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
-                        ...($chooseRepository ? ['launch' => 'choose'] : []),
                     ]),
                 'resourceCount' => $resourceCount,
                 'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [

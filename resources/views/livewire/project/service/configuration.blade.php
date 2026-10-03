@@ -252,6 +252,9 @@
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
                                             {{ $odooRepoMode === 'new' ? __('Launch production') : __('Associate repository') }}
                                         </x-forms.button>
+                                        <x-forms.button type="button" wire:click="launchWithoutGithub" canGate="update" :canResource="$service">
+                                            {{ __('Launch without GitHub') }}
+                                        </x-forms.button>
                                         <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
                                             {{ __('Starting Odoo.') }}
                                         </p>

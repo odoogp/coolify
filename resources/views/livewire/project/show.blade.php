@@ -26,8 +26,17 @@
 
                     @if ($project->odooProfile && ! $hasProduction)
                     <button type="button" class="button button-highlighted" wire:click="continueOdoo">
-                        {{ __('Create production') }}
+                        {{ __('Launch without GitHub') }}
                     </button>
+                    @if ($odooGithubReady)
+                    <button type="button" class="button" wire:click="continueOdoo(true)">
+                        {{ __('Choose a repository') }}
+                    </button>
+                    @else
+                    <button type="button" class="button" wire:click="connectOdooGithub">
+                        {{ __('Connect GitHub') }}
+                    </button>
+                    @endif
                     @endif
 
                     @if (! $project->odooProfile)
@@ -60,20 +69,24 @@
 
         @if ($project->environments->isEmpty())
             <x-empty title="{{ __('No environments yet') }}"
-                description="{{ $project->odooProfile ? __('Create the production environment to choose a repository or install Odoo.') : __('Add an environment to start organizing this project\'s resources.') }}"
+                description="{{ $project->odooProfile ? __('Create the production environment and install Odoo. GitHub stays optional.') : __('Add an environment to start organizing this project\'s resources.') }}"
                 icon-name="layers">
                 @if ($project->odooProfile)
                     @can('update', $project)
                         <x-slot:contents>
                             <div class="mt-4 flex flex-wrap justify-center gap-2">
                                 <button type="button" class="button button-highlighted" wire:click="continueOdoo">
-                                    {{ __('Create production') }}
+                                    {{ __('Launch without GitHub') }}
                                 </button>
-                                @unless ($odooGithubReady)
+                                @if ($odooGithubReady)
+                                    <button type="button" class="button" wire:click="continueOdoo(true)">
+                                        {{ __('Choose a repository') }}
+                                    </button>
+                                @else
                                     <button type="button" class="button" wire:click="connectOdooGithub">
                                         {{ __('Connect GitHub') }}
                                     </button>
-                                @endunless
+                                @endif
                             </div>
                         </x-slot:contents>
                     @endcan
@@ -170,7 +183,7 @@
                             <a class="button button-highlighted" {{ wireNavigate() }}
                                 href="{{ $selectedOdoo
                                     ? route('project.service.configuration', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid])
-                                    : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, ...($odooGithubReady ? ['launch' => 'choose'] : [])]) }}">
+                                    : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid]) }}">
                                 {{ __('Open environment') }}
                             </a>
                         @endif

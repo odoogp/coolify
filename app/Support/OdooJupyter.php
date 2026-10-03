@@ -260,11 +260,19 @@ class OdooJupyter
             Cache::forever('gpsh-owner-jupyter-token', $token);
         }
         $host = explode('/', (string) preg_replace('#\Ahttps?://#', '', generateFqdn($server, 'gpsh-owner', forceHttps: true)))[0];
+        if (preg_match('/\A[a-z0-9.-]+\z/i', $host) !== 1) {
+            throw new \RuntimeException('The owner Jupyter host is not valid.');
+        }
         $compose = self::ownerCompose(self::ownerInstances(), $token, $host);
         if (! app()->runningUnitTests()) {
             $volumes = implode("\n", self::ownerExternalVolumes($compose));
-            instant_remote_process([<<<BASH
+            $needle = escapeshellarg('"main":"'.$host.'"');
+            $needleSpaced = escapeshellarg('"main": "'.$host.'"');
+            $quotedHost = escapeshellarg($host);
+            $output = instant_remote_process([<<<BASH
 set -eu
+before=missing
+docker inspect gpsh-owner-jupyter >/dev/null 2>&1 && before=present
 dir=/data/coolify/gpsh-owner-jupyter
 mkdir -p "\$dir"
 cat > "\$dir/docker-compose.yml" <<'EOF'
@@ -289,10 +297,48 @@ awk '
 ' "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
 mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
 docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
+if docker network inspect coolify >/dev/null 2>&1; then
+  docker inspect gpsh-owner-jupyter --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}' | grep -qw coolify || docker network connect coolify gpsh-owner-jupyter || true
+fi
+running=false
+if docker inspect -f '{{.State.Running}}' gpsh-owner-jupyter 2>/dev/null | grep -qx true; then
+  running=true
+fi
+cert=pending
+if docker exec coolify-proxy grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null 2>&1; then
+  cert=applied
+fi
+if [ "\$cert" = pending ]; then
+  curl -fsS -o /dev/null -k --connect-timeout 5 --max-time 15 --resolve {$quotedHost}:443:127.0.0.1 https://{$quotedHost}/ || true
+fi
+echo "gpsh-owner-status before=\$before running=\$running cert=\$cert"
 BASH], $server);
+            $message = self::ownerRepairMessage((string) $output, $host);
+            if ($message !== null && ! Cache::has('gpsh-owner-jupyter-notified')) {
+                Cache::put('gpsh-owner-jupyter-notified', true, now()->addMinutes(10));
+                GpshNotices::publish(null, 'custom', __('Owner Jupyter'), $message, 'owner', null, auth()->id());
+            }
         }
 
         return 'https://'.$host.'?token='.urlencode($token);
+    }
+
+    public static function ownerRepairMessage(string $output, string $host): ?string
+    {
+        if (preg_match('/gpsh-owner-status before=(present|missing) running=(true|false) cert=(applied|pending)/', $output, $match) !== 1) {
+            return null;
+        }
+        $lines = [];
+        if ($match[1] === 'missing' || $match[2] !== 'true') {
+            $lines[] = $match[2] === 'true'
+                ? __('The owner Jupyter was not running, so it was started.')
+                : __('The owner Jupyter did not start.');
+        }
+        if ($match[3] !== 'applied') {
+            $lines[] = __('Let\'s Encrypt has not issued the certificate for :host yet. Opening it asked for that certificate.', ['host' => $host]);
+        }
+
+        return $lines === [] ? null : implode(' ', $lines);
     }
 
     /**

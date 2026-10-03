@@ -364,6 +364,20 @@ class Configuration extends Component
         }
     }
 
+    public function launchWithoutGithub(): mixed
+    {
+        try {
+            $this->authorize('update', $this->service);
+            if (! $this->service->supportsOdooJupyter()) {
+                return null;
+            }
+
+            return $this->startPlannedLaunch();
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
     public function associateOdooRepository(): mixed
     {
         try {
