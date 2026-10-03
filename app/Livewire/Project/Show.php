@@ -7,6 +7,7 @@ use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\Project;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
@@ -533,6 +534,88 @@ class Show extends Component
         ]);
     }
 
+    public function continueOdoo(): mixed
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $production = $this->productionEnvironment();
+            if (! $production instanceof Environment) {
+                return null;
+            }
+
+            return redirect()->route('project.resource.index', $this->productionRoute($production));
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
+    public function connectOdooGithub(): mixed
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $production = $this->productionEnvironment();
+            if (! $production instanceof Environment) {
+                return null;
+            }
+            $githubApp = OdooGit::beginConnect($this->project, 'project.resource.index', [
+                'project_uuid' => $this->project->uuid,
+                'environment_uuid' => $production->uuid,
+            ]);
+            if (filled($githubApp->app_id)) {
+                return redirect()->away(getInstallationPath($githubApp));
+            }
+
+            return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
+    private function productionEnvironment(): ?Environment
+    {
+        if ($this->project->odooProfile === null) {
+            return null;
+        }
+        $production = $this->project->environments()
+            ->whereRaw('lower(name) = ?', ['production'])
+            ->first();
+        if ($production instanceof Environment) {
+            return $production;
+        }
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            abort(403);
+        }
+
+        return app(AdminCreationQuota::class)->createEnvironment($user, $this->project, [
+            'name' => 'production',
+            'uuid' => new_public_id(),
+        ]);
+    }
+
+    /**
+     * @return array{project_uuid: string, environment_uuid: string, launch?: string}
+     */
+    private function productionRoute(Environment $production): array
+    {
+        $parameters = [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $production->uuid,
+        ];
+        if ($this->repositoryChoiceIsOpen()) {
+            $parameters['launch'] = 'choose';
+        }
+
+        return $parameters;
+    }
+
+    private function repositoryChoiceIsOpen(): bool
+    {
+        return $this->project->odooProfile !== null
+            && blank($this->project->odooProfile->git_repository)
+            && OdooGit::installedApp((int) $this->project->team_id, auth()->id()) instanceof GithubApp;
+    }
+
     public function render(): View
     {
         $this->project->loadMissing('environments.odooBranch', 'environments.services');
@@ -543,6 +626,10 @@ class Show extends Component
             'usedBranches' => $this->usedOdooBranches(),
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),
             'activities' => $activities,
+            'odooGithubReady' => $this->repositoryChoiceIsOpen(),
+            'hasProduction' => $this->project->environments->contains(
+                fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
+            ),
         ]);
     }
 
@@ -553,8 +640,9 @@ class Show extends Component
     {
         $canCreateResource = auth()->user()->can('createAnyResource') && ! $odooOnly;
         $activities = $this->activityMap();
+        $chooseRepository = $odooOnly && $this->repositoryChoiceIsOpen();
 
-        return $this->withPendingClone($this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly, $activities): array {
+        return $this->withPendingClone($this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly, $activities, $chooseRepository): array {
             $resourceCount = collect([
                 $environment->applications_count,
                 $environment->services_count,
@@ -623,6 +711,7 @@ class Show extends Component
                     : route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
+                        ...($chooseRepository ? ['launch' => 'choose'] : []),
                     ]),
                 'resourceCount' => $resourceCount,
                 'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [

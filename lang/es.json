@@ -1892,6 +1892,8 @@
     "Container stopped.": "Contenedor detenido.",
     "Create destination": "Crear destino",
     "Create environment": "Crear entorno",
+    "Create production": "Crear producción",
+    "Create the production environment to choose a repository or install Odoo.": "Crea el ambiente de producción para elegir un repositorio o instalar Odoo.",
     "Create private key": "Crear clave privada",
     "Current Public Key": "Clave pública actual",
     "Custom DNS servers": "Servidores DNS personalizados",

@@ -468,6 +468,9 @@ test('owner jupyter omits an empty volumes key and leftover volumes are the unus
         ->toContain('!PathPrefix(`/.well-known/acme-challenge/`)')
         ->toContain('tls.certresolver=letsencrypt')
         ->toContain('tls.domains[0].main=jupyter.example.test')
+        ->toContain('traefik.docker.network=coolify')
+        ->and(Yaml::parse($compose)['networks']['coolify']['external'])->toBeTrue()
+        ->and(Yaml::parse($compose)['services']['jupyter']['networks'])->toBe(['coolify'])
         ->and($copy[1])->toContain('.gpsh')
         ->and($copy[1])->toContain('rm -rf')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Actions/Service/DeleteService.php'))->toContain('docker rm -f gpsh-owner-jupyter');

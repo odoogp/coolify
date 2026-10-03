@@ -180,7 +180,7 @@ class OdooJupyter
             'user' => '0:0',
             'working_dir' => '/tmp',
             'restart' => 'unless-stopped',
-            'networks' => ['gpsh-owner-jupyter'],
+            'networks' => ['coolify'],
             'expose' => [self::LISTEN_PORT],
             'healthcheck' => ['disable' => true],
             'environment' => [
@@ -211,7 +211,7 @@ class OdooJupyter
             ],
             'labels' => [
                 'traefik.enable=true',
-                'traefik.docker.network=gpsh-owner-jupyter',
+                'traefik.docker.network=coolify',
                 'traefik.http.routers.gpsh-owner-jupyter-http.rule=Host(`'.$host.'`) && !PathPrefix(`/.well-known/acme-challenge/`)',
                 'traefik.http.routers.gpsh-owner-jupyter-http.entryPoints=http',
                 'traefik.http.routers.gpsh-owner-jupyter-http.middlewares=redirect-to-https',
@@ -232,7 +232,7 @@ class OdooJupyter
         $yaml = Yaml::dump([
             'services' => $services,
             'networks' => [
-                'gpsh-owner-jupyter' => ['name' => 'gpsh-owner-jupyter'],
+                'coolify' => ['name' => 'coolify', 'external' => true],
             ],
         ], 8, 2);
         if ($external !== []) {
@@ -263,7 +263,6 @@ class OdooJupyter
         $compose = self::ownerCompose(self::ownerInstances(), $token, $host);
         if (! app()->runningUnitTests()) {
             $volumes = implode("\n", self::ownerExternalVolumes($compose));
-            $connectProxy = coolifyProxyNetworkConnectCommand('gpsh-owner-jupyter');
             instant_remote_process([<<<BASH
 set -eu
 dir=/data/coolify/gpsh-owner-jupyter
@@ -290,7 +289,6 @@ awk '
 ' "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
 mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
 docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
-{$connectProxy}
 BASH], $server);
         }
 

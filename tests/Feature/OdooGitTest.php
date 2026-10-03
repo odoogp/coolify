@@ -1513,3 +1513,35 @@ it('deletes a loading environment and warns that production takes staging with i
     expect(fn () => $this->get(route('gpsh.owner-jupyter')))
         ->toThrow(fn (HttpException $exception): bool => $exception->getStatusCode() === 403);
 });
+
+it('creates production when an odoo project has no environments', function () {
+    $this->project->environments->each->delete();
+
+    $component = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee('Create production')
+        ->assertSee('Connect GitHub')
+        ->call('continueOdoo');
+
+    $production = $this->project->environments()->where('name', 'production')->first();
+    expect($production)->not->toBeNull();
+    $component->assertRedirect(route('project.resource.index', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ]));
+});
+
+it('opens the repository choice when github is already installed on a recovered project', function () {
+    $key = PrivateKey::factory()->create(['team_id' => $this->team->id]);
+    $this->githubApp->forceFill(['private_key_id' => $key->id])->save();
+    $this->project->environments->each->delete();
+
+    $component = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('continueOdoo');
+
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $component->assertRedirect(route('project.resource.index', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+        'launch' => 'choose',
+    ]));
+});
