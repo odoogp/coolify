@@ -432,6 +432,7 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::clientSeesLog('odoo-abc'))->toBeTrue()
         ->and(OdooGit::clientSeesLog('postgresql-abc'))->toBeTrue()
         ->and(OdooGit::clientSeesLog('monitor-abc'))->toBeFalse()
+        ->and(OdooGit::clientSeesLog('beszelagent-abc'))->toBeFalse()
         ->and(OdooGit::clientSeesLog('jupyterowner-abc'))->toBeFalse()
         ->and(OdooGit::clientSeesLog('stdlib-abc'))->toBeFalse()
         ->and(OdooGit::isOdooContainerLog('odoo-abc'))->toBeTrue()
@@ -451,7 +452,9 @@ test('owner jupyter uses the proxy network and the notebook start script', funct
         ->and(OdooJupyter::ownerCompose([], 'abcdef0123456789', 'jupyter.example.test', 'coolify-overlay'))
         ->toContain('traefik.docker.network=coolify-overlay')
         ->toContain('start-notebook.py')
-        ->not->toContain('allow_remote_access');
+        ->not->toContain('allow_remote_access')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('cmp -s')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('502|503|000');
 });
 
 test('owner jupyter drops a missing volume without leaving a broken volumes key', function () {
@@ -519,27 +522,40 @@ test('client jupyter mounts that environment addon volume', function () {
     ]);
 });
 
-test('launching odoo adds grafana for that stack and only odoo and postgresql', function () {
+test('launching odoo adds beszel for that stack and only odoo and postgresql', function () {
     $compose = OdooMonitor::inject(odooCompose(), 'abc123');
-    $services = Yaml::parse($compose)['services'];
+    $parsed = Yaml::parse($compose);
+    $services = $parsed['services'];
     $again = OdooMonitor::inject($compose, 'abc123');
+    $filter = $services['beszelfilter']['command'][0];
 
-    expect(array_keys($services))->toContain('cadvisor', 'prometheus', 'monitor')
+    expect(array_keys($services))->toContain('beszelfilter')
+        ->and(array_keys($services))->toContain('beszelagent')
+        ->and(array_keys($services))->toContain('monitor')
+        ->and(array_keys($services))->not->toContain('cadvisor')
+        ->and(array_keys($services))->not->toContain('prometheus')
         ->and($again)->toBe($compose)
-        ->and($services['prometheus']['command'][0])->toContain('regex: .*(odoo|postgresql|postgres)-abc123.*')
-        ->and($services['cadvisor']['cgroup'])->toBe('host')
-        ->and($services['monitor']['command'][0])->toContain('odoo-abc123|postgresql-abc123|postgres-abc123')
-        ->and($services['monitor']['command'][0])->toContain('gpsh-odoo')
-        ->and($services['monitor']['command'][0])->toContain('container_cpu_usage_seconds_total')
-        ->and($services['monitor']['command'][0])->not->toContain('container:regex')
-        ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_3000')
-        ->and($services['monitor']['environment'])->toContain('GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}')
-        ->and($services['cadvisor']['volumes'])->toBe(OdooMonitor::cadvisorVolumes())
-        ->and($services['cadvisor']['privileged'])->toBeTrue()
-        ->and(OdooMonitor::alignServices(['cadvisor' => ['volumes' => ['rewritten:/sys']]])['cadvisor']['volumes'])->toBe(OdooMonitor::cadvisorVolumes())
-        ->and(json_encode($services))->not->toContain('jupyter')
+        ->and($services['monitor']['image'])->toBe('henrygd/beszel:latest')
+        ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_8090')
+        ->and($services['monitor']['environment'])->toContain('APP_URL=https://${SERVICE_FQDN_MONITOR}')
+        ->and($services['monitor']['environment'])->toContain('AUTO_LOGIN=monitor@gpsh.local')
+        ->and($services['beszelagent']['environment'])->toContain('DOCKER_HOST=unix:///run/beszel/docker.sock')
+        ->and($services['beszelfilter']['environment'])->toContain('ALLOW=odoo-abc123,postgresql-abc123,postgres-abc123')
+        ->and($services['beszelfilter']['volumes'])->toBe(OdooMonitor::filterVolumes())
+        ->and(json_encode($services['beszelagent']))->not->toContain('/var/run/docker.sock')
+        ->and($filter)->toContain('universal-token')
+        ->and($filter)->toContain('/containers/json')
+        ->and(OdooMonitor::alignServices([
+            'beszelfilter' => ['volumes' => ['abc_beszel-run:/run/beszel', '/var/run/docker.sock:/elsewhere']],
+        ])['beszelfilter']['volumes'])->toBe([
+            '/var/run/docker.sock:/var/run/docker.sock:ro',
+            'abc_beszel-run:/run/beszel',
+        ])
+        ->and($parsed['volumes'])->toHaveKey('beszel-data')
+        ->and(OdooMonitor::hidesTerminal('beszelagent'))->toBeTrue()
+        ->and(OdooMonitor::hidesTerminal('odoo'))->toBeFalse()
         ->and(OdooMonitor::dashboardUrl('https://monitor.example.test', 'odoo-abc123', 'postgresql-abc123'))
-        ->toBe('https://monitor.example.test/d/gpsh-odoo/odoo?orgId=1&kiosk&var-container=odoo-abc123&var-container=postgresql-abc123')
+        ->toBe('https://monitor.example.test')
         ->and(OdooMonitor::inject(odooCompose(), 'not a project'))->toBe(odooCompose());
 });
 
