@@ -264,13 +264,6 @@ class Project extends BaseModel
 
     public function navigateTo()
     {
-        if ($this->environments->count() === 1) {
-            return route('project.resource.index', [
-                'project_uuid' => $this->uuid,
-                'environment_uuid' => $this->environments->first()->uuid,
-            ]);
-        }
-
         return route('project.show', ['project_uuid' => $this->uuid]);
     }
 }

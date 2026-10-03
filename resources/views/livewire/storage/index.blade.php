@@ -45,7 +45,7 @@
             setViewMode(mode) { this.viewMode = mode; localStorage.setItem('coolify-s3-storages-view', mode); }
         }">
         @include('livewire.shared.list-search-controls', ['placeholder' => __('Search S3 storages'), 'singular' => 'storage', 'plural' => 'storages'])
-        <div x-cloak x-show="viewMode === 'grid'" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div x-cloak x-show="viewMode === 'grid'" class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             @foreach ($s3 as $storage)
                 <a x-show="matches(@js([$storage->name, $storage->description ?: __('S3-compatible storage'), $storage->is_usable ? __('Connected') : __('Not usable')]))" {{ wireNavigate() }} href="/storages/{{ $storage->uuid }}"
                     class="group flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">

@@ -8,7 +8,7 @@
     @endif
 
     @php
-        $dashboardItemLimit = 8;
+        $dashboardItemLimit = 3;
         $dashboardProjects = $projects->sortBy('name', SORT_NATURAL)->take($dashboardItemLimit);
         $dashboardServers = $servers->sortBy('name', SORT_NATURAL)->take($dashboardItemLimit);
     @endphp
@@ -38,7 +38,7 @@
                     description="{{ __('Use New to create your first deployment workspace.') }}"
                     icon-name="projects" size="sm" />
             @else
-                <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     @foreach ($dashboardProjects as $project)
                         @php
                             $firstEnvironment = $project->environments->first();
@@ -75,17 +75,17 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h3
-                                        class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
+                                        class="break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
                                         {{ $project->name }}
                                     </h3>
-                                    <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint">
                                         {{ $project->description ?: 'No description' }}
                                     </p>
                                 </div>
                             </div>
 
                             <div class="mt-auto flex items-center justify-between gap-3 pt-4">
-                                <p class="min-w-0 truncate text-[11px] text-neutral-500 dark:text-fg-dim">
+                                <p class="min-w-0 break-words text-[11px] text-neutral-500 dark:text-fg-dim">
                                     {{ $project->environments->count() }}
                                     {{ str('env')->plural($project->environments->count()) }}
                                     <span class="px-1 text-neutral-300 dark:text-white/15">·</span>
@@ -176,7 +176,7 @@
                     </x-empty>
                 @endif
             @else
-                <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-crystal-shift>
+                <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3" data-crystal-shift>
                     @foreach ($dashboardServers as $server)
                         @php
                             $proxyNeedsAttention = $server->proxySet() && ($server->proxy->status !== 'running' || $server->hasCurrentTraefikOutdatedInfo());
@@ -207,10 +207,10 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h3
-                                        class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
+                                        class="break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
                                         {{ $server->name }}
                                     </h3>
-                                    <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint">
                                         {{ $server->description ?: 'No description' }}
                                     </p>
                                 </div>

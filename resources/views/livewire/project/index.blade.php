@@ -100,7 +100,7 @@
             </div>
 
             <div x-cloak x-show="viewMode === 'grid'">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <template x-for="project in paginatedProjects" :key="project.uuid">
                         <article
                             class="group relative flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
@@ -118,9 +118,9 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <h2
-                                        class="truncate text-[13px]! leading-4! font-semibold! text-black dark:text-fg"
+                                        class="break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg"
                                         x-text="project.name"></h2>
-                                    <p class="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-faint"
+                                    <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint"
                                         x-text="project.description || @js(__('No description'))"></p>
                                     <dl x-cloak x-show="project.odooVersion" class="mt-3 space-y-1 text-[11px]">
                                         <div class="flex items-center justify-between gap-3">
@@ -129,14 +129,14 @@
                                         </div>
                                         <div class="flex items-center justify-between gap-3">
                                             <dt class="text-neutral-500 dark:text-fg-faint">{{ __('Status') }}</dt>
-                                            <dd class="truncate font-medium text-black dark:text-fg" x-text="project.odooStatus"></dd>
+                                            <dd class="break-words text-right font-medium text-black dark:text-fg" x-text="project.odooStatus"></dd>
                                         </div>
                                     </dl>
                                 </div>
                             </div>
 
                             <div class="mt-auto flex items-center justify-between gap-3 pt-4">
-                                <p class="min-w-0 truncate text-[11px] text-neutral-500 dark:text-fg-dim">
+                                <p class="min-w-0 break-words text-[11px] text-neutral-500 dark:text-fg-dim">
                                     <span
                                         x-text="`${project.environmentCount} ${project.environmentCount === 1 ? 'env' : 'envs'}`"></span>
                                     <span class="px-1 text-neutral-300 dark:text-white/15">·</span>

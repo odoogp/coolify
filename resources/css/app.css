@@ -1132,6 +1132,15 @@ html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm {
     backdrop-filter: blur(40px) saturate(1.6);
     -webkit-backdrop-filter: blur(40px) saturate(1.6);
     transition: transform 180ms ease, box-shadow 180ms ease;
+    min-width: 0;
+}
+
+html.dark main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, p, dd),
+html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm :is(h2, h3, p, dd) {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    overflow-wrap: break-word;
 }
 
 main .grid > :is(a, article).rounded-xl.shadow-sm::before {
