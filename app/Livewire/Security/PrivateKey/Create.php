@@ -50,7 +50,26 @@ class Create extends Component
         }
     }
 
-    public function createPrivateKey()
+    public function generateKey(): mixed
+    {
+        $keyPair = generateSSHKey('ed25519');
+        $this->value = $keyPair['private'];
+        $this->publicKey = $keyPair['public'];
+        $this->resetErrorBag('value');
+
+        return $this->storePrivateKey();
+    }
+
+    public function createPrivateKey(): mixed
+    {
+        if (trim($this->value) === '') {
+            return $this->generateKey();
+        }
+
+        return $this->storePrivateKey();
+    }
+
+    private function storePrivateKey(): mixed
     {
         $this->validate();
 
@@ -63,12 +82,12 @@ class Create extends Component
                 'team_id' => currentTeam()->id,
             ]);
 
-            // If in modal mode, dispatch event and don't redirect
             if ($this->modal_mode) {
                 $this->dispatch('privateKeyCreated', keyId: $privateKey->id);
+                $this->dispatch('close-modal');
                 $this->dispatch('success', __('Private key created successfully.'));
 
-                return;
+                return null;
             }
 
             return $this->redirectAfterCreation($privateKey);

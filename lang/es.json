@@ -2102,6 +2102,8 @@
     "Existing SSH key": "Clave SSH existente",
     "Existing project": "Proyecto existente",
     "Generate ED25519": "Generar ED25519",
+    "Generate key": "Generar clave",
+    "No key yet? Generate one here. Paste a key only if you already have one.": "¿No tienes clave? Genérala aquí. Pega una solo si ya la tienes.",
     "Generated labels": "Etiquetas generadas",
     "Gzip compression": "Compresión Gzip",
     "Initial database": "Base de datos inicial",

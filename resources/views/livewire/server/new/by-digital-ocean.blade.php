@@ -103,7 +103,7 @@
                                     <div
                                         class="flex min-h-8 items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2">
                                         <span class="text-[11px] text-neutral-600 dark:text-fg-dim">{{ __('A private key is required.') }}</span>
-                                        <x-modal-input title="{{ __('New Private Key') }}">
+                                        <x-modal-input title="{{ __('New Private Key') }}" :notify-closed="false">
                                             <x-slot:content>
                                                 <button type="button" class="button">{{ __('Create key') }}</button>
                                             </x-slot:content>

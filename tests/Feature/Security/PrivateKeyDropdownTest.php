@@ -76,10 +76,32 @@ test('saving a private key from its modal editor closes the modal', function () 
     expect($privateKey->fresh()->name)->toBe('Updated SSH key');
 });
 
-test('manual private key form does not expose key generation controls', function () {
-    Livewire::test(Create::class)
-        ->assertDontSee('Generate new ED25519 SSH Key')
-        ->assertDontSee('Generate new RSA SSH Key');
+test('the private key form can generate an ed25519 key from the name already entered', function () {
+    $component = Livewire::test(Create::class, ['modal_mode' => true])
+        ->set('name', 'odoosh')
+        ->set('description', 'imagen')
+        ->call('generateKey')
+        ->assertHasNoErrors()
+        ->assertDispatched('privateKeyCreated')
+        ->assertDispatched('close-modal');
+
+    $privateKey = PrivateKey::query()->where('name', 'odoosh')->firstOrFail();
+
+    expect($privateKey->description)->toBe('imagen')
+        ->and($privateKey->team_id)->toBe($this->team->id)
+        ->and($privateKey->public_key)->toStartWith('ssh-ed25519')
+        ->and($component->get('value'))->toContain('BEGIN OPENSSH PRIVATE KEY');
+});
+
+test('continuing with an empty private key generates one instead of asking to paste it', function () {
+    Livewire::test(Create::class, ['modal_mode' => true])
+        ->set('name', 'odoosh')
+        ->set('value', '')
+        ->call('createPrivateKey')
+        ->assertHasNoErrors()
+        ->assertDispatched('privateKeyCreated');
+
+    expect(PrivateKey::query()->where('name', 'odoosh')->firstOrFail()->public_key)->toStartWith('ssh-ed25519');
 });
 
 test('private key details view reminds users to install the public key', function () {

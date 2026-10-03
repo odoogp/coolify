@@ -13,6 +13,7 @@
     'wireOpen' => null,
     'contentClicks' => true,
     'isLarge' => false,
+    'notifyClosed' => true,
 ])
 
 @php
@@ -20,7 +21,7 @@
 @endphp
 
 <div x-data="{ modalOpen: @if ($wireOpen) $wire.entangle(@js($wireOpen)) @else false @endif }"
-    x-init="$watch('modalOpen', value => { if (!value) { $wire.dispatch('modalClosed') } })"
+    @if ($notifyClosed) x-init="$watch('modalOpen', value => { if (!value) { $wire.dispatch('modalClosed') } })" @endif
     :class="{ 'z-40': modalOpen }" @keydown.window.escape="modalOpen=false"
     {{ $attributes->class(['relative', $isFullWidth ? 'h-full w-full' : 'h-auto w-auto']) }}
     @close-modal.window="modalOpen=false" @if ($wireIgnore) wire:ignore @endif>
