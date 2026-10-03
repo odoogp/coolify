@@ -117,6 +117,11 @@
     @endphp
     <title>{{ $name }}{{ $pageTitle }}</title>
     <link rel="icon" href="{{ asset('gpsh-logo.svg') }}" type="image/svg+xml" />
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <link rel="apple-touch-icon" href="{{ asset('pwa/icon-180.png') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="{{ product_name() }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
     <script>
@@ -124,6 +129,11 @@
         const t = localStorage.theme || 'light';
         const isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
         document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+    </script>
+    <script data-navigate-once>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        }
     </script>
     <style>
         [x-cloak] {
