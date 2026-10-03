@@ -122,9 +122,9 @@ class OdooJupyter
      *
      * @param  list<array{team: string, environment: string, custom: ?string, files: ?string, image: string}>  $instances
      */
-    public static function ownerCompose(array $instances, string $token, string $host): string
+    public static function ownerCompose(array $instances, string $token, string $host, string $network = 'coolify'): string
     {
-        if (preg_match('/\A[A-Za-z0-9]{16,}\z/', $token) !== 1 || preg_match('/\A[A-Za-z0-9.-]+\z/', $host) !== 1) {
+        if (preg_match('/\A[A-Za-z0-9]{16,}\z/', $token) !== 1 || preg_match('/\A[A-Za-z0-9.-]+\z/', $host) !== 1 || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,100}\z/', $network) !== 1) {
             throw new \RuntimeException('The owner Jupyter was refused.');
         }
 
@@ -180,7 +180,7 @@ class OdooJupyter
             'user' => '0:0',
             'working_dir' => '/tmp',
             'restart' => 'unless-stopped',
-            'networks' => ['coolify'],
+            'networks' => [$network],
             'expose' => [self::LISTEN_PORT],
             'healthcheck' => ['disable' => true],
             'environment' => [
@@ -191,27 +191,11 @@ class OdooJupyter
                 'JUPYTER_RUNTIME_DIR=/tmp/jupyter-runtime',
                 'JUPYTER_TOKEN='.$token,
             ],
-            'command' => [
-                'jupyter',
-                'lab',
-                '--ServerApp.token='.$token,
-                '--ServerApp.port='.self::LISTEN_PORT,
-                '--ServerApp.allow_password_change=False',
-                '--ServerApp.allow_remote_access=True',
-                '--ServerApp.trust_xheaders=True',
-                '--ServerApp.root_dir=/workspace',
-                '--MappingKernelManager.cull_idle_timeout=1800',
-                '--MappingKernelManager.cull_interval=300',
-                '--TerminalManager.cull_inactive_timeout=1800',
-                '--TerminalManager.cull_interval=300',
-                '--ip=0.0.0.0',
-                '--port='.self::LISTEN_PORT,
-                '--allow-root',
-                '--no-browser',
-            ],
+            'entrypoint' => ['sh', '-c'],
+            'command' => [self::ownerStartCommand()],
             'labels' => [
                 'traefik.enable=true',
-                'traefik.docker.network=coolify',
+                'traefik.docker.network='.$network,
                 'traefik.http.routers.gpsh-owner-jupyter-http.rule=Host(`'.$host.'`) && !PathPrefix(`/.well-known/acme-challenge/`)',
                 'traefik.http.routers.gpsh-owner-jupyter-http.entryPoints=http',
                 'traefik.http.routers.gpsh-owner-jupyter-http.middlewares=redirect-to-https',
@@ -232,7 +216,7 @@ class OdooJupyter
         $yaml = Yaml::dump([
             'services' => $services,
             'networks' => [
-                'coolify' => ['name' => 'coolify', 'external' => true],
+                $network => ['name' => $network, 'external' => true],
             ],
         ], 8, 2);
         if ($external !== []) {
@@ -246,6 +230,43 @@ class OdooJupyter
         }
 
         return $yaml;
+    }
+
+    public static function proxyNetworkFrom(string $listed): string
+    {
+        $names = preg_split('/\s+/', trim($listed)) ?: [];
+        $usable = [];
+        foreach ($names as $name) {
+            if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,100}\z/', $name) !== 1 || in_array($name, ['bridge', 'host', 'none', 'ingress'], true)) {
+                continue;
+            }
+            $usable[] = $name;
+        }
+        if (in_array('coolify', $usable, true)) {
+            return 'coolify';
+        }
+
+        return $usable[0] ?? 'coolify';
+    }
+
+    private static function ownerStartCommand(): string
+    {
+        $port = self::LISTEN_PORT;
+
+        return <<<BASH
+mkdir -p /tmp/jupyter-config /workspace
+cat > /tmp/jupyter-config/jupyter_server_config.py << 'EOF'
+c.ServerApp.ip = "0.0.0.0"
+c.ServerApp.port = {$port}
+c.ServerApp.root_dir = "/workspace"
+c.ServerApp.allow_root = True
+c.MappingKernelManager.cull_idle_timeout = 1800
+c.MappingKernelManager.cull_interval = 300
+c.TerminalManager.cull_inactive_timeout = 1800
+c.TerminalManager.cull_interval = 300
+EOF
+exec tini -g -- start-notebook.py --ip=0.0.0.0 --port={$port} --allow-root --no-browser
+BASH;
     }
 
     public static function ensureOwner(): string
@@ -263,7 +284,14 @@ class OdooJupyter
         if (preg_match('/\A[a-z0-9.-]+\z/i', $host) !== 1) {
             throw new \RuntimeException('The owner Jupyter host is not valid.');
         }
-        $compose = self::ownerCompose(self::ownerInstances(), $token, $host);
+        $network = 'coolify';
+        if (! app()->runningUnitTests()) {
+            $listed = instant_remote_process([
+                'docker inspect coolify-proxy --format \'{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}\'',
+            ], $server);
+            $network = self::proxyNetworkFrom((string) $listed);
+        }
+        $compose = self::ownerCompose(self::ownerInstances(), $token, $host, $network);
         if (! app()->runningUnitTests()) {
             $volumes = self::ownerExternalVolumes($compose);
             if ($volumes !== []) {
@@ -279,6 +307,7 @@ VOLS
 BASH], $server);
                 $compose = self::withoutVolumes($compose, array_values(array_filter(explode("\n", trim((string) $missing)))));
             }
+            $quotedNetwork = escapeshellarg($network);
             $needle = escapeshellarg('"main":"'.$host.'"');
             $needleSpaced = escapeshellarg('"main": "'.$host.'"');
             $quotedHost = escapeshellarg($host);
@@ -292,8 +321,8 @@ cat > "\$dir/docker-compose.yml" <<'EOF'
 {$compose}
 EOF
 docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
-if docker network inspect coolify >/dev/null 2>&1; then
-  docker inspect gpsh-owner-jupyter --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}' | grep -qw coolify || docker network connect coolify gpsh-owner-jupyter || true
+if docker network inspect {$quotedNetwork} >/dev/null 2>&1; then
+  docker inspect gpsh-owner-jupyter --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}' | grep -qw {$quotedNetwork} || docker network connect {$quotedNetwork} gpsh-owner-jupyter || true
 fi
 running=false
 if docker inspect -f '{{.State.Running}}' gpsh-owner-jupyter 2>/dev/null | grep -qx true; then

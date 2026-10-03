@@ -444,6 +444,16 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::usesSharedCertificate('cadvisor'))->toBeFalse();
 });
 
+test('owner jupyter uses the proxy network and the notebook start script', function () {
+    expect(OdooJupyter::proxyNetworkFrom('bridge coolify other'))->toBe('coolify')
+        ->and(OdooJupyter::proxyNetworkFrom('coolify-overlay'))->toBe('coolify-overlay')
+        ->and(OdooJupyter::proxyNetworkFrom('bridge host'))->toBe('coolify')
+        ->and(OdooJupyter::ownerCompose([], 'abcdef0123456789', 'jupyter.example.test', 'coolify-overlay'))
+        ->toContain('traefik.docker.network=coolify-overlay')
+        ->toContain('start-notebook.py')
+        ->not->toContain('allow_remote_access');
+});
+
 test('owner jupyter drops a missing volume without leaving a broken volumes key', function () {
     $compose = OdooJupyter::ownerCompose([
         ['team' => 'Cliente 1', 'environment' => 'production', 'custom' => 'abc_odoo-extra-addons', 'files' => 'abc_odoo-web-data', 'image' => 'odoo:18'],
@@ -516,8 +526,8 @@ test('launching odoo adds grafana for that stack and only odoo and postgresql', 
 
     expect(array_keys($services))->toContain('cadvisor', 'prometheus', 'monitor')
         ->and($again)->toBe($compose)
-        ->and($services['prometheus']['command'][0])->toContain('regex: abc123')
-        ->and($services['prometheus']['command'][0])->toContain('regex: odoo|postgresql|postgres')
+        ->and($services['prometheus']['command'][0])->toContain('regex: /?(odoo|postgresql|postgres)-abc123')
+        ->and($services['monitor']['command'][0])->toContain('odoo-abc123|postgresql-abc123|postgres-abc123')
         ->and($services['monitor']['command'][0])->toContain('gpsh-odoo')
         ->and($services['monitor']['command'][0])->toContain('container_cpu_usage_seconds_total')
         ->and($services['monitor']['command'][0])->not->toContain('container:regex')

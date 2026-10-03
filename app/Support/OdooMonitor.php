@@ -52,7 +52,7 @@ class OdooMonitor
             'image' => 'grafana/grafana-oss',
             'restart' => 'unless-stopped',
             'entrypoint' => ['sh', '-ec'],
-            'command' => [self::grafanaCommand()],
+            'command' => [self::grafanaCommand($project)],
             'environment' => [
                 'SERVICE_URL_MONITOR_3000',
                 'GF_SERVER_ROOT_URL=https://${SERVICE_FQDN_MONITOR}',
@@ -151,18 +151,15 @@ scrape_configs:
     static_configs:
       - targets: ['cadvisor:8080']
     metric_relabel_configs:
-      - source_labels: [container_label_com_docker_compose_project]
-        regex: {$project}
-        action: keep
-      - source_labels: [container_label_com_docker_compose_service]
-        regex: odoo|postgresql|postgres
+      - source_labels: [name]
+        regex: /?(odoo|postgresql|postgres)-{$project}
         action: keep
 EOF
 exec prometheus --config.file=/tmp/prometheus.yml --storage.tsdb.path=/prometheus
 BASH;
     }
 
-    private static function grafanaCommand(): string
+    private static function grafanaCommand(string $project): string
     {
         $dashboard = str_replace('$', '$$', json_encode([
             'uid' => 'gpsh-odoo',
@@ -182,10 +179,10 @@ BASH;
                 ]],
             ],
             'panels' => [
-                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{id!="/"}[5m])) by (name)'),
-                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{id!="/"}) by (name)'),
-                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{id!="/"}[5m])) by (name)', 8),
-                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{id!="/"}[5m])) by (name)', 8),
+                self::panel(1, 'CPU', 0, 'sum(rate(container_cpu_usage_seconds_total{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}[5m])) by (name)'),
+                self::panel(2, 'Memory', 12, 'sum(container_memory_working_set_bytes{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}) by (name)'),
+                self::panel(3, 'Network in', 0, 'sum(rate(container_network_receive_bytes_total{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}[5m])) by (name)', 8),
+                self::panel(4, 'Network out', 12, 'sum(rate(container_network_transmit_bytes_total{name=~"odoo-'.$project.'|postgresql-'.$project.'|postgres-'.$project.'"}[5m])) by (name)', 8),
             ],
         ], JSON_UNESCAPED_SLASHES));
 
