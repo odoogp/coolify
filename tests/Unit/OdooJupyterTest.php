@@ -331,6 +331,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('Preparando Odoo.')
         ->and($command)->toContain('Instalando la base.')
         ->and($command)->toContain('Abriendo Odoo.')
+        ->and($command)->toContain('websocket')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
         ->and($command)->toContain('setpriv --reuid=odoo')
@@ -463,13 +464,16 @@ test('owner jupyter drops a missing volume without leaving a broken volumes key'
     ], 'abcdef0123456789', 'jupyter.example.test');
     $stripped = Yaml::parse(OdooJupyter::withoutVolumes($compose, ['abc_odoo-extra-addons']));
     $gone = Yaml::parse(OdooJupyter::withoutVolumes($compose, ['abc_odoo-extra-addons', 'abc_odoo-web-data', 'odoo-stdlib-18']));
+    $remote = Yaml::parse(OdooJupyter::withoutVolumes($compose, ['abc_odoo-extra-addons', 'abc_odoo-web-data']));
 
     expect($stripped['volumes'])->not->toHaveKey('abc_odoo-extra-addons')
         ->and($stripped['volumes'])->toHaveKey('abc_odoo-web-data')
         ->and($stripped['services']['jupyter']['volumes'])->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro')
         ->and($stripped['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
         ->and($gone)->not->toHaveKey('volumes')
-        ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro');
+        ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
+        ->and($remote['services']['jupyter']['volumes'])->not->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($remote['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro');
 });
 
 test('owner jupyter omits an empty volumes key and leftover volumes are the unused odoo ones', function () {
@@ -522,37 +526,41 @@ test('client jupyter mounts that environment addon volume', function () {
     ]);
 });
 
-test('launching odoo adds beszel for that stack and only odoo and postgresql', function () {
+test('launching odoo adds one beszel container for that stack', function () {
     $compose = OdooMonitor::inject(odooCompose(), 'abc123');
     $parsed = Yaml::parse($compose);
     $services = $parsed['services'];
     $again = OdooMonitor::inject($compose, 'abc123');
-    $filter = $services['beszelfilter']['command'][0];
+    $script = $services['monitor']['command'][0];
 
-    expect(array_keys($services))->toContain('beszelfilter')
-        ->and(array_keys($services))->toContain('beszelagent')
-        ->and(array_keys($services))->toContain('monitor')
+    expect(array_keys($services))->toContain('monitor')
+        ->and(array_keys($services))->not->toContain('beszelagent')
+        ->and(array_keys($services))->not->toContain('beszelfilter')
         ->and(array_keys($services))->not->toContain('cadvisor')
         ->and(array_keys($services))->not->toContain('prometheus')
         ->and($again)->toBe($compose)
-        ->and($services['monitor']['image'])->toBe('henrygd/beszel:latest')
+        ->and($services['monitor']['image'])->toBe('python:3.12-alpine')
         ->and($services['monitor']['environment'])->toContain('SERVICE_URL_MONITOR_8090')
         ->and($services['monitor']['environment'])->toContain('APP_URL=https://${SERVICE_FQDN_MONITOR}')
         ->and($services['monitor']['environment'])->toContain('AUTO_LOGIN=monitor@gpsh.local')
-        ->and($services['beszelagent']['environment'])->toContain('DOCKER_HOST=unix:///run/beszel/docker.sock')
-        ->and($services['beszelfilter']['environment'])->toContain('ALLOW=odoo-abc123,postgresql-abc123,postgres-abc123')
-        ->and($services['beszelfilter']['volumes'])->toBe(OdooMonitor::filterVolumes())
-        ->and(json_encode($services['beszelagent']))->not->toContain('/var/run/docker.sock')
-        ->and($filter)->toContain('universal-token')
-        ->and($filter)->toContain('/containers/json')
+        ->and($services['monitor']['environment'])->toContain('ALLOW=odoo-abc123,postgresql-abc123,postgres-abc123')
+        ->and($services['monitor']['volumes'])->toBe(OdooMonitor::filterVolumes())
+        ->and($script)->toContain('universal-token')
+        ->and($script)->toContain('/containers/json')
+        ->and($script)->toContain('0.21.0')
+        ->and($script)->toContain('beszel-agent_linux_')
         ->and(OdooMonitor::alignServices([
-            'beszelfilter' => ['volumes' => ['abc_beszel-run:/run/beszel', '/var/run/docker.sock:/elsewhere']],
-        ])['beszelfilter']['volumes'])->toBe([
+            'monitor' => [
+                'image' => 'python:3.12-alpine',
+                'volumes' => ['abc_beszel-data:/beszel_data', '/var/run/docker.sock:/elsewhere'],
+            ],
+        ])['monitor']['volumes'])->toBe([
             '/var/run/docker.sock:/var/run/docker.sock:ro',
-            'abc_beszel-run:/run/beszel',
+            'abc_beszel-data:/beszel_data',
         ])
         ->and($parsed['volumes'])->toHaveKey('beszel-data')
-        ->and(OdooMonitor::hidesTerminal('beszelagent'))->toBeTrue()
+        ->and($parsed['volumes'])->not->toHaveKey('beszel-run')
+        ->and(OdooMonitor::hidesTerminal('monitor'))->toBeTrue()
         ->and(OdooMonitor::hidesTerminal('odoo'))->toBeFalse()
         ->and(OdooMonitor::dashboardUrl('https://monitor.example.test', 'odoo-abc123', 'postgresql-abc123'))
         ->toBe('https://monitor.example.test')
@@ -575,7 +583,8 @@ test('the odoo terminal opens the odoo shell and the other containers keep their
     expect(OdooGit::loginOpenCommand('odoo.example.test'))->not->toContain('letsencrypt')
         ->and(OdooGit::loginOpenCommand('odoo.example.test'))->toContain('se actualiza sola')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('--http-port=8071')
-        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain("HTTPConnection('127.0.0.1',8071");
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('HTTPConnection("127.0.0.1", 8071, timeout=60)')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('== "websocket"');
 });
 
 test('odoo shares its certificate and the owner jupyter starts later', function () {

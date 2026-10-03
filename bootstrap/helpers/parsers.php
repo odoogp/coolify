@@ -1592,6 +1592,9 @@ function serviceParser(Service $resource): Collection
         return collect([]);
     }
     $services = data_get($yaml, 'services', collect([]));
+    if (is_array($services) && $resource->supportsOdooJupyter()) {
+        OdooMonitor::forgetExtraApplications($resource, array_keys($services));
+    }
 
     // Clean up corrupted environment variables from previous parser bugs
     // (keys starting with $ or ending with } should not exist as env var names)

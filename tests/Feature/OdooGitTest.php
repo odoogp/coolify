@@ -16,6 +16,7 @@ use App\Models\GithubApp;
 use App\Models\GpshNotice;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
+use App\Models\LocalPersistentVolume;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\PrivateKey;
 use App\Models\Project;
@@ -67,6 +68,32 @@ beforeEach(function () {
         'team_id' => $this->team->id,
         'is_public' => false,
     ]);
+});
+
+it('shows a client team in the owner jupyter even when its server is not the instance', function () {
+    $server = Server::factory()->create(['team_id' => $this->team->id]);
+    $client = Team::factory()->create(['name' => 'Cliente 1']);
+    $project = Project::factory()->create(['team_id' => $client->id]);
+    $environment = $project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'server_id' => $server->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+    ]);
+    LocalPersistentVolume::create([
+        'name' => 'client_odoo-extra-addons',
+        'mount_path' => '/mnt/extra-addons',
+        'resource_id' => $application->id,
+        'resource_type' => $application->getMorphClass(),
+    ]);
+
+    expect(array_column(OdooJupyter::ownerInstances(), 'team'))->toContain('Cliente 1');
 });
 
 it('stores each github branch without renaming production or staging', function () {
@@ -536,6 +563,33 @@ it('opens grafana for the odoo and postgresql containers only', function () {
         'query' => [],
     ])->assertSee($expected)
         ->assertDontSee('jupyter-'.$service->uuid);
+});
+
+it('removes the separate beszel containers from the service list', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'beszelagent',
+        'human_name' => 'Beszelagent',
+        'image' => 'henrygd/beszel-agent:latest',
+    ]);
+
+    OdooMonitor::forgetExtraApplications($service, ['odoo', 'monitor']);
+
+    $names = $service->applications()->pluck('name')->all();
+
+    expect($names)->toContain('odoo')
+        ->and($names)->not->toContain('beszelagent');
 });
 
 it('shows editor, monitor, and odoo log icons on the project environments', function () {

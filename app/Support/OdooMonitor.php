@@ -6,8 +6,8 @@ use App\Models\Service;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Beszel for one Odoo branch. Launch adds the hub, an agent, and a socket
- * filter that reports only that stack's Odoo and PostgreSQL containers.
+ * Beszel for one Odoo branch. One container runs the panel, the agent, and
+ * the filter that keeps only that stack's Odoo and PostgreSQL containers.
  */
 class OdooMonitor
 {
@@ -33,67 +33,60 @@ class OdooMonitor
             return $compose;
         }
         $image = (string) data_get($services, self::SERVICE_NAME.'.image', '');
-        if (isset($services['beszelagent'], $services['beszelfilter'], $services[self::SERVICE_NAME]) && str_contains($image, 'henrygd/beszel')) {
+        $command = (string) data_get($services, self::SERVICE_NAME.'.command.0', '');
+        if ($image === 'python:3.12-alpine' && str_contains($command, 'universal-token') && ! isset($services['beszelagent']) && ! isset($services['beszelfilter'])) {
             return $compose;
         }
 
-        unset($services['cadvisor'], $services['prometheus']);
+        unset($services['cadvisor'], $services['prometheus'], $services['beszelagent'], $services['beszelfilter']);
         $allow = 'odoo-'.$project.',postgresql-'.$project.',postgres-'.$project;
-        $services['beszelfilter'] = [
+        $services[self::SERVICE_NAME] = [
             'image' => 'python:3.12-alpine',
             'restart' => 'unless-stopped',
             'user' => '0:0',
             'entrypoint' => ['python', '-c'],
             'command' => [self::filterScript()],
             'environment' => [
-                'HUB=http://monitor:8090',
-                'TOKEN=${SERVICE_PASSWORD_MONITOR}',
-                'ALLOW='.$allow,
-                'RETIRE=cadvisor-'.$project.',prometheus-'.$project,
-            ],
-            'volumes' => self::filterVolumes(),
-            'depends_on' => [self::SERVICE_NAME],
-        ];
-        $services['beszelagent'] = [
-            'image' => 'henrygd/beszel-agent:latest',
-            'restart' => 'unless-stopped',
-            'environment' => [
-                'HUB_URL=http://monitor:8090',
-                'TOKEN=${SERVICE_PASSWORD_MONITOR}',
-                'KEY_FILE=/run/beszel/key',
-                'DOCKER_HOST=unix:///run/beszel/docker.sock',
-                'SYSTEM_NAME=odoo-'.$project,
-                'DISABLE_SSH=true',
-                'SKIP_GPU=true',
-                'DOCKER_IMAGE_CHECK=false',
-            ],
-            'volumes' => ['beszel-run:/run/beszel'],
-            'depends_on' => ['beszelfilter'],
-        ];
-        $services[self::SERVICE_NAME] = [
-            'image' => 'henrygd/beszel:latest',
-            'restart' => 'unless-stopped',
-            'environment' => [
                 'SERVICE_URL_MONITOR_8090',
                 'APP_URL=https://${SERVICE_FQDN_MONITOR}',
                 'AUTO_LOGIN=monitor@gpsh.local',
                 'USER_EMAIL=monitor@gpsh.local',
                 'USER_PASSWORD=${SERVICE_PASSWORD_MONITOR}',
+                'TOKEN=${SERVICE_PASSWORD_MONITOR}',
+                'HUB=http://127.0.0.1:8090',
+                'ALLOW='.$allow,
+                'RETIRE=cadvisor-'.$project.',prometheus-'.$project.',beszelagent-'.$project.',beszelfilter-'.$project,
+                'SYSTEM_NAME=odoo-'.$project,
                 'DISABLE_SSH=true',
                 'CONTAINER_DETAILS=true',
+                'SKIP_GPU=true',
+                'DOCKER_IMAGE_CHECK=false',
             ],
-            'volumes' => ['beszel-data:/beszel_data'],
+            'volumes' => self::filterVolumes(),
         ];
         $yaml['services'] = $services;
         $volumes = $yaml['volumes'] ?? [];
         if (! is_array($volumes)) {
             $volumes = [];
         }
+        unset($volumes['beszel-run']);
         $volumes['beszel-data'] = ['driver' => 'local'];
-        $volumes['beszel-run'] = ['driver' => 'local'];
         $yaml['volumes'] = $volumes;
 
         return Yaml::dump($yaml, 8, 2);
+    }
+
+    /**
+     * @param  list<string>  $present
+     */
+    public static function forgetExtraApplications(Service $service, array $present): void
+    {
+        $extra = array_values(array_diff(['beszelagent', 'beszelfilter', 'cadvisor', 'prometheus'], $present));
+        if ($extra === []) {
+            return;
+        }
+
+        $service->applications()->whereIn('name', $extra)->delete();
     }
 
     public static function urlFor(Service $service): ?string
@@ -131,25 +124,28 @@ class OdooMonitor
 
     /**
      * The service parser rewrites host binds other than the Docker socket.
-     * The filter is the only container that may hold that socket.
+     * Monitor is the only container that may hold that socket.
      *
      * @param  array<string, mixed>  $services
      * @return array<string, mixed>
      */
     public static function alignServices(array $services): array
     {
-        if (! isset($services['beszelfilter']) || ! is_array($services['beszelfilter'])) {
+        if (! isset($services[self::SERVICE_NAME]) || ! is_array($services[self::SERVICE_NAME])) {
+            return $services;
+        }
+        if (($services[self::SERVICE_NAME]['image'] ?? '') !== 'python:3.12-alpine') {
             return $services;
         }
 
         $kept = [];
-        foreach ($services['beszelfilter']['volumes'] ?? [] as $volume) {
+        foreach ($services[self::SERVICE_NAME]['volumes'] ?? [] as $volume) {
             if (is_string($volume) && ! str_starts_with($volume, '/var/run/docker.sock:')) {
                 $kept[] = $volume;
             }
         }
         array_unshift($kept, '/var/run/docker.sock:/var/run/docker.sock:ro');
-        $services['beszelfilter']['volumes'] = $kept;
+        $services[self::SERVICE_NAME]['volumes'] = $kept;
 
         return $services;
     }
@@ -161,7 +157,7 @@ class OdooMonitor
     {
         return [
             '/var/run/docker.sock:/var/run/docker.sock:ro',
-            'beszel-run:/run/beszel',
+            'beszel-data:/beszel_data',
         ];
     }
 
@@ -171,24 +167,31 @@ class OdooMonitor
     }
 
     /**
-     * ponytail: Beszel's agent can exclude names, not include them. This proxy
-     * is the include list. If Beszel grows an allow-list, delete this script.
+     * ponytail: Beszel ships the panel and the agent as two binaries, and the
+     * agent can exclude container names but not include them. This one process
+     * downloads both binaries (cached in the data volume, pinned to 0.21.0)
+     * and proxies the Docker socket. If Beszel grows an allow-list, drop the proxy.
      */
     private static function filterScript(): string
     {
         return <<<'PY'
-import json, os, socket, threading, time, urllib.parse, urllib.request
+import json, os, platform, signal, socket, subprocess, sys, tarfile, threading, time, urllib.parse, urllib.request
 from http.client import HTTPConnection
 from pathlib import Path
 
+VERSION = "0.21.0"
 ALLOW = {n for n in os.environ.get("ALLOW", "").split(",") if n}
 RETIRE = {n for n in os.environ.get("RETIRE", "").split(",") if n}
-HUB = os.environ.get("HUB", "http://monitor:8090")
+HUB = os.environ.get("HUB", "http://127.0.0.1:8090")
 TOKEN = os.environ.get("TOKEN", "")
-SOCK = "/run/beszel/docker.sock"
+SOCK = "/tmp/beszel.sock"
 REAL = "/var/run/docker.sock"
+KEY = Path("/beszel_data/key")
+ARCH = {"x86_64": "amd64", "aarch64": "arm64", "armv7l": "armv7"}.get(platform.machine(), "")
 ids = set()
 lock = threading.Lock()
+hub = None
+agent = None
 
 class UnixHTTP(HTTPConnection):
     def __init__(self, path):
@@ -224,11 +227,37 @@ def retire():
     except Exception:
         pass
 
+def fetch(member, filename):
+    dest = Path("/beszel_data/bin") / member
+    if dest.is_file() and dest.stat().st_size > 100000:
+        return dest
+    if not ARCH:
+        raise SystemExit("unsupported cpu")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    url = "https://github.com/henrygd/beszel/releases/download/v" + VERSION + "/" + filename
+    with urllib.request.urlopen(url, timeout=60) as res:
+        raw = res.read()
+    import io
+    with tarfile.open(fileobj=io.BytesIO(raw), mode="r:gz") as tar:
+        picked = None
+        for item in tar.getmembers():
+            if item.isfile() and item.name.split("/")[-1] == member and ".." not in item.name:
+                picked = item
+                break
+        if picked is None:
+            raise SystemExit("missing " + member)
+        src = tar.extractfile(picked)
+        dest.write_bytes(src.read())
+    os.chmod(dest, 0o755)
+    return dest
+
 def bootstrap():
     if not TOKEN:
         return
     auth = None
     for _ in range(40):
+        if hub is not None and hub.poll() is not None:
+            return
         try:
             req = urllib.request.Request(
                 HUB + "/api/collections/users/auth-with-password",
@@ -260,8 +289,8 @@ def bootstrap():
             with urllib.request.urlopen(req, timeout=3) as res:
                 key = json.loads(res.read().decode()).get("key", "").strip()
             if key:
-                Path("/run/beszel/key.tmp").write_text(key + "\n")
-                os.replace("/run/beszel/key.tmp", "/run/beszel/key")
+                KEY.with_name("key.tmp").write_text(key + "\n")
+                os.replace(KEY.with_name("key.tmp"), KEY)
                 return
         except Exception:
             time.sleep(1)
@@ -286,7 +315,6 @@ def handle(conn):
             conn.sendall(b"HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
             return
         path = parts[1].split("?", 1)[0]
-        query = parts[1]
         kind = None
         if path in ("/version", "/info", "/_ping"):
             kind = "pass"
@@ -328,14 +356,11 @@ def handle(conn):
     finally:
         conn.close()
 
-def main():
-    os.makedirs("/run/beszel", exist_ok=True)
+def serve():
     try:
         os.unlink(SOCK)
     except FileNotFoundError:
         pass
-    threading.Thread(target=retire, daemon=True).start()
-    threading.Thread(target=bootstrap, daemon=True).start()
     srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     srv.bind(SOCK)
     os.chmod(SOCK, 0o666)
@@ -343,6 +368,38 @@ def main():
     while True:
         conn, _ = srv.accept()
         threading.Thread(target=handle, args=(conn,), daemon=True).start()
+
+def stop(*_args):
+    if hub is not None:
+        hub.terminate()
+    if agent is not None:
+        agent.terminate()
+    sys.exit(0)
+
+def main():
+    global hub, agent
+    hub_bin = fetch("beszel", "beszel_linux_" + ARCH + ".tar.gz")
+    agent_bin = fetch("beszel-agent", "beszel-agent_linux_" + ARCH + ".tar.gz")
+    hub = subprocess.Popen([str(hub_bin), "serve", "--http=0.0.0.0:8090"])
+    signal.signal(signal.SIGTERM, stop)
+    threading.Thread(target=retire, daemon=True).start()
+    threading.Thread(target=serve, daemon=True).start()
+    bootstrap()
+    if not KEY.is_file():
+        hub.terminate()
+        sys.exit(1)
+    env = os.environ.copy()
+    env.update({
+        "HUB_URL": HUB,
+        "KEY_FILE": str(KEY),
+        "DOCKER_HOST": "unix://" + SOCK,
+        "DATA_DIR": "/beszel_data/agent",
+    })
+    agent = subprocess.Popen([str(agent_bin)], env=env)
+    while True:
+        if hub.poll() is not None or agent.poll() is not None:
+            stop()
+        time.sleep(2)
 
 main()
 PY;

@@ -393,7 +393,7 @@ BASH], $server);
     {
         $rows = [];
         foreach (Service::query()->with(['environment.project.team', 'applications.persistentStorages'])->get() as $service) {
-            if (! $service->supportsOdooJupyter() || (string) $service->server_id !== '0') {
+            if (! $service->supportsOdooJupyter()) {
                 continue;
             }
             $environment = $service->environment;
@@ -482,8 +482,45 @@ BASH], $server);
                 fn (mixed $mount): bool => ! is_string($mount) || ! array_key_exists(explode(':', $mount, 2)[0], $missing),
             ));
         }
+        if (isset($yaml['services']['jupyter']['volumes']) && is_array($yaml['services']['jupyter']['volumes'])) {
+            $yaml['services']['jupyter']['volumes'] = self::withoutEmptyWorkspaces($yaml['services']['jupyter']['volumes']);
+        }
 
         return Yaml::dump($yaml, 8, 2);
+    }
+
+    /**
+     * A team folder with only the image addons is not that client's files.
+     *
+     * @param  list<mixed>  $mounts
+     * @return list<mixed>
+     */
+    public static function withoutEmptyWorkspaces(array $mounts): array
+    {
+        $kinds = [];
+        foreach ($mounts as $mount) {
+            if (! is_string($mount) || preg_match('#:/workspace/([^/]+/[^/]+)/(custom|files|odoo):#', $mount, $match) !== 1) {
+                continue;
+            }
+            $kinds[$match[1]][$match[2]] = true;
+        }
+        $empty = [];
+        foreach ($kinds as $folder => $present) {
+            if (! isset($present['custom']) && ! isset($present['files'])) {
+                $empty[$folder] = true;
+            }
+        }
+        if ($empty === []) {
+            return $mounts;
+        }
+
+        return array_values(array_filter($mounts, function (mixed $mount) use ($empty): bool {
+            if (! is_string($mount) || preg_match('#:/workspace/([^/]+/[^/]+)/odoo:#', $mount, $match) !== 1) {
+                return true;
+            }
+
+            return ! isset($empty[$match[1]]);
+        }));
     }
 
     /**
@@ -708,8 +745,95 @@ def page(text):
     Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p id=\"m\" style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>")
 page("Estamos preparando todo.")
 Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p id=\\\"m\\\" style=\\\"font-size:1.5rem;line-height:1.4\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>\")\n")
-Path("/tmp/gpsh-status.py").write_text("from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer\nimport http.client\nclass H(BaseHTTPRequestHandler):\n    def do_GET(self):\n        self.forward()\n    def do_POST(self):\n        self.forward()\n    def do_HEAD(self):\n        self.forward()\n    def forward(self):\n        try:\n            length=int(self.headers.get('Content-Length') or 0)\n            payload=self.rfile.read(length) if length else None\n            headers={k:v for k,v in self.headers.items() if k.lower() not in ('host','content-length')}\n            conn=http.client.HTTPConnection('127.0.0.1',8071,timeout=60)\n            conn.request(self.command,self.path,body=payload,headers=headers)\n            resp=conn.getresponse()\n            data=resp.read()\n            self.send_response(resp.status)\n            for key,value in resp.getheaders():\n                if key.lower() not in ('transfer-encoding','connection','content-length'):\n                    self.send_header(key,value)\n            self.send_header('Content-Length',str(len(data)))\n            self.end_headers()\n            if self.command!='HEAD':\n                self.wfile.write(data)\n            conn.close()\n        except Exception:\n            page=open('/tmp/gpsh-status.html','rb').read()\n            self.send_response(200)\n            self.send_header('Content-Type','text/html; charset=utf-8')\n            self.send_header('Cache-Control','no-store')\n            self.send_header('Content-Length',str(len(page)))\n            self.end_headers()\n            if self.command!='HEAD':\n                self.wfile.write(page)\n    def log_message(self,*a):\n        return\nThreadingHTTPServer(('0.0.0.0',8069),H).serve_forever()\n")
 PY
+cat > /tmp/gpsh-status.py << 'ENDSTATUS'
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import http.client
+import select
+import socket
+
+class H(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.forward()
+    def do_POST(self):
+        self.forward()
+    def do_HEAD(self):
+        self.forward()
+    def do_OPTIONS(self):
+        self.forward()
+    def do_PUT(self):
+        self.forward()
+    def do_PATCH(self):
+        self.forward()
+    def do_DELETE(self):
+        self.forward()
+    def forward(self):
+        if (self.headers.get("Upgrade") or "").lower() == "websocket":
+            self.tunnel()
+            return
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+            payload = self.rfile.read(length) if length else None
+            headers = {k: v for k, v in self.headers.items() if k.lower() not in ("host", "content-length")}
+            conn = http.client.HTTPConnection("127.0.0.1", 8071, timeout=60)
+            conn.request(self.command, self.path, body=payload, headers=headers)
+            resp = conn.getresponse()
+            data = resp.read()
+            self.send_response(resp.status)
+            for key, value in resp.getheaders():
+                if key.lower() not in ("transfer-encoding", "connection", "content-length"):
+                    self.send_header(key, value)
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(data)
+            conn.close()
+        except Exception:
+            self.waiting()
+    def tunnel(self):
+        upstream = None
+        try:
+            upstream = socket.create_connection(("127.0.0.1", 8071), timeout=10)
+            upstream.settimeout(None)
+            request = "%s %s %s\r\n" % (self.command, self.path, self.request_version)
+            for key, value in self.headers.items():
+                request += "%s: %s\r\n" % (key, value)
+            request += "\r\n"
+            upstream.sendall(request.encode("latin1", "replace"))
+            client = self.connection
+            client.settimeout(None)
+            pair = [client, upstream]
+            while True:
+                ready, _, _ = select.select(pair, [], [], 120)
+                if not ready:
+                    continue
+                for sock in ready:
+                    data = sock.recv(65536)
+                    if not data:
+                        upstream.close()
+                        return
+                    (upstream if sock is client else client).sendall(data)
+        except Exception:
+            if upstream is not None:
+                upstream.close()
+            self.waiting()
+    def waiting(self):
+        try:
+            page = open("/tmp/gpsh-status.html", "rb").read()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(page)
+        except Exception:
+            return
+    def log_message(self, *args):
+        return
+
+ThreadingHTTPServer(("0.0.0.0", 8069), H).serve_forever()
+ENDSTATUS
 python3 /tmp/gpsh-status.py >/tmp/gpsh-status.log 2>&1 &
 echo $! > /tmp/gpsh-status.pid
 python3 - <<'PY' || true
