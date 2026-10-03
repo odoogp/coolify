@@ -37,6 +37,7 @@ class OdooMonitor
             'image' => 'gcr.io/cadvisor/cadvisor:v0.49.1',
             'restart' => 'unless-stopped',
             'privileged' => true,
+            'cgroup' => 'host',
             'command' => ['--docker_only=true', '--housekeeping_interval=30s', '--store_container_labels=true'],
             'volumes' => self::cadvisorVolumes(),
         ];
@@ -118,6 +119,7 @@ class OdooMonitor
         }
 
         $services['cadvisor']['privileged'] = true;
+        $services['cadvisor']['cgroup'] = 'host';
         $services['cadvisor']['volumes'] = self::cadvisorVolumes();
 
         return $services;
@@ -130,7 +132,7 @@ class OdooMonitor
     {
         return [
             '/var/run/docker.sock:/var/run/docker.sock:ro',
-            '/sys:/sys:ro',
+            '/sys/fs/cgroup:/sys/fs/cgroup:ro',
             '/var/lib/docker:/var/lib/docker:ro',
         ];
     }
@@ -152,7 +154,7 @@ scrape_configs:
       - targets: ['cadvisor:8080']
     metric_relabel_configs:
       - source_labels: [name]
-        regex: /?(odoo|postgresql|postgres)-{$project}
+        regex: .*(odoo|postgresql|postgres)-{$project}.*
         action: keep
 EOF
 exec prometheus --config.file=/tmp/prometheus.yml --storage.tsdb.path=/prometheus

@@ -526,7 +526,8 @@ test('launching odoo adds grafana for that stack and only odoo and postgresql', 
 
     expect(array_keys($services))->toContain('cadvisor', 'prometheus', 'monitor')
         ->and($again)->toBe($compose)
-        ->and($services['prometheus']['command'][0])->toContain('regex: /?(odoo|postgresql|postgres)-abc123')
+        ->and($services['prometheus']['command'][0])->toContain('regex: .*(odoo|postgresql|postgres)-abc123.*')
+        ->and($services['cadvisor']['cgroup'])->toBe('host')
         ->and($services['monitor']['command'][0])->toContain('odoo-abc123|postgresql-abc123|postgres-abc123')
         ->and($services['monitor']['command'][0])->toContain('gpsh-odoo')
         ->and($services['monitor']['command'][0])->toContain('container_cpu_usage_seconds_total')
