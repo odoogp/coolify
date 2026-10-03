@@ -5,6 +5,7 @@ namespace App\Livewire\Settings;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
 use App\Models\OdooComposeTemplate;
+use App\Support\OdooJupyter;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use InvalidArgumentException;
@@ -91,9 +92,23 @@ class Odoo extends Component
     {
         $this->authorize('update', $this->settings);
         if (preg_match('/^[A-Za-z0-9_]+$/', $name) === 1) {
+            OdooJupyter::forgetOwnerModule($name);
             GpshOwnerModule::query()->where('name', $name)->delete();
         }
         $this->dispatch('success', __('Owner module removed. Redeploy Odoo to drop the link.'));
+    }
+
+    public function deleteLeftoverVolume(string $name): void
+    {
+        $this->authorize('update', $this->settings);
+        if (! in_array($name, OdooJupyter::leftoverVolumes([$name], OdooJupyter::volumesInUse()), true)) {
+            $this->dispatch('error', __('That volume is still in use.'));
+
+            return;
+        }
+
+        OdooJupyter::deleteLeftoverVolume($name);
+        $this->dispatch('success', __('Volume deleted.'));
     }
 
     public function render()
@@ -103,6 +118,7 @@ class Odoo extends Component
         return view('livewire.settings.odoo', [
             'versions' => array_values(array_unique([...OdooVersion::SUPPORTED, ...$saved, $this->version])),
             'ownerModules' => GpshOwnerModule::names(),
+            'leftoverVolumes' => OdooJupyter::leftoverVolumesOnInstance(),
         ]);
     }
 

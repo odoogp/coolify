@@ -2,6 +2,8 @@
 
 use App\Livewire\Upgrade;
 use App\Models\InstanceSettings;
+use App\Models\Team;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
@@ -32,6 +34,24 @@ it('initializes latest version during mount from cached versions data', function
         ->assertSet('isUpgradeAvailable', true)
         ->assertSee('4.0.0-beta.998')
         ->assertSee('4.0.0-beta.999');
+});
+
+it('lets an instance admin read the upgrade while a client team is selected', function () {
+    InstanceSettings::forceCreate(['id' => 0]);
+    $root = Team::factory()->create(['id' => 0]);
+    $client = Team::factory()->create();
+    $admin = User::factory()->create();
+    $admin->teams()->attach($root, ['role' => 'owner']);
+    $admin->teams()->attach($client, ['role' => 'admin']);
+    $member = User::factory()->create();
+    $member->teams()->attach($client, ['role' => 'member']);
+    session(['currentTeam' => $client]);
+
+    expect(Livewire::actingAs($admin)->test(Upgrade::class)->instance()->canReadUpgrade())->toBeTrue()
+        ->and(Livewire::actingAs($member)->test(Upgrade::class)->instance()->canReadUpgrade())->toBeFalse();
+
+    expect(file_get_contents(base_path('scripts/upgrade-local.sh')))
+        ->toContain('write_status "2" "Pulling ${BRANCH}"');
 });
 
 it('does not highlight the current upgrade stage with the warning yellow accent', function () {

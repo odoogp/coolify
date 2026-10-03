@@ -10,7 +10,8 @@ class DeleteService
     {
         $server = data_get($service, 'server');
         if ($deleteVolumes && $server->isFunctional()) {
-            $commands = [];
+            // Owner Jupyter mounts these volumes, so docker volume rm fails until that container is gone.
+            $commands = $service->supportsOdooJupyter() ? ['docker rm -f gpsh-owner-jupyter'] : [];
             foreach ($service->applications()->get() as $application) {
                 foreach ($application->persistentStorages()->get() as $storage) {
                     $commands[] = 'docker volume rm -f '.escapeshellarg($storage->name);

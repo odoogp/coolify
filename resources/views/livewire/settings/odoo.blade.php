@@ -56,6 +56,20 @@
                     @endforelse
                 </ul>
             </x-application.settings-section>
+            <x-application.settings-section title="{{ __('Leftover volumes') }}"
+                description="{{ __('These volumes are not used by a current environment. Deleting one removes its files.') }}">
+                <ul class="max-w-xl divide-y divide-neutral-200 dark:divide-white/10">
+                    @forelse ($leftoverVolumes as $volume)
+                        <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="leftover-volume-{{ $volume }}">
+                            <span class="font-mono">{{ $volume }}</span>
+                            <button type="button" class="text-red-500" wire:click="deleteLeftoverVolume('{{ $volume }}')"
+                                wire:confirm="{{ __('Delete this volume and its files?') }}">{{ __('Delete volume') }}</button>
+                        </li>
+                    @empty
+                        <li class="py-2 text-sm text-neutral-500">{{ __('No leftover volumes.') }}</li>
+                    @endforelse
+                </ul>
+            </x-application.settings-section>
         </div>
     </x-settings.layout>
 </div>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Service;
+use App\Support\OdooAddons;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
@@ -441,6 +442,22 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and(OdooGit::usesSharedCertificate('monitor_3000'))->toBeTrue()
         ->and(OdooGit::usesSharedCertificate('jupyterowner'))->toBeTrue()
         ->and(OdooGit::usesSharedCertificate('cadvisor'))->toBeFalse();
+});
+
+test('owner jupyter omits an empty volumes key and leftover volumes are the unused odoo ones', function () {
+    $compose = OdooJupyter::ownerCompose([], 'abcdef0123456789', 'jupyter.example.test');
+    $service = new Service;
+    $service->uuid = 'abc123';
+    $copy = OdooAddons::copyCommands($service, '/tmp/addons');
+
+    expect(Yaml::parse($compose))->not->toHaveKey('volumes')
+        ->and(OdooJupyter::leftoverVolumes(
+            ['abc_odoo-extra-addons', 'abc_odoo-web-data', 'abc_postgresql-data', 'odoo-stdlib-18', 'coolify-db', 'xyz_odoo-web-data'],
+            ['xyz_odoo-web-data'],
+        ))->toBe(['abc_odoo-extra-addons', 'abc_odoo-web-data', 'abc_postgresql-data', 'odoo-stdlib-18'])
+        ->and($copy[1])->toContain('.gpsh')
+        ->and($copy[1])->toContain('rm -rf')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Actions/Service/DeleteService.php'))->toContain('docker rm -f gpsh-owner-jupyter');
 });
 
 test('client jupyter mounts that environment addon volume', function () {

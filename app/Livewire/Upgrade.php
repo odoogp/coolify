@@ -117,8 +117,7 @@ class Upgrade extends Component
 
     public function getUpgradeStatus(): array
     {
-        // Only root team members can view upgrade status
-        if (auth()->user()?->currentTeam()?->id !== 0) {
+        if (! $this->canReadUpgrade()) {
             return ['status' => 'none'];
         }
 
@@ -152,7 +151,7 @@ class Upgrade extends Component
      */
     public function upgradeLog(): array
     {
-        if (auth()->user()?->currentTeam()?->id !== 0) {
+        if (! $this->canReadUpgrade()) {
             return ['text' => ''];
         }
 
@@ -175,5 +174,10 @@ class Upgrade extends Component
         }
 
         return ['text' => $text];
+    }
+
+    public function canReadUpgrade(): bool
+    {
+        return isInstanceAdmin();
     }
 }

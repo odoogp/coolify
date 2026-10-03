@@ -75,6 +75,7 @@ it('updates a local checkout without pulling the official image', function () {
 
     expect($script)
         ->toContain('git fetch origin')
+        ->toContain('write_status "2" "Pulling ${BRANCH}"')
         ->toContain('git pull --ff-only origin "$BRANCH"')
         ->toContain('git status --porcelain')
         ->toContain('git merge-base --is-ancestor HEAD "origin/${BRANCH}"')

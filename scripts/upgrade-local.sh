@@ -226,6 +226,8 @@ fi
 write_status "1" "Fetching ${BRANCH}"
 log "Fetching origin ${BRANCH}"
 git fetch origin || fail "git fetch origin failed."
+write_status "2" "Pulling ${BRANCH}"
+log "Checking out ${BRANCH}"
 git checkout "$BRANCH" 2>>"$LOGFILE" || git checkout -b "$BRANCH" "origin/${BRANCH}" || fail "Could not checkout ${BRANCH}."
 if ! git merge-base --is-ancestor HEAD "origin/${BRANCH}"; then
     fail "Branch ${BRANCH} has diverged from origin. Fast-forward is not possible, so the running container was left unchanged."

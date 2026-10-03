@@ -556,18 +556,12 @@
                             this.revive();
                             await this.probeHealth();
                         }
-                        if (this.showUpgradeLog) {
-                            await this.refreshUpgradeLog();
-                        }
                     } catch (error) {
                         this.livewireFailures++;
                         if (this.livewireFailures < 3) {
                             this.currentStatus = 'Reconnecting. This is expected during an upgrade...';
-                            return;
-                        }
-                        // Repeated Livewire failures usually mean the instance is restarting
-                        console.log('Livewire unavailable, switching to health check mode');
-                        if (!this.serviceDown) {
+                        } else if (!this.serviceDown) {
+                            console.log('Livewire unavailable, switching to health check mode');
                             this.serviceDown = true;
                             this.instanceWentDown = true;
                             this.currentStep = 4;
@@ -579,6 +573,9 @@
                             }
                             this.revive();
                         }
+                    }
+                    if (this.showUpgradeLog) {
+                        await this.refreshUpgradeLog();
                     }
                 }, 2000);
             }

@@ -24,9 +24,11 @@ class OdooAddons
         $volume = escapeshellarg(self::extraAddonsVolume($service));
         $source = escapeshellarg($sourceDir);
 
+        $script = 'cp -a /source/. /mnt/extra-addons/; for item in /mnt/extra-addons/* /mnt/extra-addons/.[!.]*; do [ -e "$item" ] || continue; base=$(basename "$item"); [ "$base" = ".gpsh" ] && continue; [ -L "$item" ] && continue; [ -e "/source/$base" ] && continue; rm -rf "$item"; done';
+
         return [
             'docker volume create '.$volume,
-            "docker run --rm -v {$source}:/source:ro -v {$volume}:/mnt/extra-addons alpine sh -c 'cp -a /source/. /mnt/extra-addons/'",
+            'docker run --rm -v '.$source.':/source:ro -v '.$volume.':/mnt/extra-addons alpine sh -c '.escapeshellarg($script),
         ];
     }
 

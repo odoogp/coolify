@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\LocalPersistentVolume;
 use App\Models\Server;
 use App\Models\Service;
 use Illuminate\Support\Facades\Cache;
@@ -224,11 +225,14 @@ class OdooJupyter
                 'gpsh-owner-jupyter' => ['name' => 'gpsh-owner-jupyter'],
             ],
         ], 8, 2);
-        $yaml .= "volumes:\n";
-        foreach ($external as $name => $spec) {
-            $yaml .= ($spec['external'] ?? false) === true
-                ? "  {$name}: {name: {$name}, external: true}\n"
-                : "  {$name}: {name: {$name}}\n";
+        if ($external !== []) {
+            $yaml .= "volumes:\n";
+            foreach ($external as $name => $spec) {
+                $yaml .= "  {$name}:\n    name: {$name}\n";
+                if (($spec['external'] ?? false) === true) {
+                    $yaml .= "    external: true\n";
+                }
+            }
         }
 
         return $yaml;
@@ -258,10 +262,22 @@ cat > "\$dir/docker-compose.yml" <<'EOF'
 EOF
 while IFS= read -r volume; do
   [ -n "\$volume" ] || continue
-  docker volume inspect "\$volume" >/dev/null 2>&1 || sed -i "/\${volume}/d" "\$dir/docker-compose.yml"
+  docker volume inspect "\$volume" >/dev/null 2>&1 && continue
+  grep -F -v -- "\$volume" "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
+  mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
 done <<'VOLS'
 {$volumes}
 VOLS
+awk '
+  /^volumes:[[:space:]]*$/ {
+    if ((getline nl) > 0) {
+      if (nl ~ /^[[:space:]]/) { print; print nl } else { print nl }
+    }
+    next
+  }
+  { print }
+' "\$dir/docker-compose.yml" > "\$dir/docker-compose.yml.next"
+mv "\$dir/docker-compose.yml.next" "\$dir/docker-compose.yml"
 docker compose -f "\$dir/docker-compose.yml" --project-name gpsh-owner-jupyter up -d
 docker network connect gpsh-owner-jupyter coolify-proxy >/dev/null 2>&1 || true
 BASH], $server);
@@ -330,6 +346,93 @@ BASH], $server);
         }
 
         return $names;
+    }
+
+    /**
+     * Volumes left on the instance after an environment or its modules were removed.
+     *
+     * @param  list<string>  $present
+     * @param  list<string>  $inUse
+     * @return list<string>
+     */
+    public static function leftoverVolumes(array $present, array $inUse): array
+    {
+        $used = array_fill_keys($inUse, true);
+        $kept = [];
+        foreach ($present as $name) {
+            $name = trim((string) $name);
+            if ($name === '' || isset($used[$name])) {
+                continue;
+            }
+            $odooVolume = preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*_(odoo-extra-addons|odoo-web-data|postgresql-data)\z/', $name) === 1;
+            $stdlib = preg_match('/\Aodoo-stdlib-[A-Za-z0-9._-]+\z/', $name) === 1;
+            if ($odooVolume || $stdlib) {
+                $kept[] = $name;
+            }
+        }
+        sort($kept);
+
+        return $kept;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function volumesInUse(): array
+    {
+        $names = LocalPersistentVolume::query()->pluck('name')->all();
+        foreach (self::ownerInstances() as $instance) {
+            $names[] = self::stdlibVolumeName((string) ($instance['image'] ?? ''));
+        }
+
+        return array_values(array_filter($names, fn (mixed $name): bool => is_string($name) && $name !== ''));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function leftoverVolumesOnInstance(): array
+    {
+        if (app()->runningUnitTests()) {
+            return [];
+        }
+        $server = Server::query()->find(0);
+        if (! $server instanceof Server || ! $server->isFunctional()) {
+            return [];
+        }
+        $raw = instant_remote_process(['docker volume ls -q'], $server, false);
+        $present = preg_split('/\R/', trim((string) $raw)) ?: [];
+
+        return self::leftoverVolumes($present, self::volumesInUse());
+    }
+
+    public static function deleteLeftoverVolume(string $name): void
+    {
+        if (! in_array($name, self::leftoverVolumes([$name], self::volumesInUse()), true) || app()->runningUnitTests()) {
+            return;
+        }
+        $server = Server::query()->find(0);
+        if (! $server instanceof Server || ! $server->isFunctional()) {
+            return;
+        }
+        instant_remote_process([
+            'docker rm -f gpsh-owner-jupyter',
+            'docker volume rm -f '.escapeshellarg($name),
+        ], $server, false);
+    }
+
+    public static function forgetOwnerModule(string $name): void
+    {
+        if (preg_match('/\A[A-Za-z0-9_]+\z/', $name) !== 1 || app()->runningUnitTests()) {
+            return;
+        }
+        $server = Server::query()->find(0);
+        if (! $server instanceof Server || ! $server->isFunctional()) {
+            return;
+        }
+        instant_remote_process([
+            'rm -rf '.escapeshellarg('/data/coolify/gpsh-owner-modules/'.$name),
+        ], $server, false);
     }
 
     /**
