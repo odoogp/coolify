@@ -59,6 +59,8 @@ test('letify light is a named light theme and does not restyle dark appearances'
         ->and($menu)
         ->toContain('previewLetifyColor')
         ->toContain('saveLetifyColor')
+        ->toContain("dataset.theme = 'light'")
+        ->not->toContain('previewThemeColor')
         ->not->toContain('html[data-theme="crystal"]')
         ->not->toContain('html.dark')
         ->and($layout)

@@ -14,7 +14,6 @@
     theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark'),
     pageWidth: localStorage.getItem('pageWidth') || 'full',
     themeColor: localStorage.getItem('themeColor') || '#6b16ed',
-    themeColorFrame: null,
     avatarUrl: @js($user?->avatar_path ? route('profile.avatar', ['v' => $user->updated_at->timestamp]) : null),
     openPanel() {
         this.appearanceOpen = false;
@@ -48,39 +47,19 @@
     previewLetifyColor(color) {
         this.themeColor = color;
         if (this.theme !== 'light') {
-            this.setTheme('light', false);
+            this.theme = 'light';
+            localStorage.setItem('theme', 'light');
         }
+        document.documentElement.classList.remove('dark');
+        document.documentElement.dataset.theme = 'light';
         document.documentElement.style.setProperty('--theme-base-color', color);
         document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(color));
+        document.querySelector('meta[name=theme-color]')?.setAttribute('content', '#ffffff');
     },
     saveLetifyColor(color) {
         this.previewLetifyColor(color);
         localStorage.setItem('themeColor', color);
         localStorage.setItem('theme', 'light');
-    },
-    previewThemeColor(color) {
-        this.themeColor = color;
-
-        if (this.theme !== 'custom') {
-            this.theme = 'custom';
-            document.documentElement.classList.add('dark');
-            document.documentElement.dataset.theme = 'custom';
-        }
-
-        if (this.themeColorFrame) {
-            return;
-        }
-
-        this.themeColorFrame = requestAnimationFrame(() => {
-            document.documentElement.style.setProperty('--theme-base-color', this.themeColor);
-            document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(this.themeColor));
-            this.themeColorFrame = null;
-        });
-    },
-    saveThemeColor(color) {
-        this.previewThemeColor(color);
-        localStorage.setItem('themeColor', color);
-        localStorage.setItem('theme', 'custom');
     },
 }" @avatar-updated.window="avatarUrl = $event.detail.url" @keydown.escape.window="closePanel()"
     @click.outside="closePanel()">
@@ -148,7 +127,7 @@
                 ['value' => 'custom', 'label' => __('Custom Dark')],
             ] as $option)
                 @if ($option['value'] === 'light')
-                    <div class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-neutral-600">
+                    <div class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
                         <span class="relative size-3.5 shrink-0">
                             <span class="block size-3.5 rounded-full border border-black/10"
                                 :style="`background: ${themeColor}`"></span>
@@ -167,24 +146,6 @@
                             <path d="m2.5 6.25 2.1 2.1 4.9-5" stroke="currentColor" stroke-width="1.4"
                                 stroke-linecap="round" stroke-linejoin="round" />
                         </svg>
-                    </div>
-                @elseif ($option['value'] === 'custom')
-                    <div
-                        class="relative flex h-8 w-full items-center justify-between rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
-                        <span class="flex items-center gap-2">
-                            <span class="size-3.5 rounded-full border border-white/20"
-                                :style="`background: ${themeColor}`"></span>
-                            {{ __('Custom Dark') }}
-                        </span>
-                        <svg x-show="theme === 'custom'" class="size-3.5 text-coollabs dark:text-warning"
-                            viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                            <path d="m2.5 6.25 2.1 2.1 4.9-5" stroke="currentColor" stroke-width="1.4"
-                                stroke-linecap="round" stroke-linejoin="round" />
-                        </svg>
-                        <input type="color" :value="themeColor" @input="previewThemeColor($event.target.value)"
-                            @change="saveThemeColor($event.target.value)"
-                            aria-label="{{ __('Custom theme color') }}"
-                            class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
                     </div>
                 @else
                     <button type="button" @click="setTheme('{{ $option['value'] }}')"

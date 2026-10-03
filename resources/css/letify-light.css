@@ -5,13 +5,14 @@
  */
 html[data-theme="light"] {
     --letify-primary: var(--theme-base-color, #7b3ff2);
-    --letify-soft: color-mix(in srgb, var(--letify-primary) 12%, white);
-    --letify-soft-hover: color-mix(in srgb, var(--letify-primary) 18%, white);
+    --letify-soft: color-mix(in srgb, var(--letify-primary) 14%, white);
+    --letify-soft-hover: color-mix(in srgb, var(--letify-primary) 22%, white);
     --letify-ink-accent: color-mix(in srgb, var(--letify-primary) 72%, black);
-    --letify-glow: color-mix(in srgb, var(--letify-primary) 16%, transparent);
-    --letify-glow-strong: color-mix(in srgb, var(--letify-primary) 28%, transparent);
-    --letify-canvas: color-mix(in srgb, var(--letify-primary) 5%, white);
-    --letify-line: color-mix(in srgb, var(--letify-primary) 16%, white);
+    --letify-glow: color-mix(in srgb, var(--letify-primary) 18%, transparent);
+    --letify-glow-strong: color-mix(in srgb, var(--letify-primary) 32%, transparent);
+    --letify-canvas: color-mix(in srgb, var(--letify-primary) 16%, #f7f6fb);
+    --letify-panel: color-mix(in srgb, var(--letify-primary) 9%, white);
+    --letify-line: color-mix(in srgb, var(--letify-primary) 22%, white);
     --letify-ink: #2a2140;
     --letify-muted: #6d6484;
     --color-accent: var(--letify-primary);
@@ -19,7 +20,7 @@ html[data-theme="light"] {
     --color-coollabs-100: color-mix(in srgb, var(--letify-primary) 78%, white);
     --color-coollabs-200: var(--letify-primary);
     --color-app: var(--letify-canvas);
-    --color-panel: #ffffff;
+    --color-panel: var(--letify-panel);
     --color-surface: #ffffff;
     --color-raised: #ffffff;
     --color-nav-text: #5c5474;
@@ -43,7 +44,7 @@ html[data-theme="light"] main.min-h-screen {
 html[data-theme="light"] .app-sidebar,
 html[data-theme="light"] header.fixed.top-0,
 html[data-theme="light"] .sticky.top-0.z-40 {
-    background: #ffffff;
+    background: var(--letify-panel);
 }
 
 html[data-theme="light"] main h1 {
@@ -69,34 +70,34 @@ html[data-theme="light"] .coolbox:hover {
     transition: transform 240ms ease-out, box-shadow 240ms ease-out;
 }
 
-html[data-theme="light"] .button {
+html[data-theme="light"] .button:not(:disabled) {
     min-height: 48px;
     padding-inline: 1.25rem;
     border-radius: 999px;
     border-color: transparent;
-    background: var(--letify-soft);
-    color: var(--letify-ink-accent);
-    box-shadow: 0 8px 20px var(--letify-glow);
+    background: var(--letify-primary);
+    color: var(--theme-accent-foreground, #ffffff);
+    box-shadow: 0 8px 20px var(--letify-glow-strong);
     transition: transform 220ms ease-out, box-shadow 220ms ease-out, background-color 220ms ease-out;
 }
 
 html[data-theme="light"] .button:hover:not(:disabled) {
     transform: translateY(-2px);
-    background: var(--letify-soft-hover);
-    box-shadow: 0 12px 28px var(--letify-glow);
-    color: var(--letify-ink-accent);
+    background: color-mix(in srgb, var(--letify-primary) 82%, black);
+    box-shadow: 0 12px 28px var(--letify-glow-strong);
+    color: var(--theme-accent-foreground, #ffffff);
 }
 
 html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
     border-color: transparent;
     background-image: linear-gradient(135deg, var(--letify-primary) 0%, color-mix(in srgb, var(--letify-primary) 62%, white) 100%);
-    color: #ffffff;
+    color: var(--theme-accent-foreground, #ffffff);
     box-shadow: 0 12px 28px var(--letify-glow-strong);
 }
 
 html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)):hover:not(:disabled) {
     background-image: linear-gradient(135deg, color-mix(in srgb, var(--letify-primary) 82%, black) 0%, var(--letify-primary) 100%);
-    color: #ffffff;
+    color: var(--theme-accent-foreground, #ffffff);
 }
 
 html[data-theme="light"] .input,
@@ -134,13 +135,13 @@ html[data-theme="light"] .application-settings-navigation .menu-item-active,
 html[data-theme="light"] .menu-subitem-active {
     background-color: transparent;
     background-image: linear-gradient(135deg, var(--letify-primary) 0%, color-mix(in srgb, var(--letify-primary) 62%, white) 100%);
-    color: #ffffff;
+    color: var(--theme-accent-foreground, #ffffff);
     box-shadow: 0 10px 24px var(--letify-glow-strong);
 }
 
 html[data-theme="light"] .menu-item-active .menu-item-icon,
 html[data-theme="light"] .menu-subitem-active .menu-item-icon {
-    color: #ffffff;
+    color: currentColor;
     opacity: 1;
 }
 

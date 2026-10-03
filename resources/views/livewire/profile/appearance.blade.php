@@ -4,7 +4,6 @@
         theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'dark'),
         themeColor: localStorage.getItem('themeColor') || '#6b16ed',
         pageWidth: localStorage.getItem('pageWidth') || 'full',
-        themeColorFrame: null,
         init() {
             localStorage.setItem('theme', this.theme);
             this.applyTheme();
@@ -21,41 +20,14 @@
         },
         previewLetifyColor(color) {
             this.themeColor = color;
-            if (this.theme !== 'light') {
-                this.theme = 'light';
-                localStorage.setItem('theme', 'light');
-            }
+            this.theme = 'light';
+            localStorage.setItem('theme', 'light');
             this.applyTheme();
-            document.documentElement.style.setProperty('--theme-base-color', color);
         },
         saveLetifyColor(color) {
             this.previewLetifyColor(color);
             localStorage.setItem('themeColor', color);
             localStorage.setItem('theme', 'light');
-        },
-        previewThemeColor(color) {
-            this.themeColor = color;
-
-            if (this.theme !== 'custom') {
-                this.theme = 'custom';
-                document.documentElement.classList.add('dark');
-                document.documentElement.dataset.theme = 'custom';
-            }
-
-            if (this.themeColorFrame) {
-                return;
-            }
-
-            this.themeColorFrame = requestAnimationFrame(() => {
-                document.documentElement.style.setProperty('--theme-base-color', this.themeColor);
-                document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(this.themeColor));
-                this.themeColorFrame = null;
-            });
-        },
-        saveThemeColor(color) {
-            this.previewThemeColor(color);
-            localStorage.setItem('themeColor', color);
-            localStorage.setItem('theme', 'custom');
         },
         applyTheme() {
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -82,13 +54,11 @@
                     ['value' => 'dark', 'label' => __('Midnight Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
                     ['value' => 'crystal', 'label' => __('Crystal Dark'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
                     ['value' => 'crystal-light', 'label' => __('Crystal Light'), 'description' => __('The same glass in light tones.'), 'preview' => 'bg-gradient-to-b from-[#ffe4dc] via-[#efe8ff] to-white'],
-                    ['value' => 'custom', 'label' => __('Custom Dark'), 'description' => __('Choose any color for dark surfaces.'), 'preview' => ''],
+                    ['value' => 'custom', 'label' => __('Custom Dark'), 'description' => __('Dark surfaces with the accent chosen on Letify Light.'), 'preview' => ''],
                 ] as $option)
                     <div role="button" tabindex="0"
-                        @if ($option['value'] !== 'custom')
-                            @click="setTheme('{{ $option['value'] }}')"
-                            @keydown.enter.prevent="setTheme('{{ $option['value'] }}')"
-                        @endif
+                        @click="setTheme('{{ $option['value'] }}')"
+                        @keydown.enter.prevent="setTheme('{{ $option['value'] }}')"
                         class="group relative overflow-hidden rounded-[10px] border border-neutral-200 bg-white text-left transition-[border-color,box-shadow] hover:border-neutral-300 hover:shadow-sm dark:border-white/[0.07] dark:bg-white/[0.025] dark:hover:border-white/[0.12]"
                         :class="theme === '{{ $option['value'] }}'
                             ? 'ring-1 ring-coollabs/30 border-coollabs/40 dark:ring-warning/30 dark:border-warning/40'
@@ -120,16 +90,11 @@
                                 {{ $option['description'] }}
                             </p>
                         </div>
-                        @if ($option['value'] === 'custom')
-                            <input type="color" :value="themeColor" @input="previewThemeColor($event.target.value)"
-                                @change="saveThemeColor($event.target.value)"
-                                aria-label="{{ __('Custom theme color') }}"
-                                class="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0" />
-                        @elseif ($option['value'] === 'light')
+                        @if ($option['value'] === 'light')
                             <input type="color" :value="themeColor" @click.stop @input="previewLetifyColor($event.target.value)"
                                 @change="saveLetifyColor($event.target.value)"
                                 aria-label="{{ __('Letify accent color') }}"
-                                class="absolute top-6 left-1/2 z-10 size-10 -translate-x-1/2 cursor-pointer opacity-0" />
+                                class="absolute inset-x-0 top-0 z-10 h-20 w-full cursor-pointer opacity-0" />
                         @endif
                     </div>
                 @endforeach

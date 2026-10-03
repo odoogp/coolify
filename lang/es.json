@@ -1109,6 +1109,7 @@
     "The current environment is excluded.": "El entorno actual está excluido.",
     "Cannot connect to real-time service": "No se puede conectar al servicio en tiempo real",
     "Choose any color for dark surfaces.": "Elige cualquier color para superficies oscuras.",
+    "Dark surfaces with the accent chosen on Letify Light.": "Superficies oscuras con el acento elegido en Letify claro.",
     "Confirm by entering the server name": "Confirma escribiendo el nombre del servidor",
     "Confirm changing of CA Certificate?": "¿Confirmar el cambio del certificado CA?",
     "DNS is not pointing to the right IP": "El DNS no apunta a la IP correcta",
