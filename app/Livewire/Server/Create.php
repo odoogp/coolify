@@ -5,6 +5,7 @@ namespace App\Livewire\Server;
 use App\Models\CloudProviderToken;
 use App\Models\PrivateKey;
 use App\Models\Team;
+use App\Services\Cloud\AdditionalCloudCatalog;
 use Livewire\Component;
 
 class Create extends Component
@@ -21,7 +22,8 @@ class Create extends Component
 
     public function mount(?string $selectedType = null, ?string $selectedTokenUuid = null): void
     {
-        $this->selectedType = in_array($selectedType, ['hetzner', 'vultr', 'digital-ocean', 'manual'], true)
+        $allowedTypes = array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual'], AdditionalCloudCatalog::slugs());
+        $this->selectedType = in_array($selectedType, $allowedTypes, true)
             ? $selectedType
             : null;
         $this->selectedTokenUuid = $this->selectedType && $this->selectedType !== 'manual' ? $selectedTokenUuid : null;

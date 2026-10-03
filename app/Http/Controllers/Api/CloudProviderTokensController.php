@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CloudProviderToken;
+use App\Services\Cloud\AdditionalCloudCatalog;
+use App\Services\Cloud\AdditionalCloudFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -35,6 +37,15 @@ class CloudProviderTokensController extends Controller
     private function validateProviderToken(string $provider, string $token): array
     {
         try {
+            if (AdditionalCloudCatalog::supports($provider)) {
+                $valid = AdditionalCloudFactory::fromStored($provider, $token)->ping();
+
+                return [
+                    'valid' => $valid,
+                    'error' => $valid ? null : "Invalid {$provider} credentials. Please check the API credentials.",
+                ];
+            }
+
             $response = match ($provider) {
                 'hetzner' => Http::withHeaders([
                     'Authorization' => 'Bearer '.$token,
@@ -90,7 +101,7 @@ class CloudProviderTokensController extends Controller
                                 properties: [
                                     'uuid' => ['type' => 'string'],
                                     'name' => ['type' => 'string'],
-                                    'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr']],
+                                    'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr', 'linode', 'upcloud', 'scaleway', 'contabo', 'exoscale']],
                                     'team_id' => ['type' => 'integer'],
                                     'servers_count' => ['type' => 'integer'],
                                     'created_at' => ['type' => 'string'],
@@ -208,7 +219,7 @@ class CloudProviderTokensController extends Controller
                     type: 'object',
                     required: ['provider', 'token', 'name'],
                     properties: [
-                        'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr'], 'example' => 'hetzner', 'description' => 'The cloud provider.'],
+                        'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr', 'linode', 'upcloud', 'scaleway', 'contabo', 'exoscale'], 'example' => 'hetzner', 'description' => 'The cloud provider. UpCloud, Scaleway, Contabo, and Exoscale store extra credentials as JSON in token.'],
                         'token' => ['type' => 'string', 'example' => 'your-api-token-here', 'description' => 'The API token for the cloud provider.'],
                         'name' => ['type' => 'string', 'example' => 'My Hetzner Token', 'description' => 'A friendly name for the token.'],
                     ],
@@ -263,7 +274,7 @@ class CloudProviderTokensController extends Controller
         $body = $request->json()->all();
 
         $validator = customApiValidator($body, [
-            'provider' => 'required|string|in:hetzner,digitalocean,vultr',
+            'provider' => AdditionalCloudCatalog::providerRule(),
             'token' => 'required|string',
             'name' => 'required|string|max:255',
         ]);
