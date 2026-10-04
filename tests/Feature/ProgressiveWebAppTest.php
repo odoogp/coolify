@@ -11,7 +11,7 @@ test('the panel can be installed without caching signed-in pages', function () {
         ->and($manifest['start_url'])->toBe('/')
         ->and($manifest['scope'])->toBe('/')
         ->and($manifest['display'])->toBe('standalone')
-        ->and($manifest['theme_color'])->toBe('#1b2c6f')
+        ->and($manifest['theme_color'])->toBe('#1C2430')
         ->and(collect($manifest['icons'])->pluck('sizes')->all())->toContain('192x192', '512x512')
         ->and($worker)->toContain("addEventListener('fetch'")
         ->and($worker)->toContain("request.mode !== 'navigate'")
