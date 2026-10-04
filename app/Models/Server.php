@@ -295,6 +295,8 @@ class Server extends BaseModel
         'vultr_instance_status',
         'digitalocean_droplet_id',
         'digitalocean_droplet_status',
+        'provider_server_id',
+        'provider_server_status',
         'is_validating',
         'validation_logs',
         'detected_traefik_version',

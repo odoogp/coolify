@@ -60,7 +60,12 @@ test('security cloud token form lets users choose every supported provider', fun
         ->assertSee('Provider')
         ->assertSee('Hetzner')
         ->assertSee('DigitalOcean')
-        ->assertSee('Vultr');
+        ->assertSee('Vultr')
+        ->assertSee('Linode')
+        ->assertSee('UpCloud')
+        ->assertSee('Scaleway')
+        ->assertSee('Contabo')
+        ->assertSee('Exoscale');
 });
 
 test('cloud provider help link reacts to provider selection without a live request', function () {

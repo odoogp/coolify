@@ -3,13 +3,37 @@
         x-data="{
             selectedProvider: $wire.entangle('provider'),
             get providerName() {
-                return this.selectedProvider === 'digitalocean' ? 'DigitalOcean' :
-                    this.selectedProvider.charAt(0).toUpperCase() + this.selectedProvider.slice(1);
+                const names = {
+                    digitalocean: 'DigitalOcean',
+                    linode: 'Linode',
+                    upcloud: 'UpCloud',
+                    scaleway: 'Scaleway',
+                    contabo: 'Contabo',
+                    exoscale: 'Exoscale',
+                };
+
+                return names[this.selectedProvider]
+                    || this.selectedProvider.charAt(0).toUpperCase() + this.selectedProvider.slice(1);
             },
             get providerConsoleUrl() {
-                if (this.selectedProvider === 'hetzner') return 'https://console.hetzner.com/projects';
-                if (this.selectedProvider === 'vultr') return 'https://console.vultr.com/user/apiaccess/';
-                return 'https://cloud.digitalocean.com/account/api/tokens';
+                const urls = {
+                    hetzner: 'https://console.hetzner.com/projects',
+                    vultr: 'https://console.vultr.com/user/apiaccess/',
+                    digitalocean: 'https://cloud.digitalocean.com/account/api/tokens',
+                    linode: 'https://cloud.linode.com/profile/tokens',
+                    upcloud: 'https://hub.upcloud.com/people',
+                    scaleway: 'https://console.scaleway.com/iam/api-keys',
+                    contabo: 'https://my.contabo.com/api/details',
+                    exoscale: 'https://portal.exoscale.com/iam/api-keys',
+                };
+
+                return urls[this.selectedProvider] || urls.digitalocean;
+            },
+            get needsAccount() {
+                return ['upcloud', 'contabo', 'exoscale'].includes(this.selectedProvider);
+            },
+            get needsProject() {
+                return ['scaleway', 'contabo'].includes(this.selectedProvider);
             }
         }">
         @if (!$provider_locked)
@@ -18,6 +42,11 @@
                 ['value' => 'hetzner', 'label' => __('Hetzner')],
                 ['value' => 'digitalocean', 'label' => __('DigitalOcean')],
                 ['value' => 'vultr', 'label' => __('Vultr')],
+                ['value' => 'linode', 'label' => __('Linode')],
+                ['value' => 'upcloud', 'label' => __('UpCloud')],
+                ['value' => 'scaleway', 'label' => __('Scaleway')],
+                ['value' => 'contabo', 'label' => __('Contabo')],
+                ['value' => 'exoscale', 'label' => __('Exoscale')],
             ]" />
         @else
             <input type="hidden" wire:model="provider" />
@@ -35,6 +64,29 @@
         <div class="grid gap-4 lg:grid-cols-2">
             <x-forms.input required id="name" label="{{ __('Token name') }}"
                 x-bind:placeholder="`Production ${providerName} token`" />
+            <div class="lg:col-span-2" x-cloak x-show="needsAccount || needsProject || selectedProvider === 'contabo'" style="display: none">
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'upcloud'">
+                    {{ __('UpCloud uses the account username and its API password.') }}
+                </p>
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'scaleway'">
+                    {{ __('Scaleway uses a secret key and the project ID.') }}
+                </p>
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'contabo'">
+                    {{ __('Contabo uses the API client ID, client secret, username, and password.') }}
+                </p>
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'exoscale'">
+                    {{ __('Exoscale uses the API key and the API secret.') }}
+                </p>
+            </div>
+            <div x-cloak x-show="needsAccount" style="display: none">
+                <x-forms.input required id="account" label="{{ __('Username or API key') }}" />
+            </div>
+            <div x-cloak x-show="needsProject" style="display: none">
+                <x-forms.input required id="project" label="{{ __('Project ID or client ID') }}" />
+            </div>
+            <div x-cloak x-show="selectedProvider === 'contabo'" style="display: none">
+                <x-forms.input required type="password" id="secret" label="{{ __('Client secret') }}" />
+            </div>
             <x-forms.input required type="password" id="token" label="{{ __('API token') }}"
                 placeholder="{{ __('Paste the provider token') }}" />
             <div class="lg:col-span-2">

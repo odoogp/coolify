@@ -11,7 +11,8 @@ it('allows selecting Vultr in cloud provider token forms', function () {
         ->and(substr_count($view, 'https://console.vultr.com/user/apiaccess/'))->toBe(2)
         ->and($view)->not->toContain('cloudProviderTokens->where(\'provider\', $provider)->isEmpty()')
         ->and($view)->not->toContain('<x-forms.select required id="provider" label="Provider" disabled>')
-        ->and($component)->toContain("'provider' => 'required|string|in:hetzner,digitalocean,vultr'");
+        ->and($component)->toContain('AdditionalCloudCatalog::providerRule()')
+        ->and(file_get_contents(__DIR__.'/../../app/Services/Cloud/AdditionalCloudCatalog.php'))->toContain("'required|string|in:hetzner,digitalocean,vultr,'");
 });
 
 it('keeps provider affiliate links on server provider views', function () {
