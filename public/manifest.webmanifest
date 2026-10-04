@@ -1,8 +1,8 @@
 {
     "id": "/",
-    "name": "GPSH",
-    "short_name": "GPSH",
-    "description": "Panel de GPSH",
+    "name": "GetOdoo",
+    "short_name": "GetOdoo",
+    "description": "Panel de GetOdoo",
     "lang": "es",
     "start_url": "/",
     "scope": "/",

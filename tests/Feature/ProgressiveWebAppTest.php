@@ -6,8 +6,9 @@ test('the panel can be installed without caching signed-in pages', function () {
     $offline = file_get_contents(public_path('offline.html'));
     $layout = file_get_contents(resource_path('views/layouts/base.blade.php'));
 
-    expect($manifest['name'])->toBe(product_name())
-        ->and($manifest['short_name'])->toBe(product_name())
+    expect($manifest['name'])->toBe('GetOdoo')
+        ->and($manifest['short_name'])->toBe('GetOdoo')
+        ->and($manifest['description'])->toBe('Panel de GetOdoo')
         ->and($manifest['start_url'])->toBe('/')
         ->and($manifest['scope'])->toBe('/')
         ->and($manifest['display'])->toBe('standalone')
@@ -19,10 +20,13 @@ test('the panel can be installed without caching signed-in pages', function () {
         ->and($worker)->toContain('caches.match(offlineUrl)')
         ->and($worker)->not->toContain('cache.put')
         ->and($worker)->not->toContain('/livewire')
+        ->and($offline)->toContain('<title>GetOdoo</title>')
+        ->and($offline)->toContain('<h1>GetOdoo</h1>')
         ->and($offline)->toContain('No hay conexión')
         ->and($offline)->not->toContain('csrf-token')
         ->and($layout)->toContain('rel="manifest"')
         ->and($layout)->toContain("serviceWorker.register('/sw.js'")
+        ->and($layout)->toContain('apple-mobile-web-app-title" content="GetOdoo"')
         ->and($layout)->toContain('apple-touch-icon')
         ->and($layout)->toContain('pwa/icon-180-v2.png')
         ->and($worker)->toContain('gpsh-offline-v2')

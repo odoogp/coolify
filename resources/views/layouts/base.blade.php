@@ -123,7 +123,7 @@
     <link rel="apple-touch-icon" href="{{ asset('pwa/icon-180-v2.png') }}">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="{{ product_name() }}">
+    <meta name="apple-mobile-web-app-title" content="GetOdoo">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
     <script>
