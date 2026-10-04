@@ -879,11 +879,114 @@ BASH;
     }
 
     /**
-     * Internal Odoo users for this instance. The list comes from the same token used to open Odoo.
+     * Internal Odoo users for this instance. Read from that database: the public host may not resolve yet.
      *
      * @return list<array{name: string, login: string}>
      */
     public static function internalUsers(Service $service): array
+    {
+        $users = self::internalUsersFromDatabase($service);
+
+        return $users !== [] ? $users : self::internalUsersFromHttp($service);
+    }
+
+    /**
+     * @return list<array{name: string, login: string}>
+     */
+    public static function parseInternalUserRows(string $output): array
+    {
+        $users = [];
+        foreach (preg_split("/\r\n|\n|\r/", $output) ?: [] as $line) {
+            $line = trim($line);
+            if ($line === '' || ! str_contains($line, "\x1f")) {
+                continue;
+            }
+            [$login, $name] = array_pad(explode("\x1f", $line, 2), 2, '');
+            $login = trim($login);
+            if (preg_match('/^[A-Za-z0-9.@+_-]{1,128}$/', $login) !== 1) {
+                continue;
+            }
+            $users[] = ['name' => self::internalUserName($name, $login), 'login' => $login];
+        }
+
+        return $users;
+    }
+
+    public static function internalUserName(string $raw, string $login): string
+    {
+        $raw = trim($raw);
+        if ($raw === '') {
+            return $login;
+        }
+        if (str_starts_with($raw, '{')) {
+            $decoded = json_decode($raw, true);
+            if (is_array($decoded)) {
+                foreach (['en_US', 'es_MX', 'es_ES'] as $key) {
+                    if (is_string($decoded[$key] ?? null) && $decoded[$key] !== '') {
+                        return $decoded[$key];
+                    }
+                }
+                foreach ($decoded as $value) {
+                    if (is_string($value) && $value !== '') {
+                        return $value;
+                    }
+                }
+            }
+        }
+
+        return $raw;
+    }
+
+    /**
+     * @return list<array{name: string, login: string}>
+     */
+    private static function internalUsersFromDatabase(Service $service): array
+    {
+        if (app()->runningUnitTests()) {
+            return [];
+        }
+        $server = $service->server;
+        $database = self::runtimeValue($service, 'ODOO_DATABASE');
+        if ($database === '') {
+            $database = (string) (self::databaseName($service) ?? '');
+        }
+        if ($server === null || ! $server->isFunctional() || preg_match('/\A[A-Za-z0-9_]{1,63}\z/', $database) !== 1) {
+            return [];
+        }
+        if (preg_match('/\A[A-Za-z0-9]+\z/', (string) $service->uuid) !== 1 || preg_match('/\A[1-9][0-9]*\z/', (string) $service->id) !== 1) {
+            return [];
+        }
+
+        $sql = 'SELECT u.login || chr(31) || COALESCE(p.name::text, chr(32)) FROM res_users u LEFT JOIN res_partner p ON p.id = u.partner_id WHERE u.active IS TRUE AND u.share IS NOT TRUE AND length(u.login) > 0 ORDER BY u.id';
+        $script = <<<'BASH'
+set -eu
+ids="$(docker ps -q --filter label=coolify.serviceId=__ID__; docker ps -q --filter label=com.docker.compose.project=__UUID__)"
+pg=""
+for id in $ids; do
+  image=$(docker inspect --format '{{.Config.Image}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+  name=$(docker inspect --format '{{.Name}}' "$id" 2>/dev/null | tr '[:upper:]' '[:lower:]' || true)
+  state=$(docker inspect --format '{{.State.Running}}' "$id" 2>/dev/null || true)
+  case "$image$name" in *postgres*) ;; *) continue ;; esac
+  if [ "$state" = "true" ]; then pg="$id"; break; fi
+done
+if [ -z "$pg" ]; then exit 1; fi
+docker exec "$pg" sh -c 'psql -U "$POSTGRES_USER" -d __DB__ -tAc "__SQL__"'
+BASH;
+        $script = str_replace(['__ID__', '__UUID__', '__DB__', '__SQL__'], [(string) $service->id, (string) $service->uuid, $database, $sql], $script);
+
+        try {
+            $output = instant_remote_process(['bash -c '.escapeshellarg($script)], $server, false);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return self::parseInternalUserRows((string) $output);
+    }
+
+    /**
+     * @return list<array{name: string, login: string}>
+     */
+    private static function internalUsersFromHttp(Service $service): array
     {
         $base = self::publicHttpsUrl($service);
         $token = self::runtimeValue($service, 'ODOO_LOGIN_TOKEN');
@@ -912,7 +1015,7 @@ BASH;
             if (preg_match('/^[A-Za-z0-9.@+_-]{1,128}$/', $login) !== 1) {
                 continue;
             }
-            $users[] = ['name' => (string) ($row['name'] ?? $login), 'login' => $login];
+            $users[] = ['name' => self::internalUserName((string) ($row['name'] ?? ''), $login), 'login' => $login];
         }
 
         return $users;

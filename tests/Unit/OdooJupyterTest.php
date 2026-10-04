@@ -692,3 +692,12 @@ test('odoo workers are added only when the project asks for them', function () {
         ->toContain('8072 if "2" not in')
         ->and(OdooJupyter::launchCommand('mi_empresa_production', workers: 0))->not->toContain('--workers=');
 });
+
+test('internal odoo users are read from the database rows', function () {
+    expect(OdooGit::internalUserName('{"en_US": "Marc Demo"}', 'demo'))->toBe('Marc Demo')
+        ->and(OdooGit::internalUserName('Administrator', 'admin'))->toBe('Administrator')
+        ->and(OdooGit::parseInternalUserRows("demo\x1f{\"en_US\": \"Marc Demo\"}\nnot a login\x1fBroken\nadmin\x1f \n"))->toBe([
+            ['name' => 'Marc Demo', 'login' => 'demo'],
+            ['name' => 'admin', 'login' => 'admin'],
+        ]);
+});

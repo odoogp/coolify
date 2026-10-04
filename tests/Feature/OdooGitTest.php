@@ -1345,9 +1345,13 @@ it('gives production and staging their own hosts and connects as a chosen user',
         ]),
     ]);
 
-    expect(OdooGit::internalUsers($service->fresh()))->toBe([
-        ['name' => 'Marc Demo', 'login' => 'demo'],
-    ]);
+    expect(OdooGit::internalUserName('{"en_US": "Marc Demo"}', 'demo'))->toBe('Marc Demo')
+        ->and(OdooGit::parseInternalUserRows("demo\x1f{\"en_US\": \"Marc Demo\"}\nnot a login\x1fBroken\n"))->toBe([
+            ['name' => 'Marc Demo', 'login' => 'demo'],
+        ])
+        ->and(OdooGit::internalUsers($service->fresh()))->toBe([
+            ['name' => 'Marc Demo', 'login' => 'demo'],
+        ]);
 
     $this->get(route('project.service.odoo.enter', [
         'project_uuid' => $this->project->uuid,
