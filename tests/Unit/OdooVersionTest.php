@@ -1,6 +1,6 @@
 <?php
 
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 
 test('reads the official odoo tag and leaves postgres alone when the version changes', function () {
     $compose = <<<'YAML'

@@ -6,7 +6,7 @@ use App\Jobs\LaunchOdooProjectJob;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Support\OdooGit;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;

@@ -33,7 +33,7 @@ Un servidor (`Server`) pertenece a un team y tiene destinos Docker. El proxy, lo
 | Ambiente | `app/Models/Environment.php` | nombre libre, recursos del proyecto. No hay un tipo production/staging en base de datos: el nombre `production` es una convención del `booted()`. |
 | Aplicación | `app/Models/Application.php` | Git (`git_repository`, `git_branch`, `git_commit_sha`), build pack, dominio, health check, source, destino, comandos pre/post deploy. |
 | Cola de deploy | `ApplicationDeploymentQueue` + `app/Jobs/ApplicationDeploymentJob.php` | un deploy de aplicación. |
-| Servicio | `app/Models/Service.php` | compose de plantilla. Odoo de la plantilla es un servicio (`odoo` + `postgresql`), no una Application. `jupyter_enabled` es el único campo Odoo/Jupyter en base de datos. La versión no es una columna: se lee de la imagen (`odoo:17` … `odoo:20`) y `app/Support/OdooVersion.php` reescribe solo esa etiqueta. |
+| Servicio | `app/Models/Service.php` | compose de plantilla. Odoo de la plantilla es un servicio (`odoo` + `postgresql`), no una Application. `jupyter_enabled` es el único campo Odoo/Jupyter en base de datos. La versión no es una columna: se lee de la imagen (`odoo:17` … `odoo:20`) y `app/Domain/Odoo/OdooVersion.php` reescribe solo esa etiqueta. |
 | Fuente GitHub | `app/Models/GithubApp.php` | GitHub App del team: `app_id`, `installation_id`, clave privada, `webhook_secret`. También existe `GitlabApp`. |
 | Login OAuth | `OauthSetting` + `app/Http/Controllers/OauthController.php` | Socialite para entrar a GPSH. No lista repositorios ni despliega. |
 | Backup de base | `ScheduledDatabaseBackup` + `app/Jobs/DatabaseBackupJob.php` | dump programado, retención, S3 opcional, ejecuciones. |

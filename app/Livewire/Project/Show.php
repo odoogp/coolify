@@ -12,7 +12,7 @@ use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
-use App\Support\OdooStaging;
+use App\Domain\Odoo\OdooStaging;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;

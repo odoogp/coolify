@@ -685,6 +685,14 @@ test('odoo mail uses the instance smtp through ir.mail_server', function () {
         ->and($command)->toContain('ir.mail_server')
         ->and($command)->toContain('GPSH_SMTP_HOST')
         ->and($command)->toContain('mail.default.from')
+        ->and($command)->toContain('gpsh.own_mail')
+        ->and($command)->toContain('gpsh.mail_route')
+        ->and($command)->toContain('gpsh.mail_last')
+        ->and($command)->toContain("row.write({'active': True})")
+        ->and($command)->toContain('_find_mail_server')
+        ->and($command)->toContain("('name', '!=', 'GPSH')")
+        ->and($command)->not->toContain('("name", "!=", "GPSH")')
+        ->and($command)->toContain('row.write({"active": False})')
         ->and($command)->not->toContain('GPSH_SMTP_PASSWORD="');
 });
 

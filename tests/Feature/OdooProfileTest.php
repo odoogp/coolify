@@ -19,7 +19,7 @@ use App\Models\Service;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
-use App\Support\OdooStaging;
+use App\Domain\Odoo\OdooStaging;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;

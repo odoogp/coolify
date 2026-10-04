@@ -7,7 +7,7 @@ use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
-use App\Support\OdooAbilities;
+use App\Domain\Odoo\OdooAbilities;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Notifications\Messages\MailMessage;

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Support;
+namespace App\Domain\Odoo;
 
 use App\Models\Environment;
 use App\Models\Project;

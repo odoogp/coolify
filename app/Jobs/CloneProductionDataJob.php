@@ -6,7 +6,7 @@ use App\Models\Environment;
 use App\Models\OdooAuditLog;
 use App\Models\OdooBackup;
 use App\Support\OdooAddons;
-use App\Support\OdooStaging;
+use App\Domain\Odoo\OdooStaging;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

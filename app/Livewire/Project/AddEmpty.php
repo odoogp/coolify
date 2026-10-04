@@ -13,7 +13,7 @@ use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;

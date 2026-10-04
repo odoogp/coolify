@@ -10,9 +10,9 @@ use App\Models\ApplicationDeploymentQueue;
 use App\Models\Environment;
 use App\Models\OdooBackup;
 use App\Models\Project;
-use App\Support\OdooAbilities;
-use App\Support\OdooStaging;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooAbilities;
+use App\Domain\Odoo\OdooStaging;
+use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 

@@ -36,7 +36,7 @@
 
     @if ($service === 'odoo')
         <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal
-            :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+            :options="collect(\App\Domain\Odoo\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
         <x-forms.checkbox id="connectGithub" label="{{ __('Connect GitHub') }}"
             helper="{{ __('You can leave this off. JupyterLab then shows the addon files, and a repository can be connected later.') }}" />
     @endif

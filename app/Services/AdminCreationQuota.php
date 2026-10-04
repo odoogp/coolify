@@ -10,7 +10,7 @@ use App\Models\Project;
 use App\Models\Service;
 use App\Models\TeamInvitation;
 use App\Models\User;
-use App\Support\OdooStaging;
+use App\Domain\Odoo\OdooStaging;
 use Illuminate\Support\Facades\DB;
 
 class AdminCreationQuota

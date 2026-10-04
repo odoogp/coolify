@@ -990,8 +990,65 @@ root = Path("/tmp/gpsh_addons/gpsh_autoconnect")
 try:
     (root / "controllers").mkdir(parents=True, exist_ok=True)
     (root / "__manifest__.py").write_text("{'name': 'GPSH connect', 'version': '1.0', 'depends': ['web'], 'installable': True}\n")
-    (root / "__init__.py").write_text("from . import controllers\n")
+    (root / "__init__.py").write_text("from . import controllers\nfrom . import models\n")
     (root / "controllers" / "__init__.py").write_text("from . import enter\n")
+    (root / "models").mkdir(parents=True, exist_ok=True)
+    (root / "models" / "__init__.py").write_text("from . import mail\n")
+    (root / "models" / "mail.py").write_text(
+        "import logging\n"
+        "from odoo import models\n"
+        "class GpshMail(models.Model):\n"
+        "    _inherit = 'ir.mail_server'\n"
+        "    def _find_mail_server(self, email_from, mail_servers=None):\n"
+        "        try:\n"
+        "            if self._gpsh_own_mail():\n"
+        "                if mail_servers is None:\n"
+        "                    mail_servers = self.sudo().search([('name', '!=', 'GPSH'), ('active', '=', True)], order='sequence')\n"
+        "                else:\n"
+        "                    mail_servers = mail_servers.filtered(lambda server: server.name != 'GPSH')\n"
+        "            else:\n"
+        "                mail_servers = None\n"
+        "        except Exception:\n"
+        "            pass\n"
+        "        return super()._find_mail_server(email_from, mail_servers)\n"
+        "    def send_email(self, message, *args, **kwargs):\n"
+        "        try:\n"
+        "            result = super().send_email(message, *args, **kwargs)\n"
+        "        except Exception:\n"
+        "            self._gpsh_mail_note('gpsh.mail_last', 'failed')\n"
+        "            raise\n"
+        "        self._gpsh_mail_note('gpsh.mail_last', 'sent')\n"
+        "        return result\n"
+        "    def _gpsh_own_mail(self):\n"
+        "        param = self.env['ir.config_parameter'].sudo()\n"
+        "        stored = param.get_param('gpsh.own_mail') or ''\n"
+        "        if stored.isdigit():\n"
+        "            own = self.sudo().browse(int(stored))\n"
+        "            if own.exists() and own.active and own.name != 'GPSH':\n"
+        "                self._gpsh_mail_note('gpsh.mail_route', 'own')\n"
+        "                return True\n"
+        "        own = self.sudo().search([('name', '!=', 'GPSH'), ('active', '=', True)], limit=1)\n"
+        "        if not own:\n"
+        "            if stored:\n"
+        "                param.set_param('gpsh.own_mail', '')\n"
+        "                row = self.sudo().search([('name', '=', 'GPSH')], limit=1)\n"
+        "                if row and not row.active:\n"
+        "                    row.write({'active': True})\n"
+        "            self._gpsh_mail_note('gpsh.mail_route', 'gpsh')\n"
+        "            return False\n"
+        "        param.set_param('gpsh.own_mail', str(own.id))\n"
+        "        row = self.sudo().search([('name', '=', 'GPSH')], limit=1)\n"
+        "        if row and row.active:\n"
+        "            row.write({'active': False})\n"
+        "        self._gpsh_mail_note('gpsh.mail_route', 'own')\n"
+        "        return True\n"
+        "    def _gpsh_mail_note(self, key, value):\n"
+        "        param = self.env['ir.config_parameter'].sudo()\n"
+        "        if param.get_param(key) == value:\n"
+        "            return\n"
+        "        param.set_param(key, value)\n"
+        "        logging.getLogger('odoo.addons.gpsh_autoconnect').info('gpsh mail %s %s', key, value)\n"
+    )
     token = "__ODOO_TOKEN__"
     admin_password = "__ODOO_PASSWORD__" or "admin"
     (root / "controllers" / "enter.py").write_text(
@@ -1217,7 +1274,12 @@ with registry.cursor() as cr:
     host_smtp = os.environ.get("GPSH_SMTP_HOST") or ""
     Server = env["ir.mail_server"].sudo()
     fields = Server._fields
-    row = Server.search([("name", "=", "GPSH")], limit=1)
+    row = Server.browse()
+    stored_mail = env["ir.config_parameter"].sudo().get_param("gpsh.own_mail") or ""
+    if stored_mail.isdigit():
+        host_smtp = ""
+    else:
+        row = Server.search([("name", "=", "GPSH")], limit=1)
     if not host_smtp:
         if row:
             row.write({"active": False})

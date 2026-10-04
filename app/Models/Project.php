@@ -3,8 +3,8 @@
 namespace App\Models;
 
 use App\Services\AdminCreationQuota;
-use App\Support\OdooStaging;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooStaging;
+use App\Domain\Odoo\OdooVersion;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

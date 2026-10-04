@@ -9,7 +9,7 @@ use App\Models\OdooComposeTemplate;
 use App\Rules\ValidGitBranch;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;

@@ -10,7 +10,7 @@ use App\Models\Service;
 use App\Models\User;
 use App\Support\GpshNotices;
 use App\Support\OdooGit;
-use App\Support\OdooStaging;
+use App\Domain\Odoo\OdooStaging;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

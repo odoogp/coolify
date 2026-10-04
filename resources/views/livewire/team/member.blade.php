@@ -142,7 +142,7 @@
         @foreach ($grantableOdooAbilities as $ability)
             <label class="flex items-center gap-2 text-[13px]">
                 <input type="checkbox" value="{{ $ability }}" wire:model="odooAbilities">
-                <span>{{ \App\Support\OdooAbilities::label($ability) }}</span>
+                <span>{{ \App\Domain\Odoo\OdooAbilities::label($ability) }}</span>
             </label>
         @endforeach
         <x-forms.button type="submit" defaultClass="button button-highlighted">{{ __('Save Odoo abilities') }}</x-forms.button>

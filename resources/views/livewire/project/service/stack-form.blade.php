@@ -80,7 +80,7 @@
             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                 {{ __('Addon files are one folder. Odoo reads /mnt/extra-addons. JupyterLab opens the same folder at /workspace/addons.') }}
             </p>
-            @if ($image = \App\Support\OdooVersion::image((string) $service->docker_compose_raw))
+            @if ($image = \App\Domain\Odoo\OdooVersion::image((string) $service->docker_compose_raw))
                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                     {{ __('Image that will be deployed') }}: <span class="font-mono text-neutral-800 dark:text-white">{{ $image }}</span>
                 </p>

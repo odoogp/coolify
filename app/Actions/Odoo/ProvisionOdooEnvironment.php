@@ -8,9 +8,9 @@ use App\Models\GithubApp;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\StandaloneDocker;
-use App\Support\OdooDomains;
-use App\Support\OdooStaging;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooDomains;
+use App\Domain\Odoo\OdooStaging;
+use App\Domain\Odoo\OdooVersion;
 use RuntimeException;
 
 class ProvisionOdooEnvironment

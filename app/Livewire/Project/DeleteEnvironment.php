@@ -4,7 +4,7 @@ namespace App\Livewire\Project;
 
 use App\Enums\ProcessStatus;
 use App\Models\Environment;
-use App\Support\OdooStaging;
+use App\Domain\Odoo\OdooStaging;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Locked;

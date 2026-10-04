@@ -3,6 +3,10 @@
 namespace App\Support;
 
 use App\Actions\Service\StartService;
+use App\Domain\Odoo\OdooContainers;
+use App\Domain\Odoo\OdooDomains;
+use App\Domain\Odoo\OdooMail;
+use App\Domain\Odoo\OdooStaging;
 use App\Enums\ProcessStatus;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\Environment;
@@ -610,39 +614,19 @@ class OdooGit
         instant_remote_process([$command], $server);
     }
 
-    /**
-     * Clients see the Odoo and PostgreSQL containers. The instance admin sees the rest.
-     */
     public static function clientSeesLog(string $container): bool
     {
-        $name = strtolower(ltrim($container, '/'));
-        foreach (['jupyter', 'stdlib', 'cadvisor', 'prometheus', 'monitor', 'beszel'] as $hidden) {
-            if (str_contains($name, $hidden)) {
-                return false;
-            }
-        }
-
-        return str_contains($name, 'odoo') || str_contains($name, 'postgres');
+        return OdooContainers::clientSeesLog($container);
     }
 
-    /**
-     * Odoo, Jupyter, the owner Jupyter, and Grafana share the certificate Traefik issues for Odoo.
-     */
     public static function usesSharedCertificate(string $serviceKey): bool
     {
-        $name = strtolower($serviceKey);
-        $name = preg_replace('/_\d+$/', '', $name) ?? $name;
-
-        return in_array($name, ['odoo', 'jupyter', 'jupyterowner', 'monitor'], true);
+        return OdooContainers::usesSharedCertificate($serviceKey);
     }
 
     public static function isOdooContainerLog(string $container): bool
     {
-        $name = strtolower(ltrim($container, '/'));
-
-        return str_contains($name, 'odoo')
-            && ! str_contains($name, 'jupyter')
-            && ! str_contains($name, 'stdlib');
+        return OdooContainers::isOdooContainerLog($container);
     }
 
     public static function terminalShell(string $container): ?string
@@ -1021,53 +1005,17 @@ BASH;
         return $users;
     }
 
-    /**
-     * Odoo encryption names. Coolify stores implicit TLS as "tls".
-     */
     public static function odooSmtpEncryption(?string $mode): string
     {
-        return match (strtolower((string) $mode)) {
-            'starttls' => 'starttls',
-            'tls', 'ssl' => 'ssl',
-            default => 'none',
-        };
+        return OdooMail::odooSmtpEncryption($mode);
     }
 
     /**
-     * The instance SMTP, for the Odoo container .env. Not stored on the project.
-     * Empty when SMTP is off, so Resend-only mail is left alone: Odoo speaks SMTP.
-     *
      * @return list<string>
      */
     public static function mailEnvironmentLines(?object $settings = null): array
     {
-        $settings ??= instanceSettings();
-        if (! ($settings->smtp_enabled ?? false)) {
-            return [];
-        }
-        $host = trim((string) ($settings->smtp_host ?? ''));
-        if ($host === '' || preg_match('/\A[A-Za-z0-9.-]{1,253}\z/', $host) !== 1) {
-            return [];
-        }
-        $port = (int) ($settings->smtp_port ?? 25);
-
-        return [
-            self::dotenvLine('GPSH_SMTP_HOST', $host),
-            self::dotenvLine('GPSH_SMTP_PORT', (string) ($port >= 1 && $port <= 65535 ? $port : 25)),
-            self::dotenvLine('GPSH_SMTP_ENCRYPTION', self::odooSmtpEncryption($settings->smtp_encryption ?? null)),
-            self::dotenvLine('GPSH_SMTP_USER', (string) ($settings->smtp_username ?? '')),
-            self::dotenvLine('GPSH_SMTP_PASSWORD', (string) ($settings->smtp_password ?? '')),
-            self::dotenvLine('GPSH_SMTP_FROM', trim((string) ($settings->smtp_from_address ?? ''))),
-        ];
-    }
-
-    private static function dotenvLine(string $key, string $value): string
-    {
-        $value = str_replace(["\r", "\n"], '', $value);
-        $value = str_replace(['\\', '"'], ['\\\\', '\\"'], $value);
-        $value = str_replace('$', '$$', $value);
-
-        return $key.'="'.$value.'"';
+        return OdooMail::mailEnvironmentLines($settings);
     }
 
     public static function baseDomain(): string
@@ -1077,32 +1025,12 @@ BASH;
 
     public static function normalizedBaseDomain(string $domain): string
     {
-        $base = strtolower(trim($domain));
-        $base = preg_replace('#^https?://#', '', $base) ?? '';
-        $base = explode('/', $base)[0];
-        $base = explode(':', $base)[0];
-
-        return preg_match('/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/', $base) === 1
-            ? $base
-            : '';
+        return OdooDomains::normalizedBaseDomain($domain);
     }
 
     public static function projectHost(string $subdomain, string $baseDomain, ?string $environment = null, int $environmentId = 0): string
     {
-        $base = self::normalizedBaseDomain($baseDomain);
-        $label = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($subdomain)), '-');
-        if ($base === '' || $label === '') {
-            return '';
-        }
-        $suffix = '';
-        if ($environment !== null && strcasecmp($environment, 'production') !== 0) {
-            $branch = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($environment)), '-');
-            $suffix = '-'.($branch !== '' ? $branch : 'staging').'-'.$environmentId;
-        }
-        $label = trim(substr($label, 0, max(1, 63 - strlen($suffix))), '-').$suffix;
-        $label = trim(substr($label, 0, 63), '-');
-
-        return $label === '' ? '' : $label.'.'.$base;
+        return OdooDomains::projectHost($subdomain, $baseDomain, $environment, $environmentId);
     }
 
     public static function hostFor(Project $project, ?Environment $environment = null): string

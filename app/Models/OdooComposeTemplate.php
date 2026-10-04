@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 use Symfony\Component\Yaml\Yaml;

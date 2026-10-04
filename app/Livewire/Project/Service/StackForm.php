@@ -3,7 +3,7 @@
 namespace App\Livewire\Project\Service;
 
 use App\Models\Service;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;

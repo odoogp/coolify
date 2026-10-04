@@ -5,7 +5,7 @@ namespace App\Livewire\Project\Resource;
 use App\Models\EnvironmentVariable;
 use App\Models\OdooComposeTemplate;
 use App\Models\Service;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 

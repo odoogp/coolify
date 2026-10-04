@@ -26,7 +26,7 @@ Activar Odoo solo guarda el perfil. No crea un staging vacío. El entorno se cre
 
 Si ya existe `staging`, se reutiliza y no se renombra. El siguiente que se cree se llama `staging-2`.
 
-La regla vive en `App\Support\OdooStaging::canCreateStagingEnvironment()`:
+La regla vive en `App\Domain\Odoo\OdooStaging::canCreateStagingEnvironment()`:
 
 ```
 sin perfil                         → no

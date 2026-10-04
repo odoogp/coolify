@@ -5,7 +5,7 @@ use App\Models\InstanceSettings;
 use App\Models\OdooComposeTemplate;
 use App\Models\Team;
 use App\Models\User;
-use App\Support\OdooVersion;
+use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 

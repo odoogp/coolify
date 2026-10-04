@@ -205,7 +205,7 @@
                         class="w-full max-w-lg space-y-3 rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.025]">
                         <h2 class="text-base font-semibold">{{ __('Clone') }}</h2>
                         <p class="text-[13px] font-medium">
-                            {{ __('This creates staging :name from production and starts Odoo. It copies the database and files, then neutralizes that copy. It does not create another production.', ['name' => \App\Support\OdooStaging::nextName($project)]) }}
+                            {{ __('This creates staging :name from production and starts Odoo. It copies the database and files, then neutralizes that copy. It does not create another production.', ['name' => \App\Domain\Odoo\OdooStaging::nextName($project)]) }}
                         </p>
                         <label class="flex items-center gap-2 text-[13px]">
                             <input type="radio" wire:model="cloneAddons" value="copy" class="rounded-full">

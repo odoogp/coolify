@@ -25,7 +25,7 @@ use App\Models\Server;
 use App\Models\StandaloneDocker;
 use App\Models\Team;
 use App\Models\User;
-use App\Support\OdooAbilities;
+use App\Domain\Odoo\OdooAbilities;
 use App\Support\OdooAddons;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
