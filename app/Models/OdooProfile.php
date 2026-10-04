@@ -15,6 +15,8 @@ class OdooProfile extends Model
         'github_app_id',
         'repository_id',
         'git_repository',
+        'subdomain',
+        'workers',
     ];
 
     protected function casts(): array
@@ -22,6 +24,7 @@ class OdooProfile extends Model
         return [
             'max_staging_environments' => 'integer',
             'unlimited_staging_environments' => 'boolean',
+            'workers' => 'integer',
         ];
     }
 

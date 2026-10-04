@@ -4,6 +4,17 @@
     </x-slot>
 
     <x-settings.layout>
+        <form wire:submit="saveBaseDomain" class="application-settings-form mb-6 flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('Odoo domain') }}"
+                description="{{ __('Every project address uses this domain. Production is the name the client chooses, then this domain. A staging branch adds the branch and its id.') }}">
+                <div class="max-w-xl">
+                    <x-forms.input id="odooBaseDomain" label="{{ __('Domain') }}" placeholder="dev.odoo.com" />
+                </div>
+                <div>
+                    <x-forms.button type="submit" isHighlighted>{{ __('Save domain') }}</x-forms.button>
+                </div>
+            </x-application.settings-section>
+        </form>
         <form wire:submit="save" class="application-settings-form flex w-full min-w-0 flex-col gap-6">
             <x-application.settings-section title="{{ __('Odoo templates') }}"
                 description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it.') }}">

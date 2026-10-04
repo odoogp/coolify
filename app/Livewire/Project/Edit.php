@@ -7,6 +7,7 @@ use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Services\ProjectIconStorageService;
 use App\Support\OdooGit;
+use App\Support\OdooJupyter;
 use App\Support\OdooStaging;
 use App\Support\OdooVersion;
 use App\Support\ValidationPatterns;
@@ -44,6 +45,15 @@ class Edit extends Component
     public ?int $odooRepositoryId = null;
 
     public string $odooLaunchCategory = 'staging';
+
+    public string $odooSubdomain = '';
+
+    public int $odooWorkers = 0;
+
+    public string $githubLogin = '';
+
+    /** @var list<array{login: string}> */
+    public array $odooCollaborators = [];
 
     /** @var list<array{value: int, label: string}> */
     public array $odooGithubApps = [];
@@ -208,6 +218,89 @@ class Edit extends Component
         $this->odooEnvironmentBranches = $branchRows
             ->mapWithKeys(fn (OdooEnvironmentBranch $row): array => [$row->environment_id => $row->git_branch])
             ->all();
+        $this->odooSubdomain = (string) ($profile?->subdomain ?? '');
+        $this->odooWorkers = (int) ($profile?->workers ?? 0);
+        $this->odooCollaborators = [];
+        if ($profile !== null && filled($profile->git_repository)) {
+            try {
+                $this->odooCollaborators = OdooGit::repositoryCollaborators($profile);
+            } catch (\Throwable) {
+                $this->odooCollaborators = [];
+            }
+        }
+    }
+
+    public function saveOdooRuntime(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                return;
+            }
+            $subdomain = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($this->odooSubdomain)), '-');
+            if (trim($this->odooSubdomain) !== '' && $subdomain === '') {
+                $this->dispatch('error', __('The subdomain can only use letters, numbers, and hyphens.'));
+
+                return;
+            }
+            $workers = max(0, min(32, (int) $this->odooWorkers));
+            $profile->update([
+                'subdomain' => $subdomain === '' ? null : $subdomain,
+                'workers' => $workers,
+            ]);
+            OdooEnvironmentBranch::query()
+                ->whereIn('environment_id', $this->project->environments()->pluck('id'))
+                ->update(['workers' => $workers]);
+            $this->project->load('environments.services');
+            foreach ($this->project->environments as $environment) {
+                foreach ($environment->services as $service) {
+                    if (OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+                        OdooGit::applyProjectHost($service);
+                    }
+                }
+            }
+            $this->odooSubdomain = $subdomain;
+            $this->odooWorkers = $workers;
+            $this->dispatch('success', __('Project runtime saved. The next start applies the workers and the address.'));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function inviteGithubUser(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                return;
+            }
+            OdooGit::inviteGithubLogin($profile, $this->githubLogin);
+            $this->githubLogin = '';
+            $this->odooCollaborators = OdooGit::repositoryCollaborators($profile->fresh());
+            $this->dispatch('success', __('Invitation sent.'));
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function removeGithubUser(string $login): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                return;
+            }
+            OdooGit::removeGithubLogin($profile, $login);
+            $this->odooCollaborators = OdooGit::repositoryCollaborators($profile->fresh());
+            $this->dispatch('success', __('Collaborator removed.'));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
     }
 
     public function connectOdooGithub(): void

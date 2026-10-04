@@ -148,11 +148,11 @@ class OdooJupyter
             $root = '/workspace/'.$folder;
             $bind = (string) ($instance['custom_bind'] ?? '');
             if (preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/[a-z0-9-]+/[a-z0-9-]+/custom\z#', $bind) === 1) {
-                $mounts[] = $bind.':'.$root.'/custom:ro';
+                $mounts[] = $bind.':'.$root.'/custom_addons:ro';
             } else {
                 $volume = (string) ($instance['custom'] ?? '');
                 if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', $volume) === 1) {
-                    $mounts[] = $volume.':'.$root.'/custom:ro';
+                    $mounts[] = $volume.':'.$root.'/custom_addons:ro';
                     $external[$volume] = ['name' => $volume, 'external' => true];
                 }
             }
@@ -821,7 +821,7 @@ BASH], $local, false);
     /**
      * @param  list<string>  $modules
      */
-    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = '', array $modules = []): string
+    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = '', array $modules = [], int $workers = 0): string
     {
         $database = preg_replace('/[^a-z0-9_]/', '', $database) ?? '';
         $url = preg_match('#^https://[A-Za-z0-9.-]+$#', $url) === 1 ? $url : '';
@@ -831,12 +831,13 @@ BASH], $local, false);
             $modules,
             fn (mixed $name): bool => is_string($name) && preg_match('/^[A-Za-z0-9_]+$/', $name) === 1,
         )));
+        $workers = max(0, min(32, $workers));
         // ponytail: Compose interpolates $ in the command. $$ is the only escape; a bare $( fails the deploy.
         // The database, URL, token and password are literals so they match the GPSH link even when the container env is empty.
 
         return str_replace('$', '$$', str_replace(
-            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__', '__OWNER_KEEP__', '__OWNER_LIST__'],
-            [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules)],
+            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__', '__OWNER_KEEP__', '__OWNER_LIST__', '__ODOO_WORKERS__'],
+            [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules), (string) $workers],
             <<<'BASH'
 python3 - <<'PY' || true
 import time
@@ -919,7 +920,7 @@ class H(BaseHTTPRequestHandler):
     def tunnel(self):
         upstream = None
         try:
-            upstream = socket.create_connection(("127.0.0.1", 8071), timeout=10)
+            upstream = socket.create_connection(("127.0.0.1", 8072 if "__ODOO_WORKERS__" not in ("", "0") else 8071), timeout=10)
             upstream.settimeout(None)
             request = "%s %s %s\r\n" % (self.command, self.path, self.request_version)
             for key, value in self.headers.items():
@@ -1002,30 +1003,41 @@ try:
         "ADMIN_PASSWORD = " + repr(admin_password) + "\n"
         "DATABASE = " + repr(database) + "\n"
         "class GpshEnter(http.Controller):\n"
-        "    @http.route('/_odoo/paas/connect', type='http', auth='none', csrf=False, sitemap=False)\n"
-        "    def enter(self, token=None, **kwargs):\n"
+        "    def _ok(self, token):\n"
         "        given = token or ''\n"
-        "        if not TOKEN or len(given) != len(TOKEN) or not hmac.compare_digest(given, TOKEN):\n"
+        "        return bool(TOKEN) and len(given) == len(TOKEN) and hmac.compare_digest(given, TOKEN)\n"
+        "    def _open(self):\n"
+        "        registry = odoo.modules.registry.Registry(DATABASE)\n"
+        "        cr = registry.cursor()\n"
+        "        return cr, odoo.api.Environment(cr, odoo.SUPERUSER_ID, {})\n"
+        "    @http.route('/_odoo/paas/users', type='http', auth='none', csrf=False, sitemap=False)\n"
+        "    def users(self, token=None, **kwargs):\n"
+        "        import json\n"
+        "        if not self._ok(token):\n"
+        "            return request.make_response('[]', headers=[('Content-Type', 'application/json')])\n"
+        "        cr, env = self._open()\n"
+        "        try:\n"
+        "            rows = env['res.users'].sudo().search([('share', '=', False), ('active', '=', True)])\n"
+        "            payload = [{'name': row.name, 'login': row.login} for row in rows]\n"
+        "        finally:\n"
+        "            cr.close()\n"
+        "        return request.make_response(json.dumps(payload), headers=[('Content-Type', 'application/json')])\n"
+        "    @http.route('/_odoo/paas/connect', type='http', auth='none', csrf=False, sitemap=False)\n"
+        "    def enter(self, token=None, login=None, **kwargs):\n"
+        "        if not self._ok(token):\n"
         "            return request.redirect('/web/login')\n"
-        "        def login(secret):\n"
-        "            credential = {'login': 'admin', 'password': secret, 'type': 'password'}\n"
-        "            try:\n"
-        "                with odoo.modules.registry.Registry(DATABASE).cursor() as cr:\n"
-        "                    env = odoo.api.Environment(cr, None, {})\n"
-        "                    try:\n"
-        "                        from odoo.http.session import authenticate, save_session\n"
-        "                        authenticate(request.session, env, credential)\n"
-        "                        request.session.db = DATABASE\n"
-        "                        save_session(request, env)\n"
-        "                    except ImportError:\n"
-        "                        request.session.authenticate(DATABASE, credential)\n"
-        "                        request.session.db = DATABASE\n"
-        "                return True\n"
-        "            except Exception:\n"
-        "                return False\n"
-        "        secrets = [ADMIN_PASSWORD] if ADMIN_PASSWORD == 'admin' else [ADMIN_PASSWORD, 'admin']\n"
-        "        if not any(login(secret) for secret in secrets):\n"
-        "            return request.redirect('/web/login')\n"
+        "        wanted = login or 'admin'\n"
+        "        cr, env = self._open()\n"
+        "        try:\n"
+        "            user = env['res.users'].sudo().search([('login', '=', wanted), ('share', '=', False), ('active', '=', True)], limit=1)\n"
+        "            if not user:\n"
+        "                return request.redirect('/web/login')\n"
+        "            request.session.uid = user.id\n"
+        "            request.session.login = user.login\n"
+        "            request.session.db = DATABASE\n"
+        "            request.session.session_token = user._compute_session_token(request.session.sid)\n"
+        "        finally:\n"
+        "            cr.close()\n"
         "        return request.redirect('/odoo')\n"
     )
     import configparser
@@ -1070,6 +1082,7 @@ if conn is not None:
 open("/tmp/odoo-db-ready", "w").write("1" if ready else "0")
 PY
 args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode --no-database-list)
+case "__ODOO_WORKERS__" in ''|0) ;; *) args+=(--workers=__ODOO_WORKERS__) ;; esac
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
 load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons")
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
@@ -1236,7 +1249,7 @@ BASH));
      * @param  list<string>  $modules
      * @return array<string, mixed>
      */
-    public static function alignParsedServices(array $services, ?string $database = null, string $url = '', string $token = '', string $password = '', array $modules = []): array
+    public static function alignParsedServices(array $services, ?string $database = null, string $url = '', string $token = '', string $password = '', array $modules = [], int $workers = 0): array
     {
         foreach ($services as $name => &$service) {
             if (! is_array($service) || $name === self::STDLIB_SERVICE_NAME || $name === self::OWNER_SERVICE_NAME) {
@@ -1257,7 +1270,7 @@ BASH));
             if ($database !== null && $database !== '' && $name === 'odoo') {
                 // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
                 $service['entrypoint'] = ['bash', '-c'];
-                $service['command'] = [self::launchCommand($database, $url, $token, $password, $modules)];
+                $service['command'] = [self::launchCommand($database, $url, $token, $password, $modules, $workers)];
                 $service['user'] = '0:0';
                 $service['restart'] = 'unless-stopped';
                 $volumes = $service['volumes'] ?? [];

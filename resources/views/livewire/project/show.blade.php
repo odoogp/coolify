@@ -193,10 +193,8 @@
                                 :key="'delete-environment-'.$selectedEnvironment->id" />
                         @endcan
                         @if ($openOdooUrl !== '')
-                            <a class="button button-highlighted" target="_blank"
-                                href="{{ route('project.service.odoo.enter', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid, 'service_uuid' => $selectedOdoo->uuid]) }}">
-                                {{ __('Open Odoo') }}
-                            </a>
+                            <livewire:project.odoo-connect :project-uuid="$project->uuid" :environment-uuid="$selectedEnvironment->uuid"
+                                :service-uuid="$selectedOdoo->uuid" :key="'odoo-connect-'.$selectedOdoo->uuid" />
                         @endif
                     </div>
                 </div>

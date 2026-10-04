@@ -862,7 +862,7 @@ BASH;
         return 'bash -c '.escapeshellarg($script);
     }
 
-    public static function enterUrl(Service $service): string
+    public static function enterUrl(Service $service, ?string $login = null): string
     {
         $base = self::publicHttpsUrl($service);
         $token = self::runtimeValue($service, 'ODOO_LOGIN_TOKEN');
@@ -870,7 +870,139 @@ BASH;
             return $base;
         }
 
-        return $base.'/_odoo/paas/connect?token='.urlencode($token);
+        $url = $base.'/_odoo/paas/connect?token='.urlencode($token);
+        if (is_string($login) && preg_match('/^[A-Za-z0-9.@+_-]{1,128}$/', $login) === 1) {
+            $url .= '&login='.urlencode($login);
+        }
+
+        return $url;
+    }
+
+    /**
+     * Internal Odoo users for this instance. The list comes from the same token used to open Odoo.
+     *
+     * @return list<array{name: string, login: string}>
+     */
+    public static function internalUsers(Service $service): array
+    {
+        $base = self::publicHttpsUrl($service);
+        $token = self::runtimeValue($service, 'ODOO_LOGIN_TOKEN');
+        if ($base === '' || $token === '') {
+            return [];
+        }
+
+        try {
+            $response = Http::timeout(8)->withOptions(['verify' => false])->get($base.'/_odoo/paas/users', [
+                'token' => $token,
+            ]);
+        } catch (\Throwable) {
+            return [];
+        }
+        $rows = $response->ok() ? $response->json() : null;
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        $users = [];
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $login = (string) ($row['login'] ?? '');
+            if (preg_match('/^[A-Za-z0-9.@+_-]{1,128}$/', $login) !== 1) {
+                continue;
+            }
+            $users[] = ['name' => (string) ($row['name'] ?? $login), 'login' => $login];
+        }
+
+        return $users;
+    }
+
+    public static function baseDomain(): string
+    {
+        return self::normalizedBaseDomain((string) (instanceSettings()->odoo_base_domain ?? ''));
+    }
+
+    public static function normalizedBaseDomain(string $domain): string
+    {
+        $base = strtolower(trim($domain));
+        $base = preg_replace('#^https?://#', '', $base) ?? '';
+        $base = explode('/', $base)[0];
+        $base = explode(':', $base)[0];
+
+        return preg_match('/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/', $base) === 1
+            ? $base
+            : '';
+    }
+
+    public static function projectHost(string $subdomain, string $baseDomain, ?string $environment = null, int $environmentId = 0): string
+    {
+        $base = self::normalizedBaseDomain($baseDomain);
+        $label = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($subdomain)), '-');
+        if ($base === '' || $label === '') {
+            return '';
+        }
+        $suffix = '';
+        if ($environment !== null && strcasecmp($environment, 'production') !== 0) {
+            $branch = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($environment)), '-');
+            $suffix = '-'.($branch !== '' ? $branch : 'staging').'-'.$environmentId;
+        }
+        $label = trim(substr($label, 0, max(1, 63 - strlen($suffix))), '-').$suffix;
+        $label = trim(substr($label, 0, 63), '-');
+
+        return $label === '' ? '' : $label.'.'.$base;
+    }
+
+    public static function hostFor(Project $project, ?Environment $environment = null): string
+    {
+        return self::projectHost(
+            (string) ($project->odooProfile?->subdomain ?? ''),
+            self::normalizedBaseDomain((string) (instanceSettings()->odoo_base_domain ?? '')),
+            $environment?->name,
+            (int) ($environment->id ?? 0),
+        );
+    }
+
+    public static function workerCount(Service $service): int
+    {
+        $branch = $service->environment?->odooBranch?->workers;
+        $profile = $service->environment?->project?->odooProfile?->workers;
+        $value = $branch !== null && (int) $branch > 0 ? (int) $branch : (int) $profile;
+
+        return max(0, min(32, $value));
+    }
+
+    public static function applyProjectHost(Service $service): bool
+    {
+        $environment = $service->environment;
+        $project = $environment?->project;
+        if (! $environment instanceof Environment || ! $project instanceof Project) {
+            return false;
+        }
+        $host = self::hostFor($project, $environment);
+        if ($host === '') {
+            return false;
+        }
+        $url = 'https://'.$host;
+        $changed = false;
+        foreach ($service->applications()->get() as $application) {
+            if (! $application instanceof ServiceApplication || ! self::isOdooApplication($application)) {
+                continue;
+            }
+            if ((string) $application->fqdn !== $url || ! $application->is_force_https_enabled) {
+                $application->fqdn = $url;
+                $application->is_force_https_enabled = true;
+                $application->save();
+                $changed = true;
+            }
+        }
+        $branch = $environment->odooBranch;
+        if ($branch instanceof OdooEnvironmentBranch && $branch->domain !== $url) {
+            $branch->forceFill(['domain' => $url])->save();
+            $changed = true;
+        }
+
+        return $changed;
     }
 
     /**
@@ -918,6 +1050,10 @@ BASH;
     {
         if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
             return false;
+        }
+        $project = $service->environment?->project;
+        if ($project instanceof Project && self::hostFor($project, $service->environment) !== '') {
+            return self::applyProjectHost($service);
         }
 
         $changed = false;
@@ -1336,6 +1472,73 @@ BASH;
         githubApi($app, '/repos/'.$repository.'/collaborators/'.rawurlencode($login), 'put', [
             'permission' => 'push',
         ], false);
+    }
+
+    public static function inviteGithubLogin(OdooProfile $profile, string $login): void
+    {
+        $login = self::githubLogin($login);
+        $app = $profile->githubApp;
+        $repository = (string) $profile->git_repository;
+        if (! $app instanceof GithubApp || preg_match('#^[^/\s]+/[^/\s]+$#', $repository) !== 1) {
+            throw new InvalidArgumentException('Connect a GitHub repository before inviting someone.');
+        }
+        if ($login === '') {
+            throw new InvalidArgumentException('The GitHub username can only use letters, numbers, and hyphens.');
+        }
+
+        githubApi($app, '/repos/'.$repository.'/collaborators/'.rawurlencode($login), 'put', [
+            'permission' => 'push',
+        ]);
+    }
+
+    public static function removeGithubLogin(OdooProfile $profile, string $login): void
+    {
+        $login = self::githubLogin($login);
+        $app = $profile->githubApp;
+        $repository = (string) $profile->git_repository;
+        if ($login === '' || ! $app instanceof GithubApp || preg_match('#^[^/\s]+/[^/\s]+$#', $repository) !== 1) {
+            return;
+        }
+
+        githubApi($app, '/repos/'.$repository.'/collaborators/'.rawurlencode($login), 'delete');
+    }
+
+    /**
+     * @return list<array{login: string}>
+     */
+    public static function repositoryCollaborators(OdooProfile $profile): array
+    {
+        $app = $profile->githubApp;
+        $repository = (string) $profile->git_repository;
+        if (! $app instanceof GithubApp || preg_match('#^[^/\s]+/[^/\s]+$#', $repository) !== 1) {
+            return [];
+        }
+
+        $response = githubApi($app, '/repos/'.$repository.'/collaborators', 'get', null, false);
+        $rows = data_get($response, 'data');
+        if ($rows instanceof Collection) {
+            $rows = $rows->all();
+        }
+        if (! is_array($rows)) {
+            return [];
+        }
+
+        $people = [];
+        foreach ($rows as $row) {
+            $login = is_array($row) ? (string) ($row['login'] ?? '') : '';
+            if (self::githubLogin($login) !== '') {
+                $people[] = ['login' => $login];
+            }
+        }
+
+        return $people;
+    }
+
+    private static function githubLogin(string $login): string
+    {
+        $login = trim($login);
+
+        return preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/', $login) === 1 ? $login : '';
     }
 
     private static function githubLoginForEmail(GithubApp $app, string $email): ?string

@@ -61,7 +61,9 @@ class LaunchOdooProjectJob implements ShouldQueue
 
             $this->progress(2);
             OdooGit::whileServerIsFree($service->server, function () use ($service): void {
-                $activity = StartService::run($service->fresh() ?? $service, pullLatestImages: false);
+                $current = $service->fresh() ?? $service;
+                OdooGit::useHttps($current);
+                $activity = StartService::run($current, pullLatestImages: false);
                 $this->waitForServiceStart($activity, $service);
             });
 

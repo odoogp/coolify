@@ -1285,6 +1285,52 @@ it('turns an existing odoo link into https', function () {
     ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
 });
 
+it('gives production and staging their own hosts and connects as a chosen user', function () {
+    instanceSettings()->update(['odoo_base_domain' => 'dev.odoo.com']);
+    $this->project->odooProfile->update(['subdomain' => 'arielmim97-20demo', 'workers' => 2]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+
+    expect(OdooGit::hostFor($this->project->fresh(), $production))->toBe('arielmim97-20demo.dev.odoo.com')
+        ->and(OdooGit::hostFor($this->project->fresh(), $staging))
+        ->toBe('arielmim97-20demo-staging-1-'.$staging->id.'.dev.odoo.com');
+
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $application = ServiceApplication::factory()->create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'http://odoo-random.sslip.io:8069',
+    ]);
+    $this->project->update(['name' => 'Mi Empresa']);
+    OdooGit::prepareInstance($service);
+
+    expect(OdooGit::useHttps($service))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://arielmim97-20demo.dev.odoo.com')
+        ->and(OdooGit::workerCount($service->fresh()))->toBe(2)
+        ->and(OdooGit::enterUrl($service->fresh(), 'demo'))->toContain('&login=demo');
+
+    Http::fake([
+        'https://arielmim97-20demo.dev.odoo.com/_odoo/paas/users*' => Http::response([
+            ['name' => 'Marc Demo', 'login' => 'demo'],
+            ['name' => 'Broken', 'login' => 'not a login'],
+        ]),
+    ]);
+
+    expect(OdooGit::internalUsers($service->fresh()))->toBe([
+        ['name' => 'Marc Demo', 'login' => 'demo'],
+    ]);
+
+    $this->get(route('project.service.odoo.enter', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+        'service_uuid' => $service->uuid,
+    ]).'?login=demo')->assertRedirect(OdooGit::enterUrl($service->fresh(), 'demo'));
+});
+
 it('copies the production database and files into staging and neutralizes only that copy', function () {
     $production = $this->project->environments()->where('name', 'production')->first();
     $staging = $this->project->environments()->where('name', 'staging-1')->first();

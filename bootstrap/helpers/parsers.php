@@ -2808,6 +2808,7 @@ function serviceParser(Service $resource): Collection
         OdooGit::runtimeValue($resource, 'ODOO_LOGIN_TOKEN'),
         OdooGit::runtimeValue($resource, 'ODOO_ADMIN_PASSWORD'),
         GpshOwnerModule::names(),
+        OdooGit::workerCount($resource),
     )));
     $topLevel->put('services', $parsedServices);
 

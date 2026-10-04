@@ -5,6 +5,7 @@ namespace App\Livewire\Settings;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
 use App\Models\OdooComposeTemplate;
+use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -27,6 +28,8 @@ class Odoo extends Component
 
     public string $moduleName = '';
 
+    public string $odooBaseDomain = '';
+
     public int $volumePage = 1;
 
     /** @var list<string> */
@@ -41,6 +44,7 @@ class Odoo extends Component
         }
 
         $this->settings = instanceSettings();
+        $this->odooBaseDomain = (string) ($this->settings->odoo_base_domain ?? '');
         $this->loadVersion();
     }
 
@@ -73,6 +77,25 @@ class Odoo extends Component
             $this->dispatch('success', __('Odoo template saved.'));
         } catch (InvalidArgumentException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function saveBaseDomain(): void
+    {
+        try {
+            $this->authorize('update', $this->settings);
+            $domain = OdooGit::normalizedBaseDomain($this->odooBaseDomain);
+            if (trim($this->odooBaseDomain) !== '' && $domain === '') {
+                $this->dispatch('error', __('The domain needs a name and a dot, for example dev.odoo.com.'));
+
+                return;
+            }
+            $this->settings->odoo_base_domain = $domain === '' ? null : $domain;
+            $this->settings->save();
+            $this->odooBaseDomain = $domain;
+            $this->dispatch('success', __('Odoo domain saved.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }

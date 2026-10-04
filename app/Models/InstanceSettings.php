@@ -60,6 +60,7 @@ class InstanceSettings extends Model
         'github_app_name',
         'github_app_icon',
         'whatsapp_support_number',
+        'odoo_base_domain',
     ];
 
     protected $hidden = [

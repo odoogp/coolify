@@ -101,10 +101,9 @@
             @if ($odooEnterUrl || $jupyterUrl || $ownerJupyterUrl || $odooLogsUrl || $monitorUrl)
                 <div class="application-heading-actions mb-3 flex flex-wrap gap-2">
                     @if ($odooEnterUrl)
-                        <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $odooEnterUrl }}">
-                            <x-reicon name="external-link" class="size-3.5" />
-                            {{ __('Open Odoo') }}
-                        </a>
+                        <livewire:project.odoo-connect :project-uuid="$service->environment->project->uuid"
+                            :environment-uuid="$service->environment->uuid" :service-uuid="$service->uuid"
+                            :key="'odoo-connect-mobile-'.$service->uuid" />
                     @endif
                     @if ($jupyterUrl)
                         <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
@@ -242,10 +241,9 @@
                 class="resource-heading-navbar application-heading-actions flex w-auto min-w-0 items-center justify-end gap-1 overflow-visible">
                 <div class="resource-heading-actions flex shrink-0 items-center gap-0.5">
                     @if ($odooEnterUrl)
-                        <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $odooEnterUrl }}">
-                            <x-reicon name="external-link" class="size-3.5" />
-                            {{ __('Open Odoo') }}
-                        </a>
+                        <livewire:project.odoo-connect :project-uuid="$service->environment->project->uuid"
+                            :environment-uuid="$service->environment->uuid" :service-uuid="$service->uuid"
+                            :key="'odoo-connect-desktop-'.$service->uuid" />
                     @endif
                     @if ($jupyterUrl)
                         <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">

@@ -20,7 +20,9 @@ class OdooEnterController extends Controller
         );
         $this->authorize('view', $service);
 
-        $url = OdooGit::enterUrl($service);
+        $login = request()->query('login');
+        $login = is_string($login) && preg_match('/^[A-Za-z0-9.@+_-]{1,128}$/', $login) === 1 ? $login : null;
+        $url = OdooGit::enterUrl($service, $login);
         if ($url === '') {
             return redirect()->route('project.show', [
                 'project_uuid' => $project_uuid,

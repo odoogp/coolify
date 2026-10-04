@@ -315,7 +315,8 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('-d mi_empresa_staging_1')
         ->and($command)->toContain('https://odoo.example.test')
         ->and($command)->toContain('tokentokentoken')
-        ->and($command)->toContain('from odoo.http.session import authenticate, save_session')
+        ->and($command)->toContain('/_odoo/paas/users')
+        ->and($command)->toContain('_compute_session_token')
         ->and($command)->toContain('base.user_admin')
         ->and($command)->toContain('web.base.url')
         ->and($command)->toContain('-i gpsh_autoconnect')
@@ -436,10 +437,10 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and($services['stdlib-18']['image'])->toBe('odoo:18')
         ->and($services['stdlib-18']['volumes'])->toBe(['odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'])
         ->and($owner['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
-        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro')
         ->and($owner['volumes'])->toContain('abc_odoo-web-data:/workspace/cliente-1/production/files:ro')
         ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
-        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/staging-1/custom:ro')
+        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/staging-1/custom_addons:ro')
         ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/staging-1/odoo:ro')
         ->and(json_encode($owner))->not->toContain('docker.sock')
         ->and(OdooJupyter::injectOwner($compose))->toBe($compose)
@@ -484,7 +485,7 @@ test('owner jupyter drops a missing volume without leaving a broken volumes key'
 
     expect($stripped['volumes'])->not->toHaveKey('abc_odoo-extra-addons')
         ->and($stripped['volumes'])->toHaveKey('abc_odoo-web-data')
-        ->and($stripped['services']['jupyter']['volumes'])->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro')
+        ->and($stripped['services']['jupyter']['volumes'])->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro')
         ->and($stripped['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
         ->and($gone)->not->toHaveKey('volumes')
         ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
@@ -509,9 +510,9 @@ test('owner jupyter shows another server as that team folder with its custom add
     expect($ready[0]['custom'])->toBeNull()
         ->and($ready[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom')
         ->and($ready[0]['import_volume'])->toBe('abc_odoo-extra-addons')
-        ->and($volumes)->toContain('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom:/workspace/cliente-1/production/custom:ro')
+        ->and($volumes)->toContain('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom:/workspace/cliente-1/production/custom_addons:ro')
         ->and($volumes)->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
-        ->and($volumes)->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro');
+        ->and($volumes)->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro');
 
     $local = OdooJupyter::prepareOwnerInstances([[
         'team' => 'Root Team',
@@ -661,4 +662,20 @@ test('odoo shares its certificate and the owner jupyter starts later', function 
         ->and(implode("\n", $services['jupyter']['labels']))->not->toContain('certresolver')
         ->and(OdooJupyter::backgroundStartCommand('/data/coolify/services/abc123', 'abc123'))
         ->toBe('true');
+});
+
+test('a project host is the chosen name on the base domain and staging adds the branch', function () {
+    expect(OdooGit::projectHost('ArielMim97 20demo', 'https://dev.odoo.com', 'production'))
+        ->toBe('arielmim97-20demo.dev.odoo.com')
+        ->and(OdooGit::projectHost('arielmim97-20demo', 'dev.odoo.com', 'staging', 38896179))
+        ->toBe('arielmim97-20demo-staging-38896179.dev.odoo.com')
+        ->and(OdooGit::projectHost('', 'dev.odoo.com'))->toBe('')
+        ->and(OdooGit::projectHost('demo', 'not a domain'))->toBe('');
+});
+
+test('odoo workers are added only when the project asks for them', function () {
+    expect(OdooJupyter::launchCommand('mi_empresa_production', workers: 2))
+        ->toContain('--workers=2')
+        ->toContain('8072 if "2" not in')
+        ->and(OdooJupyter::launchCommand('mi_empresa_production', workers: 0))->not->toContain('--workers=');
 });

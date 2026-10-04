@@ -125,6 +125,63 @@
                 </div>
                 @if ($project->odooProfile)
                     <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                        @php
+                            $baseDomain = \App\Support\OdooGit::baseDomain();
+                            $productionHost = \App\Support\OdooGit::projectHost($odooSubdomain, $baseDomain, 'production');
+                            $stagingEnvironment = $project->environments->first(fn ($environment) => strcasecmp($environment->name, 'production') !== 0);
+                            $stagingHost = $stagingEnvironment
+                                ? \App\Support\OdooGit::projectHost($odooSubdomain, $baseDomain, $stagingEnvironment->name, $stagingEnvironment->id)
+                                : '';
+                        @endphp
+                        <form wire:submit="saveOdooRuntime" class="flex flex-col gap-4">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <x-forms.input canGate="update" :canResource="$project" id="odooSubdomain" label="{{ __('Subdomain') }}"
+                                    helper="{{ __('Production is this name, then the domain from Settings. A staging branch adds the branch and its id.') }}"
+                                    placeholder="arielmim97-20demo" />
+                                <x-forms.input canGate="update" :canResource="$project" id="odooWorkers" type="number" min="0" max="32"
+                                    label="{{ __('Workers') }}"
+                                    helper="{{ __('Zero leaves the default. The next start applies the change.') }}" />
+                            </div>
+                            @if ($baseDomain === '')
+                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('Set the Odoo domain in Settings before this project gets its own address.') }}</p>
+                            @else
+                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Production address') }}:
+                                    <span class="font-mono">{{ $productionHost !== '' ? $productionHost : '____.'.$baseDomain }}</span>
+                                </p>
+                                @if ($stagingHost !== '')
+                                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Staging address') }}:
+                                        <span class="font-mono">{{ $stagingHost }}</span>
+                                    </p>
+                                @endif
+                            @endif
+                            <div>
+                                <x-forms.button type="submit" canGate="update" :canResource="$project">{{ __('Save') }}</x-forms.button>
+                            </div>
+                        </form>
+                        @if (filled($project->odooProfile->git_repository))
+                            <form wire:submit="inviteGithubUser" class="flex flex-col gap-3 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                                <p class="text-sm font-medium">{{ __('Collaborators') }}</p>
+                                <div class="flex max-w-xl items-end gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <x-forms.input canGate="update" :canResource="$project" id="githubLogin" label="{{ __('GitHub username') }}"
+                                            placeholder="ronaldleongg" />
+                                    </div>
+                                    <x-forms.button type="submit" canGate="update" :canResource="$project">{{ __('Invite') }}</x-forms.button>
+                                </div>
+                                <ul class="max-w-xl divide-y divide-neutral-200 dark:divide-white/10">
+                                    @forelse ($odooCollaborators as $collaborator)
+                                        <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="github-collaborator-{{ $collaborator['login'] }}">
+                                            <span class="font-mono">{{ $collaborator['login'] }}</span>
+                                            <button type="button" class="text-red-500" wire:click="removeGithubUser('{{ $collaborator['login'] }}')">{{ __('Remove') }}</button>
+                                        </li>
+                                    @empty
+                                        <li class="py-2 text-sm text-neutral-500">{{ __('No collaborators yet.') }}</li>
+                                    @endforelse
+                                </ul>
+                            </form>
+                        @endif
                         @if (! $odooGithubConnected)
                             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                 {{ __('Connect your GitHub account') }}

@@ -102,6 +102,7 @@ class CloneOdooStagingJob implements ShouldQueue
             $started = true;
             if ($copied instanceof Service && $copied->server?->isFunctional()) {
                 OdooGit::whileServerIsFree($copied->server, function () use ($copied, $production): void {
+                    OdooGit::useHttps($copied);
                     $activity = StartService::run($copied, pullLatestImages: false);
                     $this->waitForServiceStart($activity, $copied);
                     $original = $production->services()->get()->first(
