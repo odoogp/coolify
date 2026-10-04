@@ -62,14 +62,14 @@
 
     @if ($service->supportsOdooJupyter())
         <x-application.settings-section title="{{ __('Odoo') }}"
-            description="{{ __('Pick the official Odoo image here. You do not need to edit the container or the Compose file.') }}">
+            description="{{ __('JupyterLab for this environment. The Odoo version stays the one chosen at launch.') }}">
             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                {{ __('Choose the version, then redeploy. PostgreSQL stays as it is. A major upgrade does not migrate the database: take a backup first.') }}
+                {{ __('This Odoo version was chosen when the project was launched. Staging uses the same version. It is not changed from here.') }}
+                @if ($odooVersion)
+                    <span class="font-medium text-neutral-800 dark:text-white">Odoo {{ $odooVersion }}</span>
+                @endif
             </p>
             <div class="grid gap-4 lg:grid-cols-2">
-                <x-forms.listbox canGate="update" :canResource="$service" id="odooVersion" label="{{ __('Odoo version') }}"
-                    helper="{{ __('Uses the official odoo image. The running container changes only after you redeploy.') }}"
-                    live :disabled="! auth()->user()->can('update', $service)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
                 <x-forms.listbox canGate="update" :canResource="$service" id="jupyterEnabled" label="{{ __('Enable JupyterLab') }}"
                     helper="{{ blank($service->environment?->project?->odooProfile?->git_repository) ? __('Without a repository, JupyterLab is the file manager. It opens the same addon folder Odoo uses.') : __('JupyterLab shares the addon volume of this Odoo instance. Redeploy after changing this. The token is stored as SERVICE_PASSWORD_JUPYTER. Upgrade the module in Odoo after editing addons.') }}"
                     live onChange="instantSave" :disabled="! auth()->user()->can('update', $service)" :options="[

@@ -1132,13 +1132,16 @@ BASH;
             return false;
         }
         $host = self::hostFor($project, $environment);
-        if ($host === '') {
+        $url = $host !== '' ? 'https://'.$host : self::coolifyPublicUrl($service);
+        if ($url === null) {
             return false;
         }
-        $url = 'https://'.$host;
         $changed = false;
         foreach ($service->applications()->get() as $application) {
             if (! $application instanceof ServiceApplication || ! self::isOdooApplication($application)) {
+                continue;
+            }
+            if ($host === '' && ! self::usesBaseDomain((string) $application->fqdn)) {
                 continue;
             }
             if ((string) $application->fqdn !== $url || ! $application->is_force_https_enabled) {
@@ -1149,12 +1152,41 @@ BASH;
             }
         }
         $branch = $environment->odooBranch;
-        if ($branch instanceof OdooEnvironmentBranch && $branch->domain !== $url) {
+        if ($branch instanceof OdooEnvironmentBranch && ($host !== '' || self::usesBaseDomain((string) ($branch->domain ?? ''))) && $branch->domain !== $url) {
             $branch->forceFill(['domain' => $url])->save();
             $changed = true;
         }
 
         return $changed;
+    }
+
+    /**
+     * The address Coolify assigns from the server, before a project subdomain replaces it.
+     */
+    public static function coolifyPublicUrl(Service $service): ?string
+    {
+        $server = $service->server;
+        $ip = (string) ($server?->ip ?? '');
+        if ($server === null || $ip === '' || preg_match('/\A[A-Za-z0-9.:-]+\z/', $ip) !== 1) {
+            return null;
+        }
+        if (preg_match('/\A[A-Za-z0-9]+\z/', (string) $service->uuid) !== 1) {
+            return null;
+        }
+        $url = self::httpsUrl(generateUrl($server, 'odoo-'.$service->uuid, true));
+
+        return $url === '' ? null : $url;
+    }
+
+    public static function usesBaseDomain(string $fqdn): bool
+    {
+        $base = self::baseDomain();
+        $host = parse_url(self::httpsUrl($fqdn), PHP_URL_HOST);
+        if ($base === '' || ! is_string($host) || $host === '') {
+            return false;
+        }
+
+        return $host === $base || str_ends_with($host, '.'.$base);
     }
 
     /**

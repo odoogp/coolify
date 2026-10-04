@@ -111,20 +111,22 @@
                 </div>
             </div>
             <div class="application-settings-section-body flex flex-col gap-4">
-                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                    {{ __('How many staging environments you can launch is set on your user by the team owner. It is not a limit of this project.') }}
-                </p>
-                <div class="max-w-sm">
-                    <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
-                        :disabled="! auth()->user()->can('update', $project)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
-                </div>
-                <div class="flex flex-wrap gap-2">
-                    <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
-                        {{ $project->odooProfile ? __('Save Odoo settings') : __('Enable Odoo') }}
-                    </x-forms.button>
-                </div>
+                @unless ($project->odooProfile)
+                    <div class="max-w-sm">
+                        <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
+                            :disabled="! auth()->user()->can('update', $project)" :options="collect(\App\Support\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
+                            {{ __('Enable Odoo') }}
+                        </x-forms.button>
+                    </div>
+                @endunless
                 @if ($project->odooProfile)
                     <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('This project runs Odoo :version. Staging uses this same version.', ['version' => $project->odooProfile->odoo_version]) }}
+                        </p>
                         @php
                             $baseDomain = \App\Support\OdooGit::baseDomain();
                             $productionHost = \App\Support\OdooGit::projectHost($odooSubdomain, $baseDomain, 'production');
@@ -136,11 +138,11 @@
                         <form wire:submit="saveOdooRuntime" class="flex flex-col gap-4">
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <x-forms.input canGate="update" :canResource="$project" id="odooSubdomain" label="{{ __('Subdomain') }}"
-                                    helper="{{ __('Production is this name, then the domain from Settings. A staging branch adds the branch and its id.') }}"
+                                    helper="{{ __('Leave this empty to use the address Coolify generates. Saving does not restart Odoo.') }}"
                                     placeholder="arielmim97-20demo" />
                                 <x-forms.input canGate="update" :canResource="$project" id="odooWorkers" type="number" min="0" max="32"
                                     label="{{ __('Workers') }}"
-                                    helper="{{ __('Zero leaves the default. The next start applies the change.') }}" />
+                                    helper="{{ __('Zero is the default. Odoo reads this number the next time it starts. Saving does not restart it.') }}" />
                             </div>
                             @if ($baseDomain === '')
                                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('Set the Odoo domain in Settings before this project gets its own address.') }}</p>

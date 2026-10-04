@@ -87,15 +87,16 @@ it('does not count production as a staging environment', function () {
     expect(app(AdminCreationQuota::class)->stagingLaunchUsage($admin->id, $this->team->id))->toBe(1);
 });
 
-it('updates the odoo version without creating another staging environment', function () {
+it('keeps the odoo version chosen at launch', function () {
     $this->project->enableOdoo('18');
 
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->set('odooVersion', '19')
         ->call('enableOdoo')
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertDontSee('Save Odoo settings');
 
-    expect($this->project->odooProfile()->first()->odoo_version)->toBe('19');
+    expect($this->project->odooProfile()->first()->odoo_version)->toBe('18');
     expect(OdooStaging::stagingEnvironments($this->project)->count())->toBe(0);
 });
 

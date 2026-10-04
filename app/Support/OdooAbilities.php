@@ -59,6 +59,18 @@ class OdooAbilities
         return array_values(array_intersect(self::GRANTABLE, $abilities));
     }
 
+    public static function label(string $ability): string
+    {
+        return match ($ability) {
+            'odoo.staging.deploy' => __('Deploy a staging environment'),
+            'odoo.production.deploy' => __('Deploy production'),
+            'odoo.staging.sync' => __('Copy production into staging'),
+            'odoo.backup.create' => __('Create database backups'),
+            'odoo.backup.restore' => __('Restore database backups'),
+            default => $ability,
+        };
+    }
+
     /**
      * @return list<string>
      */

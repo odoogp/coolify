@@ -91,27 +91,43 @@
     <form wire:submit="saveCreationLimits"
         class="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-white/[0.07]">
         <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-            {{ __('Leave empty for no limit.') }}
-            {{ __('Projects') }} {{ $usage['projects'] }}@if ($maxProjects !== null && $maxProjects !== '')/{{ $maxProjects }}@endif
-            · {{ __('Environments') }} {{ $usage['environments'] }}@if ($maxEnvironments !== null && $maxEnvironments !== '')/{{ $maxEnvironments }}@endif
-            · {{ __('Members') }} {{ $usage['members'] }}@if ($maxMembers !== null && $maxMembers !== '')/{{ $maxMembers }}@endif
-            · {{ __('Production branches') }} {{ $usage['production_branches'] }}@if ($maxProductionBranches !== null && $maxProductionBranches !== '')/{{ $maxProductionBranches }}@endif
-            · {{ __('Staging branches') }} {{ $usage['staging_branches'] }}@if ($maxStagingBranches !== null && $maxStagingBranches !== '')/{{ $maxStagingBranches }}@endif
-            · {{ __('Services') }} {{ $usage['services'] }}@if ($maxServices !== null && $maxServices !== '')/{{ $maxServices }}@endif
+            {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
         </p>
         <div class="grid gap-3 sm:grid-cols-3">
-            <x-forms.input id="maxProjects" type="number" min="0" label="{{ __('Projects') }}" />
-            <x-forms.input id="maxEnvironments" type="number" min="0" label="{{ __('Environments') }}" />
-            <x-forms.input id="maxMembers" type="number" min="0" label="{{ __('Members') }}" />
-            <x-forms.input id="maxProductionBranches" type="number" min="0" label="{{ __('Production branches') }}" />
-            <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
-            <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
-            <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}"
-                helper="{{ __('The GitHub account this user uses when launching Odoo.') }}"
-                :options="$githubApps" />
-            <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
-            <x-forms.checkbox id="canLaunchOnInstanceServer"
-                label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+            <div>
+                <x-forms.input id="maxProjects" type="number" min="0" label="{{ __('Projects') }}" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. How many projects this admin can create.', ['count' => $usage['projects']]) }}</p>
+            </div>
+            <div>
+                <x-forms.input id="maxEnvironments" type="number" min="0" label="{{ __('Environments') }}" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. Production and staging together.', ['count' => $usage['environments']]) }}</p>
+            </div>
+            <div>
+                <x-forms.input id="maxMembers" type="number" min="0" label="{{ __('Members') }}" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. People this admin can invite.', ['count' => $usage['members']]) }}</p>
+            </div>
+            <div>
+                <x-forms.input id="maxProductionBranches" type="number" min="0" label="{{ __('Production branches') }}" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. One production Odoo per project.', ['count' => $usage['production_branches']]) }}</p>
+            </div>
+            <div>
+                <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. Staging uses the same Odoo version as production.', ['count' => $usage['staging_branches']]) }}</p>
+            </div>
+            <div>
+                <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. Services this admin can create.', ['count' => $usage['services']]) }}</p>
+            </div>
+            <div>
+                <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}" :options="$githubApps" />
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('The GitHub account this admin uses when launching Odoo.') }}</p>
+            </div>
+            <div class="sm:col-span-2 flex flex-col gap-2">
+                <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
+                <x-forms.checkbox id="canLaunchOnInstanceServer"
+                    label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Both stay off unless you turn them on. A member cannot receive either one.') }}</p>
+            </div>
             <div class="flex items-end">
                 <x-forms.button type="submit" defaultClass="button button-highlighted">
                     {{ __('Save limits') }}
@@ -122,11 +138,11 @@
 @endif
 @if ($canGrantOdoo)
     <form wire:submit="saveOdooAbilities" class="flex flex-col gap-2 px-4 py-3">
-        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Odoo abilities for this member. The owner grants them. They do not include servers or S3.') }}</p>
+        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('What this member can do in Odoo. Servers and S3 stay with the owner.') }}</p>
         @foreach ($grantableOdooAbilities as $ability)
             <label class="flex items-center gap-2 text-[13px]">
                 <input type="checkbox" value="{{ $ability }}" wire:model="odooAbilities">
-                <span>{{ $ability }}</span>
+                <span>{{ \App\Support\OdooAbilities::label($ability) }}</span>
             </label>
         @endforeach
         <x-forms.button type="submit" defaultClass="button button-highlighted">{{ __('Save Odoo abilities') }}</x-forms.button>

@@ -1,6 +1,7 @@
 <?php
 
 use App\Actions\CoolifyTask\RunRemoteProcess;
+use App\Actions\Service\StartService;
 use App\Enums\ProcessStatus;
 use App\Jobs\DeleteResourceJob;
 use App\Jobs\RestartOdooBranchJob;
@@ -31,6 +32,7 @@ use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -1283,6 +1285,55 @@ it('turns an existing odoo link into https', function () {
         'environment_uuid' => $production->uuid,
         'service_uuid' => $service->uuid,
     ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
+});
+
+it('clears a project subdomain back to the coolify address without restarting', function () {
+    Bus::fake();
+    instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '203.0.113.10',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://old.example.test',
+    ]);
+    OdooEnvironmentBranch::query()->updateOrCreate(
+        ['environment_id' => $production->id],
+        ['git_branch' => 'production', 'status' => 'idle', 'domain' => 'https://old.example.test'],
+    );
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->set('odooSubdomain', 'sitio1')
+        ->set('odooWorkers', 2)
+        ->call('saveOdooRuntime')
+        ->assertHasNoErrors();
+
+    $coolify = OdooGit::coolifyPublicUrl($service->fresh());
+    expect($application->fresh()->fqdn)->toBe('https://sitio1.getodoo.sh')
+        ->and($production->odooBranch()->first()->domain)->toBe('https://sitio1.getodoo.sh')
+        ->and($this->project->odooProfile->fresh()->workers)->toBe(2);
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->set('odooSubdomain', '')
+        ->call('saveOdooRuntime')
+        ->assertHasNoErrors();
+
+    expect($this->project->odooProfile->fresh()->subdomain)->toBeNull()
+        ->and($application->fresh()->fqdn)->toBe($coolify)
+        ->and($application->fresh()->fqdn)->not->toContain('getodoo.sh')
+        ->and($production->odooBranch()->first()->domain)->toBe($coolify);
+
+    Bus::assertNotDispatched(StartService::class);
 });
 
 it('builds the odoo mail env from the instance smtp and not from the project', function () {

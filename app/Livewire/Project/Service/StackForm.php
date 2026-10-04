@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project\Service;
 
-use App\Models\OdooComposeTemplate;
 use App\Models\Service;
 use App\Support\OdooVersion;
 use App\Support\ValidationPatterns;
@@ -37,8 +36,6 @@ class StackForm extends Component
     public bool $jupyterEnabled = false;
 
     public ?string $odooVersion = null;
-
-    private bool $applyingOdooVersion = false;
 
     protected function rules(): array
     {
@@ -104,38 +101,7 @@ class StackForm extends Component
 
     public function updatedOdooVersion(?string $version): void
     {
-        if ($this->applyingOdooVersion || $version === null || $version === '' || $version === OdooVersion::current((string) $this->dockerComposeRaw)) {
-            return;
-        }
-
-        $this->applyingOdooVersion = true;
-
-        try {
-            $this->authorize('update', $this->service);
-            if (! in_array($version, OdooVersion::SUPPORTED, true)) {
-                $this->odooVersion = OdooVersion::current((string) $this->dockerComposeRaw);
-                $this->dispatch('error', __('Choose Odoo 17, 18, 19, or 20.'));
-
-                return;
-            }
-
-            $saved = OdooComposeTemplate::composeFor($version);
-            $updated = $saved ?? OdooVersion::apply((string) $this->dockerComposeRaw, $version);
-            if ($updated === $this->dockerComposeRaw) {
-                $this->odooVersion = OdooVersion::current((string) $this->dockerComposeRaw);
-                $this->dispatch('error', __('This Odoo image cannot be changed from here. Edit the Compose file.'));
-
-                return;
-            }
-
-            $this->dockerComposeRaw = $updated;
-            $this->submit();
-        } catch (\Throwable $e) {
-            $this->odooVersion = OdooVersion::current((string) $this->service->docker_compose_raw);
-            handleError($e, $this);
-        } finally {
-            $this->applyingOdooVersion = false;
-        }
+        $this->odooVersion = OdooVersion::current((string) $this->dockerComposeRaw);
     }
 
     public function mount()

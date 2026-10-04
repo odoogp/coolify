@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project;
 
-use App\Actions\Service\StartService;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
@@ -18,9 +17,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
-use RuntimeException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use RuntimeException;
 
 class Edit extends Component
 {
@@ -158,6 +157,12 @@ class Edit extends Component
     {
         try {
             $this->authorize('update', $this->project);
+            if ($this->project->odooProfile !== null) {
+                $this->odooVersion = (string) $this->project->odooProfile->odoo_version;
+                $this->dispatch('success', __('Odoo profile saved. Nothing was deployed.'));
+
+                return;
+            }
             $validated = Validator::make([
                 'odooVersion' => $this->odooVersion,
             ], [
@@ -254,24 +259,17 @@ class Edit extends Component
                 ->whereIn('environment_id', $this->project->environments()->pluck('id'))
                 ->update(['workers' => $workers]);
             $this->project->load('environments.services.server');
-            $restarting = false;
             foreach ($this->project->environments as $environment) {
                 foreach ($environment->services as $service) {
                     if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
                         continue;
                     }
                     OdooGit::applyProjectHost($service);
-                    if ($service->server?->isFunctional()) {
-                        StartService::dispatch($service);
-                        $restarting = true;
-                    }
                 }
             }
             $this->odooSubdomain = $subdomain;
             $this->odooWorkers = $workers;
-            $this->dispatch('success', $restarting
-                ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
-                : __('Project runtime saved. The next start applies the workers and the address.'));
+            $this->dispatch('success', __('Project runtime saved. The next start applies the workers and the address.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
