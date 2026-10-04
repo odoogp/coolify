@@ -312,8 +312,8 @@ class OdooGit
 
         [$environment, $branch, $createStaging] = self::resolveLaunchTarget($project, $classification);
 
-        return DB::transaction(function () use ($project, $branch, $createStaging, $environment): Environment {
-            return self::persistLaunchTarget($project, $branch, $createStaging, $environment);
+        return DB::transaction(function () use ($project, $createStaging, $environment): Environment {
+            return self::persistLaunchTarget($project, $createStaging, $environment);
         });
     }
 
@@ -639,40 +639,13 @@ class OdooGit
             return null;
         }
 
-        // Stay in an interactive shell. `odoo shell` without these flags reads odoo.conf and dials 127.0.0.1:5432.
+        // 8069 is the waiting proxy, so a plain `odoo shell` dies with "Address already in use".
+        // Without the db flags it also dials 127.0.0.1:5432. --no-http skips that bind.
         return <<<'BASH'
-printf '\n\033[95m%s\033[0m\n\n%s\n\n%s\n%s\n%s\n%s\n\n' \
-  'GPSH' \
-  'Conectado a esta instancia de Odoo.' \
-  '  odoo shell     Shell de Odoo, contra PostgreSQL del compose' \
-  '  psql           Base de esta instancia' \
-  '  odoo-log       Sigue el registro de Odoo' \
-  'Escribe exit para salir.'
-export HOST="${HOST:-postgresql}"
-export PORT="${PORT:-5432}"
-export PS1='gpsh:\w\$ '
-odoo() {
-  set -- --db_host="$HOST" --db_port="$PORT" --db_user="$USER" --db_password="$PASSWORD" "$@"
-  case " $* " in
-    *" shell "*)
-      case " $* " in
-        *" -d "*|*" --database "*) ;;
-        *) set -- "$@" -d "$ODOO_DATABASE" ;;
-      esac
-      ;;
-  esac
-  command odoo "$@"
-}
-psql() {
-  if ! command -v psql >/dev/null 2>&1; then
-    printf '%s\n' 'psql no está en este contenedor.'
-    return 1
-  fi
-  PGPASSWORD="$PASSWORD" command psql -h "$HOST" -p "$PORT" -U "$USER" -d "${ODOO_DATABASE:-postgres}" "$@"
-}
-odoo-log() {
-  tail -n 80 -F /mnt/extra-addons/.gpsh/odoo.log
-}
+addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || printf '%s' '/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons')
+exec odoo shell --no-http --max-cron-threads=0 --no-database-list \
+  --db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" \
+  -d "$ODOO_DATABASE" --addons-path="$addons"
 BASH;
     }
 
@@ -1013,9 +986,9 @@ BASH;
     /**
      * @return list<string>
      */
-    public static function mailEnvironmentLines(?object $settings = null): array
+    public static function mailEnvironmentLines(?object $settings = null, ?int $teamId = null): array
     {
-        return OdooMail::mailEnvironmentLines($settings);
+        return OdooMail::mailEnvironmentLines($settings, $teamId);
     }
 
     public static function baseDomain(): string
@@ -1477,34 +1450,7 @@ BASH;
 
     public static function installedApp(int $teamId, ?int $userId): ?GithubApp
     {
-        $app = self::userApp($teamId, $userId);
-        if ($app instanceof GithubApp) {
-            return $app;
-        }
-
-        $installed = GithubApp::query()
-            ->where(function ($query) use ($teamId) {
-                $query->where('team_id', $teamId)->orWhere('is_system_wide', true);
-            })
-            ->whereNotNull('app_id')
-            ->whereNotNull('installation_id')
-            ->whereNotNull('private_key_id')
-            ->latest('id')
-            ->get();
-        if ($userId !== null) {
-            $id = DB::table('team_user')
-                ->where('user_id', $userId)
-                ->where('team_id', $teamId)
-                ->value('github_app_id');
-            if ($id !== null) {
-                $match = $installed->firstWhere('id', (int) $id);
-                if ($match instanceof GithubApp) {
-                    return $match;
-                }
-            }
-        }
-
-        return $installed->first();
+        return self::userApp($teamId, $userId);
     }
 
     public static function configuredAppName(): string
@@ -1533,13 +1479,7 @@ BASH;
             }
         }
 
-        if ($connected->isEmpty()) {
-            return null;
-        }
-
-        return $connected->count() === 1
-            ? $connected->first()
-            : $connected->sortByDesc('id')->first();
+        return $connected->sortBy('id')->first();
     }
 
     /**
@@ -1925,18 +1865,7 @@ BASH;
 
     public static function ownerGithubApp(): ?GithubApp
     {
-        $root = self::connectedApps(0)->first();
-        if ($root instanceof GithubApp) {
-            return $root;
-        }
-
-        return GithubApp::query()
-            ->where('is_public', false)
-            ->whereNotNull('app_id')
-            ->whereNotNull('installation_id')
-            ->whereNotNull('private_key_id')
-            ->orderBy('id')
-            ->first();
+        return self::connectedApps(0)->sortBy('id')->first();
     }
 
     /**
@@ -2066,6 +1995,12 @@ BASH;
                 'parameters' => $parameters === [] ? ['project_uuid' => $project->uuid] : $parameters,
             ],
         ]);
+        $installed = self::installedApp((int) $project->team_id, (int) $user->id);
+        if ($installed instanceof GithubApp) {
+            session(['from' => session('from') + ['source_id' => $installed->id]]);
+
+            return $installed;
+        }
         $githubApp = GithubApp::query()
             ->where('team_id', $project->team_id)
             ->whereNull('installation_id')
@@ -2195,14 +2130,11 @@ BASH;
     public static function connectedApps(int $teamId): Collection
     {
         return GithubApp::query()
-            ->where(function ($query) use ($teamId) {
-                $query->where('team_id', $teamId)->orWhere('is_system_wide', true);
-            })
+            ->where('team_id', $teamId)
             ->where('is_public', false)
             ->whereNotNull('app_id')
             ->whereNotNull('installation_id')
             ->whereNotNull('private_key_id')
-            ->whereNotNull('webhook_secret')
             ->orderBy('name')
             ->get();
     }

@@ -1664,7 +1664,7 @@ class Service extends BaseModel
             $envs->push("{$env->key}={$env->real_value}");
         }
         if (OdooJupyter::isOdooCompose((string) $this->docker_compose_raw)) {
-            foreach (OdooGit::mailEnvironmentLines() as $line) {
+            foreach (OdooGit::mailEnvironmentLines(null, $this->environment?->project?->team_id === null ? null : (int) $this->environment->project->team_id) as $line) {
                 $envs->push($line);
             }
         }

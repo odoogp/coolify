@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Odoo\OdooMail;
 use App\Livewire\GpshNoticeBell;
 use App\Livewire\Notifications\Center;
 use App\Models\Environment;
@@ -64,7 +65,9 @@ it('hides owner notices from clients and blocks a kind that is turned off', func
         ->set('audience', 'owner')
         ->set('kind', 'custom')
         ->call('send')
-        ->assertHasNoErrors();
+        ->assertHasErrors(['audience']);
+
+    expect(GpshNotice::query()->where('title', 'Solo el owner')->exists())->toBeFalse();
 
     $this->actingAs($this->client);
     Livewire::test(GpshNoticeBell::class)->assertDontSee('Solo el owner');
@@ -161,4 +164,60 @@ it('removes notices older than the time set in the notification center', functio
 
     expect(GpshNotice::query()->where('title', 'Aviso viejo')->exists())->toBeFalse()
         ->and(GpshNotice::query()->where('title', 'Aviso nuevo')->exists())->toBeTrue();
+});
+
+it('puts the newest notice first and lets the owner delete them all', function () {
+    $this->actingAs($this->owner);
+    $older = GpshNotice::query()->create([
+        'title' => 'Primero',
+        'body' => 'Viejo.',
+        'audience' => 'clients',
+        'kind' => 'custom',
+        'team_id' => $this->clientTeam->id,
+    ]);
+    $newer = GpshNotice::query()->create([
+        'title' => 'Segundo',
+        'body' => 'Nuevo.',
+        'audience' => 'clients',
+        'kind' => 'custom',
+        'team_id' => $this->clientTeam->id,
+    ]);
+
+    Livewire::test(Center::class)
+        ->assertSeeInOrder(['Segundo', 'Primero'])
+        ->assertSee('Latest')
+        ->call('deleteAll');
+
+    expect(GpshNotice::query()->whereKey([$older->id, $newer->id])->exists())->toBeFalse();
+});
+
+it('saves how long a new notice stays on screen', function () {
+    $this->actingAs($this->owner);
+
+    Livewire::test(Center::class)
+        ->set('toast', false)
+        ->set('toastSeconds', 12)
+        ->call('saveSettings')
+        ->assertHasNoErrors();
+
+    expect(GpshNoticeSetting::current()->toast)->toBeFalse()
+        ->and(GpshNoticeSetting::current()->toast_seconds)->toBe(12);
+});
+
+it('allows twenty emails a day for one team and refuses a neutralized send path', function () {
+    instanceSettings()->update(['odoo_mail_daily_limit' => 2]);
+    $token = OdooMail::token((int) $this->clientTeam->id);
+
+    $this->postJson('/gpsh/mail-quota', ['team_id' => $this->clientTeam->id, 'token' => 'nope'])->assertForbidden();
+    $this->postJson('/gpsh/mail-quota', ['team_id' => $this->clientTeam->id, 'token' => $token])->assertOk()->assertJson(['allowed' => true]);
+    $this->postJson('/gpsh/mail-quota', ['team_id' => $this->clientTeam->id, 'token' => $token])->assertOk()->assertJson(['allowed' => true]);
+    $this->postJson('/gpsh/mail-quota', ['team_id' => $this->clientTeam->id, 'token' => $token])->assertOk()->assertJson(['allowed' => false]);
+    $this->postJson('/gpsh/mail-quota', ['team_id' => $this->otherTeam->id, 'token' => OdooMail::token((int) $this->otherTeam->id)])
+        ->assertOk()
+        ->assertJson(['allowed' => true]);
+
+    $command = file_get_contents(app_path('Support/OdooJupyter.php'));
+    expect($command)->toContain('database.is_neutralized')
+        ->and($command)->toContain('GPSH_MAIL_LIMIT')
+        ->and(OdooMail::mailEnvironmentLines(instanceSettings(), (int) $this->clientTeam->id))->toContain('GPSH_MAIL_LIMIT="2"');
 });

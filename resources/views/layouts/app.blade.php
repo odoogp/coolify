@@ -69,7 +69,7 @@
                     <div id="configuration-warning-hud-slot" class="relative shrink-0"></div>
                     {{-- Resource actions dock here on desktop. --}}
                     <div id="resource-action-hud-slot" class="hidden shrink-0 items-center xl:flex"></div>
-                    <livewire:gpsh-notice-bell key="notice-bell-desktop" />
+                    <livewire:gpsh-notice-bell key="notice-bell-desktop" :announce="true" />
                 </div>
             </header>
 

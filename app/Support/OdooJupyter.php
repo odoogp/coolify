@@ -1012,6 +1012,12 @@ try:
         "            pass\n"
         "        return super()._find_mail_server(email_from, mail_servers)\n"
         "    def send_email(self, message, *args, **kwargs):\n"
+        "        if self._gpsh_neutral():\n"
+        "            self._gpsh_mail_note('gpsh.mail_last', 'blocked')\n"
+        "            return False\n"
+        "        if not self._gpsh_mail_slot():\n"
+        "            self._gpsh_mail_note('gpsh.mail_last', 'limited')\n"
+        "            return False\n"
         "        try:\n"
         "            result = super().send_email(message, *args, **kwargs)\n"
         "        except Exception:\n"
@@ -1041,6 +1047,46 @@ try:
         "        if row and row.active:\n"
         "            row.write({'active': False})\n"
         "        self._gpsh_mail_note('gpsh.mail_route', 'own')\n"
+        "        return True\n"
+        "    def _gpsh_neutral(self):\n"
+        "        flag = self.env['ir.config_parameter'].sudo().get_param('database.is_neutralized') or ''\n"
+        "        return flag in ('true', 'True', '1')\n"
+        "    def _gpsh_mail_slot(self):\n"
+        "        import json, os, urllib.request\n"
+        "        limit = os.environ.get('GPSH_MAIL_LIMIT') or '20'\n"
+        "        url = os.environ.get('GPSH_MAIL_URL') or ''\n"
+        "        token = os.environ.get('GPSH_MAIL_TOKEN') or ''\n"
+        "        team = os.environ.get('GPSH_TEAM_ID') or ''\n"
+        "        if url and token and team:\n"
+        "            try:\n"
+        "                body = json.dumps({'team_id': int(team), 'token': token}).encode()\n"
+        "                req = urllib.request.Request(url, data=body, headers={'Content-Type': 'application/json'})\n"
+        "                with urllib.request.urlopen(req, timeout=5) as resp:\n"
+        "                    payload = json.loads(resp.read().decode() or '{}')\n"
+        "                return bool(payload.get('allowed'))\n"
+        "            except Exception:\n"
+        "                return self._gpsh_mail_local(limit)\n"
+        "        return self._gpsh_mail_local(limit)\n"
+        "    def _gpsh_mail_local(self, limit_text):\n"
+        "        import datetime\n"
+        "        try:\n"
+        "            limit = int(limit_text)\n"
+        "        except Exception:\n"
+        "            limit = 20\n"
+        "        if limit < 1:\n"
+        "            return False\n"
+        "        param = self.env['ir.config_parameter'].sudo()\n"
+        "        day = datetime.date.today().isoformat()\n"
+        "        stored = param.get_param('gpsh.mail_count') or ''\n"
+        "        count = 0\n"
+        "        if stored.startswith(day + ':'):\n"
+        "            try:\n"
+        "                count = int(stored.split(':', 1)[1])\n"
+        "            except Exception:\n"
+        "                count = 0\n"
+        "        if count >= limit:\n"
+        "            return False\n"
+        "        param.set_param('gpsh.mail_count', day + ':' + str(count + 1))\n"
         "        return True\n"
         "    def _gpsh_mail_note(self, key, value):\n"
         "        param = self.env['ir.config_parameter'].sudo()\n"
@@ -1271,8 +1317,11 @@ with registry.cursor() as cr:
         env["ir.config_parameter"].sudo().set_param("web.base.url", url)
         env["ir.config_parameter"].sudo().set_param("web.base.url.freeze", "True")
     env.ref("base.user_admin").sudo().write({"password": password})
-    host_smtp = os.environ.get("GPSH_SMTP_HOST") or ""
     Server = env["ir.mail_server"].sudo()
+    neutralized = (env["ir.config_parameter"].sudo().get_param("database.is_neutralized") or "") in ("true", "True", "1")
+    if neutralized:
+        Server.search([]).write({"active": False})
+    host_smtp = "" if neutralized else (os.environ.get("GPSH_SMTP_HOST") or "")
     fields = Server._fields
     row = Server.browse()
     stored_mail = env["ir.config_parameter"].sudo().get_param("gpsh.own_mail") or ""
@@ -1314,6 +1363,65 @@ with registry.cursor() as cr:
             env["ir.config_parameter"].sudo().set_param("mail.default.from", sender)
     cr.commit()
 PY
+cat > /tmp/gpsh-shell-listen.py << 'ENDSHELL'
+import os, pty, pwd, select, signal, socket
+signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+path = "/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons"
+try:
+    found = open("/tmp/gpsh-addons-path", encoding="utf-8").read().strip()
+    if found:
+        path = found
+except OSError:
+    pass
+cmd = ["odoo", "shell", "--no-http", "--max-cron-threads=0", "--no-database-list", "--db_host", os.environ.get("HOST") or "postgresql", "--db_port", os.environ.get("PORT") or "5432", "--db_user", os.environ.get("USER") or "", "--db_password", os.environ.get("PASSWORD") or "", "-d", os.environ.get("ODOO_DATABASE") or "", "--addons-path", path]
+def drop():
+    try:
+        account = pwd.getpwnam("odoo")
+    except KeyError:
+        return
+    os.setgid(account.pw_gid)
+    os.setuid(account.pw_uid)
+def pump(conn, fd, pid):
+    try:
+        while True:
+            ready, _, _ = select.select([conn, fd], [], [])
+            for item in ready:
+                if item is conn:
+                    data = conn.recv(65536)
+                    if not data:
+                        return
+                    os.write(fd, data)
+                else:
+                    data = os.read(fd, 65536)
+                    if not data:
+                        return
+                    conn.sendall(data)
+    finally:
+        conn.close()
+        try:
+            os.close(fd)
+            os.kill(pid, 15)
+            os.waitpid(pid, 0)
+        except OSError:
+            pass
+server = socket.socket()
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(("0.0.0.0", 8079))
+server.listen(8)
+while True:
+    conn, _ = server.accept()
+    pid, fd = pty.fork()
+    if pid == 0:
+        drop()
+        os.execvp(cmd[0], cmd)
+        os._exit(1)
+    if os.fork() == 0:
+        pump(conn, fd, pid)
+        os._exit(0)
+    os.close(fd)
+    conn.close()
+ENDSHELL
+python3 /tmp/gpsh-shell-listen.py >/tmp/gpsh-shell-listen.log 2>&1 &
 mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore /mnt/extra-addons/.gpsh
 chmod 755 /mnt/extra-addons/.gpsh || true
 umask 022
@@ -1644,6 +1752,44 @@ BASH));
     }
 
     /**
+     * JupyterLab's terminal talks to the Odoo container. It has no odoo binary and no docker socket.
+     */
+    private static function jupyterOdooShellSetup(): string
+    {
+        $python = <<<'PY'
+#!/usr/bin/env python3
+import os, select, socket, sys
+try:
+    remote = socket.create_connection(("odoo", 8079), 5)
+except OSError:
+    sys.stderr.write("Odoo no esta en marcha.\n")
+    raise SystemExit(1)
+try:
+    import tty
+    tty.setraw(sys.stdin.fileno())
+except Exception:
+    pass
+while True:
+    ready, _, _ = select.select([sys.stdin, remote], [], [])
+    for item in ready:
+        if item is sys.stdin:
+            data = os.read(sys.stdin.fileno(), 65536)
+            if not data:
+                raise SystemExit(0)
+            remote.sendall(data)
+        else:
+            data = remote.recv(65536)
+            if not data:
+                raise SystemExit(0)
+            os.write(sys.stdout.fileno(), data)
+PY;
+        $encoded = base64_encode($python);
+        $config = base64_encode('c.ServerApp.terminado_settings = {"shell_command": ["/tmp/gpsh-odoo-shell"]}'."\n");
+
+        return 'mkdir -p /tmp/jupyter-config && printf %s '.escapeshellarg($encoded).' | base64 -d > /tmp/gpsh-odoo-shell && chmod 755 /tmp/gpsh-odoo-shell && printf %s '.escapeshellarg($config).' | base64 -d > /tmp/jupyter-config/jupyter_server_config.py && ';
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private static function serviceDefinition(string $volumeSource): array
@@ -1662,7 +1808,7 @@ BASH));
                 '--',
                 'bash',
                 '-c',
-                'mkdir -p '.self::WORKSPACE.'/.gpsh && if [ ! -f '.self::WORKSPACE.'/odoo-logs.sh ]; then printf "%s\n" "#!/bin/sh" "exec tail -n 200 -F '.self::WORKSPACE.'/.gpsh/odoo.log" > '.self::WORKSPACE.'/odoo-logs.sh; chmod 755 '.self::WORKSPACE.'/odoo-logs.sh; fi && chown -R 100:101 '.self::WORKSPACE.' && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"',
+                self::jupyterOdooShellSetup().' mkdir -p '.self::WORKSPACE.'/.gpsh && if [ ! -f '.self::WORKSPACE.'/odoo-logs.sh ]; then printf "%s\n" "#!/bin/sh" "exec tail -n 200 -F '.self::WORKSPACE.'/.gpsh/odoo.log" > '.self::WORKSPACE.'/odoo-logs.sh; chmod 755 '.self::WORKSPACE.'/odoo-logs.sh; fi && chown -R 100:101 '.self::WORKSPACE.' && exec setpriv --reuid=100 --regid=101 --clear-groups "$$0" "$$@"',
             ],
             // The image healthcheck reads jovyan's runtime dir and stays unhealthy as UID 100.
             // Traefik skips unhealthy containers, so the public URL is a 404.

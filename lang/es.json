@@ -4155,5 +4155,18 @@
     "GitHub did not return branches for that repository.": "GitHub no devolvió ramas para ese repositorio.",
     "Owner repository cleared. The next start removes those modules from Odoo.": "Repositorio del propietario borrado. El próximo arranque quita esos módulos de Odoo.",
     "The branch was saved, but the clone did not finish. The next start still uses the previous copy.": "La rama se guardó, pero el clon no terminó. El próximo arranque sigue usando la copia anterior.",
-    "Owner branch saved. The next Odoo start copies these modules into the image. The client addon folder does not include them.": "Rama del propietario guardada. El próximo arranque de Odoo copia estos módulos a la imagen. La carpeta de addons del cliente no los incluye."
+    "Owner branch saved. The next Odoo start copies these modules into the image. The client addon folder does not include them.": "Rama del propietario guardada. El próximo arranque de Odoo copia estos módulos a la imagen. La carpeta de addons del cliente no los incluye.",
+    "Show a notice when one arrives": "Mostrar un aviso cuando llega uno",
+    "The notice stays on screen for": "El aviso se queda en pantalla",
+    "seconds": "segundos",
+    "The owner sends notices to clients. Clients cannot send notices back.": "El owner envía avisos a los clientes. Los clientes no pueden enviar avisos de vuelta.",
+    "Delete all": "Eliminar todas",
+    "Delete all notices?": "¿Eliminar todos los avisos?",
+    "Latest": "La más reciente",
+    "Notices deleted.": "Avisos eliminados.",
+    "Emails per day": "Correos por día",
+    "Each client team can send this many emails per day. A neutralized database does not send mail.": "Cada equipo cliente puede enviar esta cantidad de correos por día. Una base neutralizada no envía correos.",
+    "Emails per team": "Correos por equipo",
+    "Save limit": "Guardar límite",
+    "Mail limit saved.": "Límite de correos guardado."
 }

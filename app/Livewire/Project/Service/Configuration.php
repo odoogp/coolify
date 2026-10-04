@@ -2,11 +2,11 @@
 
 namespace App\Livewire\Project\Service;
 
+use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Support\OdooGit;
-use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
@@ -234,6 +234,11 @@ class Configuration extends Component
                 'environment_uuid' => $this->environment->uuid,
                 'service_uuid' => $this->service->uuid,
             ]);
+            if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
+                $this->syncOdooGithub();
+
+                return;
+            }
             redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
         } catch (\Throwable $e) {
             handleError($e, $this);

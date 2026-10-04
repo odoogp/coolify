@@ -3,12 +3,15 @@
 namespace App\Livewire;
 
 use App\Models\GpshNotice;
+use App\Models\GpshNoticeSetting;
 use App\Support\GpshNotices;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
 class GpshNoticeBell extends Component
 {
+    public bool $announce = false;
+
     public function openNotice(int $noticeId)
     {
         $user = Auth::user();
@@ -68,6 +71,20 @@ class GpshNoticeBell extends Component
             $unread = GpshNotices::forUser($user)
                 ->whereDoesntHave('reads', fn ($query) => $query->where('user_id', $user->id))
                 ->count();
+        }
+        $latest = $notices->first();
+        $settings = GpshNoticeSetting::current();
+        if ($this->announce && $user !== null && $latest instanceof GpshNotice && $settings->toast) {
+            $seen = session('gpsh_notice_seen');
+            if ($seen !== null && (int) $seen !== (int) $latest->id) {
+                $this->dispatch(
+                    'gpsh-toast',
+                    title: $latest->title,
+                    body: (string) str($latest->body)->limit(180),
+                    seconds: max(3, (int) $settings->toast_seconds),
+                );
+            }
+            session(['gpsh_notice_seen' => $latest->id]);
         }
 
         return view('livewire.gpsh-notice-bell', [

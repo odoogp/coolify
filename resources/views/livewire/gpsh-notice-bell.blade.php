@@ -1,4 +1,8 @@
-<div class="relative" x-data="{ open: false }" @click.outside="open = false" wire:poll.30s>
+<div class="relative" x-data="{ open: false, show: false, title: '', body: '', hide: null }"
+    @if ($announce)
+        x-on:gpsh-toast.window="title = $event.detail.title || ''; body = $event.detail.body || ''; show = true; clearTimeout(hide); hide = setTimeout(() => { show = false }, ($event.detail.seconds || 8) * 1000)"
+    @endif
+    @click.outside="open = false" wire:poll.15s>
     <button type="button" class="relative flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-black dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-white"
         x-on:click="open = !open" aria-label="{{ __('Notices') }}">
         <x-reicon name="notifications" class="size-4" />
@@ -21,6 +25,9 @@
                 <button type="button" wire:click="openNotice({{ $notice->id }})"
                     class="block w-full border-b border-neutral-100 px-3 py-2.5 text-left last:border-b-0 hover:bg-neutral-50 dark:border-white/[0.04] dark:hover:bg-white/[0.03]">
                     <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
+                        @if ($loop->first)
+                            <span class="rounded-full bg-coollabs/15 px-1.5 py-0.5 text-[10px] font-medium text-coollabs dark:bg-warning/15 dark:text-warning">{{ __('Latest') }}</span>
+                        @endif
                         <span>{{ $notice->kindLabel() }}</span>
                         <span>{{ $notice->audienceLabel() }}</span>
                     </span>
@@ -41,4 +48,11 @@
             </a>
         @endif
     </div>
+    @if ($announce)
+        <div x-cloak x-show="show" x-transition.opacity.duration.200ms
+            class="fixed right-4 top-16 z-[100] w-80 rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-panel">
+            <p class="text-sm font-medium text-black dark:text-white" x-text="title"></p>
+            <p class="mt-1 text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
+        </div>
+    @endif
 </div>

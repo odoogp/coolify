@@ -94,7 +94,7 @@ class GpshNotices
             self::kinds(),
             fn (string $kind): bool => GpshNoticeSetting::current()->allows($kind),
         ));
-        $query = GpshNotice::query()->whereIn('kind', $enabled === [] ? ['__none__'] : $enabled)->latest();
+        $query = GpshNotice::query()->whereIn('kind', $enabled === [] ? ['__none__'] : $enabled)->orderByDesc('id');
         if ($user->isInstanceOwner()) {
             return $query;
         }

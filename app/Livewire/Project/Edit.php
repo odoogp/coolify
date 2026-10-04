@@ -2,14 +2,14 @@
 
 namespace App\Livewire\Project;
 
+use App\Domain\Odoo\OdooStaging;
+use App\Domain\Odoo\OdooVersion;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Services\ProjectIconStorageService;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
-use App\Domain\Odoo\OdooStaging;
-use App\Domain\Odoo\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
@@ -315,6 +315,11 @@ class Edit extends Component
         try {
             $this->authorize('update', $this->project);
             $githubApp = OdooGit::beginConnect($this->project);
+            if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
+                $this->syncOdooState();
+
+                return;
+            }
             redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
         } catch (\Throwable $e) {
             handleError($e, $this);

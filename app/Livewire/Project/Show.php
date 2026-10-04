@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project;
 
+use App\Domain\Odoo\OdooStaging;
 use App\Jobs\CloneOdooStagingJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
@@ -12,7 +13,6 @@ use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
-use App\Domain\Odoo\OdooStaging;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -585,6 +585,9 @@ class Show extends Component
                 'project_uuid' => $this->project->uuid,
                 'environment_uuid' => $production->uuid,
             ]);
+            if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
+                return redirect()->route('project.resource.index', $this->productionRoute($production, true));
+            }
             if (filled($githubApp->app_id)) {
                 return redirect()->away(getInstallationPath($githubApp));
             }

@@ -15,6 +15,19 @@
                 </div>
             </x-application.settings-section>
         </form>
+        @if (isInstanceOwner())
+            <form wire:submit="saveMailLimit" class="application-settings-form mb-6 flex w-full min-w-0 flex-col gap-6">
+                <x-application.settings-section title="{{ __('Emails per day') }}"
+                    description="{{ __('Each client team can send this many emails per day. A neutralized database does not send mail.') }}">
+                    <div class="max-w-xs">
+                        <x-forms.input id="mailDailyLimit" type="number" min="0" max="10000" label="{{ __('Emails per team') }}" />
+                    </div>
+                    <div>
+                        <x-forms.button type="submit" isHighlighted>{{ __('Save limit') }}</x-forms.button>
+                    </div>
+                </x-application.settings-section>
+            </form>
+        @endif
         <form wire:submit="save" class="application-settings-form flex w-full min-w-0 flex-col gap-6">
             <x-application.settings-section title="{{ __('Odoo templates') }}"
                 description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it.') }}">

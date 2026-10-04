@@ -1069,6 +1069,47 @@ it('returns from github to the project so the repository can be chosen', functio
         ->and($response->getTargetUrl())->toContain('service-uuid');
 });
 
+it('reuses the github app of this team and gives another team its own', function () {
+    $keyId = DB::table('private_keys')->insertGetId([
+        'uuid' => (string) str()->uuid(),
+        'name' => 'odoo-github',
+        'private_key' => 'test-key',
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    $this->githubApp->update(['private_key_id' => $keyId]);
+    GithubApp::create([
+        'name' => 'shared',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'app_id' => 111,
+        'installation_id' => 222,
+        'private_key_id' => $keyId,
+        'team_id' => 0,
+        'is_public' => false,
+        'is_system_wide' => true,
+    ]);
+    $other = Team::factory()->create();
+    $this->user->teams()->attach($other, ['role' => 'owner']);
+    $this->user->unsetRelation('teams');
+    $project = Project::factory()->create(['team_id' => $other->id]);
+    $project->enableOdoo('20');
+    $before = GithubApp::query()->count();
+
+    expect(OdooGit::userApp((int) $other->id, $this->user->id))->toBeNull();
+
+    $app = OdooGit::beginConnect($project);
+
+    expect($app->is($this->githubApp))->toBeFalse()
+        ->and((int) $app->team_id)->toBe((int) $other->id)
+        ->and(GithubApp::query()->count())->toBe($before + 1)
+        ->and(OdooGit::beginConnect($project)->is($app))->toBeTrue()
+        ->and(GithubApp::query()->count())->toBe($before + 1)
+        ->and(OdooGit::userApp((int) $this->team->id, $this->user->id)?->is($this->githubApp))->toBeTrue();
+});
+
 it('names a new github app after the product and keeps it on the user', function () {
     $app = OdooGit::beginConnect($this->project);
 
@@ -1535,7 +1576,10 @@ it('builds the odoo mail env from the instance smtp and not from the project', f
 
     instanceSettings()->update(['smtp_enabled' => false]);
 
-    expect(OdooGit::mailEnvironmentLines())->toBe([]);
+    $off = OdooGit::mailEnvironmentLines();
+
+    expect($off)->toContain('GPSH_MAIL_LIMIT="20"')
+        ->and($off)->not->toContain('GPSH_SMTP_HOST');
 });
 
 it('gives production and staging their own hosts and connects as a chosen user', function () {

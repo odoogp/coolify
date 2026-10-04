@@ -624,15 +624,18 @@ test('launching odoo adds one beszel container for that stack', function () {
 test('the odoo terminal opens the odoo shell and the other containers keep theirs', function () {
     $shell = OdooGit::terminalShell('odoo-abc123');
 
-    expect($shell)->toContain('--db_host="$HOST"')
-        ->and($shell)->toContain('--db_port="$PORT"')
+    expect($shell)->toContain('exec odoo shell')
+        ->and($shell)->toContain('--no-http')
+        ->and($shell)->toContain('--db_host="${HOST:-postgresql}"')
+        ->and($shell)->toContain('--addons-path="$addons"')
         ->and($shell)->not->toContain('exec bash')
-        ->and($shell)->not->toContain('exec odoo shell')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Project/Shared/Terminal.php'))->toContain('--rcfile /tmp/gpsh-shell.sh')
         ->and(OdooGit::loginOpenCommand('odoo.example.test'))->toContain('/web/login')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Jobs/CloneOdooStagingJob.php'))->toContain('loginAnswers')
         ->and(OdooGit::terminalShell('jupyter-abc123'))->toBeNull()
-        ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull();
+        ->and(OdooGit::terminalShell('postgresql-abc123'))->toBeNull()
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('8079')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('terminado_settings');
 
     expect(OdooGit::loginOpenCommand('odoo.example.test'))->not->toContain('letsencrypt')
         ->and(OdooGit::loginOpenCommand('odoo.example.test'))->toContain('se actualiza sola')
@@ -688,6 +691,8 @@ test('odoo mail uses the instance smtp through ir.mail_server', function () {
         ->and($command)->toContain('gpsh.own_mail')
         ->and($command)->toContain('gpsh.mail_route')
         ->and($command)->toContain('gpsh.mail_last')
+        ->and($command)->toContain('database.is_neutralized')
+        ->and($command)->toContain('GPSH_MAIL_LIMIT')
         ->and($command)->toContain("row.write({'active': True})")
         ->and($command)->toContain('_find_mail_server')
         ->and($command)->toContain("('name', '!=', 'GPSH')")

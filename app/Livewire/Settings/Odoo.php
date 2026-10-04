@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Domain\Odoo\OdooVersion;
 use App\Models\GithubApp;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
@@ -9,7 +10,6 @@ use App\Models\OdooComposeTemplate;
 use App\Rules\ValidGitBranch;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
-use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
@@ -40,6 +40,8 @@ class Odoo extends Component
 
     public string $odooBaseDomain = '';
 
+    public int $mailDailyLimit = 20;
+
     public int $volumePage = 1;
 
     /** @var list<string> */
@@ -55,6 +57,7 @@ class Odoo extends Component
 
         $this->settings = instanceSettings();
         $this->odooBaseDomain = (string) ($this->settings->odoo_base_domain ?? '');
+        $this->mailDailyLimit = max(0, min(10000, (int) ($this->settings->odoo_mail_daily_limit ?? 20)));
         $this->ownerRepository = (string) ($this->settings->odoo_owner_repository ?? '');
         $this->ownerBranch = (string) ($this->settings->odoo_owner_branch ?? '');
         $this->loadVersion();
@@ -108,6 +111,22 @@ class Odoo extends Component
             $this->settings->save();
             $this->odooBaseDomain = $domain;
             $this->dispatch('success', __('Odoo domain saved.'));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function saveMailLimit(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        try {
+            $this->authorize('update', $this->settings);
+            $limit = max(0, min(10000, (int) $this->mailDailyLimit));
+            $this->settings->odoo_mail_daily_limit = $limit;
+            $this->settings->save();
+            $this->mailDailyLimit = $limit;
+            $this->dispatch('success', __('Mail limit saved.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }

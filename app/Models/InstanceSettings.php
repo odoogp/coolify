@@ -63,6 +63,7 @@ class InstanceSettings extends Model
         'odoo_base_domain',
         'odoo_owner_repository',
         'odoo_owner_branch',
+        'odoo_mail_daily_limit',
     ];
 
     protected $hidden = [

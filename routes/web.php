@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Odoo\OdooMail;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OauthController;
@@ -59,7 +60,6 @@ use App\Livewire\Server\Charts as ServerCharts;
 use App\Livewire\Server\CloudflareTunnel;
 use App\Livewire\Server\CloudProviderToken\Show as CloudProviderTokenShow;
 use App\Livewire\Server\CreatePage as ServerCreatePage;
-use App\Services\Cloud\AdditionalCloudCatalog;
 use App\Livewire\Server\Delete as DeleteServer;
 use App\Livewire\Server\Destinations as ServerDestinations;
 use App\Livewire\Server\DockerCleanup;
@@ -116,11 +116,22 @@ use App\Models\Service;
 use App\Models\ServiceDatabase;
 use App\Models\StandaloneDocker;
 use App\Providers\RouteServiceProvider;
+use App\Services\Cloud\AdditionalCloudCatalog;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
 
 Route::post('/forgot-password', [Controller::class, 'forgot_password'])->name('password.forgot')->middleware('throttle:forgot-password');
 Route::post('/locale', LocaleController::class)->name('locale.update')->middleware('throttle:30,1');
+Route::post('/gpsh/mail-quota', function (Request $request) {
+    $teamId = (int) $request->input('team_id');
+    $token = (string) $request->input('token');
+    if ($teamId < 0 || ! hash_equals(OdooMail::token($teamId), $token)) {
+        abort(403);
+    }
+
+    return response()->json(['allowed' => OdooMail::takeSlot($teamId)]);
+})->middleware('throttle:120,1');
 Route::get('/realtime', [Controller::class, 'realtime_test'])->middleware('auth');
 Route::get('/verify', [Controller::class, 'verify'])->middleware('auth')->name('verify.email');
 Route::get('/email/verify/{id}/{hash}', [Controller::class, 'email_verify'])->middleware(['auth'])->name('verify.verify');

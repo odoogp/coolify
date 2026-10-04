@@ -37,7 +37,21 @@
                             {{ __('days') }}
                         </span>
                     </label>
+                    <label class="mt-4 flex items-center gap-2 text-sm">
+                        <input type="checkbox" wire:model="toast" class="rounded border-neutral-300 dark:border-white/20" />
+                        {{ __('Show a notice when one arrives') }}
+                    </label>
+                    <label class="mt-3 grid w-fit gap-1.5 text-sm font-medium">
+                        {{ __('The notice stays on screen for') }}
+                        <span class="flex items-center gap-2 font-normal">
+                            <input type="number" min="3" max="30" wire:model="toastSeconds" class="input w-24" />
+                            {{ __('seconds') }}
+                        </span>
+                    </label>
                     @error('keepDays')
+                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                    @error('toastSeconds')
                         <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                     @enderror
                     <div class="mt-4">
@@ -48,18 +62,11 @@
 
             <form wire:submit="send" class="application-settings-form">
                 <x-application.settings-section title="{{ __('Send a notice') }}"
-                    description="{{ __('Clients see notices marked for them. The owner sees every notice.') }}">
+                    description="{{ __('The owner sends notices to clients. Clients cannot send notices back.') }}">
                     <div class="grid gap-4">
                         <x-forms.input id="title" label="{{ __('Title') }}" required />
                         <x-forms.textarea id="body" label="{{ __('Message') }}" required rows="4" />
-                        <div class="grid gap-4 sm:grid-cols-3">
-                            <label class="grid gap-1.5 text-sm font-medium">
-                                {{ __('Audience') }}
-                                <select wire:model="audience" class="input">
-                                    <option value="clients">{{ __('For clients') }}</option>
-                                    <option value="owner">{{ __('For the owner') }}</option>
-                                </select>
-                            </label>
+                        <div class="grid gap-4 sm:grid-cols-2">
                             <label class="grid gap-1.5 text-sm font-medium">
                                 {{ __('Kind') }}
                                 <select wire:model="kind" class="input">
@@ -89,10 +96,16 @@
             </form>
 
             <x-application.settings-section title="{{ __('Notices') }}">
+                <div class="mb-3">
+                    <button type="button" wire:click="deleteAll" wire:confirm="{{ __('Delete all notices?') }}" class="button">{{ __('Delete all') }}</button>
+                </div>
                 <div class="divide-y divide-neutral-200 dark:divide-white/[0.06]">
                     @forelse ($notices as $notice)
                         <div class="py-3" wire:key="notice-{{ $notice->id }}">
                             <div class="flex flex-wrap items-center gap-2 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                @if ($loop->first)
+                                    <span class="rounded-full bg-coollabs/15 px-1.5 py-0.5 text-[10px] font-medium text-coollabs dark:bg-warning/15 dark:text-warning">{{ __('Latest') }}</span>
+                                @endif
                                 <span>{{ $notice->kindLabel() }}</span>
                                 <span>{{ $notice->audienceLabel() }}</span>
                                 <span>{{ $notice->created_at?->diffForHumans() }}</span>

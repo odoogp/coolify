@@ -17,6 +17,8 @@ class GpshNoticeSetting extends Model
         'deletion',
         'custom',
         'keep_days',
+        'toast',
+        'toast_seconds',
     ];
 
     protected function casts(): array
@@ -28,6 +30,8 @@ class GpshNoticeSetting extends Model
             'deletion' => 'boolean',
             'custom' => 'boolean',
             'keep_days' => 'integer',
+            'toast' => 'boolean',
+            'toast_seconds' => 'integer',
         ];
     }
 
