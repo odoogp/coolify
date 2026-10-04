@@ -13,6 +13,7 @@ test('the panel can be installed without caching signed-in pages', function () {
         ->and($manifest['display'])->toBe('standalone')
         ->and($manifest['theme_color'])->toBe('#1C2430')
         ->and(collect($manifest['icons'])->pluck('sizes')->all())->toContain('192x192', '512x512')
+        ->and(collect($manifest['icons'])->pluck('src')->all())->toContain('/pwa/icon-192-v2.png', '/pwa/icon-512-v2.png', '/pwa/icon-maskable-512-v2.png')
         ->and($worker)->toContain("addEventListener('fetch'")
         ->and($worker)->toContain("request.mode !== 'navigate'")
         ->and($worker)->toContain('caches.match(offlineUrl)')
@@ -23,6 +24,8 @@ test('the panel can be installed without caching signed-in pages', function () {
         ->and($layout)->toContain('rel="manifest"')
         ->and($layout)->toContain("serviceWorker.register('/sw.js'")
         ->and($layout)->toContain('apple-touch-icon')
-        ->and(file_get_contents(public_path('pwa/icon-192.png')))->toStartWith("\x89PNG")
-        ->and(file_get_contents(public_path('pwa/icon-512.png')))->toStartWith("\x89PNG");
+        ->and($layout)->toContain('pwa/icon-180-v2.png')
+        ->and($worker)->toContain('gpsh-offline-v2')
+        ->and(file_get_contents(public_path('pwa/icon-192-v2.png')))->toStartWith("\x89PNG")
+        ->and(file_get_contents(public_path('pwa/icon-512-v2.png')))->toStartWith("\x89PNG");
 });

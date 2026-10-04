@@ -1,4 +1,4 @@
-const cacheName = 'gpsh-offline-v1';
+const cacheName = 'gpsh-offline-v2';
 const offlineUrl = '/offline.html';
 
 self.addEventListener('install', (event) => {
