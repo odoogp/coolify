@@ -11,7 +11,11 @@ SOURCE_DIR="/data/coolify/source"
 IMAGE="coolify-custom:local"
 
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >>"${LOGFILE:-/dev/null}"
+    local line="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    printf '%s\n' "$line"
+    if [ -n "${LOGFILE:-}" ] && [ "${LOG_ALREADY_FILED:-}" != "1" ]; then
+        printf '%s\n' "$line" >>"$LOGFILE"
+    fi
 }
 
 write_status() {
@@ -196,6 +200,7 @@ fi
 if [ "${1:-}" = "--restart" ]; then
     load_paths
     LOGFILE=${LOCAL_UPGRADE_LOGFILE:?}
+    LOG_ALREADY_FILED=1
     restart_new_image
     exit 0
 fi
@@ -204,6 +209,7 @@ DATE=$(date +%Y-%m-%d-%H-%M-%S)
 LOGFILE="${SOURCE_DIR}/upgrade-${DATE}.log"
 export LOCAL_UPGRADE_LOGFILE="$LOGFILE"
 PREVIOUS_ID=""
+log "Starting local upgrade"
 
 load_paths
 assert_local_image_config
@@ -239,7 +245,7 @@ export PREVIOUS_ID
 
 write_status "3" "Building ${IMAGE}"
 log "Building ${CONTEXT}/docker/production/Dockerfile"
-if ! docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" >>"$LOGFILE" 2>&1; then
+if ! docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
     fail "Image build failed. The running container was not replaced."
 fi
 

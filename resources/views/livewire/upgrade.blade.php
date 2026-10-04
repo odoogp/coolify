@@ -222,6 +222,7 @@
             upgradeLog: '',
             backendStep: 0,
             simulationInterval: null,
+            upgradeTickRunning: false,
 
             updateSummary() {
                 if (this.upgradeError) {
@@ -529,6 +530,45 @@
                 this.backendStep = 0;
             },
 
+            async readUpgradeTick() {
+                try {
+                    const data = await this.$wire.getUpgradeStatus();
+                    this.livewireFailures = 0;
+                    if (data.status === 'in_progress') {
+                        this.currentStep = this.mapStepToUI(data.step);
+                        this.backendStep = Number(data.step) || 0;
+                        this.currentStatus = data.message;
+                    } else if (data.status === 'complete') {
+                        this.showSuccess();
+                    } else if (data.status === 'error') {
+                        this.showError(data.message);
+                    } else if (data.status === 'none' && this.instanceWentDown) {
+                        this.revive();
+                        await this.probeHealth();
+                    }
+                } catch (error) {
+                    this.livewireFailures++;
+                    if (this.livewireFailures < 3) {
+                        this.currentStatus = 'Reconnecting. This is expected during an upgrade...';
+                    } else if (!this.serviceDown) {
+                        console.log('Livewire unavailable, switching to health check mode');
+                        this.serviceDown = true;
+                        this.instanceWentDown = true;
+                        this.currentStep = 4;
+                        this.backendStep = 5;
+                        this.currentStatus = 'Coolify is restarting with the new version...';
+                        if (this.checkUpgradeStatusInterval) {
+                            clearInterval(this.checkUpgradeStatusInterval);
+                            this.checkUpgradeStatusInterval = null;
+                        }
+                        this.revive();
+                    }
+                }
+                if (this.showUpgradeLog) {
+                    await this.refreshUpgradeLog();
+                }
+            },
+
             upgrade() {
                 if (this.checkUpgradeStatusInterval) return true;
                 this.currentStep = 1;
@@ -539,44 +579,16 @@
                 this.livewireFailures = 0;
                 this.startHealthWatch();
 
-                // Poll upgrade status via Livewire
-                this.checkUpgradeStatusInterval = setInterval(async () => {
-                    try {
-                        const data = await this.$wire.getUpgradeStatus();
-                        this.livewireFailures = 0;
-                        if (data.status === 'in_progress') {
-                            this.currentStep = this.mapStepToUI(data.step);
-                            this.backendStep = Number(data.step) || 0;
-                            this.currentStatus = data.message;
-                        } else if (data.status === 'complete') {
-                            this.showSuccess();
-                        } else if (data.status === 'error') {
-                            this.showError(data.message);
-                        } else if (data.status === 'none' && this.instanceWentDown) {
-                            this.revive();
-                            await this.probeHealth();
-                        }
-                    } catch (error) {
-                        this.livewireFailures++;
-                        if (this.livewireFailures < 3) {
-                            this.currentStatus = 'Reconnecting. This is expected during an upgrade...';
-                        } else if (!this.serviceDown) {
-                            console.log('Livewire unavailable, switching to health check mode');
-                            this.serviceDown = true;
-                            this.instanceWentDown = true;
-                            this.currentStep = 4;
-                            this.backendStep = 5;
-                            this.currentStatus = 'Coolify is restarting with the new version...';
-                            if (this.checkUpgradeStatusInterval) {
-                                clearInterval(this.checkUpgradeStatusInterval);
-                                this.checkUpgradeStatusInterval = null;
-                            }
-                            this.revive();
-                        }
+                // Poll upgrade status via Livewire. One tick at a time: a slow
+                // status read must not stack requests and starve the log.
+                this.checkUpgradeStatusInterval = setInterval(() => {
+                    if (this.upgradeTickRunning) {
+                        return;
                     }
-                    if (this.showUpgradeLog) {
-                        await this.refreshUpgradeLog();
-                    }
+                    this.upgradeTickRunning = true;
+                    this.readUpgradeTick().finally(() => {
+                        this.upgradeTickRunning = false;
+                    });
                 }, 2000);
             }
         }))

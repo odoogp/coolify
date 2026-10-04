@@ -155,7 +155,7 @@ GitHub App administration for an app a client created on their GitHub lives only
 - Do not commit or push unless asked.
 - This Mac has no `php` and no `docker`. Do not invent test results.
 - Do not `docker compose down` or `down -v`. Do not delete volumes.
-- Do not change the local updater, `COOLIFY_IMAGE=coolify-custom:local`, `COOLIFY_PULL_POLICY=never`, or sentinel rows `id = 0`.
+- Do not change the local updater, `COOLIFY_IMAGE=coolify-custom:local`, `COOLIFY_PULL_POLICY=never`, or sentinel rows `id = 0`. The upgrade modal reads the upgrade job's own output while that job is running. It does not open a second SSH session to tail the host log until the job has finished.
 - Do not edit a migration after it is applied.
 - Source edits are not live until `coolify-custom:local` is rebuilt. Say so.
 - New GPSH strings go in `lang/es.json`. Validate with `python3 -c 'import json; json.load(open("lang/es.json"))'`.

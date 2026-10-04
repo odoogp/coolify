@@ -233,3 +233,42 @@ it('hides the update steps without changing how the upgrade runs', function () {
         ->toContain('Recreating Coolify')
         ->toContain('Health check');
 });
+
+it('shows the upgrade log from the running job', function () {
+    InstanceSettings::forceCreate(['id' => 0]);
+    $root = Team::factory()->create(['id' => 0]);
+    $client = Team::factory()->create();
+    $admin = User::factory()->create();
+    $admin->teams()->attach($root, ['role' => 'owner']);
+    $member = User::factory()->create();
+    $member->teams()->attach($client, ['role' => 'member']);
+
+    activity()
+        ->withProperties([
+            'command' => 'bash /data/coolify/source/upgrade-local.sh',
+            'status' => 'in_progress',
+        ])
+        ->log(json_encode([
+            ['order' => 1, 'output' => "Starting local upgrade\n", 'type' => 'out', 'timestamp' => 1, 'batch' => 0],
+            ['order' => 2, 'output' => "Building /root/coolify/docker/production/Dockerfile\n", 'type' => 'out', 'timestamp' => 2, 'batch' => 0],
+        ], JSON_THROW_ON_ERROR));
+
+    $component = Livewire::actingAs($admin)->test(Upgrade::class);
+
+    expect($component->instance()->upgradeLog()['text'])
+        ->toContain('Starting local upgrade')
+        ->toContain('Building /root/coolify');
+
+    $status = $component->instance()->getUpgradeStatus();
+    expect($status['status'])->toBe('in_progress')
+        ->and($status['step'])->toBe(3)
+        ->and($status['message'])->toContain('Building /root/coolify');
+
+    expect(Livewire::actingAs($member)->test(Upgrade::class)->instance()->upgradeLog()['text'])->toBe('');
+
+    $script = file_get_contents(base_path('scripts/upgrade-local.sh'));
+    expect($script)
+        ->toContain("printf '%s\\n' \"\$line\"")
+        ->toContain('tee -a "$LOGFILE"')
+        ->toContain('Starting local upgrade');
+});
