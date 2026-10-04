@@ -47,7 +47,30 @@
         </form>
         <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
             <x-application.settings-section title="{{ __('Owner modules') }}"
-                description="{{ __('These modules stay on the instance. Each Odoo start mounts them read-only and links them into the addon folder. They are not copied into the client repository. Redeploy after a change.') }}">
+                description="{{ __('House modules come from a GitHub branch on this instance. Each Odoo start copies them into the image addons, so they show up in the Odoo apps and stay out of the client addon folder and Jupyter. Saving does not restart Odoo.') }}">
+                <form wire:submit="saveOwnerRepository" class="flex max-w-xl flex-col gap-4">
+                    <x-forms.input id="ownerRepository" label="{{ __('Repository') }}"
+                        helper="{{ __('GitHub repository, as owner/name. Each module is a folder with a manifest.') }}"
+                        placeholder="owner/house-addons" />
+                    <div class="flex items-end gap-2">
+                        <div class="min-w-0 flex-1">
+                            @if ($ownerBranches !== [])
+                                <label class="mb-1.5 block text-sm font-medium" for="owner-branch">{{ __('Current branch') }}</label>
+                                <select id="owner-branch" wire:model="ownerBranch" class="input">
+                                    @foreach ($ownerBranches as $branch)
+                                        <option value="{{ $branch }}">{{ $branch }}</option>
+                                    @endforeach
+                                </select>
+                            @else
+                                <x-forms.input id="ownerBranch" label="{{ __('Current branch') }}" placeholder="main" />
+                            @endif
+                        </div>
+                        <x-forms.button type="button" wire:click="loadOwnerBranches">{{ __('Load branches') }}</x-forms.button>
+                    </div>
+                    <div>
+                        <x-forms.button type="submit" isHighlighted>{{ __('Save branch') }}</x-forms.button>
+                    </div>
+                </form>
                 <form wire:submit="addModule" class="flex max-w-xl items-end gap-2">
                     <div class="min-w-0 flex-1">
                         <x-forms.input id="moduleName" label="{{ __('Module name') }}"

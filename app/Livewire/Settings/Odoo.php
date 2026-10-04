@@ -2,13 +2,16 @@
 
 namespace App\Livewire\Settings;
 
+use App\Models\GithubApp;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
 use App\Models\OdooComposeTemplate;
+use App\Rules\ValidGitBranch;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Validator;
 use InvalidArgumentException;
 use Livewire\Component;
 
@@ -28,6 +31,13 @@ class Odoo extends Component
 
     public string $moduleName = '';
 
+    public string $ownerRepository = '';
+
+    public string $ownerBranch = '';
+
+    /** @var list<string> */
+    public array $ownerBranches = [];
+
     public string $odooBaseDomain = '';
 
     public int $volumePage = 1;
@@ -45,6 +55,8 @@ class Odoo extends Component
 
         $this->settings = instanceSettings();
         $this->odooBaseDomain = (string) ($this->settings->odoo_base_domain ?? '');
+        $this->ownerRepository = (string) ($this->settings->odoo_owner_repository ?? '');
+        $this->ownerBranch = (string) ($this->settings->odoo_owner_branch ?? '');
         $this->loadVersion();
     }
 
@@ -113,7 +125,94 @@ class Odoo extends Component
 
         GpshOwnerModule::query()->firstOrCreate(['name' => $name]);
         $this->moduleName = '';
-        $this->dispatch('success', __('Owner module saved. Redeploy Odoo to link it.'));
+        $this->dispatch('success', __('Owner module saved. The next Odoo start copies it into the image addons.'));
+    }
+
+    public function loadOwnerBranches(): void
+    {
+        $this->authorize('update', $this->settings);
+        $repository = OdooGit::normalizeRepository($this->ownerRepository);
+        if (preg_match('#\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z#', $repository) !== 1) {
+            $this->dispatch('error', __('Use the GitHub repository as owner/name.'));
+
+            return;
+        }
+
+        $this->ownerRepository = $repository;
+        $githubApp = OdooGit::ownerGithubApp();
+        if (! $githubApp instanceof GithubApp) {
+            $this->dispatch('error', __('Connect a GitHub App before loading branches.'));
+
+            return;
+        }
+
+        try {
+            $this->ownerBranches = OdooGit::repositoryBranches($githubApp, $repository);
+        } catch (\Throwable) {
+            $this->ownerBranches = [];
+            $this->dispatch('error', __('GitHub did not return branches for that repository.'));
+
+            return;
+        }
+
+        if ($this->ownerBranches === []) {
+            $this->dispatch('error', __('GitHub did not return branches for that repository.'));
+
+            return;
+        }
+
+        if (! in_array($this->ownerBranch, $this->ownerBranches, true)) {
+            $this->ownerBranch = $this->ownerBranches[0];
+        }
+    }
+
+    public function saveOwnerRepository(): void
+    {
+        $this->authorize('update', $this->settings);
+        $repository = OdooGit::normalizeRepository($this->ownerRepository);
+        $branch = trim($this->ownerBranch);
+        if ($repository === '' && $branch === '') {
+            $this->settings->update([
+                'odoo_owner_repository' => null,
+                'odoo_owner_branch' => null,
+            ]);
+            $this->ownerRepository = '';
+            $this->ownerBranch = '';
+            OdooGit::syncOwnerRepository();
+            $this->dispatch('success', __('Owner repository cleared. The next start removes those modules from Odoo.'));
+
+            return;
+        }
+
+        if (preg_match('#\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z#', $repository) !== 1) {
+            $this->dispatch('error', __('Use the GitHub repository as owner/name.'));
+
+            return;
+        }
+
+        $check = Validator::make(['branch' => $branch], ['branch' => ['required', 'string', new ValidGitBranch]]);
+        if ($check->fails()) {
+            $this->dispatch('error', __('The GitHub branch name is invalid.'));
+
+            return;
+        }
+
+        $this->settings->update([
+            'odoo_owner_repository' => $repository,
+            'odoo_owner_branch' => $branch,
+        ]);
+        $this->ownerRepository = $repository;
+        $this->ownerBranch = $branch;
+
+        try {
+            OdooGit::syncOwnerRepository();
+        } catch (\Throwable) {
+            $this->dispatch('error', __('The branch was saved, but the clone did not finish. The next start still uses the previous copy.'));
+
+            return;
+        }
+
+        $this->dispatch('success', __('Owner branch saved. The next Odoo start copies these modules into the image. The client addon folder does not include them.'));
     }
 
     public function removeModule(string $name): void
@@ -123,7 +222,7 @@ class Odoo extends Component
             OdooJupyter::forgetOwnerModule($name);
             GpshOwnerModule::query()->where('name', $name)->delete();
         }
-        $this->dispatch('success', __('Owner module removed. Redeploy Odoo to drop the link.'));
+        $this->dispatch('success', __('Owner module removed. The next Odoo start drops it from the image addons.'));
     }
 
     public function selectAllVolumes(): void

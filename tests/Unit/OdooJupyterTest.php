@@ -416,11 +416,13 @@ test('the odoo deploy waits until https answers', function () {
         ->and(OdooGit::httpsReadyCommand('not a host'))->toBeNull();
 });
 
-test('an owner module is linked into the addon folder and odoo logs go to the shared file', function () {
+test('an owner module is copied into the image addons and odoo logs go to the shared file', function () {
     $command = OdooJupyter::launchCommand('mi_empresa_production', '', '', '', ['sale_owner', 'not-valid']);
 
-    expect($command)->toContain('for module in sale_owner;')
-        ->and($command)->toContain('ln -sfn "/gpsh-owner-modules/$$module" "/mnt/extra-addons/$$module"')
+    expect($command)->toContain('/usr/lib/python3/dist-packages/odoo/addons')
+        ->and($command)->toContain('.gpsh-owner')
+        ->and($command)->toContain('cp -a')
+        ->and($command)->not->toContain('ln -sfn')
         ->and($command)->not->toContain('not-valid')
         ->and($command)->toContain('tee -a /mnt/extra-addons/.gpsh/odoo.log');
 });

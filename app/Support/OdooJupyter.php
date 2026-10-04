@@ -1083,6 +1083,52 @@ open("/tmp/odoo-db-ready", "w").write("1" if ready else "0")
 PY
 args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode --no-database-list)
 case "__ODOO_WORKERS__" in ''|0) ;; *) args+=(--workers=__ODOO_WORKERS__) ;; esac
+for link in /mnt/extra-addons/*; do
+  [ -L "$link" ] || continue
+  target=$(readlink "$link" || true)
+  case "$target" in
+    /gpsh-owner-modules/*) rm -f "$link" ;;
+  esac
+done
+image=/usr/lib/python3/dist-packages/odoo/addons
+if [ -d "$image" ] && [ -d /gpsh-owner-modules ]; then
+  for installed in "$image"/*; do
+    [ -d "$installed" ] || continue
+    [ -f "$installed/.gpsh-owner" ] || continue
+    base=$(basename "$installed")
+    if [ -f /gpsh-owner-modules/__manifest__.py ] || [ -f /gpsh-owner-modules/__openerp__.py ]; then
+      kept=$(tr -cd 'A-Za-z0-9_' < /gpsh-owner-modules/.gpsh-module-name 2>/dev/null | head -c 64)
+      [ "$base" = "$kept" ] || rm -rf "$installed"
+    else
+      [ -d "/gpsh-owner-modules/$base" ] || rm -rf "$installed"
+    fi
+  done
+  if [ -f /gpsh-owner-modules/__manifest__.py ] || [ -f /gpsh-owner-modules/__openerp__.py ]; then
+    base=$(tr -cd 'A-Za-z0-9_' < /gpsh-owner-modules/.gpsh-module-name 2>/dev/null | head -c 64)
+    if [ -n "$base" ]; then
+      rm -rf "$image/$base"
+      mkdir -p "$image/$base"
+      for item in /gpsh-owner-modules/* /gpsh-owner-modules/.[!.]*; do
+        [ -e "$item" ] || continue
+        name=$(basename "$item")
+        case "$name" in .git|.gpsh-module-name) continue ;; esac
+        cp -a "$item" "$image/$base/" || true
+      done
+      touch "$image/$base/.gpsh-owner" || true
+    fi
+  else
+    for module in /gpsh-owner-modules/*; do
+      [ -d "$module" ] || continue
+      base=$(basename "$module")
+      case "$base" in ''|*[!A-Za-z0-9_]*) continue ;; esac
+      if [ -f "$module/__manifest__.py" ] || [ -f "$module/__openerp__.py" ]; then
+        rm -rf "$image/$base"
+        cp -a "$module" "$image/$base" || true
+        touch "$image/$base/.gpsh-owner" || true
+      fi
+    done
+  fi
+fi
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
 load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons")
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
@@ -1208,22 +1254,6 @@ with registry.cursor() as cr:
 PY
 mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore /mnt/extra-addons/.gpsh
 chmod 755 /mnt/extra-addons/.gpsh || true
-keep="__OWNER_KEEP__"
-for link in /mnt/extra-addons/*; do
-  [ -L "$link" ] || continue
-  target=$(readlink "$link" || true)
-  case "$target" in
-    /gpsh-owner-modules/*)
-      base=$(basename "$link")
-      case "$keep" in *" $base "*) ;; *) rm -f "$link" ;; esac
-      ;;
-  esac
-done
-for module in __OWNER_LIST__; do
-  case "$module" in ''|*[!A-Za-z0-9_]*) continue ;; esac
-  [ -d "/gpsh-owner-modules/$module" ] || continue
-  ln -sfn "/gpsh-owner-modules/$module" "/mnt/extra-addons/$module"
-done
 umask 022
 exec > >(tee -a /mnt/extra-addons/.gpsh/odoo.log) 2>&1
 if [ "$(id -u)" = "0" ]; then

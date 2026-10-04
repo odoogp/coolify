@@ -680,12 +680,45 @@ it('lets the instance owner add a module that the next start links read-only', f
 
     $command = OdooJupyter::launchCommand('mi_empresa_production', '', '', '', GpshOwnerModule::names());
 
-    expect($command)->toContain('for module in sale_owner;');
+    expect($command)->toContain('/usr/lib/python3/dist-packages/odoo/addons')
+        ->and($command)->not->toContain('ln -sfn');
 
     Livewire::test(Odoo::class)
         ->call('removeModule', 'sale_owner');
 
     expect(GpshOwnerModule::names())->toBe([]);
+});
+
+it('saves the owner repository branch without restarting odoo', function () {
+    Bus::fake();
+    $rootTeam = Team::factory()->make(['name' => 'Root house']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->actingAs($this->user->fresh());
+
+    Livewire::test(Odoo::class)
+        ->set('ownerRepository', 'https://github.com/acme/house_addons.git')
+        ->set('ownerBranch', '19.0')
+        ->call('saveOwnerRepository')
+        ->assertDispatched('success');
+
+    $settings = instanceSettings()->fresh();
+    expect($settings->odoo_owner_repository)->toBe('acme/house_addons')
+        ->and($settings->odoo_owner_branch)->toBe('19.0');
+
+    $commands = implode("\n", OdooGit::ownerRepositoryCommands(
+        'https://x-access-token:secret@github.com/acme/house_addons.git',
+        '19.0',
+        'acme/house_addons',
+    ));
+
+    expect($commands)->toContain('/data/coolify/gpsh-owner-modules')
+        ->and($commands)->toContain('19.0')
+        ->and($commands)->toContain('house_addons')
+        ->and($commands)->not->toContain('extra-addons');
+
+    Bus::assertNotDispatched(StartService::class);
 });
 
 it('does not ask for the branch or github while deploying', function () {

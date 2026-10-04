@@ -1970,6 +1970,144 @@ BASH;
         instant_remote_process(self::cloneCommands(OdooAddons::extraAddonsVolume($service), $url, (string) $branch), $server);
     }
 
+    public static function normalizeRepository(string $value): string
+    {
+        $value = trim($value);
+        $value = preg_replace('#^https?://[^/]+/#', '', $value) ?? $value;
+        $value = preg_replace('#\.git$#', '', $value) ?? $value;
+
+        return trim($value, '/');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function repositoryBranches(GithubApp $githubApp, string $fullName): array
+    {
+        [$owner, $name] = self::splitRepository(self::normalizeRepository($fullName));
+        $response = githubApi($githubApp, '/repos/'.rawurlencode($owner).'/'.rawurlencode($name).'/branches?per_page=100');
+
+        return collect(data_get($response, 'data'))
+            ->map(fn (mixed $row): string => (string) data_get($row, 'name'))
+            ->filter(fn (string $branch): bool => $branch !== '' && preg_match('/^[A-Za-z0-9._\/-]+$/', $branch) === 1)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public static function ownerGithubApp(): ?GithubApp
+    {
+        $root = self::connectedApps(0)->first();
+        if ($root instanceof GithubApp) {
+            return $root;
+        }
+
+        return GithubApp::query()
+            ->where('is_public', false)
+            ->whereNotNull('app_id')
+            ->whereNotNull('installation_id')
+            ->whereNotNull('private_key_id')
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function ownerRepositoryCommands(string $cloneUrl, string $branch, string $repository): array
+    {
+        $module = basename(self::normalizeRepository($repository));
+        $module = preg_match('/\A[A-Za-z0-9_]+\z/', $module) === 1 ? $module : '';
+        $stamp = $module === ''
+            ? 'rm -f /addons/.gpsh-module-name; '
+            : 'if [ -f /addons/__manifest__.py ] || [ -f /addons/__openerp__.py ]; then printf %s\\n '.escapeshellarg($module).' > /addons/.gpsh-module-name; else rm -f /addons/.gpsh-module-name; fi; ';
+        $script = 'set -e; '
+            .'if [ -d /addons/.git ]; then '
+            .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).' && git -C /addons checkout -B '.escapeshellarg($branch).' FETCH_HEAD; '
+            .'else rm -rf /tmp/src; git clone --depth 1 --branch '.escapeshellarg($branch).' '.escapeshellarg($cloneUrl).' /tmp/src && find /addons -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cp -a /tmp/src/. /addons/; '
+            .'fi; '
+            .$stamp
+            .'chmod -R a+rX /addons || true';
+
+        return [
+            'mkdir -p /data/coolify/gpsh-owner-modules',
+            'docker run --rm --entrypoint sh -v /data/coolify/gpsh-owner-modules:/addons alpine/git -c '.escapeshellarg($script),
+        ];
+    }
+
+    public static function syncOwnerRepository(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $settings = instanceSettings();
+        $repository = trim((string) $settings->odoo_owner_repository);
+        $branch = trim((string) $settings->odoo_owner_branch);
+        if ($repository === '' || $branch === '') {
+            self::clearOwnerModules();
+
+            return;
+        }
+
+        $githubApp = self::ownerGithubApp();
+        if (! $githubApp instanceof GithubApp) {
+            throw new RuntimeException('Connect a GitHub App before cloning owner modules.');
+        }
+
+        $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
+        $token = generateGithubInstallationToken($githubApp);
+        $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
+        $commands = self::ownerRepositoryCommands($url, $branch, $repository);
+        foreach (self::ownerModuleServers() as $server) {
+            if ($server->isFunctional()) {
+                instant_remote_process($commands, $server);
+            }
+        }
+    }
+
+    public static function clearOwnerModules(): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        foreach (self::ownerModuleServers() as $server) {
+            if ($server->isFunctional()) {
+                instant_remote_process([
+                    'find /data/coolify/gpsh-owner-modules -mindepth 1 -maxdepth 1 -exec rm -rf {} +',
+                ], $server, false);
+            }
+        }
+    }
+
+    /**
+     * @return Collection<int, Server>
+     */
+    private static function ownerModuleServers(): Collection
+    {
+        $servers = collect();
+        $local = Server::query()->find(0);
+        if ($local instanceof Server) {
+            $servers->push($local);
+        }
+
+        Service::query()->whereNotNull('server_id')->orderBy('id')->each(function (Service $service) use ($servers): void {
+            if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+                return;
+            }
+            if ($servers->contains(fn (Server $server): bool => (int) $server->id === (int) $service->server_id)) {
+                return;
+            }
+            $server = $service->server;
+            if ($server instanceof Server) {
+                $servers->push($server);
+            }
+        });
+
+        return $servers;
+    }
+
     public static function ensureLaunchAllowed(Service $service): void
     {
         if (! $service->supportsOdooJupyter()) {
