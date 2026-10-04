@@ -104,7 +104,7 @@ class Show extends Component
             }
             $this->absorbWork(redirectOnDone: false);
             $this->markWorkRunning();
-            $this->project->loadMissing('environments.odooBranch', 'environments.services');
+            $this->project->loadMissing('odooProfile', 'environments.odooBranch', 'environments.services');
             $this->environmentPayload = $this->environmentRows(
                 auth()->user()->can('update', $this->project),
                 $this->project->odooProfile()->exists(),
@@ -683,6 +683,15 @@ class Show extends Component
             ])->sum();
 
             $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+            $domain = $odooOnly
+                ? (string) ($environment->odooBranch?->domain
+                    ?: ($service instanceof Service ? OdooGit::publicHttpsUrl($service) : ''))
+                : '';
+            $status = $odooOnly
+                ? (string) ($environment->odooBranch?->status
+                    ?: ($service instanceof Service && $service->isStarting() ? 'starting' : ($service instanceof Service ? 'ready' : 'empty')))
+                : '';
+            $version = $odooOnly ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
             $serviceHref = ! $odooOnly && $service instanceof Service
                 ? route('project.service.configuration', [
                     'project_uuid' => $this->project->uuid,
@@ -721,6 +730,9 @@ class Show extends Component
                 'name' => $environment->name,
                 'description' => $environment->description,
                 'branch' => $environment->odooBranch?->git_branch,
+                'domain' => $domain !== '' ? $domain : null,
+                'version' => $version !== '' ? $version : null,
+                'status' => $status !== '' ? $status : null,
                 'odoo' => $odooOnly,
                 'serviceHref' => $serviceHref,
                 'enterHref' => $enterHref,

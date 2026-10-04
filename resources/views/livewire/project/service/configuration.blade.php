@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        {{ data_get_str($service, 'name')->limit(10) }} > Configuration | Coolify
+        {{ data_get_str($service, 'name')->limit(10) }} > Configuration | {{ product_name() }}
     </x-slot>
 
     <livewire:project.service.heading :service="$service" :parameters="$parameters" :query="$query" />
@@ -12,6 +12,7 @@
             'service_uuid' => $service->uuid,
         ];
 
+        $clientOdooNav = $odooIsOdoo && ! isInstanceOwner();
         $configurationItems = collect([
             ['label' => __('General'), 'route' => 'project.service.configuration', 'icon' => 'settings'],
             ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
@@ -25,23 +26,37 @@
             ['label' => __('Resource Operations'), 'route' => 'project.service.resource-operations', 'icon' => 'server-update'],
             ['label' => __('Tags'), 'route' => 'project.service.tags', 'icon' => 'tags'],
             ['label' => __('Danger Zone'), 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
-        ])->filter(fn (array $item): bool => $item['visible'] ?? true)->map(fn (array $item): array => [
-            ...$item,
-            'active' => $currentRoute === $item['route']
-                || ($item['route'] === 'project.service.scheduled-tasks.show'
-                    && str($currentRoute)->startsWith('project.service.scheduled-tasks')),
-        ]);
+        ])->filter(fn (array $item): bool => $item['visible'] ?? true)
+            ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
+                'project.service.configuration',
+                'project.service.logs',
+                'project.service.command',
+                'project.service.danger',
+            ], true)))
+            ->map(fn (array $item): array => [
+                ...$item,
+                'active' => $currentRoute === $item['route']
+                    || ($item['route'] === 'project.service.scheduled-tasks.show'
+                        && str($currentRoute)->startsWith('project.service.scheduled-tasks')),
+            ]);
 
-        $menuGroups = [
-            'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
-            'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
-            'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
-            'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
-        ];
+        $menuGroups = $clientOdooNav
+            ? [
+                'Settings' => ['General'],
+                'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+                'Operations' => ['Danger Zone'],
+            ]
+            : [
+                'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
+                'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+                'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
+                'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
+            ];
 
         $groupedItems = collect($menuGroups)
             ->map(fn (array $labels) => collect($labels)
-                ->map(fn (string $label) => $configurationItems->firstWhere('label', $label))
+                ->map(fn (string $label) => $configurationItems->firstWhere('label', __($label))
+                    ?? $configurationItems->firstWhere('label', $label))
                 ->filter()
                 ->values())
             ->filter(fn ($items) => $items->isNotEmpty());
@@ -329,7 +344,7 @@
                                             {{ __('Install into project') }}
                                         </x-forms.button>
                                         <p wire:loading wire:target="installOwnerPackage" class="mt-2 text-[13px]">
-                                            {{ __('Copying the owner package…') }}
+                                            {{ __('Queuing the owner package install…') }}
                                         </p>
                                     </div>
                                 @endif

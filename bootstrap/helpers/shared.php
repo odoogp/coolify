@@ -15,7 +15,6 @@ use App\Models\LocalPersistentVolume;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
-use App\Support\ServiceTemplateCatalog;
 use App\Models\ServiceDatabase;
 use App\Models\SharedEnvironmentVariable;
 use App\Models\StandaloneClickhouse;
@@ -30,6 +29,7 @@ use App\Models\StandaloneRedis;
 use App\Models\SwarmDocker;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\ServiceTemplateCatalog;
 use Carbon\CarbonImmutable;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -883,7 +883,7 @@ function is_coolify_local_build(): bool
 
 function product_name(): string
 {
-    return 'GPSH';
+    return 'getodoo.sh';
 }
 
 function product_text(string $text): string
@@ -1889,6 +1889,7 @@ function getRealtime()
     $envDefined = config('constants.pusher.port');
     if (empty($envDefined)) {
         $url = Url::fromString(Request::getSchemeAndHttpHost());
+
         return $url->getPort();
     } else {
         return $envDefined;

@@ -896,6 +896,7 @@ it('merges the owner package branch into the client volume without wiping client
 });
 
 it('lets the instance owner install an owner package branch into a project volume', function () {
+    Queue::fake();
     $rootTeam = Team::factory()->make(['name' => 'Root package']);
     $rootTeam->id = 0;
     $rootTeam->save();
@@ -915,8 +916,11 @@ it('lets the instance owner install an owner package branch into a project volum
 
     OdooGit::installOwnerPackageIntoService($odoo, '19.0');
 
-    expect($environment->fresh()->odooBranch->owner_package_branch)->toBe('19.0')
-        ->and($environment->fresh()->odooBranch->service_id)->toBe($odoo->id);
+    $branch = $environment->fresh()->odooBranch;
+    expect($branch->owner_package_branch)->toBe('19.0')
+        ->and($branch->service_id)->toBe($odoo->id);
+
+    Queue::assertPushed(SyncOdooAddonsJob::class, fn (SyncOdooAddonsJob $job): bool => $job->odooEnvironmentBranchId === $branch->id);
 });
 
 it('refuses an empty owner package branch', function () {
@@ -930,6 +934,18 @@ it('refuses an empty owner package branch', function () {
         ->toThrow(InvalidArgumentException::class);
 });
 
+it('reapplies the owner package after the client clone on sync and start', function () {
+    $sync = file_get_contents(app_path('Jobs/SyncOdooAddonsJob.php'));
+    $start = file_get_contents(app_path('Actions/Service/StartService.php'));
+
+    expect($sync)->toContain('cloneIntoService')
+        ->and($sync)->toContain('reinstallOwnerPackageIntoService')
+        ->and(strpos($sync, 'cloneIntoService'))->toBeLessThan(strpos($sync, 'reinstallOwnerPackageIntoService'))
+        ->and(strpos($sync, 'reinstallOwnerPackageIntoService'))->toBeLessThan(strpos($sync, 'RestartOdooBranchJob'))
+        ->and($start)->toContain('reinstallOwnerPackageIntoService')
+        ->and(strpos($start, 'cloneIntoService'))->toBeLessThan(strpos($start, 'reinstallOwnerPackageIntoService'));
+});
+
 it('hides the owner package panel from non-owners', function () {
     $view = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
     $component = file_get_contents(app_path('Livewire/Project/Service/Configuration.php'));
@@ -940,6 +956,26 @@ it('hides the owner package panel from non-owners', function () {
         ->toContain('installOwnerPackage')
         ->toContain('Owner package')
         ->and($component)->toContain('abort_unless(isInstanceOwner(), 403)');
+});
+
+it('shows getodoo.sh branding and odoo row fields without coolify chrome for clients', function () {
+    $show = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
+    $config = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
+    $index = file_get_contents(resource_path('views/livewire/project/resource/index.blade.php'));
+    $resourceIndex = file_get_contents(app_path('Livewire/Project/Resource/Index.php'));
+
+    expect(product_name())->toBe('getodoo.sh')
+        ->and($show)->toContain('product_name()')
+        ->and($show)->not->toContain('| Coolify')
+        ->and($show)->toContain('environment.domain')
+        ->and($show)->toContain('environment.status')
+        ->and($show)->toContain('Branch / domain')
+        ->and($config)->toContain('clientOdooNav')
+        ->and($config)->toContain('product_name()')
+        ->and($config)->not->toContain('| Coolify')
+        ->and($index)->toContain('Odoo is not installed yet')
+        ->and($index)->toContain('product_name()')
+        ->and($resourceIndex)->toContain("redirect()->route('project.service.configuration'");
 });
 
 it('does not ask for the branch or github while deploying', function () {

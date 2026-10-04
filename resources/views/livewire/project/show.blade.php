@@ -1,15 +1,24 @@
 <div @if ($workRunning) wire:poll.2s="refreshCloneProgress" @endif>
     <x-slot:title>
-        {{ data_get_str($project, 'name')->limit(10) }} > Environments | Coolify
+        {{ data_get_str($project, 'name')->limit(10) }} > Environments | {{ product_name() }}
     </x-slot>
     <div x-data="projectEnvironments()" class="w-full">
         <header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
                 <h1 class="truncate text-[24px]! leading-7! font-semibold! tracking-tight!">{{ $project->name }}</h1>
                 <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                    @if ($project->odooProfile)
+                        <span
+                            x-text="`${environments.length} ${environments.length === 1 ? @js(__('branch')) : @js(__('branches'))}`"></span>
+                        {{ __('in this project') }}
+                        @if (filled($project->odooProfile->odoo_version))
+                            · Odoo {{ $project->odooProfile->odoo_version }}
+                        @endif
+                    @else
                     <span
                         x-text="`${environments.length} ${environments.length === 1 ? 'environment' : 'environments'}`"></span>
                     in this project
+                    @endif
                 </p>
             </div>
 
@@ -269,7 +278,9 @@
 
                             <div class="mt-auto flex items-center justify-between gap-3 pt-4">
                                 <p class="min-w-0 break-words text-[11px] text-neutral-500 dark:text-fg-dim"
-                                    x-text="`${environment.resourceCount} ${environment.resourceCount === 1 ? 'resource' : 'resources'}`">
+                                    x-text="environment.odoo
+                                        ? [environment.version ? ('Odoo ' + environment.version) : null, environment.status, environment.domain].filter(Boolean).join(' · ') || @js(__('Branch'))
+                                        : `${environment.resourceCount} ${environment.resourceCount === 1 ? 'resource' : 'resources'}`">
                                 </p>
 
                                 <div class="compact-actions relative z-10 flex shrink-0 items-center gap-0.5" x-show="!environment.activity">
@@ -313,8 +324,8 @@
                 <div
                     class="environments-table-grid border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
                     <div>{{ __('Environment') }}</div>
-                    <div class="environment-resource-count">{{ __('Resources') }}</div>
-                    <div class="environment-description">{{ __('Description') }}</div>
+                    <div class="environment-resource-count">{{ $project->odooProfile ? __('Status') : __('Resources') }}</div>
+                    <div class="environment-description">{{ $project->odooProfile ? __('Branch / domain') : __('Description') }}</div>
                     <div></div>
                 </div>
 
@@ -342,9 +353,13 @@
                         </div>
 
                         <div class="environment-resource-count text-[12px] text-neutral-600 dark:text-fg-dim"
-                            x-text="environment.resourceCount"></div>
+                            x-text="environment.odoo
+                                ? (environment.status || (environment.version ? ('Odoo ' + environment.version) : '—'))
+                                : environment.resourceCount"></div>
                         <p class="environment-description truncate text-[12px] text-neutral-500 dark:text-fg-dim"
-                            x-text="environment.branch || environment.description || '-'"></p>
+                            x-text="environment.odoo
+                                ? [environment.branch, environment.domain].filter(Boolean).join(' · ') || '-'
+                                : (environment.branch || environment.description || '-')"></p>
 
                         <div class="compact-actions relative flex items-center justify-end gap-0.5" x-show="!environment.activity">
                             @include('livewire.project.environment-shortcuts')

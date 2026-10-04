@@ -438,7 +438,7 @@ class Configuration extends Component
             $this->environment->unsetRelation('odooBranch');
             $this->environment->load('odooBranch');
             $this->ownerPackageBranch = (string) ($this->environment->odooBranch?->owner_package_branch ?? $this->ownerPackageBranch);
-            $this->dispatch('success', __('Owner package branch :branch copied into this project volume.', [
+            $this->dispatch('success', __('Owner package branch :branch is being copied into this project volume.', [
                 'branch' => $this->ownerPackageBranch,
             ]));
         } catch (InvalidArgumentException|RuntimeException $exception) {

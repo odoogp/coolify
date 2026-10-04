@@ -8,7 +8,6 @@ use App\Domain\Odoo\OdooDomains;
 use App\Domain\Odoo\OdooMail;
 use App\Domain\Odoo\OdooStaging;
 use App\Enums\ProcessStatus;
-use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
@@ -2055,7 +2054,7 @@ BASH;
             throw new InvalidArgumentException('Set the owner package repository in Settings → Odoo first.');
         }
 
-        $service->loadMissing('environment', 'destination.server');
+        $service->loadMissing('environment');
         $environment = $service->environment;
         if ($environment === null) {
             throw new InvalidArgumentException('This service has no environment.');
@@ -2069,18 +2068,41 @@ BASH;
         $row->service_id = $service->id;
         $row->save();
 
+        SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
+    }
+
+    /**
+     * Re-apply the saved owner package branch into the client volume.
+     * No DB write and no restart — callers sync the volume then restart once.
+     */
+    public static function reinstallOwnerPackageIntoService(Service $service): void
+    {
         if (app()->runningUnitTests()) {
+            return;
+        }
+        if (! $service->supportsOdooJupyter()) {
+            return;
+        }
+
+        $service->loadMissing('environment.odooBranch', 'destination.server');
+        $branch = trim((string) ($service->environment?->odooBranch?->owner_package_branch ?? ''));
+        if ($branch === '' || preg_match('/^[A-Za-z0-9._\/-]+$/', $branch) !== 1) {
+            return;
+        }
+
+        $repository = trim((string) instanceSettings()->odoo_owner_repository);
+        if ($repository === '') {
             return;
         }
 
         $githubApp = self::ownerGithubApp();
         if (! $githubApp instanceof GithubApp) {
-            throw new RuntimeException('Connect a GitHub App before installing the owner package.');
+            return;
         }
 
         $server = $service->destination?->server;
         if ($server === null || ! $server->isFunctional()) {
-            throw new RuntimeException('The server for this Odoo service is not ready.');
+            return;
         }
 
         $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
@@ -2090,8 +2112,6 @@ BASH;
             self::installOwnerPackageCommands(OdooAddons::extraAddonsVolume($service), $url, $branch, $repository),
             $server,
         );
-
-        (new RestartOdooBranchJob($row->id))->handle();
     }
 
     public static function clearOwnerModules(): void

@@ -23,6 +23,7 @@ class StartService
     {
         OdooGit::ensureLaunchAllowed($service);
         OdooGit::cloneIntoService($service);
+        OdooGit::reinstallOwnerPackageIntoService($service);
         OdooGit::prepareInstance($service);
         $service->parse();
         if ($this->shouldStopBeforeStarting($pullLatestImages, $stopBeforeStart)) {

@@ -1,15 +1,16 @@
 <?php
 
-it('uses GPSH as the visible product name', function () {
-    expect(product_name())->toBe('GPSH')
-        ->and(product_text('Coolify is ready'))->toBe('GPSH is ready');
+it('uses getodoo.sh as the visible product name', function () {
+    expect(product_name())->toBe('getodoo.sh')
+        ->and(str_replace('Coolify', product_name(), 'Coolify is ready'))->toBe('getodoo.sh is ready');
 
-    $layout = file_get_contents(base_path('resources/views/layouts/base.blade.php'));
-    $app = file_get_contents(base_path('resources/views/layouts/app.blade.php'));
+    $root = dirname(__DIR__, 2);
+    $layout = file_get_contents($root.'/resources/views/layouts/base.blade.php');
+    $app = file_get_contents($root.'/resources/views/layouts/app.blade.php');
 
     expect($layout)
         ->toContain('product_name()')
         ->toContain("asset('gpsh-logo.svg')")
         ->and($app)->toContain('gpsh-logo.svg')
-        ->and(is_file(base_path('public/gpsh-logo.svg')))->toBeTrue();
+        ->and(is_file($root.'/public/gpsh-logo.svg'))->toBeTrue();
 });

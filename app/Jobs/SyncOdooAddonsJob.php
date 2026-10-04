@@ -10,6 +10,7 @@ use App\Models\OdooEnvironmentBranch;
 use App\Models\Service;
 use App\Notifications\Internal\GeneralNotification;
 use App\Support\OdooAddons;
+use App\Support\OdooGit;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -51,7 +52,8 @@ class SyncOdooAddonsJob implements ShouldQueue
             }
 
             if ($service !== null) {
-                \App\Support\OdooGit::cloneIntoService($service);
+                OdooGit::cloneIntoService($service);
+                OdooGit::reinstallOwnerPackageIntoService($service);
             }
 
             (new RestartOdooBranchJob($branch->id))->handle();

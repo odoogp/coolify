@@ -57,28 +57,39 @@ class Index extends Component
     public function mount(): mixed
     {
         $this->loadResources();
-        if (request()->query('launch') !== 'choose' || ! $this->project->odooProfile()->exists()) {
-            return null;
+        if (request()->query('launch') === 'choose' && $this->project->odooProfile()->exists()) {
+            $this->authorize('createAnyResource');
+
+            try {
+                $service = $this->existingOdooService() ?? $this->createOdooService(start: false);
+            } catch (\Throwable $e) {
+                return handleError($e, $this);
+            }
+
+            if (! $service instanceof Service) {
+                return null;
+            }
+
+            return redirect()->route('project.service.configuration', [
+                'project_uuid' => $this->project->uuid,
+                'environment_uuid' => $this->environment->uuid,
+                'service_uuid' => $service->uuid,
+                'launch' => 'choose',
+            ]);
         }
 
-        $this->authorize('createAnyResource');
-
-        try {
-            $service = $this->existingOdooService() ?? $this->createOdooService(start: false);
-        } catch (\Throwable $e) {
-            return handleError($e, $this);
+        if ($this->project->odooProfile()->exists() && ! $this->environment->isEmpty()) {
+            $service = $this->existingOdooService();
+            if ($service instanceof Service) {
+                return redirect()->route('project.service.configuration', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $this->environment->uuid,
+                    'service_uuid' => $service->uuid,
+                ]);
+            }
         }
 
-        if (! $service instanceof Service) {
-            return null;
-        }
-
-        return redirect()->route('project.service.configuration', [
-            'project_uuid' => $this->project->uuid,
-            'environment_uuid' => $this->environment->uuid,
-            'service_uuid' => $service->uuid,
-            'launch' => 'choose',
-        ]);
+        return null;
     }
 
     private function loadResources(): void

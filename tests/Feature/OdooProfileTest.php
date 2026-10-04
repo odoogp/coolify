@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Odoo\OdooStaging;
 use App\Jobs\CloneOdooStagingJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Edit;
@@ -19,7 +20,6 @@ use App\Models\Service;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
-use App\Domain\Odoo\OdooStaging;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -364,16 +364,8 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
             'service_uuid' => $service->uuid,
         ], false));
 
-    $this->get(route('project.resource.index', [
-        'project_uuid' => $this->project->uuid,
-        'environment_uuid' => $production->uuid,
-    ]))->assertOk()->assertSee('production');
-
-    $this->get(route('project.service.configuration', [
-        'project_uuid' => $this->project->uuid,
-        'environment_uuid' => $production->uuid,
-        'service_uuid' => $service->uuid,
-    ]))->assertOk();
+    expect(file_get_contents(app_path('Livewire/Project/Resource/Index.php')))
+        ->toContain("redirect()->route('project.service.configuration'");
 });
 
 it('lists environments once and clones production into one staging', function () {
@@ -398,7 +390,7 @@ it('lists environments once and clones production into one staging', function ()
         ->toContain('Almost there.');
     expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
         ->toContain('installOdoo')
-        ->toContain('This environment only runs Odoo.');
+        ->toContain('Odoo is not installed yet');
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->call('selectEnvironment', $production->uuid)
