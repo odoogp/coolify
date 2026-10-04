@@ -1285,6 +1285,31 @@ it('turns an existing odoo link into https', function () {
     ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
 });
 
+it('builds the odoo mail env from the instance smtp and not from the project', function () {
+    instanceSettings()->update([
+        'smtp_enabled' => true,
+        'smtp_host' => 'smtp.example.com',
+        'smtp_port' => 587,
+        'smtp_encryption' => 'tls',
+        'smtp_username' => 'mailer',
+        'smtp_password' => 'se$cret',
+        'smtp_from_address' => 'notifications@example.com',
+    ]);
+
+    $lines = OdooGit::mailEnvironmentLines();
+
+    expect($lines)->toContain('GPSH_SMTP_HOST="smtp.example.com"')
+        ->and($lines)->toContain('GPSH_SMTP_PORT="587"')
+        ->and($lines)->toContain('GPSH_SMTP_ENCRYPTION="ssl"')
+        ->and($lines)->toContain('GPSH_SMTP_PASSWORD="se$$cret"')
+        ->and($lines)->toContain('GPSH_SMTP_FROM="notifications@example.com"')
+        ->and($this->project->odooProfile->getAttributes())->not->toHaveKey('smtp_host');
+
+    instanceSettings()->update(['smtp_enabled' => false]);
+
+    expect(OdooGit::mailEnvironmentLines())->toBe([]);
+});
+
 it('gives production and staging their own hosts and connects as a chosen user', function () {
     instanceSettings()->update(['odoo_base_domain' => 'dev.odoo.com']);
     $this->project->odooProfile->update(['subdomain' => 'arielmim97-20demo', 'workers' => 2]);

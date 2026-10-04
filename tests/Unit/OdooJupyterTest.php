@@ -673,6 +673,19 @@ test('a project host is the chosen name on the base domain and staging adds the 
         ->and(OdooGit::projectHost('demo', 'not a domain'))->toBe('');
 });
 
+test('odoo mail uses the instance smtp through ir.mail_server', function () {
+    $command = OdooJupyter::launchCommand('mi_empresa_production');
+
+    expect(OdooGit::odooSmtpEncryption('starttls'))->toBe('starttls')
+        ->and(OdooGit::odooSmtpEncryption('tls'))->toBe('ssl')
+        ->and(OdooGit::odooSmtpEncryption('none'))->toBe('none')
+        ->and(OdooGit::odooSmtpEncryption(null))->toBe('none')
+        ->and($command)->toContain('ir.mail_server')
+        ->and($command)->toContain('GPSH_SMTP_HOST')
+        ->and($command)->toContain('mail.default.from')
+        ->and($command)->not->toContain('GPSH_SMTP_PASSWORD="');
+});
+
 test('odoo workers are added only when the project asks for them', function () {
     expect(OdooJupyter::launchCommand('mi_empresa_production', workers: 2))
         ->toContain('--workers=2')

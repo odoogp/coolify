@@ -4115,6 +4115,7 @@
     "The GitHub username can only use letters, numbers, and hyphens.": "El usuario de GitHub solo puede usar letras, números y guiones.",
     "The subdomain can only use letters, numbers, and hyphens.": "El subdominio solo puede usar letras, números y guiones.",
     "Project runtime saved. The next start applies the workers and the address.": "Ajustes guardados. El siguiente arranque aplica los workers y la dirección.",
+    "Project runtime saved. Odoo is restarting so the proxy takes the address.": "Ajustes guardados. Odoo se está reiniciando para que el proxy tome la dirección.",
     "Odoo domain": "Dominio de Odoo",
     "Every project address uses this domain. Production is the name the client chooses, then this domain. A staging branch adds the branch and its id.": "Todas las direcciones de proyecto usan este dominio. Producción es el nombre que elige el cliente, y después este dominio. Una rama de staging añade la rama y su id.",
     "The domain needs a name and a dot, for example dev.odoo.com.": "El dominio necesita un nombre y un punto, por ejemplo dev.odoo.com.",

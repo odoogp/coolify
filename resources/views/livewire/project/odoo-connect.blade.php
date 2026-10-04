@@ -1,8 +1,8 @@
-<div class="relative inline-flex" x-data="{ menu: false }" @click.outside="menu = false">
-    <a class="button button-highlighted rounded-r-none" target="_blank" rel="noopener noreferrer" href="{{ $enterUrl }}">
+<div class="relative inline-flex overflow-hidden rounded-md border border-coollabs-200" x-data="{ menu: false }" @click.outside="menu = false">
+    <a class="button button-highlighted rounded-none border-0" target="_blank" rel="noopener noreferrer" href="{{ $enterUrl }}">
         {{ __('Open Odoo') }}
     </a>
-    <button type="button" class="button button-highlighted rounded-l-none border-l border-white/30 px-2"
+    <button type="button" class="button button-highlighted rounded-none border-0 border-l border-white/30 px-2"
         x-on:click="menu = ! menu" aria-label="{{ __('Connect as') }}" aria-haspopup="menu">
         <span aria-hidden="true">▾</span>
     </button>

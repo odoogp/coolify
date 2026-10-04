@@ -50,6 +50,13 @@ class Show extends Component
 
     public bool $workRunning = false;
 
+    public bool $odooUsersOpen = false;
+
+    public string $odooConnectUrl = '';
+
+    /** @var list<array{name: string, login: string}> */
+    public array $odooUsers = [];
+
     /** @var array<string, string> */
     public array $activityErrors = [];
 
@@ -160,6 +167,23 @@ class Show extends Component
     public function closeCloneWizard(): void
     {
         $this->showCloneWizard = false;
+    }
+
+    public function openOdooUsers(?string $serviceUuid): void
+    {
+        $service = Service::query()->where('uuid', (string) $serviceUuid)->first();
+        $environment = $service?->environment;
+        if (! $service instanceof Service || $environment === null || $environment->project_id !== $this->project->id) {
+            return;
+        }
+        $this->authorize('view', $service);
+        $this->odooUsers = OdooGit::internalUsers($service);
+        $this->odooConnectUrl = route('project.service.odoo.enter', [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $environment->uuid,
+            'service_uuid' => $service->uuid,
+        ]);
+        $this->odooUsersOpen = true;
     }
 
     public function selectEnvironment(string $uuid): void
@@ -697,6 +721,7 @@ class Show extends Component
                 'odoo' => $odooOnly,
                 'serviceHref' => $serviceHref,
                 'enterHref' => $enterHref,
+                'serviceUuid' => $service instanceof Service ? $service->uuid : null,
                 'jupyterHref' => $jupyterHref,
                 'monitorHref' => $monitorHref,
                 'logsHref' => $logsHref,

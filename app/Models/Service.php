@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ProcessStatus;
 use App\Services\AdminCreationQuota;
 use App\Services\ContainerStatusAggregator;
+use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
@@ -1661,6 +1662,11 @@ class Service extends BaseModel
         });
         foreach ($sorted as $env) {
             $envs->push("{$env->key}={$env->real_value}");
+        }
+        if (OdooJupyter::isOdooCompose((string) $this->docker_compose_raw)) {
+            foreach (OdooGit::mailEnvironmentLines() as $line) {
+                $envs->push($line);
+            }
         }
         if ($envs->count() === 0) {
             $commands[] = 'touch .env';

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project;
 
+use App\Actions\Service\StartService;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
@@ -252,17 +253,25 @@ class Edit extends Component
             OdooEnvironmentBranch::query()
                 ->whereIn('environment_id', $this->project->environments()->pluck('id'))
                 ->update(['workers' => $workers]);
-            $this->project->load('environments.services');
+            $this->project->load('environments.services.server');
+            $restarting = false;
             foreach ($this->project->environments as $environment) {
                 foreach ($environment->services as $service) {
-                    if (OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
-                        OdooGit::applyProjectHost($service);
+                    if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+                        continue;
+                    }
+                    OdooGit::applyProjectHost($service);
+                    if ($service->server?->isFunctional()) {
+                        StartService::dispatch($service);
+                        $restarting = true;
                     }
                 }
             }
             $this->odooSubdomain = $subdomain;
             $this->odooWorkers = $workers;
-            $this->dispatch('success', __('Project runtime saved. The next start applies the workers and the address.'));
+            $this->dispatch('success', $restarting
+                ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
+                : __('Project runtime saved. The next start applies the workers and the address.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }

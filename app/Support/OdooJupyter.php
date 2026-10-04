@@ -1168,6 +1168,42 @@ with registry.cursor() as cr:
         env["ir.config_parameter"].sudo().set_param("web.base.url", url)
         env["ir.config_parameter"].sudo().set_param("web.base.url.freeze", "True")
     env.ref("base.user_admin").sudo().write({"password": password})
+    host_smtp = os.environ.get("GPSH_SMTP_HOST") or ""
+    Server = env["ir.mail_server"].sudo()
+    fields = Server._fields
+    row = Server.search([("name", "=", "GPSH")], limit=1)
+    if not host_smtp:
+        if row:
+            row.write({"active": False})
+    else:
+        values = {}
+        port_text = os.environ.get("GPSH_SMTP_PORT") or "25"
+        encryption = os.environ.get("GPSH_SMTP_ENCRYPTION") or "none"
+        if encryption not in ("none", "starttls", "ssl"):
+            encryption = "none"
+        smtp_user = os.environ.get("GPSH_SMTP_USER") or ""
+        sender = os.environ.get("GPSH_SMTP_FROM") or ""
+        candidates = {
+            "name": "GPSH",
+            "smtp_host": host_smtp,
+            "smtp_port": int(port_text) if port_text.isdigit() else 25,
+            "smtp_encryption": encryption,
+            "smtp_user": smtp_user or False,
+            "smtp_pass": os.environ.get("GPSH_SMTP_PASSWORD") or False,
+            "smtp_authentication": "login" if smtp_user else False,
+            "from_filter": sender or False,
+            "sequence": 1,
+            "active": True,
+        }
+        for key, value in candidates.items():
+            if key in fields:
+                values[key] = value
+        if row:
+            row.write(values)
+        else:
+            Server.create(values)
+        if sender:
+            env["ir.config_parameter"].sudo().set_param("mail.default.from", sender)
     cr.commit()
 PY
 mkdir -p /var/lib/odoo/sessions /var/lib/odoo/filestore /mnt/extra-addons/.gpsh
