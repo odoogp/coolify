@@ -2049,6 +2049,7 @@ it('creates production when an odoo project has no environments', function () {
     $component->assertRedirect(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $production->uuid,
+        'github' => '0',
     ]));
 });
 
@@ -2065,6 +2066,7 @@ it('opens the repository choice when github is already installed on a recovered 
     $component->assertRedirect(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $production->uuid,
+        'github' => '0',
     ]));
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
@@ -2074,6 +2076,17 @@ it('opens the repository choice when github is already installed on a recovered 
             'environment_uuid' => $production->uuid,
             'launch' => 'choose',
         ]));
+});
+
+it('asks for a repository before launching when github is ready', function () {
+    $index = file_get_contents(app_path('Livewire/Project/Resource/Index.php'));
+
+    expect($index)
+        ->toContain('skipGithubChoice')
+        ->toContain("request()->query('github') === '0'")
+        ->toContain("'launch' => 'choose'")
+        ->toContain('LaunchOdooProjectJob::dispatch')
+        ->and(strpos($index, "'launch' => 'choose'"))->toBeLessThan(strpos($index, 'LaunchOdooProjectJob::dispatch'));
 });
 
 it('tells the owner when the owner jupyter or its certificate was missing', function () {

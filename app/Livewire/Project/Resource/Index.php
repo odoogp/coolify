@@ -6,6 +6,7 @@ use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\Environment;
 use App\Models\EnvironmentVariable;
+use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
 use App\Models\Project;
 use App\Models\Server;
@@ -34,6 +35,8 @@ class Index extends Component
 
     public ?string $serverId = null;
 
+    public bool $skipGithubChoice = false;
+
     protected Collection $applications;
 
     protected Collection $postgresqls;
@@ -57,6 +60,7 @@ class Index extends Component
     public function mount(): mixed
     {
         $this->loadResources();
+        $this->skipGithubChoice = request()->query('github') === '0';
         if (request()->query('launch') === 'choose' && $this->project->odooProfile()->exists()) {
             $this->authorize('createAnyResource');
 
@@ -258,6 +262,21 @@ class Index extends Component
             $service = $this->existingOdooService() ?? $this->createOdooService(start: false, destination: $this->chosenDestination());
             if (! $service instanceof Service) {
                 return;
+            }
+
+            $skipGithubChoice = $this->skipGithubChoice || request()->query('github') === '0';
+            $this->project->loadMissing('odooProfile');
+            if (
+                ! $skipGithubChoice
+                && blank($this->project->odooProfile?->git_repository)
+                && OdooGit::installedApp((int) $this->project->team_id, auth()->id()) instanceof GithubApp
+            ) {
+                return redirect()->route('project.service.configuration', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $this->environment->uuid,
+                    'service_uuid' => $service->uuid,
+                    'launch' => 'choose',
+                ]);
             }
 
             $launchKey = 'launch-odoo-'.$service->uuid;

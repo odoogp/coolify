@@ -632,6 +632,9 @@ class Show extends Component
         if ($withGithub && $this->repositoryChoiceIsOpen()) {
             $parameters['launch'] = 'choose';
         }
+        if (! $withGithub) {
+            $parameters['github'] = '0';
+        }
 
         return $parameters;
     }
