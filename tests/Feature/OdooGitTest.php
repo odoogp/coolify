@@ -968,7 +968,7 @@ it('shows getodoo.sh branding and odoo row fields without coolify chrome for cli
         ->and($show)->toContain('product_name()')
         ->and($show)->not->toContain('| Coolify')
         ->and($show)->toContain('environment.domain')
-        ->and($show)->toContain('environment.status')
+        ->and($show)->toContain('environment.statusLabel')
         ->and($show)->toContain('Branch / domain')
         ->and($config)->toContain('clientOdooNav')
         ->and($config)->toContain('product_name()')

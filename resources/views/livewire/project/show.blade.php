@@ -1,6 +1,6 @@
 <div @if ($workRunning) wire:poll.2s="refreshCloneProgress" @endif>
     <x-slot:title>
-        {{ data_get_str($project, 'name')->limit(10) }} > Environments | {{ product_name() }}
+        {{ data_get_str($project, 'name')->limit(10) }} > {{ __('Environments') }} | {{ product_name() }}
     </x-slot>
     <div x-data="projectEnvironments()" class="w-full">
         <header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -16,8 +16,8 @@
                         @endif
                     @else
                     <span
-                        x-text="`${environments.length} ${environments.length === 1 ? 'environment' : 'environments'}`"></span>
-                    in this project
+                        x-text="`${environments.length} ${environments.length === 1 ? @js(__('environment')) : @js(__('environments'))}`"></span>
+                    {{ __('in this project') }}
                     @endif
                 </p>
             </div>
@@ -279,8 +279,8 @@
                             <div class="mt-auto flex items-center justify-between gap-3 pt-4">
                                 <p class="min-w-0 break-words text-[11px] text-neutral-500 dark:text-fg-dim"
                                     x-text="environment.odoo
-                                        ? [environment.version ? ('Odoo ' + environment.version) : null, environment.status, environment.domain].filter(Boolean).join(' · ') || @js(__('Branch'))
-                                        : `${environment.resourceCount} ${environment.resourceCount === 1 ? 'resource' : 'resources'}`">
+                                        ? [environment.version ? ('Odoo ' + environment.version) : null, environment.statusLabel, environment.domain].filter(Boolean).join(' · ') || @js(__('Branch'))
+                                        : `${environment.resourceCount} ${environment.resourceCount === 1 ? @js(__('resource')) : @js(__('resources'))}`">
                                 </p>
 
                                 <div class="compact-actions relative z-10 flex shrink-0 items-center gap-0.5" x-show="!environment.activity">
@@ -354,7 +354,7 @@
 
                         <div class="environment-resource-count text-[12px] text-neutral-600 dark:text-fg-dim"
                             x-text="environment.odoo
-                                ? (environment.status || (environment.version ? ('Odoo ' + environment.version) : '—'))
+                                ? (environment.statusLabel || (environment.version ? ('Odoo ' + environment.version) : '—'))
                                 : environment.resourceCount"></div>
                         <p class="environment-description truncate text-[12px] text-neutral-500 dark:text-fg-dim"
                             x-text="environment.odoo

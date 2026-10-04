@@ -687,10 +687,22 @@ class Show extends Component
                 ? (string) ($environment->odooBranch?->domain
                     ?: ($service instanceof Service ? OdooGit::publicHttpsUrl($service) : ''))
                 : '';
-            $status = $odooOnly
+            $statusKey = $odooOnly
                 ? (string) ($environment->odooBranch?->status
                     ?: ($service instanceof Service && $service->isStarting() ? 'starting' : ($service instanceof Service ? 'ready' : 'empty')))
                 : '';
+            $statusLabel = $statusKey === '' ? null : (string) __(match ($statusKey) {
+                'idle' => 'Idle',
+                'updating' => 'Updating',
+                'failed' => 'Failed',
+                'starting' => 'Starting',
+                'ready' => 'Ready',
+                'empty' => 'Not installed',
+                'queued' => 'Queued',
+                'in_progress' => 'In progress',
+                'finished' => 'Finished',
+                default => $statusKey,
+            });
             $version = $odooOnly ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
             $serviceHref = ! $odooOnly && $service instanceof Service
                 ? route('project.service.configuration', [
@@ -732,7 +744,8 @@ class Show extends Component
                 'branch' => $environment->odooBranch?->git_branch,
                 'domain' => $domain !== '' ? $domain : null,
                 'version' => $version !== '' ? $version : null,
-                'status' => $status !== '' ? $status : null,
+                'status' => $statusKey !== '' ? $statusKey : null,
+                'statusLabel' => $statusLabel,
                 'odoo' => $odooOnly,
                 'serviceHref' => $serviceHref,
                 'enterHref' => $enterHref,
