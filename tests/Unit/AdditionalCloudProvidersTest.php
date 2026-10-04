@@ -34,7 +34,15 @@ it('keeps the original providers first and adds the new ones in order', function
         ->and($create)->toContain('by-vultr')
         ->and($create)->toContain('by-digital-ocean')
         ->and($create)->toContain('by-additional-cloud')
+        ->and($create)->toContain("asset('svgs/'.\$cloud['slug'].'.svg')")
         ->and(strpos($create, 'by-digital-ocean'))->toBeLessThan(strpos($create, 'by-additional-cloud'));
+
+    foreach (['linode', 'upcloud', 'scaleway', 'contabo', 'exoscale'] as $slug) {
+        $logo = file_get_contents(public_path('svgs/'.$slug.'.svg'));
+
+        expect($logo)->toContain('<svg')
+            ->and($logo)->toContain('fill="#');
+    }
 });
 
 it('stores a single secret for linode and json credentials for the others', function () {
