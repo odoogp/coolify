@@ -45,6 +45,7 @@ test('server selection uses the provider logos', function () {
     expect($newServerView)
         ->toContain('src="https://www.vultr.com/media/logo_ondark.svg"')
         ->toContain("src=\"{{ asset('svgs/hetzner.svg') }}\"")
+        ->toContain("src=\"{{ asset('svgs/ssh.svg') }}\"")
         ->and($onboardingView)
         ->toContain('src="https://www.vultr.com/media/logo_ondark.svg"')
         ->toContain("src=\"{{ asset('svgs/hetzner.svg') }}\"");

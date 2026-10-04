@@ -27,10 +27,7 @@
                             class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]"
                             {{ wireNavigate() }}>
                             <div class="flex items-start">
-                                <span
-                                    class="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-fg-dim">
-                                    <x-reicon name="servers" class="size-4" />
-                                </span>
+                                <img src="{{ asset('svgs/ssh.svg') }}" alt="{{ __('SSH') }}" class="size-8">
                             </div>
                             <div class="mt-auto pt-5">
                                 <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('IP address or domain') }}</h3>
