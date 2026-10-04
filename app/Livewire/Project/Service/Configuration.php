@@ -6,7 +6,6 @@ use App\Jobs\LaunchOdooProjectJob;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Support\OdooGit;
-use App\Support\OdooStaging;
 use App\Support\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
@@ -392,11 +391,9 @@ class Configuration extends Component
             }
 
             if ($this->odooRepoMode === 'new') {
-                $classification = OdooStaging::isStagingName($this->environment->name) ? 'staging' : 'production';
-                OdooGit::launchEnvironment($this->project, $this->odooGithubApp(), $classification);
-                $this->syncOdooGithub();
+                $this->odooGithubApp();
 
-                return $this->startPlannedLaunch();
+                return $this->startPlannedLaunch(createRepository: true);
             }
 
             $repository = $this->selectedOdooRepository();
@@ -452,15 +449,16 @@ class Configuration extends Component
         $this->launchStep = 0;
     }
 
-    private function startPlannedLaunch(): mixed
+    private function startPlannedLaunch(bool $createRepository = false): mixed
     {
-        OdooGit::cloneIntoService($this->service);
         $this->launchKey = 'launch-odoo-'.$this->service->uuid;
         Cache::put($this->launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
         LaunchOdooProjectJob::dispatch(
             $this->service->id,
             $this->launchKey,
             (int) auth()->id(),
+            $createRepository ? (int) $this->odooGithubAppId : null,
+            $createRepository,
         );
 
         return redirect()->route('project.show', ['project_uuid' => $this->project->uuid]);

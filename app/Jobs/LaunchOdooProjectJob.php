@@ -5,10 +5,12 @@ namespace App\Jobs;
 use App\Actions\CoolifyTask\RunRemoteProcess;
 use App\Actions\Service\StartService;
 use App\Enums\ProcessStatus;
+use App\Models\GithubApp;
 use App\Models\Service;
 use App\Models\User;
 use App\Support\GpshNotices;
 use App\Support\OdooGit;
+use App\Support\OdooStaging;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -32,6 +34,8 @@ class LaunchOdooProjectJob implements ShouldQueue
         public int $serviceId,
         public string $cacheKey,
         public int $userId,
+        public ?int $githubAppId = null,
+        public bool $createRepository = false,
     ) {
         $this->onQueue('high');
     }
@@ -55,6 +59,9 @@ class LaunchOdooProjectJob implements ShouldQueue
             }
 
             $this->progress(1);
+            if ($this->createRepository) {
+                $this->createProjectRepository($service);
+            }
             if (! $service->server?->isFunctional()) {
                 throw new RuntimeException('No server is available for this Odoo service.');
             }
@@ -119,6 +126,25 @@ class LaunchOdooProjectJob implements ShouldQueue
         }
 
         throw new RuntimeException('The project could not be started.');
+    }
+
+    private function createProjectRepository(Service $service): void
+    {
+        $project = $service->environment?->project;
+        if ($project === null) {
+            throw new RuntimeException('The project could not be started.');
+        }
+
+        $app = $this->githubAppId ? GithubApp::query()->find($this->githubAppId) : null;
+        if (! $app instanceof GithubApp) {
+            $app = OdooGit::userApp((int) $project->team_id, $this->userId);
+        }
+        if (! $app instanceof GithubApp) {
+            throw new RuntimeException('Connect a GitHub account before associating a repository.');
+        }
+
+        $classification = OdooStaging::isStagingName((string) $service->environment?->name) ? 'staging' : 'production';
+        OdooGit::launchEnvironment($project, $app, $classification);
     }
 
     /**
