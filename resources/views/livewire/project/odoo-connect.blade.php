@@ -1,15 +1,17 @@
-<div class="relative inline-flex overflow-hidden rounded-md border border-coollabs-200" x-data="{ menu: false }" @click.outside="menu = false">
-    <a class="button button-highlighted rounded-none border-0" target="_blank" rel="noopener noreferrer" href="{{ $enterUrl }}">
+<div class="relative inline-flex" x-data="{ menu: false }" @click.outside="menu = false" @keydown.escape.window="menu = false">
+    <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $enterUrl }}"
+        style="border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0">
         {{ __('Open Odoo') }}
     </a>
-    <button type="button" class="button button-highlighted rounded-none border-0 border-l border-white/30 px-2"
-        x-on:click="menu = ! menu" aria-label="{{ __('Connect as') }}" aria-haspopup="menu">
-        <span aria-hidden="true">▾</span>
+    <button type="button" class="button button-highlighted" x-on:click="menu = ! menu" :aria-expanded="menu"
+        aria-label="{{ __('Connect as') }}" aria-haspopup="menu"
+        style="border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0.4rem;padding-right:0.45rem">
+        <x-reicon name="chevron-down" class="size-3 opacity-70" />
     </button>
-    <div x-cloak x-show="menu" class="absolute right-0 top-full z-30 mt-1 w-40 overflow-hidden rounded-md border border-neutral-200 bg-white py-1 text-sm shadow-lg dark:border-white/10 dark:bg-neutral-900">
-        <a class="block px-3 py-2 hover:bg-neutral-100 dark:hover:bg-white/5" target="_blank" rel="noopener noreferrer"
+    <div x-cloak x-show="menu" x-transition.origin.top.right class="listbox-panel top-full! right-0! left-auto! mt-1! w-44! min-w-0!" role="menu">
+        <a class="listbox-option justify-start!" target="_blank" rel="noopener noreferrer" role="menuitem"
             href="{{ $enterUrl }}" x-on:click="menu = false">{{ __('Open') }}</a>
-        <button type="button" class="block w-full px-3 py-2 text-left hover:bg-neutral-100 dark:hover:bg-white/5"
+        <button type="button" class="listbox-option justify-start!" role="menuitem"
             wire:click="connectAs" x-on:click="menu = false">{{ __('Connect as') }}</button>
     </div>
     @if ($open)
