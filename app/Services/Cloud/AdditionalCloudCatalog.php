@@ -8,7 +8,7 @@ final class AdditionalCloudCatalog
      * Providers added beside Hetzner, Vultr, and DigitalOcean.
      * Order is the order shown on the new-server screen.
      *
-     * @return list<array{slug: string, label: string, summary: string, mark: string}>
+     * @return list<array{slug: string, label: string, summary: string}>
      */
     public static function definitions(): array
     {
@@ -17,31 +17,26 @@ final class AdditionalCloudCatalog
                 'slug' => 'linode',
                 'label' => 'Linode',
                 'summary' => 'Provision a Linode.',
-                'mark' => 'Ln',
             ],
             [
                 'slug' => 'upcloud',
                 'label' => 'UpCloud',
                 'summary' => 'Provision an UpCloud server.',
-                'mark' => 'Up',
             ],
             [
                 'slug' => 'scaleway',
                 'label' => 'Scaleway',
                 'summary' => 'Provision a Scaleway instance.',
-                'mark' => 'Sc',
             ],
             [
                 'slug' => 'contabo',
                 'label' => 'Contabo',
                 'summary' => 'Provision a Contabo VPS.',
-                'mark' => 'Co',
             ],
             [
                 'slug' => 'exoscale',
                 'label' => 'Exoscale',
                 'summary' => 'Provision an Exoscale instance.',
-                'mark' => 'Ex',
             ],
         ];
     }
@@ -65,7 +60,7 @@ final class AdditionalCloudCatalog
     }
 
     /**
-     * @return array{slug: string, label: string, summary: string, mark: string}
+     * @return array{slug: string, label: string, summary: string}
      */
     public static function find(string $slug): array
     {
