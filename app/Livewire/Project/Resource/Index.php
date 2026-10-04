@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project\Resource;
 
+use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\Environment;
 use App\Models\EnvironmentVariable;
@@ -12,7 +13,6 @@ use App\Models\Service;
 use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Support\OdooGit;
-use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -320,7 +320,7 @@ class Index extends Component
             'server_id' => $destination->server_id,
             'destination_id' => $destination->id,
             'destination_type' => $destination->getMorphClass(),
-            'jupyter_enabled' => blank($profile->git_repository),
+            'jupyter_enabled' => true,
         ]);
         if (in_array('odoo', NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
             $service->connect_to_docker_network = true;

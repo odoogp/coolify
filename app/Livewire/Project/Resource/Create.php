@@ -2,10 +2,10 @@
 
 namespace App\Livewire\Project\Resource;
 
+use App\Domain\Odoo\OdooVersion;
 use App\Models\EnvironmentVariable;
 use App\Models\OdooComposeTemplate;
 use App\Models\Service;
-use App\Domain\Odoo\OdooVersion;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -108,7 +108,7 @@ class Create extends Component
                             $service_payload['docker_compose_raw'] = $savedCompose;
                         }
                         $environment->loadMissing('project.odooProfile');
-                        $service_payload['jupyter_enabled'] = blank($environment->project?->odooProfile?->git_repository);
+                        $service_payload['jupyter_enabled'] = true;
                     }
                     $service = new Service($service_payload);
                     $service->save();

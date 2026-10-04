@@ -301,17 +301,32 @@ it('keeps jupyter on when odoo starts without a repository', function () {
         'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
         'jupyter_enabled' => false,
     ]);
+    $withGithub = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+        'jupyter_enabled' => false,
+    ]);
     $other = Service::factory()->create([
         'environment_id' => $environment->id,
         'docker_compose_raw' => "services:\n  ghost:\n    image: ghost:5\n",
         'jupyter_enabled' => false,
     ]);
+    $this->project->odooProfile->update([
+        'git_repository' => 'acme/with-github',
+        'repository_id' => 99,
+        'github_app_id' => $this->githubApp->id,
+    ]);
 
     OdooGit::ensureLaunchAllowed($odoo);
+    OdooGit::ensureLaunchAllowed($withGithub);
     OdooGit::ensureLaunchAllowed($other);
 
     expect($odoo->fresh()->jupyter_enabled)->toBeTrue()
-        ->and($other->fresh()->jupyter_enabled)->toBeFalse();
+        ->and($withGithub->fresh()->jupyter_enabled)->toBeTrue()
+        ->and($other->fresh()->jupyter_enabled)->toBeFalse()
+        ->and(file_get_contents(app_path('Livewire/Project/AddEmpty.php')))->toContain("'jupyter_enabled' => \$this->service === 'odoo'")
+        ->and(file_get_contents(app_path('Support/OdooGit.php')))->toContain('function associateNewRepository')
+        ->and(file_get_contents(app_path('Support/OdooGit.php')))->toContain('function pushCommands');
 });
 
 it('launches an environment without github and leaves the addon files to jupyter', function () {

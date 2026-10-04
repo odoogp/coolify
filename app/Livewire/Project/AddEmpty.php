@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project;
 
+use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\EnvironmentVariable;
 use App\Models\GithubApp;
@@ -13,7 +14,6 @@ use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
-use App\Domain\Odoo\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -321,7 +321,7 @@ class AddEmpty extends Component
             'server_id' => $destination->server_id,
             'destination_id' => $destination->id,
             'destination_type' => $destination->getMorphClass(),
-            'jupyter_enabled' => $this->service === 'odoo' && ! $this->connectGithub,
+            'jupyter_enabled' => $this->service === 'odoo',
         ]);
         if (in_array($this->service, NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
             $service->connect_to_docker_network = true;

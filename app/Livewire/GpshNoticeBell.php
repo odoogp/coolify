@@ -62,6 +62,17 @@ class GpshNoticeBell extends Component
         });
     }
 
+    public function deleteAll(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+        $user = Auth::user();
+        if ($user === null) {
+            return;
+        }
+
+        GpshNotices::forUser($user)->each(fn (GpshNotice $notice) => $notice->delete());
+    }
+
     public function render()
     {
         $user = Auth::user();

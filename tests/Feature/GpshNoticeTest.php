@@ -189,6 +189,23 @@ it('puts the newest notice first and lets the owner delete them all', function (
         ->call('deleteAll');
 
     expect(GpshNotice::query()->whereKey([$older->id, $newer->id])->exists())->toBeFalse();
+
+    $again = GpshNotice::query()->create([
+        'title' => 'Campana',
+        'body' => 'Desde la campana.',
+        'audience' => 'clients',
+        'kind' => 'custom',
+        'team_id' => $this->clientTeam->id,
+    ]);
+
+    Livewire::test(GpshNoticeBell::class)
+        ->assertSee('Delete all')
+        ->call('deleteAll');
+
+    expect(GpshNotice::query()->whereKey($again->id)->exists())->toBeFalse()
+        ->and(file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php')))
+        ->toContain('wire:click="deleteAll"')
+        ->toContain('inset-x-3');
 });
 
 it('saves how long a new notice stays on screen', function () {

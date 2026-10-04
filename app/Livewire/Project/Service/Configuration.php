@@ -72,6 +72,8 @@ class Configuration extends Component
 
     public bool $awaitingRepositoryChoice = false;
 
+    public bool $associatingWithoutGithub = false;
+
     public bool $launchRunning = false;
 
     public int $launchStep = 0;
@@ -125,8 +127,15 @@ class Configuration extends Component
             }
             $this->awaitingRepositoryChoice = request()->query('launch') === 'choose'
                 && blank($project->odooProfile?->git_repository);
-            if ($this->odooAccountChanged || $this->awaitingRepositoryChoice) {
+            $this->associatingWithoutGithub = ! $this->awaitingRepositoryChoice
+                && blank($project->odooProfile?->git_repository)
+                && $this->odooGithubConnected
+                && $this->odooIsOdoo;
+            if ($this->odooAccountChanged || $this->awaitingRepositoryChoice || $this->associatingWithoutGithub) {
                 $this->odooPanel = 'github';
+            }
+            if ($this->associatingWithoutGithub) {
+                $this->odooRepoMode = 'new';
             }
             if ($this->odooIsOdoo && request()->query('launch') === 'choose' && ! $this->awaitingRepositoryChoice && OdooGit::useHttps($this->service)) {
                 $this->service->unsetRelation('applications');
@@ -397,6 +406,15 @@ class Configuration extends Component
 
             if ($this->odooRepoMode === 'new') {
                 $this->odooGithubApp();
+                if ($this->associatingWithoutGithub || (! $this->awaitingRepositoryChoice && blank($this->project->odooProfile?->git_repository))) {
+                    OdooGit::associateNewRepository($this->service, $this->odooGithubApp());
+                    $this->syncOdooGithub();
+                    $this->associatingWithoutGithub = false;
+                    $this->awaitingRepositoryChoice = false;
+                    $this->dispatch('success', __('Repository created. Custom addons were pushed when present.'));
+
+                    return null;
+                }
 
                 return $this->startPlannedLaunch(createRepository: true);
             }
@@ -484,8 +502,13 @@ class Configuration extends Component
         }
         $profile = $this->project->odooProfile;
         $profileApp = (int) ($profile?->github_app_id ?? 0);
+        if ($app instanceof GithubApp && filled($profile?->git_repository) && $profileApp === 0) {
+            $profile->update(['github_app_id' => $app->id]);
+            $profileApp = (int) $app->id;
+        }
         $this->odooAccountChanged = $this->odooGithubConnected
             && filled($profile?->git_repository)
+            && $profileApp > 0
             && $profileApp !== (int) $this->odooGithubAppId;
         if ($this->odooAccountChanged) {
             $this->odooRepositoryId = null;

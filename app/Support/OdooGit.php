@@ -1838,6 +1838,80 @@ BASH;
         instant_remote_process(self::cloneCommands(OdooAddons::extraAddonsVolume($service), $url, (string) $branch), $server);
     }
 
+    /**
+     * Project already running without GitHub: create the repo, save it on the
+     * profile, and push whatever is already in the custom addon volume.
+     */
+    public static function associateNewRepository(Service $service, GithubApp $githubApp): void
+    {
+        $service->loadMissing('environment.project.odooProfile', 'destination.server');
+        $project = $service->environment?->project;
+        if ($project === null) {
+            throw new InvalidArgumentException('Odoo is not enabled for this project.');
+        }
+        if (filled($project->odooProfile?->git_repository)) {
+            throw new InvalidArgumentException('This project already has a GitHub repository.');
+        }
+
+        $classification = OdooStaging::isStagingName((string) $service->environment?->name) ? 'staging' : 'production';
+        self::launchEnvironment($project, $githubApp, $classification);
+        $userId = auth()->id();
+        if ($userId !== null) {
+            self::rememberForUser((int) $userId, (int) $project->team_id, $githubApp);
+        }
+        self::pushAddonsFromService($service->fresh() ?? $service);
+    }
+
+    public static function pushAddonsFromService(Service $service): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        if (! $service->supportsOdooJupyter()) {
+            return;
+        }
+
+        $service->loadMissing('environment.project.odooProfile.githubApp', 'environment.odooBranch', 'destination.server');
+        $profile = $service->environment?->project?->odooProfile;
+        $repository = $profile?->git_repository;
+        $githubApp = $profile?->githubApp;
+        $server = $service->destination?->server;
+        if (blank($repository) || ! $githubApp instanceof GithubApp || $server === null) {
+            return;
+        }
+
+        $branch = $service->environment?->odooBranch?->git_branch ?: 'main';
+        $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
+        $token = generateGithubInstallationToken($githubApp);
+        $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
+        instant_remote_process(self::pushCommands(OdooAddons::extraAddonsVolume($service), $url, (string) $branch), $server, false);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function pushCommands(string $volume, string $cloneUrl, string $branch): array
+    {
+        $script = 'set -e; '
+            .'printf %s\\n ".gpsh/" > /addons/.gitignore; '
+            .'if [ ! -d /addons/.git ]; then git -C /addons init; fi; '
+            .'git -C /addons config user.email "gpsh@localhost"; '
+            .'git -C /addons config user.name "GPSH"; '
+            .'git -C /addons remote remove origin 2>/dev/null || true; '
+            .'git -C /addons remote add origin '.escapeshellarg($cloneUrl).'; '
+            .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).' || true; '
+            .'git -C /addons checkout -B '.escapeshellarg($branch).'; '
+            .'git -C /addons add -A; '
+            .'if git -C /addons diff --cached --quiet; then exit 0; fi; '
+            .'git -C /addons commit -m "GPSH custom addons"; '
+            .'git -C /addons push -u origin '.escapeshellarg($branch);
+
+        return [
+            'docker volume create '.escapeshellarg($volume),
+            'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine/git -c '.escapeshellarg($script),
+        ];
+    }
+
     public static function normalizeRepository(string $value): string
     {
         $value = trim($value);
@@ -1968,11 +2042,6 @@ BASH;
     public static function ensureLaunchAllowed(Service $service): void
     {
         if (! $service->supportsOdooJupyter()) {
-            return;
-        }
-
-        $service->loadMissing('environment.project.odooProfile');
-        if (filled($service->environment?->project?->odooProfile?->git_repository)) {
             return;
         }
 

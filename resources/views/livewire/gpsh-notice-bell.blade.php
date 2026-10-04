@@ -12,13 +12,21 @@
     </button>
     <div x-cloak x-show="open"
         class="notice-panel z-[80] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-white/[0.08] dark:bg-panel">
-        <div class="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2 dark:border-white/[0.06]">
-            <span class="text-[13px] font-medium">{{ __('Notices') }}</span>
-            @if ($unread > 0)
-                <button type="button" wire:click="markAllRead" class="shrink-0 text-[12px] text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-white">
-                    {{ __('Mark as read') }}
-                </button>
-            @endif
+        <div class="flex shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2 dark:border-white/[0.06]">
+            <span class="min-w-0 truncate text-[13px] font-medium">{{ __('Notices') }}</span>
+            <div class="flex shrink-0 items-center gap-2">
+                @if ($unread > 0)
+                    <button type="button" wire:click="markAllRead" class="text-[12px] text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-white">
+                        {{ __('Mark as read') }}
+                    </button>
+                @endif
+                @if (isInstanceOwner() && $notices->isNotEmpty())
+                    <button type="button" wire:click="deleteAll" wire:confirm="{{ __('Delete all notices?') }}"
+                        class="text-[12px] text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-white">
+                        {{ __('Delete all') }}
+                    </button>
+                @endif
+            </div>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
             @forelse ($notices as $notice)
@@ -50,9 +58,9 @@
     </div>
     @if ($announce)
         <div x-cloak x-show="show" x-transition.opacity.duration.200ms
-            class="fixed right-4 top-16 z-[100] w-80 rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-panel">
-            <p class="text-sm font-medium text-black dark:text-white" x-text="title"></p>
-            <p class="mt-1 text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
+            class="fixed inset-x-3 top-16 z-[100] max-w-sm rounded-lg border border-neutral-200 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-4 dark:border-white/[0.08] dark:bg-panel">
+            <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
+            <p class="mt-1 break-words text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
         </div>
     @endif
 </div>

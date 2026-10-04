@@ -175,6 +175,10 @@
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             {{ __('This GitHub account is not the one linked to the repository. Associate a new repository, or choose an existing repository and a branch.') }}
                                         </p>
+                                    @elseif ($associatingWithoutGithub)
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            {{ __('This project started without GitHub. Create a repository and push the custom addons that are already on the instance.') }}
+                                        </p>
                                     @else
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             {{ $awaitingRepositoryChoice
@@ -182,6 +186,7 @@
                                                 : __('Choose the GitHub branch for this environment. It can differ from the environment name.') }}
                                         </p>
                                     @endif
+                                    @unless ($associatingWithoutGithub)
                                     <div class="flex flex-wrap gap-4 text-sm">
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
@@ -192,7 +197,8 @@
                                             {{ __('Use an existing repository') }}
                                         </label>
                                     </div>
-                                    @if ($odooRepoMode === 'new')
+                                    @endunless
+                                    @if ($odooRepoMode === 'new' || $associatingWithoutGithub)
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             @if (strcasecmp($environment->name, 'production') === 0)
                                                 {{ __('The new repository is named :name. This environment tracks its default branch.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
@@ -250,13 +256,17 @@
                                     @endif
                                     <div class="flex flex-wrap items-center gap-3">
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
-                                            {{ $odooRepoMode === 'new' ? __('Launch production') : __('Associate repository') }}
+                                            {{ $associatingWithoutGithub
+                                                ? __('Create repository')
+                                                : ($odooRepoMode === 'new' ? __('Launch production') : __('Associate repository')) }}
                                         </x-forms.button>
+                                        @unless ($associatingWithoutGithub)
                                         <x-forms.button type="button" wire:click="launchWithoutGithub" canGate="update" :canResource="$service">
                                             {{ __('Launch without GitHub') }}
                                         </x-forms.button>
+                                        @endunless
                                         <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
-                                            {{ __('Starting Odoo.') }}
+                                            {{ $associatingWithoutGithub ? __('Creating the repository…') : __('Starting Odoo.') }}
                                         </p>
                                     </div>
                                     @endif
