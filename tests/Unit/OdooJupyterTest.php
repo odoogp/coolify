@@ -326,11 +326,10 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('gpsh_autoconnect')
         ->and($command)->toContain('_odoo/paas/connect')
         ->and($command)->toContain('Estamos preparando todo.')
-        ->and($command)->toContain('Es mejor que vayas por un café.')
         ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
-        ->and($command)->toContain('Preparando Odoo.')
         ->and($command)->toContain('Instalando la base.')
-        ->and($command)->toContain('Abriendo Odoo.')
+        ->and($command)->toContain('Ya casi está.')
+        ->and($command)->not->toContain('setInterval')
         ->and($command)->toContain('websocket')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
@@ -345,6 +344,23 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0')
         ->and($aligned['odoo']['healthcheck'])->toBe(['disable' => true])
         ->and(implode("\n", $aligned['odoo']['labels'] ?? []))->not->toContain('gpsh-enter');
+});
+
+test('the waiting page keeps each stage for twenty seconds and says almost there last', function () {
+    $command = OdooJupyter::launchCommand('mi_empresa_production');
+    $activity = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/project/environment-activity.blade.php');
+
+    expect($command)->toContain('Estamos preparando todo.')
+        ->and($command)->toContain('Instalando la base.')
+        ->and($command)->toContain('Preparando el acceso.')
+        ->and($command)->toContain('Ya casi está.')
+        ->and($command)->toContain('time.time() - last < 20')
+        ->and($command)->toContain('Esta página se actualiza sola.')
+        ->and($command)->not->toContain('setInterval')
+        ->and($command)->not->toContain('Es mejor que vayas por un café.')
+        ->and($activity)->toContain('20000')
+        ->and($activity)->not->toContain('setInterval')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Project/Show.php'))->toContain('Almost there.');
 });
 
 test('an odoo https router tells odoo the browser used https', function () {

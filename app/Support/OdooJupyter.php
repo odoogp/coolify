@@ -839,17 +839,44 @@ BASH], $local, false);
             [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules)],
             <<<'BASH'
 python3 - <<'PY' || true
+import time
 from pathlib import Path
 def page(text):
-    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p id=\"m\" style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>")
+    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>")
+    Path("/tmp/gpsh-page-at").write_text(str(time.time()))
 page("Estamos preparando todo.")
-Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p id=\\\"m\\\" style=\\\"font-size:1.5rem;line-height:1.4\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>\")\n")
 PY
+cat > /tmp/gpsh-page.py << 'ENDPAGE'
+import sys, time
+from pathlib import Path
+text = sys.argv[1] if len(sys.argv) > 1 else "Estamos preparando todo."
+html = Path("/tmp/gpsh-status.html")
+stamp = Path("/tmp/gpsh-page-at")
+pending = Path("/tmp/gpsh-page-next")
+now = time.time()
+last = 0.0
+if stamp.exists():
+    try:
+        last = float(stamp.read_text() or "0")
+    except Exception:
+        last = 0.0
+def document(message):
+    return "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+message+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>"
+if html.exists() and now - last < 20:
+    pending.write_text(text)
+else:
+    html.write_text(document(text))
+    stamp.write_text(str(now))
+    if pending.exists():
+        pending.unlink()
+ENDPAGE
 cat > /tmp/gpsh-status.py << 'ENDSTATUS'
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import http.client
+import os
 import select
 import socket
+import time
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -917,6 +944,7 @@ class H(BaseHTTPRequestHandler):
                 upstream.close()
             self.waiting()
     def waiting(self):
+        self.promote()
         try:
             page = open("/tmp/gpsh-status.html", "rb").read()
             self.send_response(200)
@@ -926,6 +954,21 @@ class H(BaseHTTPRequestHandler):
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(page)
+        except Exception:
+            return
+    def promote(self):
+        try:
+            pending = open("/tmp/gpsh-page-next", "r", encoding="utf-8").read().strip()
+            last = float(open("/tmp/gpsh-page-at", "r", encoding="utf-8").read() or "0")
+        except Exception:
+            return
+        if pending == "" or time.time() - last < 20:
+            return
+        page = "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+pending+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>"
+        open("/tmp/gpsh-status.html", "w", encoding="utf-8").write(page)
+        open("/tmp/gpsh-page-at", "w", encoding="utf-8").write(str(time.time()))
+        try:
+            os.remove("/tmp/gpsh-page-next")
         except Exception:
             return
     def log_message(self, *args):
@@ -1067,7 +1110,7 @@ if [ "$(cat /tmp/gpsh-connect-state 2>/dev/null)" != "installed" ]; then
   python3 /tmp/gpsh-page.py "Preparando el acceso." || true
   odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i gpsh_autoconnect --stop-after-init || true
 fi
-python3 /tmp/gpsh-page.py "Abriendo Odoo." || true
+python3 /tmp/gpsh-page.py "Ya casi está." || true
 python3 - <<'PY' || true
 import os
 url = "__ODOO_URL__"
