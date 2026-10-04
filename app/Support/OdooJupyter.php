@@ -118,9 +118,9 @@ class OdooJupyter
 
     /**
      * One Jupyter for the instance owner, outside every client stack.
-     * ponytail: only volumes on server id 0. A client on another machine is absent until that host has its own copy.
+     * Each team and environment gets custom (that instance's extra-addons) and odoo (the image addons).
      *
-     * @param  list<array{team: string, environment: string, custom: ?string, files: ?string, image: string}>  $instances
+     * @param  list<array{team: string, environment: string, custom: ?string, files: ?string, image: string, custom_bind?: ?string}>  $instances
      */
     public static function ownerCompose(array $instances, string $token, string $host, string $network = 'coolify'): string
     {
@@ -146,13 +146,20 @@ class OdooJupyter
             }
             $used[$folder] = true;
             $root = '/workspace/'.$folder;
-            foreach (['custom' => 'custom', 'files' => 'files'] as $key => $name) {
-                $volume = (string) ($instance[$key] ?? '');
-                if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', $volume) !== 1) {
-                    continue;
+            $bind = (string) ($instance['custom_bind'] ?? '');
+            if (preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/[a-z0-9-]+/[a-z0-9-]+/custom\z#', $bind) === 1) {
+                $mounts[] = $bind.':'.$root.'/custom:ro';
+            } else {
+                $volume = (string) ($instance['custom'] ?? '');
+                if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', $volume) === 1) {
+                    $mounts[] = $volume.':'.$root.'/custom:ro';
+                    $external[$volume] = ['name' => $volume, 'external' => true];
                 }
-                $mounts[] = $volume.':'.$root.'/'.$name.':ro';
-                $external[$volume] = ['name' => $volume, 'external' => true];
+            }
+            $files = (string) ($instance['files'] ?? '');
+            if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', $files) === 1) {
+                $mounts[] = $files.':'.$root.'/files:ro';
+                $external[$files] = ['name' => $files, 'external' => true];
             }
             $image = (string) ($instance['image'] ?? '');
             if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1) {
@@ -291,7 +298,23 @@ BASH;
             ], $server);
             $network = self::proxyNetworkFrom((string) $listed);
         }
-        $compose = self::ownerCompose(self::ownerInstances(), $token, $host, $network);
+        $instances = self::ownerInstances();
+        if (! app()->runningUnitTests()) {
+            $listed = instant_remote_process(['docker volume ls -q'], $server, false);
+            $present = array_values(array_filter(preg_split('/\R/', trim((string) $listed)) ?: []));
+            if ($present !== []) {
+                $instances = self::prepareOwnerInstances($instances, $present);
+                foreach ($instances as $index => $instance) {
+                    if (! is_string($instance['import_volume'] ?? null) || ! is_string($instance['custom_bind'] ?? null)) {
+                        continue;
+                    }
+                    if (! self::importRemoteCustom($instance)) {
+                        $instances[$index]['custom_bind'] = null;
+                    }
+                }
+            }
+        }
+        $compose = self::ownerCompose($instances, $token, $host, $network);
         if (! app()->runningUnitTests()) {
             $volumes = self::ownerExternalVolumes($compose);
             if ($volumes !== []) {
@@ -387,12 +410,12 @@ BASH], $server);
     }
 
     /**
-     * @return list<array{team: string, environment: string, custom: ?string, files: ?string, image: string}>
+     * @return list<array{team: string, environment: string, custom: ?string, files: ?string, image: string, server_id: ?string, custom_fallback: ?string, files_fallback: ?string}>
      */
     public static function ownerInstances(): array
     {
         $rows = [];
-        foreach (Service::query()->with(['environment.project.team', 'applications.persistentStorages'])->get() as $service) {
+        foreach (Service::query()->with(['environment.project.team', 'applications.persistentStorages', 'destination'])->get() as $service) {
             if (! $service->supportsOdooJupyter()) {
                 continue;
             }
@@ -420,12 +443,19 @@ BASH], $server);
                     }
                 }
             }
+            $serverId = $service->server_id;
+            if (($serverId === null || $serverId === '') && $service->destination !== null) {
+                $serverId = $service->destination->server_id ?? null;
+            }
             $rows[] = [
                 'team' => (string) $team->name,
                 'environment' => (string) $environment->name,
-                'custom' => $custom,
-                'files' => $files,
+                'custom' => $custom !== '' ? $custom : null,
+                'files' => $files !== '' ? $files : null,
                 'image' => $image !== '' ? $image : 'odoo:20',
+                'server_id' => ($serverId === null || $serverId === '') ? null : (string) $serverId,
+                'custom_fallback' => self::volumeName(OdooAddons::extraAddonsVolume($service)),
+                'files_fallback' => self::volumeName(OdooAddons::filestoreVolume($service)),
             ];
         }
 
@@ -434,6 +464,112 @@ BASH], $server);
         });
 
         return $rows;
+    }
+
+    /**
+     * A volume on this machine is mounted directly. A volume on another server is copied into custom_bind.
+     * The image addons stay in the compose either way.
+     *
+     * @param  list<array<string, mixed>>  $instances
+     * @param  list<string>  $present
+     * @return list<array<string, mixed>>
+     */
+    public static function prepareOwnerInstances(array $instances, array $present): array
+    {
+        $present = array_fill_keys($present, true);
+        foreach ($instances as $index => $instance) {
+            $custom = self::presentVolume($instance, 'custom', $present);
+            $instances[$index]['custom'] = $custom;
+            $instances[$index]['files'] = self::presentVolume($instance, 'files', $present);
+            $instances[$index]['custom_bind'] = null;
+            $instances[$index]['import_volume'] = null;
+            if ($custom !== null || (string) ($instance['server_id'] ?? '') === '' || (string) $instance['server_id'] === '0') {
+                continue;
+            }
+            $remote = self::volumeName((string) ($instance['custom'] ?? ''))
+                ?? self::volumeName((string) ($instance['custom_fallback'] ?? ''));
+            $bind = self::customBind((string) ($instance['team'] ?? ''), (string) ($instance['environment'] ?? ''));
+            if ($remote === null || $bind === null) {
+                continue;
+            }
+            $instances[$index]['import_volume'] = $remote;
+            $instances[$index]['custom_bind'] = $bind;
+        }
+
+        return $instances;
+    }
+
+    public static function customBind(string $team, string $environment): ?string
+    {
+        $team = Str::slug($team);
+        $environment = Str::slug($environment);
+        if ($team === '' || $environment === '') {
+            return null;
+        }
+
+        return '/data/coolify/gpsh-owner-jupyter/clients/'.$team.'/'.$environment.'/custom';
+    }
+
+    /**
+     * ponytail: one snapshot of the remote extra-addons at open, capped at 8MB of base64 (~6MB). A bigger tree stays on that server.
+     *
+     * @param  array<string, mixed>  $instance
+     */
+    private static function importRemoteCustom(array $instance): bool
+    {
+        $volume = self::volumeName((string) ($instance['import_volume'] ?? ''));
+        $image = (string) ($instance['image'] ?? '');
+        $dir = (string) ($instance['custom_bind'] ?? '');
+        if ($volume === null || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1 || preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/[a-z0-9-]+/[a-z0-9-]+/custom\z#', $dir) !== 1) {
+            return false;
+        }
+        $remote = Server::query()->find($instance['server_id'] ?? null);
+        $local = Server::query()->find(0);
+        if (! $remote instanceof Server || ! $local instanceof Server || ! $remote->isFunctional() || ! $local->isFunctional()) {
+            return false;
+        }
+        $encoded = instant_remote_process([
+            'docker run --rm --pull never --user 0:0 --entrypoint sh -v '.escapeshellarg($volume).':/src:ro '.escapeshellarg($image).' -c '.escapeshellarg('tar -c -C /src . | base64 -w 0'),
+        ], $remote, false);
+        if (! is_string($encoded)) {
+            return false;
+        }
+        $encoded = preg_replace('/[^A-Za-z0-9+\/=]/', '', $encoded) ?? '';
+        if ($encoded === '' || strlen($encoded) > 8000000) {
+            return false;
+        }
+        instant_remote_process([<<<BASH
+set -eu
+dir={$dir}
+mkdir -p "\$dir"
+find "\$dir" -mindepth 1 -delete
+base64 -d <<'END' | tar -x -C "\$dir" --no-absolute-names
+{$encoded}
+END
+BASH], $local, false);
+
+        return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $instance
+     * @param  array<string, true>  $present
+     */
+    private static function presentVolume(array $instance, string $key, array $present): ?string
+    {
+        foreach ([$key, $key.'_fallback'] as $name) {
+            $volume = self::volumeName((string) ($instance[$name] ?? ''));
+            if ($volume !== null && isset($present[$volume])) {
+                return $volume;
+            }
+        }
+
+        return null;
+    }
+
+    private static function volumeName(string $name): ?string
+    {
+        return preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,200}\z/', $name) === 1 ? $name : null;
     }
 
     /**
@@ -482,45 +618,8 @@ BASH], $server);
                 fn (mixed $mount): bool => ! is_string($mount) || ! array_key_exists(explode(':', $mount, 2)[0], $missing),
             ));
         }
-        if (isset($yaml['services']['jupyter']['volumes']) && is_array($yaml['services']['jupyter']['volumes'])) {
-            $yaml['services']['jupyter']['volumes'] = self::withoutEmptyWorkspaces($yaml['services']['jupyter']['volumes']);
-        }
 
         return Yaml::dump($yaml, 8, 2);
-    }
-
-    /**
-     * A team folder with only the image addons is not that client's files.
-     *
-     * @param  list<mixed>  $mounts
-     * @return list<mixed>
-     */
-    public static function withoutEmptyWorkspaces(array $mounts): array
-    {
-        $kinds = [];
-        foreach ($mounts as $mount) {
-            if (! is_string($mount) || preg_match('#:/workspace/([^/]+/[^/]+)/(custom|files|odoo):#', $mount, $match) !== 1) {
-                continue;
-            }
-            $kinds[$match[1]][$match[2]] = true;
-        }
-        $empty = [];
-        foreach ($kinds as $folder => $present) {
-            if (! isset($present['custom']) && ! isset($present['files'])) {
-                $empty[$folder] = true;
-            }
-        }
-        if ($empty === []) {
-            return $mounts;
-        }
-
-        return array_values(array_filter($mounts, function (mixed $mount) use ($empty): bool {
-            if (! is_string($mount) || preg_match('#:/workspace/([^/]+/[^/]+)/odoo:#', $mount, $match) !== 1) {
-                return true;
-            }
-
-            return ! isset($empty[$match[1]]);
-        }));
     }
 
     /**
@@ -740,17 +839,44 @@ BASH], $server);
             [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules)],
             <<<'BASH'
 python3 - <<'PY' || true
+import time
 from pathlib import Path
 def page(text):
-    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"4\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p id=\"m\" style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>")
+    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>")
+    Path("/tmp/gpsh-page-at").write_text(str(time.time()))
 page("Estamos preparando todo.")
-Path("/tmp/gpsh-page.py").write_text("import sys\nfrom pathlib import Path\ntext=sys.argv[1] if len(sys.argv)>1 else \"Preparando Odoo.\"\nPath(\"/tmp/gpsh-status.html\").write_text(\"<!doctype html><meta charset=\\\"utf-8\\\"><meta http-equiv=\\\"refresh\\\" content=\\\"4\\\"><title>GPSH</title><body style=\\\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\\\"><div style=\\\"max-width:28rem;padding:2rem\\\"><p id=\\\"m\\\" style=\\\"font-size:1.5rem;line-height:1.4\\\">\"+text+\"</p><p style=\\\"opacity:.65\\\">Esta página se actualiza sola.</p></div><script>var lines=['Estamos preparando todo.','No se vaya, todo comenzará pronto.','Es mejor que vayas por un café.','Ya casi está.','Estamos dejando Odoo listo.','Preparando Odoo.'];var i=0;setInterval(function(){i=(i+1)%lines.length;document.getElementById('m').textContent=lines[i]},5000)</script></body>\")\n")
 PY
+cat > /tmp/gpsh-page.py << 'ENDPAGE'
+import sys, time
+from pathlib import Path
+text = sys.argv[1] if len(sys.argv) > 1 else "Estamos preparando todo."
+html = Path("/tmp/gpsh-status.html")
+stamp = Path("/tmp/gpsh-page-at")
+pending = Path("/tmp/gpsh-page-next")
+now = time.time()
+last = 0.0
+if stamp.exists():
+    try:
+        last = float(stamp.read_text() or "0")
+    except Exception:
+        last = 0.0
+def document(message):
+    return "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+message+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>"
+if html.exists() and now - last < 20:
+    pending.write_text(text)
+else:
+    html.write_text(document(text))
+    stamp.write_text(str(now))
+    if pending.exists():
+        pending.unlink()
+ENDPAGE
 cat > /tmp/gpsh-status.py << 'ENDSTATUS'
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import http.client
+import os
 import select
 import socket
+import time
 
 class H(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -818,6 +944,7 @@ class H(BaseHTTPRequestHandler):
                 upstream.close()
             self.waiting()
     def waiting(self):
+        self.promote()
         try:
             page = open("/tmp/gpsh-status.html", "rb").read()
             self.send_response(200)
@@ -827,6 +954,21 @@ class H(BaseHTTPRequestHandler):
             self.end_headers()
             if self.command != "HEAD":
                 self.wfile.write(page)
+        except Exception:
+            return
+    def promote(self):
+        try:
+            pending = open("/tmp/gpsh-page-next", "r", encoding="utf-8").read().strip()
+            last = float(open("/tmp/gpsh-page-at", "r", encoding="utf-8").read() or "0")
+        except Exception:
+            return
+        if pending == "" or time.time() - last < 20:
+            return
+        page = "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+pending+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>"
+        open("/tmp/gpsh-status.html", "w", encoding="utf-8").write(page)
+        open("/tmp/gpsh-page-at", "w", encoding="utf-8").write(str(time.time()))
+        try:
+            os.remove("/tmp/gpsh-page-next")
         except Exception:
             return
     def log_message(self, *args):
@@ -968,7 +1110,7 @@ if [ "$(cat /tmp/gpsh-connect-state 2>/dev/null)" != "installed" ]; then
   python3 /tmp/gpsh-page.py "Preparando el acceso." || true
   odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i gpsh_autoconnect --stop-after-init || true
 fi
-python3 /tmp/gpsh-page.py "Abriendo Odoo." || true
+python3 /tmp/gpsh-page.py "Ya casi está." || true
 python3 - <<'PY' || true
 import os
 url = "__ODOO_URL__"

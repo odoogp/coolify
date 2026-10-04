@@ -469,7 +469,7 @@ class Show extends Component
             1 => __('Mounting the environment'),
             2 => __('Copying the service'),
             3 => __('Cloning the branch'),
-            4 => __('Waiting for Odoo'),
+            4 => __('Almost there.'),
             default => __('Done'),
         };
     }
@@ -479,7 +479,7 @@ class Show extends Component
         return match ($step) {
             1 => __('Creating the project'),
             2 => __('Starting the containers'),
-            3 => __('Waiting for Odoo'),
+            3 => __('Almost there.'),
             default => __('Done'),
         };
     }

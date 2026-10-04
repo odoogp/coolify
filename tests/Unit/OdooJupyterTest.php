@@ -326,11 +326,10 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('gpsh_autoconnect')
         ->and($command)->toContain('_odoo/paas/connect')
         ->and($command)->toContain('Estamos preparando todo.')
-        ->and($command)->toContain('Es mejor que vayas por un café.')
         ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
-        ->and($command)->toContain('Preparando Odoo.')
         ->and($command)->toContain('Instalando la base.')
-        ->and($command)->toContain('Abriendo Odoo.')
+        ->and($command)->toContain('Ya casi está.')
+        ->and($command)->not->toContain('setInterval')
         ->and($command)->toContain('websocket')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
@@ -345,6 +344,23 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0')
         ->and($aligned['odoo']['healthcheck'])->toBe(['disable' => true])
         ->and(implode("\n", $aligned['odoo']['labels'] ?? []))->not->toContain('gpsh-enter');
+});
+
+test('the waiting page keeps each stage for twenty seconds and says almost there last', function () {
+    $command = OdooJupyter::launchCommand('mi_empresa_production');
+    $activity = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/project/environment-activity.blade.php');
+
+    expect($command)->toContain('Estamos preparando todo.')
+        ->and($command)->toContain('Instalando la base.')
+        ->and($command)->toContain('Preparando el acceso.')
+        ->and($command)->toContain('Ya casi está.')
+        ->and($command)->toContain('time.time() - last < 20')
+        ->and($command)->toContain('Esta página se actualiza sola.')
+        ->and($command)->not->toContain('setInterval')
+        ->and($command)->not->toContain('Es mejor que vayas por un café.')
+        ->and($activity)->toContain('20000')
+        ->and($activity)->not->toContain('setInterval')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Project/Show.php'))->toContain('Almost there.');
 });
 
 test('an odoo https router tells odoo the browser used https', function () {
@@ -472,8 +488,43 @@ test('owner jupyter drops a missing volume without leaving a broken volumes key'
         ->and($stripped['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
         ->and($gone)->not->toHaveKey('volumes')
         ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
-        ->and($remote['services']['jupyter']['volumes'])->not->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($remote['services']['jupyter']['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
         ->and($remote['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro');
+});
+
+test('owner jupyter shows another server as that team folder with its custom addons and the image addons', function () {
+    $ready = OdooJupyter::prepareOwnerInstances([[
+        'team' => 'Cliente 1',
+        'environment' => 'production',
+        'custom' => 'abc_odoo-extra-addons',
+        'custom_fallback' => 'abc_odoo-extra-addons',
+        'files' => 'abc_odoo-web-data',
+        'files_fallback' => 'abc_odoo-web-data',
+        'image' => 'odoo:18',
+        'server_id' => '4',
+    ]], []);
+    $compose = OdooJupyter::ownerCompose($ready, 'abcdef0123456789', 'jupyter.example.test');
+    $volumes = Yaml::parse($compose)['services']['jupyter']['volumes'];
+
+    expect($ready[0]['custom'])->toBeNull()
+        ->and($ready[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom')
+        ->and($ready[0]['import_volume'])->toBe('abc_odoo-extra-addons')
+        ->and($volumes)->toContain('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom:/workspace/cliente-1/production/custom:ro')
+        ->and($volumes)->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($volumes)->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom:ro');
+
+    $local = OdooJupyter::prepareOwnerInstances([[
+        'team' => 'Root Team',
+        'environment' => 'production',
+        'custom' => 'root_odoo-extra-addons',
+        'custom_fallback' => 'root_odoo-extra-addons',
+        'files' => null,
+        'image' => 'odoo:20',
+        'server_id' => '0',
+    ]], ['root_odoo-extra-addons']);
+
+    expect($local[0]['custom'])->toBe('root_odoo-extra-addons')
+        ->and($local[0]['custom_bind'])->toBeNull();
 });
 
 test('owner jupyter omits an empty volumes key and leftover volumes are the unused odoo ones', function () {

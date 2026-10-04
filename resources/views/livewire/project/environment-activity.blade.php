@@ -8,10 +8,10 @@
         </path>
     </svg>
     <span x-show="environment.activity && environment.activity.running"
-        x-data="{ tick: 0, lines: [@js(__('We are getting everything ready.')), @js(__('Do not leave, it will start soon.')), @js(__('This is a good moment for a coffee.')), @js(__('Almost there.')), @js(__('We are getting Odoo ready.'))] }"
-        x-init="setInterval(() => tick = (tick + 1) % lines.length, 4000)"
+        x-data="{ shown: '', at: 0, pending: '', timer: null }"
+        x-effect="pending = (environment.activity && environment.activity.message) || ''; if (!pending) return; if (!shown) { shown = pending; at = Date.now(); return } if (pending === shown) return; const wait = 20000 - (Date.now() - at); if (wait <= 0) { shown = pending; at = Date.now(); return } if (timer) return; timer = setTimeout(() => { timer = null; if (pending && pending !== shown) { shown = pending; at = Date.now() } }, wait)"
         class="max-w-48 truncate text-[11px] normal-case text-neutral-500 dark:text-fg-dim"
-        x-text="tick === 0 && environment.activity && environment.activity.message ? environment.activity.message : lines[tick]"></span>
+        x-text="shown || (environment.activity && environment.activity.message) || ''"></span>
     <a x-show="environment.enterHref" :href="environment.enterHref" target="_blank" @click.stop
         class="button button-highlighted h-7 shrink-0 px-2 text-[11px] normal-case">{{ __('Open Odoo') }}</a>
     <button type="button" x-show="environment.activity && environment.activity.error"
