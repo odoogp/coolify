@@ -515,6 +515,88 @@ it('creates the repository from the launch job and leaves the button request', f
         ->and(Cache::get('launch-odoo-test')['error'])->toBe('No server is available for this Odoo service.');
 });
 
+it('waits out a secondary github limit and still creates the repository', function () {
+    Http::fake([
+        'https://api.github.com/limit' => Http::response(['message' => 'API rate limit exceeded'], 403, [
+            'X-RateLimit-Remaining' => '0',
+        ]),
+        'https://api.github.com/secondary' => Http::response(['message' => 'You have exceeded a secondary rate limit.'], 403, [
+            'Retry-After' => '30',
+            'X-RateLimit-Remaining' => '4000',
+        ]),
+    ]);
+    expect(githubRateLimitPauseSeconds(Http::get('https://api.github.com/limit')))->toBeNull()
+        ->and(githubRateLimitPauseSeconds(Http::get('https://api.github.com/secondary')))->toBe(30);
+
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = PrivateKey::create([
+        'name' => 'odoo-github-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    $this->project->update(['name' => 'Odoo']);
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'server_id' => null,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $posts = 0;
+    $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+    Http::fake(function ($request) use (&$posts, $date) {
+        $url = $request->url();
+        $method = strtoupper($request->method());
+        if (str_contains($url, '/zen')) {
+            return Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/app/installations/')) {
+            return Http::response([
+                'account' => ['login' => 'acme', 'type' => 'User'],
+            ], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/user/repos')) {
+            $posts++;
+            if ($posts === 1) {
+                return Http::response(['message' => 'You have exceeded a secondary rate limit.'], 403, [
+                    'Retry-After' => '30',
+                    'X-RateLimit-Remaining' => '4000',
+                    'Date' => $date['Date'],
+                ]);
+            }
+
+            return Http::response([
+                'id' => 99,
+                'full_name' => 'acme/odoo',
+                'default_branch' => 'main',
+            ], 201, $date);
+        }
+        if (str_contains($url, '/repos/acme/')) {
+            return Http::response([
+                'id' => 99,
+                'full_name' => 'acme/odoo',
+                'default_branch' => 'main',
+            ], 200, $date);
+        }
+
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    (new LaunchOdooProjectJob($service->id, 'launch-odoo-retry', $this->user->id, $this->githubApp->id, true))->handle();
+
+    expect($posts)->toBe(2)
+        ->and($this->project->odooProfile->fresh()->git_repository)->toBe('acme/odoo')
+        ->and(Cache::get('launch-odoo-retry')['error'])->toBe('No server is available for this Odoo service.');
+});
+
 it('opens jupyter outside the platform and keeps odoo logs on the panel', function () {
     $environment = $this->project->environments()->where('name', 'production')->first();
     $odoo = Service::factory()->create([

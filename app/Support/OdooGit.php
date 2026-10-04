@@ -46,12 +46,12 @@ class OdooGit
         $total = 0;
 
         do {
-            $response = Http::GitHub($app->api_url, $token)
+            $response = githubWithRateLimit(fn () => Http::GitHub($app->api_url, $token)
                 ->timeout(15)
                 ->get('/installation/repositories', [
                     'per_page' => 100,
                     'page' => $page,
-                ]);
+                ]));
             if ($response->status() !== 200) {
                 if ($repositories !== []) {
                     break;
@@ -95,12 +95,12 @@ class OdooGit
         $names = [];
 
         do {
-            $response = Http::GitHub($app->api_url, $token)
+            $response = githubWithRateLimit(fn () => Http::GitHub($app->api_url, $token)
                 ->timeout(20)
                 ->get('/repos/'.$owner.'/'.$repo.'/branches', [
                     'per_page' => 100,
                     'page' => $page,
-                ]);
+                ]));
             if ($response->status() !== 200) {
                 $message = (string) ($response->json('message') ?: 'GitHub branches could not be loaded.');
                 if (githubRateLimited($message)) {

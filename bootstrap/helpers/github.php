@@ -4,6 +4,7 @@ use App\Models\GithubApp;
 use App\Models\PrivateKey;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -202,10 +203,10 @@ function generateGithubToken(GithubApp $source, string $type)
     return match ($type) {
         'jwt' => $jwt,
         'installation' => (function () use ($source, $jwt) {
-            $response = Http::withHeaders([
+            $response = githubWithRateLimit(fn () => Http::withHeaders([
                 'Authorization' => "Bearer $jwt",
                 'Accept' => 'application/vnd.github.machine-man-preview+json',
-            ])->post("{$source->api_url}/app/installations/{$source->installation_id}/access_tokens");
+            ])->post("{$source->api_url}/app/installations/{$source->installation_id}/access_tokens"));
 
             if (! $response->successful()) {
                 $error = data_get($response->json(), 'message', 'no error message found');
@@ -257,6 +258,39 @@ function githubRateLimited(?string $message): bool
     return is_string($message) && preg_match('/rate limit/i', $message) === 1;
 }
 
+function githubRateLimitPauseSeconds(Response $response): ?int
+{
+    $message = (string) data_get($response->json(), 'message', '');
+    if (! githubRateLimited($message)) {
+        return null;
+    }
+    if ((string) $response->header('X-RateLimit-Remaining') === '0') {
+        return null;
+    }
+    $wait = (int) $response->header('Retry-After');
+
+    return min($wait > 0 ? $wait : 20, 90);
+}
+
+function githubWithRateLimit(callable $request, int $tries = 3): Response
+{
+    $response = $request();
+    $attempt = 1;
+    while ($attempt < $tries) {
+        $pause = githubRateLimitPauseSeconds($response);
+        if ($pause === null || ! app()->runningInConsole()) {
+            return $response;
+        }
+        if (! app()->runningUnitTests()) {
+            sleep($pause);
+        }
+        $response = $request();
+        $attempt++;
+    }
+
+    return $response;
+}
+
 function githubRateLimitException(?string $remaining = null): RuntimeException
 {
     if ($remaining === '0') {
@@ -276,16 +310,17 @@ function githubApi(?GithubApp $source, string $endpoint, string $method = 'get',
         throw new InvalidArgumentException("Unsupported source type: {$source->getMorphClass()}");
     }
 
-    if ($source->is_public) {
-        $response = Http::GitHub($source->api_url)->$method($endpoint);
-    } else {
-        $token = generateGithubInstallationToken($source);
-        if ($data && in_array(strtolower($method), ['post', 'patch', 'put'])) {
-            $response = Http::GitHub($source->api_url, $token)->$method($endpoint, $data);
-        } else {
-            $response = Http::GitHub($source->api_url, $token)->$method($endpoint);
+    $token = $source->is_public ? null : generateGithubInstallationToken($source);
+    $response = githubWithRateLimit(function () use ($source, $method, $endpoint, $data, $token) {
+        if ($source->is_public) {
+            return Http::GitHub($source->api_url)->$method($endpoint);
         }
-    }
+        if ($data && in_array(strtolower($method), ['post', 'patch', 'put'])) {
+            return Http::GitHub($source->api_url, $token)->$method($endpoint, $data);
+        }
+
+        return Http::GitHub($source->api_url, $token)->$method($endpoint);
+    });
 
     if (! $response->successful() && $throwError) {
         $errorMessage = data_get($response->json(), 'message', 'no error message found');
