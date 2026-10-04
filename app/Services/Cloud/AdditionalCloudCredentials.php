@@ -10,7 +10,7 @@ final class AdditionalCloudCredentials
      */
     public static function pack(string $provider, string $token, ?string $account = null, ?string $secret = null, ?string $project = null): string
     {
-        if (! in_array($provider, ['upcloud', 'scaleway', 'contabo', 'exoscale'], true)) {
+        if (! in_array($provider, ['upcloud', 'scaleway', 'contabo', 'exoscale', 'aws', 'azure'], true)) {
             return $token;
         }
 
@@ -40,7 +40,7 @@ final class AdditionalCloudCredentials
 
         $decoded = json_decode($stored, true);
 
-        if (! is_array($decoded)) {
+        if (! is_array($decoded) || ! array_key_exists('token', $decoded)) {
             return [
                 'token' => $stored,
                 'account' => null,

@@ -101,7 +101,7 @@ class CloudProviderTokensController extends Controller
                                 properties: [
                                     'uuid' => ['type' => 'string'],
                                     'name' => ['type' => 'string'],
-                                    'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr', 'linode', 'upcloud', 'scaleway', 'contabo', 'exoscale']],
+                                    'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr', 'linode', 'upcloud', 'scaleway', 'contabo', 'exoscale', 'aws', 'google', 'azure']],
                                     'team_id' => ['type' => 'integer'],
                                     'servers_count' => ['type' => 'integer'],
                                     'created_at' => ['type' => 'string'],
@@ -219,7 +219,7 @@ class CloudProviderTokensController extends Controller
                     type: 'object',
                     required: ['provider', 'token', 'name'],
                     properties: [
-                        'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr', 'linode', 'upcloud', 'scaleway', 'contabo', 'exoscale'], 'example' => 'hetzner', 'description' => 'The cloud provider. UpCloud, Scaleway, Contabo, and Exoscale store extra credentials as JSON in token.'],
+                        'provider' => ['type' => 'string', 'enum' => ['hetzner', 'digitalocean', 'vultr', 'linode', 'upcloud', 'scaleway', 'contabo', 'exoscale', 'aws', 'google', 'azure'], 'example' => 'hetzner', 'description' => 'The cloud provider. Providers that need more than one secret store them as JSON in token. Google Cloud stores the service account JSON.'],
                         'token' => ['type' => 'string', 'example' => 'your-api-token-here', 'description' => 'The API token for the cloud provider.'],
                         'name' => ['type' => 'string', 'example' => 'My Hetzner Token', 'description' => 'A friendly name for the token.'],
                     ],

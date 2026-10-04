@@ -38,6 +38,21 @@ final class AdditionalCloudCatalog
                 'label' => 'Exoscale',
                 'summary' => 'Provision an Exoscale instance.',
             ],
+            [
+                'slug' => 'aws',
+                'label' => 'AWS',
+                'summary' => 'Provision an AWS instance.',
+            ],
+            [
+                'slug' => 'google',
+                'label' => 'Google Cloud',
+                'summary' => 'Provision a Google Cloud instance.',
+            ],
+            [
+                'slug' => 'azure',
+                'label' => 'Microsoft Azure',
+                'summary' => 'Provision an Azure virtual machine.',
+            ],
         ];
     }
 

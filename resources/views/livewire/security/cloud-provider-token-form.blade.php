@@ -10,6 +10,9 @@
                     scaleway: 'Scaleway',
                     contabo: 'Contabo',
                     exoscale: 'Exoscale',
+                    aws: 'AWS',
+                    google: 'Google Cloud',
+                    azure: 'Microsoft Azure',
                 };
 
                 return names[this.selectedProvider]
@@ -25,15 +28,21 @@
                     scaleway: 'https://console.scaleway.com/iam/api-keys',
                     contabo: 'https://my.contabo.com/api/details',
                     exoscale: 'https://portal.exoscale.com/iam/api-keys',
+                    aws: 'https://console.aws.amazon.com/iam/home#/security_credentials',
+                    google: 'https://console.cloud.google.com/iam-admin/serviceaccounts',
+                    azure: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
                 };
 
                 return urls[this.selectedProvider] || urls.digitalocean;
             },
             get needsAccount() {
-                return ['upcloud', 'contabo', 'exoscale'].includes(this.selectedProvider);
+                return ['upcloud', 'contabo', 'exoscale', 'aws', 'azure'].includes(this.selectedProvider);
             },
             get needsProject() {
-                return ['scaleway', 'contabo'].includes(this.selectedProvider);
+                return ['scaleway', 'contabo', 'azure'].includes(this.selectedProvider);
+            },
+            get needsSecret() {
+                return ['contabo', 'azure'].includes(this.selectedProvider);
             }
         }">
         @if (!$provider_locked)
@@ -47,6 +56,9 @@
                 ['value' => 'scaleway', 'label' => __('Scaleway')],
                 ['value' => 'contabo', 'label' => __('Contabo')],
                 ['value' => 'exoscale', 'label' => __('Exoscale')],
+                ['value' => 'aws', 'label' => __('AWS')],
+                ['value' => 'google', 'label' => __('Google Cloud')],
+                ['value' => 'azure', 'label' => __('Microsoft Azure')],
             ]" />
         @else
             <input type="hidden" wire:model="provider" />
@@ -64,7 +76,7 @@
         <div class="grid gap-4 lg:grid-cols-2">
             <x-forms.input required id="name" label="{{ __('Token name') }}"
                 x-bind:placeholder="`Production ${providerName} token`" />
-            <div class="lg:col-span-2" x-cloak x-show="needsAccount || needsProject || selectedProvider === 'contabo'" style="display: none">
+            <div class="lg:col-span-2" x-cloak x-show="needsAccount || needsProject || needsSecret || selectedProvider === 'google'" style="display: none">
                 <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'upcloud'">
                     {{ __('UpCloud uses the account username and its API password.') }}
                 </p>
@@ -77,6 +89,15 @@
                 <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'exoscale'">
                     {{ __('Exoscale uses the API key and the API secret.') }}
                 </p>
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'aws'">
+                    {{ __('AWS: the username field is the access key ID and the API token is the secret access key.') }}
+                </p>
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'google'">
+                    {{ __('Google Cloud: paste the service account JSON into the API token field.') }}
+                </p>
+                <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-dim" x-show="selectedProvider === 'azure'">
+                    {{ __('Azure: username is the application ID, project is the tenant ID, client secret is the subscription ID, and the API token is the client secret.') }}
+                </p>
             </div>
             <div x-cloak x-show="needsAccount" style="display: none">
                 <x-forms.input required id="account" label="{{ __('Username or API key') }}" />
@@ -84,7 +105,7 @@
             <div x-cloak x-show="needsProject" style="display: none">
                 <x-forms.input required id="project" label="{{ __('Project ID or client ID') }}" />
             </div>
-            <div x-cloak x-show="selectedProvider === 'contabo'" style="display: none">
+            <div x-cloak x-show="needsSecret" style="display: none">
                 <x-forms.input required type="password" id="secret" label="{{ __('Client secret') }}" />
             </div>
             <x-forms.input required type="password" id="token" label="{{ __('API token') }}"

@@ -2,9 +2,12 @@
 
 use App\Services\Cloud\AdditionalCloudCatalog;
 use App\Services\Cloud\AdditionalCloudCredentials;
+use App\Services\Cloud\AwsCloudClient;
+use App\Services\Cloud\AzureCloudClient;
 use App\Services\Cloud\CloudServerRequest;
 use App\Services\Cloud\ContaboCloudClient;
 use App\Services\Cloud\ExoscaleCloudClient;
+use App\Services\Cloud\GoogleCloudClient;
 use App\Services\Cloud\LinodeCloudClient;
 use App\Services\Cloud\ScalewayCloudClient;
 use App\Services\Cloud\UpCloudClient;
@@ -21,8 +24,11 @@ it('keeps the original providers first and adds the new ones in order', function
         'scaleway',
         'contabo',
         'exoscale',
+        'aws',
+        'google',
+        'azure',
     ])->and(AdditionalCloudCatalog::providerRule())->toBe(
-        'required|string|in:hetzner,digitalocean,vultr,linode,upcloud,scaleway,contabo,exoscale'
+        'required|string|in:hetzner,digitalocean,vultr,linode,upcloud,scaleway,contabo,exoscale,aws,google,azure'
     );
 
     $create = file_get_contents(resource_path('views/livewire/server/create.blade.php'));
@@ -37,7 +43,7 @@ it('keeps the original providers first and adds the new ones in order', function
         ->and($create)->toContain("asset('svgs/'.\$cloud['slug'].'.svg')")
         ->and(strpos($create, 'by-digital-ocean'))->toBeLessThan(strpos($create, 'by-additional-cloud'));
 
-    foreach (['linode', 'upcloud', 'scaleway', 'contabo', 'exoscale'] as $slug) {
+    foreach (['linode', 'upcloud', 'scaleway', 'contabo', 'exoscale', 'aws', 'google', 'azure'] as $slug) {
         $logo = file_get_contents(public_path('svgs/'.$slug.'.svg'));
 
         expect($logo)->toContain('<svg')
@@ -59,6 +65,12 @@ it('stores a single secret for linode and json credentials for the others', func
         'token' => 'secret',
         'account' => 'account-user',
     ]);
+
+    $serviceAccount = '{"type":"service_account","project_id":"gpsh","private_key":"secret"}';
+
+    expect(AdditionalCloudCredentials::pack('google', $serviceAccount))->toBe($serviceAccount)
+        ->and(AdditionalCloudCredentials::unpack($serviceAccount)['token'])->toBe($serviceAccount)
+        ->and(AdditionalCloudCredentials::unpack(AdditionalCloudCredentials::pack('aws', 'secret-key', 'AKIAEXAMPLE'))['account'])->toBe('AKIAEXAMPLE');
 });
 
 it('lists ubuntu before debian and creates a linode with the ssh key', function () {
@@ -263,4 +275,188 @@ it('signs exoscale requests and creates an instance in the selected zone', funct
     expect($created->id)->toBe('exo-1')
         ->and($created->ip)->toBe('203.0.113.50')
         ->and($created->user)->toBe('ubuntu');
+});
+
+it('signs aws requests and launches an instance with the ssh key', function () {
+    Http::fake(function ($request) {
+        $query = [];
+        parse_str((string) parse_url($request->url(), PHP_URL_QUERY), $query);
+
+        $xml = match ($query['Action'] ?? '') {
+            'DescribeVpcs' => '<DescribeVpcsResponse><vpcSet><item><vpcId>vpc-1</vpcId></item></vpcSet></DescribeVpcsResponse>',
+            'DescribeSecurityGroups' => '<DescribeSecurityGroupsResponse><securityGroupInfo></securityGroupInfo></DescribeSecurityGroupsResponse>',
+            'CreateSecurityGroup' => '<CreateSecurityGroupResponse><groupId>sg-1</groupId></CreateSecurityGroupResponse>',
+            'AuthorizeSecurityGroupIngress' => '<AuthorizeSecurityGroupIngressResponse><return>true</return></AuthorizeSecurityGroupIngressResponse>',
+            'ImportKeyPair' => '<ImportKeyPairResponse><keyName>gpsh-key</keyName></ImportKeyPairResponse>',
+            'RunInstances' => '<RunInstancesResponse><instancesSet><item><instanceId>i-abc</instanceId><ipAddress>203.0.113.60</ipAddress></item></instancesSet></RunInstancesResponse>',
+            default => null,
+        };
+
+        return $xml === null
+            ? Http::response('unexpected', 500)
+            : Http::response($xml, 200, ['Content-Type' => 'text/xml']);
+    });
+
+    $client = new AwsCloudClient('AKIAEXAMPLE', 'secret-key');
+    $client->call('us-east-1', ['Action' => 'DescribeRegions'], '20261003T120000Z');
+
+    Http::assertSent(function ($request) {
+        $header = $request->header('Authorization')[0] ?? '';
+        $query = 'Action=DescribeRegions&Version=2016-11-15';
+        $canonical = implode("\n", [
+            'GET',
+            '/',
+            $query,
+            "host:ec2.us-east-1.amazonaws.com\nx-amz-date:20261003T120000Z\n",
+            'host;x-amz-date',
+            hash('sha256', ''),
+        ]);
+        $scope = '20261003/us-east-1/ec2/aws4_request';
+        $stringToSign = implode("\n", [
+            'AWS4-HMAC-SHA256',
+            '20261003T120000Z',
+            $scope,
+            hash('sha256', $canonical),
+        ]);
+        $dateKey = hash_hmac('sha256', '20261003', 'AWS4secret-key', true);
+        $regionKey = hash_hmac('sha256', 'us-east-1', $dateKey, true);
+        $serviceKey = hash_hmac('sha256', 'ec2', $regionKey, true);
+        $signingKey = hash_hmac('sha256', 'aws4_request', $serviceKey, true);
+        $signature = hash_hmac('sha256', $stringToSign, $signingKey);
+
+        return str_contains($request->url(), 'Action=DescribeRegions')
+            && $header === 'AWS4-HMAC-SHA256 Credential=AKIAEXAMPLE/'.$scope.', SignedHeaders=host;x-amz-date, Signature='.$signature;
+    });
+
+    $created = $client->create(new CloudServerRequest(
+        name: 'app-1',
+        region: 'us-east-1',
+        plan: 't3.micro',
+        image: 'ami-ubuntu',
+        publicKey: 'ssh-ed25519 AAAA key',
+        imageLabel: 'Ubuntu 24.04 LTS',
+    ));
+
+    expect($created->id)->toBe('i-abc')
+        ->and($created->ip)->toBe('203.0.113.60')
+        ->and($created->user)->toBe('ubuntu');
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'Action=ImportKeyPair')
+            && str_contains(urldecode($request->url()), 'ssh-ed25519 AAAA key');
+    });
+
+    Http::assertSent(function ($request) {
+        return str_contains($request->url(), 'Action=RunInstances')
+            && str_contains($request->url(), 'ImageId=ami-ubuntu')
+            && str_contains($request->url(), 'InstanceType=t3.micro')
+            && str_contains($request->url(), 'SecurityGroupId.1=sg-1');
+    });
+});
+
+it('creates a google cloud instance with the service account key', function () {
+    $key = openssl_pkey_new([
+        'private_key_bits' => 2048,
+        'private_key_type' => OPENSSL_KEYTYPE_RSA,
+    ]);
+    openssl_pkey_export($key, $pem);
+    $credentials = json_encode([
+        'type' => 'service_account',
+        'project_id' => 'gpsh-project',
+        'client_email' => 'gpsh@gpsh-project.iam.gserviceaccount.com',
+        'private_key' => $pem,
+    ], JSON_THROW_ON_ERROR);
+
+    Http::fake([
+        'https://oauth2.googleapis.com/token' => Http::response(['access_token' => 'google-token']),
+        'https://compute.googleapis.com/compute/v1/projects/gpsh-project/zones/us-central1-a/instances/app-1' => Http::response([
+            'status' => 'PROVISIONING',
+            'networkInterfaces' => [[
+                'accessConfigs' => [['natIP' => '203.0.113.70']],
+            ]],
+        ]),
+        'https://compute.googleapis.com/compute/v1/projects/gpsh-project/zones/us-central1-a/instances' => Http::response([
+            'name' => 'app-1',
+        ], 200),
+    ]);
+
+    $created = (new GoogleCloudClient($credentials))->create(new CloudServerRequest(
+        name: 'app-1',
+        region: 'us-central1-a',
+        plan: 'e2-micro',
+        image: 'projects/ubuntu-os-cloud/global/images/family/ubuntu-2404-lts',
+        publicKey: 'ssh-ed25519 AAAA key',
+        imageLabel: 'Ubuntu 24.04 LTS',
+    ));
+
+    expect($created->id)->toBe('app-1')
+        ->and($created->ip)->toBe('203.0.113.70')
+        ->and($created->user)->toBe('ubuntu');
+
+    Http::assertSent(function ($request) {
+        return $request->method() === 'POST'
+            && str_ends_with($request->url(), '/zones/us-central1-a/instances')
+            && $request->hasHeader('Authorization', 'Bearer google-token')
+            && $request['machineType'] === 'zones/us-central1-a/machineTypes/e2-micro'
+            && $request['metadata']['items'][0]['value'] === 'ubuntu:ssh-ed25519 AAAA key';
+    });
+});
+
+it('creates an azure virtual machine with the ssh key', function () {
+    Http::fake([
+        'https://login.microsoftonline.com/tenant-1/oauth2/v2.0/token' => Http::response(['access_token' => 'azure-token']),
+        'https://management.azure.com/subscriptions/sub-1/*' => function ($request) {
+            $url = $request->url();
+
+            if (str_contains($url, '/virtualMachines/')) {
+                return Http::response([
+                    'id' => '/subscriptions/sub-1/resourceGroups/gpsh/providers/Microsoft.Compute/virtualMachines/app-1',
+                    'properties' => ['provisioningState' => 'Creating'],
+                ]);
+            }
+
+            if (str_contains($url, '/publicIPAddresses/app-1-ip')) {
+                return Http::response([
+                    'id' => '/subscriptions/sub-1/resourceGroups/gpsh/providers/Microsoft.Network/publicIPAddresses/app-1-ip',
+                    'properties' => ['ipAddress' => '203.0.113.80'],
+                ]);
+            }
+
+            if (str_contains($url, '/networkSecurityGroups/')) {
+                return Http::response([
+                    'id' => '/subscriptions/sub-1/resourceGroups/gpsh/providers/Microsoft.Network/networkSecurityGroups/app-1-nsg',
+                ]);
+            }
+
+            if (str_contains($url, '/networkInterfaces/')) {
+                return Http::response([
+                    'id' => '/subscriptions/sub-1/resourceGroups/gpsh/providers/Microsoft.Network/networkInterfaces/app-1-nic',
+                ]);
+            }
+
+            return Http::response(['id' => 'created']);
+        },
+    ]);
+
+    $created = (new AzureCloudClient('client-1', 'client-secret', 'tenant-1', 'sub-1'))->create(new CloudServerRequest(
+        name: 'app-1',
+        region: 'eastus',
+        plan: 'Standard_B1s',
+        image: 'Canonical|ubuntu-24_04-lts|server',
+        publicKey: 'ssh-ed25519 AAAA key',
+        imageLabel: 'Ubuntu 24.04 LTS',
+    ));
+
+    expect($created->ip)->toBe('203.0.113.80')
+        ->and($created->user)->toBe('azureuser')
+        ->and($created->status)->toBe('Creating');
+
+    Http::assertSent(function ($request) {
+        return $request->method() === 'PUT'
+            && str_contains($request->url(), '/virtualMachines/app-1')
+            && $request->hasHeader('Authorization', 'Bearer azure-token')
+            && $request['properties']['osProfile']['adminUsername'] === 'azureuser'
+            && $request['properties']['osProfile']['linuxConfiguration']['ssh']['publicKeys'][0]['keyData'] === 'ssh-ed25519 AAAA key'
+            && $request['properties']['storageProfile']['imageReference']['offer'] === 'ubuntu-24_04-lts';
+    });
 });

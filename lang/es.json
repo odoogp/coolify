@@ -4085,5 +4085,14 @@
     "UpCloud": "UpCloud",
     "Scaleway": "Scaleway",
     "Contabo": "Contabo",
-    "Exoscale": "Exoscale"
+    "Exoscale": "Exoscale",
+    "Provision an AWS instance.": "Aprovisiona una instancia de AWS.",
+    "Provision a Google Cloud instance.": "Aprovisiona una instancia de Google Cloud.",
+    "Provision an Azure virtual machine.": "Aprovisiona una máquina virtual de Azure.",
+    "AWS: the username field is the access key ID and the API token is the secret access key.": "AWS: el campo de usuario es el ID de la clave de acceso y el token de API es la clave de acceso secreta.",
+    "Google Cloud: paste the service account JSON into the API token field.": "Google Cloud: pega el JSON de la cuenta de servicio en el campo del token de API.",
+    "Azure: username is the application ID, project is the tenant ID, client secret is the subscription ID, and the API token is the client secret.": "Azure: el usuario es el ID de aplicación, el proyecto es el ID de inquilino, el secreto de cliente es el ID de suscripción y el token de API es el secreto de cliente.",
+    "AWS": "AWS",
+    "Google Cloud": "Google Cloud",
+    "Microsoft Azure": "Microsoft Azure"
 }

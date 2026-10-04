@@ -55,9 +55,9 @@ class CloudProviderTokenForm extends Component
             'token' => 'required|string',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
-            'account' => 'nullable|string|max:255|required_if:provider,upcloud,contabo,exoscale',
-            'secret' => 'nullable|string|required_if:provider,contabo',
-            'project' => 'nullable|string|max:255|required_if:provider,scaleway,contabo',
+            'account' => 'nullable|string|max:255|required_if:provider,upcloud,contabo,exoscale,aws,azure',
+            'secret' => 'nullable|string|required_if:provider,contabo,azure',
+            'project' => 'nullable|string|max:255|required_if:provider,scaleway,contabo,azure',
         ];
     }
 
