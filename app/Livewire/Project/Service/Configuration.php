@@ -74,6 +74,13 @@ class Configuration extends Component
 
     public bool $associatingWithoutGithub = false;
 
+    public string $ownerPackageBranch = '';
+
+    /** @var list<string> */
+    public array $ownerPackageBranches = [];
+
+    public string $ownerPackageRepository = '';
+
     public bool $launchRunning = false;
 
     public int $launchStep = 0;
@@ -136,6 +143,12 @@ class Configuration extends Component
             }
             if ($this->associatingWithoutGithub) {
                 $this->odooRepoMode = 'new';
+            }
+            if ($this->odooIsOdoo && isInstanceOwner()) {
+                $this->ownerPackageRepository = (string) (instanceSettings()->odoo_owner_repository ?? '');
+                $this->ownerPackageBranch = (string) ($environment->odooBranch?->owner_package_branch
+                    ?? instanceSettings()->odoo_owner_branch
+                    ?? '');
             }
             if ($this->odooIsOdoo && request()->query('launch') === 'choose' && ! $this->awaitingRepositoryChoice && OdooGit::useHttps($this->service)) {
                 $this->service->unsetRelation('applications');
@@ -370,6 +383,64 @@ class Configuration extends Component
             $this->environment->unsetRelation('odooBranch');
             $this->environment->load('odooBranch');
             $this->dispatch('success', __('GitHub branch :branch.', ['branch' => $branch]));
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function loadOwnerPackageBranches(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        try {
+            $this->authorize('update', $this->service);
+            $repository = OdooGit::normalizeRepository($this->ownerPackageRepository !== ''
+                ? $this->ownerPackageRepository
+                : (string) (instanceSettings()->odoo_owner_repository ?? ''));
+            if (preg_match('#\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z#', $repository) !== 1) {
+                $this->dispatch('error', __('Set the owner package repository in Settings → Odoo first.'));
+
+                return;
+            }
+
+            $this->ownerPackageRepository = $repository;
+            $githubApp = OdooGit::ownerGithubApp();
+            if (! $githubApp instanceof GithubApp) {
+                $this->dispatch('error', __('Connect a GitHub App before loading branches.'));
+
+                return;
+            }
+
+            $this->ownerPackageBranches = OdooGit::repositoryBranches($githubApp, $repository);
+            if ($this->ownerPackageBranches === []) {
+                $this->dispatch('error', __('GitHub did not return branches for that repository.'));
+
+                return;
+            }
+
+            if (! in_array($this->ownerPackageBranch, $this->ownerPackageBranches, true)) {
+                $this->ownerPackageBranch = $this->ownerPackageBranches[0];
+            }
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function installOwnerPackage(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        try {
+            $this->authorize('update', $this->service);
+            OdooGit::installOwnerPackageIntoService($this->service, $this->ownerPackageBranch);
+            $this->environment->unsetRelation('odooBranch');
+            $this->environment->load('odooBranch');
+            $this->ownerPackageBranch = (string) ($this->environment->odooBranch?->owner_package_branch ?? $this->ownerPackageBranch);
+            $this->dispatch('success', __('Owner package branch :branch copied into this project volume.', [
+                'branch' => $this->ownerPackageBranch,
+            ]));
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {

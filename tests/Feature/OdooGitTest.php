@@ -880,6 +880,68 @@ it('saves the owner repository branch without restarting odoo', function () {
     Bus::assertNotDispatched(StartService::class);
 });
 
+it('merges the owner package branch into the client volume without wiping client addons', function () {
+    $commands = implode("\n", OdooGit::installOwnerPackageCommands(
+        'svc_odoo-extra-addons',
+        'https://x-access-token:secret@github.com/acme/house_addons.git',
+        '19.0',
+        'acme/house_addons',
+    ));
+
+    expect($commands)->toContain('svc_odoo-extra-addons')
+        ->and($commands)->toContain('19.0')
+        ->and($commands)->toContain('owner-package-modules')
+        ->and($commands)->toContain('git clone')
+        ->and($commands)->not->toContain('find /addons -mindepth 1 -maxdepth 1 -exec rm -rf');
+});
+
+it('lets the instance owner install an owner package branch into a project volume', function () {
+    $rootTeam = Team::factory()->make(['name' => 'Root package']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->actingAs($this->user->fresh());
+
+    instanceSettings()->update([
+        'odoo_owner_repository' => 'acme/house_addons',
+        'odoo_owner_branch' => 'main',
+    ]);
+
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $odoo = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    OdooGit::installOwnerPackageIntoService($odoo, '19.0');
+
+    expect($environment->fresh()->odooBranch->owner_package_branch)->toBe('19.0')
+        ->and($environment->fresh()->odooBranch->service_id)->toBe($odoo->id);
+});
+
+it('refuses an empty owner package branch', function () {
+    $environment = $this->project->environments()->where('name', 'production')->first();
+    $odoo = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    expect(fn () => OdooGit::installOwnerPackageIntoService($odoo, ''))
+        ->toThrow(InvalidArgumentException::class);
+});
+
+it('hides the owner package panel from non-owners', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
+    $component = file_get_contents(app_path('Livewire/Project/Service/Configuration.php'));
+
+    expect($view)
+        ->toContain("odooPanel === 'owner-package'")
+        ->toContain('isInstanceOwner()')
+        ->toContain('installOwnerPackage')
+        ->toContain('Owner package')
+        ->and($component)->toContain('abort_unless(isInstanceOwner(), 403)');
+});
+
 it('does not ask for the branch or github while deploying', function () {
     $environment = $this->project->environments()->where('name', 'production')->first();
     $odoo = Service::factory()->create([

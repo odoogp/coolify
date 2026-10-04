@@ -60,7 +60,7 @@
         </form>
         <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
             <x-application.settings-section title="{{ __('Owner modules') }}"
-                description="{{ __('House modules come from a GitHub branch on this instance. Each Odoo start copies them into the image addons, so they show up in the Odoo apps and stay out of the client addon folder and Jupyter. Saving does not restart Odoo.') }}">
+                description="{{ __('House modules come from a GitHub branch on this instance. Each Odoo start copies them into the image addons, so they show up in the Odoo apps and stay out of the client addon folder and Jupyter. Saving does not restart Odoo. To put a package branch into a client project volume, open that service as owner and use Owner package.') }}">
                 <form wire:submit="saveOwnerRepository" class="flex max-w-xl flex-col gap-4">
                     <x-forms.input id="ownerRepository" label="{{ __('Repository') }}"
                         helper="{{ __('GitHub repository, as owner/name. Each module is a folder with a manifest.') }}"

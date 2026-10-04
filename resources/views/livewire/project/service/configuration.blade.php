@@ -67,6 +67,15 @@
                             <x-reicon name="sources" class="menu-item-icon" />
                             <span class="menu-item-label">{{ __('GitHub') }}</span>
                         </button>
+                        @if (isInstanceOwner())
+                            <button type="button" wire:click="$set('odooPanel', 'owner-package')" @class([
+                                'menu-item',
+                                'menu-item-active' => $currentRoute === 'project.service.configuration' && $odooPanel === 'owner-package',
+                            ])>
+                                <x-reicon name="layers" class="menu-item-icon" />
+                                <span class="menu-item-label">{{ __('Owner package') }}</span>
+                            </button>
+                        @endif
                     @endif
                     @foreach ($groupedItems as $groupLabel => $groupItems)
                         @unless ($loop->first)
@@ -270,6 +279,59 @@
                                         </p>
                                     </div>
                                     @endif
+                                @endif
+                            </div>
+                        </section>
+                    @endif
+                    @if ($odooIsOdoo && $odooPanel === 'owner-package' && isInstanceOwner())
+                        <section class="application-settings-section mb-6">
+                            <div class="application-settings-section-body flex flex-col gap-4">
+                                <div>
+                                    <p class="text-sm font-medium">{{ __('Owner package') }}</p>
+                                    <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Copy a branch of the house package into this project’s addon volume. Only the instance owner sees this. Client addons stay untouched.') }}
+                                    </p>
+                                </div>
+                                @if ($ownerPackageRepository === '')
+                                    <p class="text-sm text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Set the owner package repository in Settings → Odoo first.') }}
+                                    </p>
+                                @else
+                                    <p class="text-sm">
+                                        <span class="text-neutral-500 dark:text-fg-dim">{{ __('Repository') }}:</span>
+                                        <span class="font-mono">{{ $ownerPackageRepository }}</span>
+                                    </p>
+                                    @if (filled($environment->odooBranch?->owner_package_branch))
+                                        <p class="text-sm">
+                                            <span class="text-neutral-500 dark:text-fg-dim">{{ __('Installed branch') }}:</span>
+                                            <span class="font-mono">{{ $environment->odooBranch->owner_package_branch }}</span>
+                                        </p>
+                                    @endif
+                                    <div class="flex max-w-xl items-end gap-2">
+                                        <div class="min-w-0 flex-1">
+                                            @if ($ownerPackageBranches !== [])
+                                                <label class="mb-1.5 block text-sm font-medium" for="owner-package-branch">{{ __('Branch') }}</label>
+                                                <select id="owner-package-branch" wire:model="ownerPackageBranch" class="input">
+                                                    @foreach ($ownerPackageBranches as $branch)
+                                                        <option value="{{ $branch }}">{{ $branch }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @else
+                                                <x-forms.input id="ownerPackageBranch" label="{{ __('Branch') }}" placeholder="19.0" />
+                                            @endif
+                                        </div>
+                                        <x-forms.button type="button" wire:click="loadOwnerPackageBranches">{{ __('Load branches') }}</x-forms.button>
+                                    </div>
+                                    <div>
+                                        <x-forms.button type="button" wire:click="installOwnerPackage" canGate="update"
+                                            :canResource="$service" isHighlighted
+                                            wire:confirm="{{ __('Copy this owner package branch into the project volume and restart Odoo?') }}">
+                                            {{ __('Install into project') }}
+                                        </x-forms.button>
+                                        <p wire:loading wire:target="installOwnerPackage" class="mt-2 text-[13px]">
+                                            {{ __('Copying the owner package…') }}
+                                        </p>
+                                    </div>
                                 @endif
                             </div>
                         </section>

@@ -10,6 +10,7 @@ class OdooEnvironmentBranch extends Model
     protected $fillable = [
         'environment_id',
         'git_branch',
+        'owner_package_branch',
         'status',
         'domain',
         'odoo_version',

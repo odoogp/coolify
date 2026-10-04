@@ -8,6 +8,7 @@ use App\Domain\Odoo\OdooDomains;
 use App\Domain\Odoo\OdooMail;
 use App\Domain\Odoo\OdooStaging;
 use App\Enums\ProcessStatus;
+use App\Jobs\RestartOdooBranchJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
@@ -1995,6 +1996,102 @@ BASH;
                 instant_remote_process($commands, $server);
             }
         }
+    }
+
+    /**
+     * Copy the owner package branch into a client extra-addons volume.
+     * Keeps the client's own addons and .git; only replaces previously stamped owner-package modules.
+     *
+     * @return list<string>
+     */
+    public static function installOwnerPackageCommands(string $volume, string $cloneUrl, string $branch, string $repository): array
+    {
+        $module = basename(self::normalizeRepository($repository));
+        $module = preg_match('/\A[A-Za-z0-9_]+\z/', $module) === 1 ? $module : 'owner_package';
+        $script = 'set -e; '
+            .'rm -rf /tmp/owner-pkg; '
+            .'git clone --depth 1 --branch '.escapeshellarg($branch).' '.escapeshellarg($cloneUrl).' /tmp/owner-pkg; '
+            .'mkdir -p /addons/.gpsh; '
+            .'if [ -f /addons/.gpsh/owner-package-modules ]; then '
+            .'while IFS= read -r mod; do [ -n "$mod" ] || continue; rm -rf "/addons/$mod"; done < /addons/.gpsh/owner-package-modules; '
+            .'fi; '
+            .': > /addons/.gpsh/owner-package-modules; '
+            .'if [ -f /tmp/owner-pkg/__manifest__.py ] || [ -f /tmp/owner-pkg/__openerp__.py ]; then '
+            .'rm -rf /addons/'.escapeshellarg($module).'; mkdir -p /addons/'.escapeshellarg($module).'; '
+            .'cp -a /tmp/owner-pkg/. /addons/'.escapeshellarg($module).'/; '
+            .'rm -rf /addons/'.escapeshellarg($module).'/.git; '
+            .'printf %s\\n '.escapeshellarg($module).' >> /addons/.gpsh/owner-package-modules; '
+            .'else '
+            .'for dir in /tmp/owner-pkg/*/; do '
+            .'[ -d "$dir" ] || continue; '
+            .'base=$(basename "$dir"); '
+            .'[ -f "$dir/__manifest__.py" ] || [ -f "$dir/__openerp__.py" ] || continue; '
+            .'rm -rf "/addons/$base"; cp -a "$dir" "/addons/$base"; '
+            .'printf %s\\n "$base" >> /addons/.gpsh/owner-package-modules; '
+            .'done; '
+            .'fi; '
+            .'printf %s\\n '.escapeshellarg($branch).' > /addons/.gpsh/owner-package-branch; '
+            .'chown -R 100:101 /addons || true; chmod -R a+rX /addons || true';
+
+        return [
+            'docker volume create '.escapeshellarg($volume),
+            'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine/git -c '.escapeshellarg($script),
+        ];
+    }
+
+    public static function installOwnerPackageIntoService(Service $service, string $branch): void
+    {
+        $branch = trim($branch);
+        if ($branch === '' || preg_match('/^[A-Za-z0-9._\/-]+$/', $branch) !== 1) {
+            throw new InvalidArgumentException('Pick a valid owner package branch.');
+        }
+        if (! $service->supportsOdooJupyter()) {
+            throw new InvalidArgumentException('This service is not an Odoo stack.');
+        }
+
+        $settings = instanceSettings();
+        $repository = trim((string) $settings->odoo_owner_repository);
+        if ($repository === '') {
+            throw new InvalidArgumentException('Set the owner package repository in Settings → Odoo first.');
+        }
+
+        $service->loadMissing('environment', 'destination.server');
+        $environment = $service->environment;
+        if ($environment === null) {
+            throw new InvalidArgumentException('This service has no environment.');
+        }
+
+        $row = OdooEnvironmentBranch::query()->firstOrNew(['environment_id' => $environment->id]);
+        if (! $row->exists) {
+            $row->git_branch = (string) ($environment->name ?: 'main');
+        }
+        $row->owner_package_branch = $branch;
+        $row->service_id = $service->id;
+        $row->save();
+
+        if (app()->runningUnitTests()) {
+            return;
+        }
+
+        $githubApp = self::ownerGithubApp();
+        if (! $githubApp instanceof GithubApp) {
+            throw new RuntimeException('Connect a GitHub App before installing the owner package.');
+        }
+
+        $server = $service->destination?->server;
+        if ($server === null || ! $server->isFunctional()) {
+            throw new RuntimeException('The server for this Odoo service is not ready.');
+        }
+
+        $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
+        $token = generateGithubInstallationToken($githubApp);
+        $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
+        instant_remote_process(
+            self::installOwnerPackageCommands(OdooAddons::extraAddonsVolume($service), $url, $branch, $repository),
+            $server,
+        );
+
+        (new RestartOdooBranchJob($row->id))->handle();
     }
 
     public static function clearOwnerModules(): void
