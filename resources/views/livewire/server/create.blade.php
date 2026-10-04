@@ -16,6 +16,33 @@
 
     @if (!$selectedType)
         <div class="application-settings-form flex flex-col gap-6">
+            @if ($getodoo_owner || $getodoo_available)
+                <section class="application-settings-section">
+                    <div class="application-settings-section-header">
+                        <h2 class="application-settings-section-title">GetOdoo</h2>
+                        <p class="application-settings-section-description">
+                            {{ $getodoo_available ? __('Launch a GetOdoo server.') : __('Update the Hetzner connection and choose which servers admins can buy.') }}
+                        </p>
+                    </div>
+                    <div class="application-settings-section-body flex flex-col gap-3">
+                        <a href="{{ $getodoo_available ? route('server.create.type', ['type' => 'getodoo']) : route('settings.getodoo-servers') }}"
+                            class="getodoo-server-card" {{ wireNavigate() }}>
+                            <img src="{{ asset('gpsh-logo.svg') }}" alt="GetOdoo" class="size-12">
+                            <span>
+                                <span class="getodoo-kicker">GetOdoo</span>
+                                <span class="mt-1 block text-lg font-semibold">{{ __('GetOdoo server') }}</span>
+                                <span class="mt-1 block text-sm text-white/80">
+                                    {{ __('A bright GetOdoo server, ready for your admins.') }}
+                                </span>
+                            </span>
+                        </a>
+                        @if ($getodoo_owner)
+                            <a href="{{ route('settings.getodoo-servers') }}" class="text-sm font-medium text-coollabs dark:text-white"
+                                {{ wireNavigate() }}>{{ __('Manage resale') }}</a>
+                        @endif
+                    </div>
+                </section>
+            @endif
             <section class="application-settings-section">
                 <div class="application-settings-section-header">
                     <h2 class="application-settings-section-title">{{ __('Add a server') }}</h2>
@@ -115,7 +142,9 @@
         </div>
     @else
         <div class="application-settings-form">
-            @if ($selectedType === 'hetzner')
+            @if ($selectedType === 'getodoo')
+                <livewire:server.new.by-get-odoo :private_keys="$private_keys" :limit_reached="$limit_reached" />
+            @elseif ($selectedType === 'hetzner')
                 <livewire:server.new.by-hetzner :private_keys="$private_keys" :limit_reached="$limit_reached"
                     :selected-token-uuid="$selectedTokenUuid"
                     wire:key="new-server-hetzner-{{ $selectedTokenUuid ?? 'select' }}" />

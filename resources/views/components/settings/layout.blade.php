@@ -16,6 +16,11 @@
 
     if (isInstanceOwner()) {
         $settingsMenuSections['Configuration'][] = [
+            'label' => __('GetOdoo servers'),
+            'route' => 'settings.getodoo-servers',
+            'icon' => 'servers',
+        ];
+        $settingsMenuSections['Configuration'][] = [
             'label' => __('GitHub'),
             'route' => 'settings.github',
             'icon' => 'code',

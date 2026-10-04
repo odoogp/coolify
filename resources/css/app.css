@@ -5105,3 +5105,48 @@ a.command-palette-item:focus-visible {
 .dark .command-palette-arch-badge {
     color: #fcd34d;
 }
+
+.getodoo-server-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-height: 7.5rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 1rem;
+    text-decoration: none;
+    color: #f7f4ee;
+    background:
+        radial-gradient(90% 140% at 0% 0%, rgba(157, 196, 255, 0.72), transparent 58%),
+        radial-gradient(70% 120% at 100% 100%, rgba(47, 196, 122, 0.55), transparent 52%),
+        linear-gradient(135deg, #09142e 0%, #1b2c6f 46%, #4d7dff 100%);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+        0 0 0 1px rgba(170, 205, 255, 0.7),
+        0 0 36px rgba(77, 125, 255, 0.55),
+        0 18px 40px rgba(27, 44, 111, 0.38);
+    transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.getodoo-server-card:hover {
+    color: #ffffff;
+    text-decoration: none;
+    transform: translateY(-2px);
+    box-shadow:
+        0 0 0 1px rgba(210, 228, 255, 0.9),
+        0 0 48px rgba(120, 165, 255, 0.75),
+        0 20px 46px rgba(27, 44, 111, 0.45);
+}
+
+.getodoo-kicker {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #e7f0ff;
+}
+
+.getodoo-choice.is-selected {
+    border-color: #1b2c6f;
+    box-shadow: 0 0 0 1px #1b2c6f, 0 0 24px rgba(77, 125, 255, 0.35);
+}

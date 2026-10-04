@@ -1,0 +1,79 @@
+<div>
+    <x-slot:title>
+        {{ __('GetOdoo servers | Coolify') }}
+    </x-slot>
+
+    <x-settings.layout>
+        <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('GetOdoo servers') }}"
+                description="{{ __('Fetch only the Hetzner servers that can be created right now, set a markup, and choose which ones admins can launch.') }}">
+                <div class="flex flex-wrap items-center gap-3">
+                    <button type="button" class="button button-highlighted" wire:click="refreshConnection"
+                        wire:loading.attr="disabled" wire:target="refreshConnection">
+                        {{ __('Update connection') }}
+                    </button>
+                    @unless ($hasCredential)
+                        <a href="{{ route('security.cloud-tokens') }}" class="text-sm underline" {{ wireNavigate() }}>
+                            {{ __('Add a Hetzner credential on the instance team before updating this connection.') }}
+                        </a>
+                    @endunless
+                </div>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('Resale') }}"
+                description="{{ __('The sell price is the Hetzner price plus your markup. Only checked servers are shown to admins as GetOdoo.') }}">
+                @if ($offers->isEmpty())
+                    <p class="text-sm text-neutral-500 dark:text-fg-faint">
+                        {{ __('No Hetzner servers yet. Update the connection to fetch them.') }}
+                    </p>
+                @else
+                    <form wire:submit="saveOffers" class="flex flex-col gap-4">
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[46rem] text-left text-sm">
+                                <thead>
+                                    <tr class="border-b border-neutral-200 text-[11px] tracking-wide text-neutral-500 uppercase dark:border-white/10 dark:text-fg-faint">
+                                        <th class="px-2 py-2 font-medium">{{ __('Server') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Hetzner price') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Markup') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Sell price') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Available for admins') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($offers as $offer)
+                                        <tr class="border-b border-neutral-100 dark:border-white/5" wire:key="getodoo-offer-{{ $offer->id }}">
+                                            <td class="px-2 py-3">
+                                                <div class="font-medium text-black dark:text-fg">{{ $offer->description ?: $offer->name }}</div>
+                                                <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                    {{ $offer->cores }} vCPU · {{ (float) $offer->memory }} GB · {{ $offer->disk }} GB
+                                                    @unless ($offer->in_stock)
+                                                        · {{ __('Out of stock') }}
+                                                    @endunless
+                                                </div>
+                                            </td>
+                                            <td class="px-2 py-3">{{ number_format((float) $offer->monthly_price, 2) }} {{ $offer->currency }}</td>
+                                            <td class="px-2 py-3">
+                                                <input id="markup-{{ $offer->id }}" type="number" min="0" step="0.01"
+                                                    wire:model="markups.{{ $offer->id }}"
+                                                    class="h-10 w-28 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                                            </td>
+                                            <td class="px-2 py-3 font-medium">{{ number_format((float) $offer->monthly_price + (float) ($markups[$offer->id] ?? 0), 2) }} {{ $offer->currency }}</td>
+                                            <td class="px-2 py-3">
+                                                <input id="available-{{ $offer->id }}" type="checkbox"
+                                                    wire:model="available.{{ $offer->id }}" @disabled(! $offer->in_stock)
+                                                    class="size-4 rounded border-neutral-300">
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                        <div>
+                            <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                        </div>
+                    </form>
+                @endif
+            </x-application.settings-section>
+        </div>
+    </x-settings.layout>
+</div>

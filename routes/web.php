@@ -79,6 +79,7 @@ use App\Livewire\Server\Swarm as ServerSwarm;
 use App\Livewire\Server\Transfer as ServerTransfer;
 use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
+use App\Livewire\Settings\GetOdooServers as SettingsGetOdooServers;
 use App\Livewire\Settings\Github as SettingsGithub;
 use App\Livewire\Settings\Index as SettingsIndex;
 use App\Livewire\Settings\Odoo as SettingsOdoo;
@@ -184,6 +185,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/advanced', SettingsAdvanced::class)->name('settings.advanced');
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
     Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
+    Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
     Route::get('/settings/github', SettingsGithub::class)->name('settings.github');
     Route::get('/settings/whatsapp', SettingsWhatsapp::class)->name('settings.whatsapp');
 
@@ -409,7 +411,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/servers/import', ServerTransferImport::class)->name('server.transfer.import')->middleware('can:create,'.Server::class);
     Route::get('/servers/new', ServerCreatePage::class)->name('server.create')->middleware('can:create,'.Server::class);
     Route::get('/servers/new/{type}/{token_uuid}', ServerCreatePage::class)->name('server.create.token')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean'], AdditionalCloudCatalog::slugs()));
-    Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual'], AdditionalCloudCatalog::slugs()));
+    Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs()));
 
     Route::prefix('server/{server_uuid}')->group(function () {
         Route::get('/', ServerShow::class)->name('server.show');

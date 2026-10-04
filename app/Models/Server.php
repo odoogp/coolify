@@ -297,6 +297,8 @@ class Server extends BaseModel
         'digitalocean_droplet_status',
         'provider_server_id',
         'provider_server_status',
+        'getodoo_offer_id',
+        'getodoo_monthly_price',
         'is_validating',
         'validation_logs',
         'detected_traefik_version',

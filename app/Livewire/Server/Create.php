@@ -3,6 +3,7 @@
 namespace App\Livewire\Server;
 
 use App\Models\CloudProviderToken;
+use App\Models\GetOdooServerOffer;
 use App\Models\PrivateKey;
 use App\Models\Team;
 use App\Services\Cloud\AdditionalCloudCatalog;
@@ -20,15 +21,21 @@ class Create extends Component
 
     public bool $has_hetzner_tokens = false;
 
+    public bool $getodoo_owner = false;
+
+    public bool $getodoo_available = false;
+
     public function mount(?string $selectedType = null, ?string $selectedTokenUuid = null): void
     {
-        $allowedTypes = array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual'], AdditionalCloudCatalog::slugs());
+        $allowedTypes = array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs());
         $this->selectedType = in_array($selectedType, $allowedTypes, true)
             ? $selectedType
             : null;
         $this->selectedTokenUuid = $this->selectedType && $this->selectedType !== 'manual' ? $selectedTokenUuid : null;
 
         $this->private_keys = PrivateKey::ownedByCurrentTeamCached();
+        $this->getodoo_owner = isInstanceOwner();
+        $this->getodoo_available = GetOdooServerOffer::query()->forAdmins()->exists();
         if (! isCloud()) {
             $this->limit_reached = false;
 

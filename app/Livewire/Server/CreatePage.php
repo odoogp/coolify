@@ -49,6 +49,7 @@ class CreatePage extends Component
             'vultr' => 'Vultr',
             'digital-ocean' => 'DigitalOcean',
             'manual' => 'Manual',
+            'getodoo' => 'GetOdoo',
             default => $additional['label'] ?? 'New Server',
         };
     }
