@@ -8,8 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (! Schema::hasTable('getodoo_server_offers')) {
-            Schema::create('getodoo_server_offers', function (Blueprint $table) {
+        if (! Schema::hasTable('get_odoo_server_offers')) {
+            Schema::create('get_odoo_server_offers', function (Blueprint $table) {
                 $table->id();
                 $table->string('uuid')->unique();
                 $table->unsignedBigInteger('hetzner_type_id')->unique();
@@ -33,7 +33,7 @@ return new class extends Migration
 
         if (! Schema::hasColumn('servers', 'getodoo_offer_id')) {
             Schema::table('servers', function (Blueprint $table) {
-                $table->foreignId('getodoo_offer_id')->nullable()->constrained('getodoo_server_offers')->nullOnDelete();
+                $table->foreignId('getodoo_offer_id')->nullable()->constrained('get_odoo_server_offers')->nullOnDelete();
                 $table->decimal('getodoo_monthly_price', 10, 2)->nullable();
             });
         }
@@ -48,6 +48,6 @@ return new class extends Migration
             });
         }
 
-        Schema::dropIfExists('getodoo_server_offers');
+        Schema::dropIfExists('get_odoo_server_offers');
     }
 };

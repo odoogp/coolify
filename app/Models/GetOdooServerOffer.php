@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Builder;
 
 class GetOdooServerOffer extends BaseModel
 {
+    protected $table = 'get_odoo_server_offers';
+
     protected $fillable = [
         'hetzner_type_id',
         'name',
