@@ -5,19 +5,59 @@
 
     <x-settings.layout>
         <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('Hetzner account') }}"
+                description="{{ __('Choose a Hetzner token. Sold servers are created in that account.') }}">
+                @if ($tokens->isEmpty())
+                    <p class="mb-4 text-sm text-neutral-500 dark:text-fg-faint">
+                        {{ __('Add the Hetzner token first. Sold servers are created in that account.') }}
+                    </p>
+                    <livewire:security.cloud-provider-token-form provider="hetzner" wire:key="getodoo-hetzner-token" />
+                @else
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        @foreach ($tokens as $token)
+                            <button type="button" wire:key="getodoo-token-{{ $token->id }}"
+                                wire:click="selectToken({{ $token->id }})"
+                                @class([
+                                    'flex min-h-24 flex-col rounded-xl border p-3 text-left',
+                                    'border-coollabs ring-1 ring-coollabs' => (int) $tokenId === (int) $token->id,
+                                    'border-neutral-200 dark:border-white/10' => (int) $tokenId !== (int) $token->id,
+                                ])>
+                                <span class="text-sm font-semibold">{{ $token->name }}</span>
+                                <span class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    {{ $token->description ?: __('Sold servers are created with this token.') }}
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                    <div class="mt-4">
+                        <x-modal-input title="{{ __('Add token') }}">
+                            <x-slot:content>
+                                <button type="button" class="button">{{ __('Add token') }}</button>
+                            </x-slot:content>
+                            <livewire:security.cloud-provider-token-form :modal_mode="true" provider="hetzner"
+                                wire:key="getodoo-hetzner-token-modal" />
+                        </x-modal-input>
+                    </div>
+                @endif
+            </x-application.settings-section>
+
             <x-application.settings-section title="{{ __('GetOdoo servers') }}"
                 description="{{ __('Fetch only the Hetzner servers that can be created right now, set a markup, and choose which ones admins can launch.') }}">
-                <div class="flex flex-wrap items-center gap-3">
-                    <button type="button" class="button button-highlighted" wire:click="refreshConnection"
-                        wire:loading.attr="disabled" wire:target="refreshConnection">
-                        {{ __('Update connection') }}
-                    </button>
-                    @unless ($hasCredential)
-                        <a href="{{ route('security.cloud-tokens') }}" class="text-sm underline" {{ wireNavigate() }}>
-                            {{ __('Add a Hetzner credential on the instance team before updating this connection.') }}
-                        </a>
-                    @endunless
-                </div>
+                @if ($selectedToken)
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" class="button button-highlighted" wire:click="refreshConnection"
+                            wire:loading.attr="disabled" wire:target="refreshConnection">
+                            {{ __('Update connection') }}
+                        </button>
+                        <span class="text-sm text-neutral-500 dark:text-fg-faint">
+                            {{ $selectedToken->name }}
+                        </span>
+                    </div>
+                @else
+                    <p class="text-sm text-neutral-500 dark:text-fg-faint">
+                        {{ __('Add the Hetzner token first. Sold servers are created in that account.') }}
+                    </p>
+                @endif
             </x-application.settings-section>
 
             <x-application.settings-section title="{{ __('Resale') }}"

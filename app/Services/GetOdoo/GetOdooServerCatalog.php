@@ -12,11 +12,27 @@ class GetOdooServerCatalog
 {
     public function ownerToken(): ?CloudProviderToken
     {
+        $tokenId = instanceSettings()->getodoo_hetzner_token_id;
+
+        if (! $tokenId) {
+            return null;
+        }
+
         return CloudProviderToken::query()
             ->where('team_id', 0)
             ->where('provider', 'hetzner')
-            ->latest('id')
-            ->first();
+            ->find($tokenId);
+    }
+
+    public function rememberToken(CloudProviderToken $token): void
+    {
+        if ($token->provider !== 'hetzner' || (int) $token->team_id !== 0) {
+            throw new RuntimeException(__('Choose a Hetzner token. Sold servers are created in that account.'));
+        }
+
+        instanceSettings()->update([
+            'getodoo_hetzner_token_id' => $token->id,
+        ]);
     }
 
     public function sync(): int
@@ -24,7 +40,7 @@ class GetOdooServerCatalog
         $token = $this->ownerToken();
 
         if ($token === null) {
-            throw new RuntimeException(__('Add a Hetzner credential on the instance team before updating this connection.'));
+            throw new RuntimeException(__('Choose a Hetzner token. Sold servers are created in that account.'));
         }
 
         try {
@@ -34,7 +50,11 @@ class GetOdooServerCatalog
         } catch (Throwable $exception) {
             report($exception);
 
-            throw new RuntimeException(__('The Hetzner connection could not be updated.'));
+            $detail = $exception->getMessage();
+
+            throw new RuntimeException(str_starts_with($detail, 'Hetzner API error:')
+                ? $detail
+                : __('The Hetzner connection could not be updated.'));
         }
 
         $seen = [];

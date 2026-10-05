@@ -11,6 +11,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use RuntimeException;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -121,8 +122,8 @@ beforeEach(function () {
     $this->root = Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
 });
 
-it('keeps the markup when the owner updates the Hetzner connection', function () {
-    getOdooHetznerFake();
+it('does not call Hetzner until the owner chooses the account', function () {
+    Http::preventStrayRequests();
 
     CloudProviderToken::create([
         'team_id' => 0,
@@ -130,6 +131,23 @@ it('keeps the markup when the owner updates the Hetzner connection', function ()
         'token' => 'owner-hetzner-token',
         'name' => 'Instance Hetzner',
     ]);
+
+    expect(fn () => app(GetOdooServerCatalog::class)->sync())
+        ->toThrow(RuntimeException::class, 'Choose a Hetzner token. Sold servers are created in that account.');
+
+    Http::assertNothingSent();
+});
+
+it('keeps the markup when the owner updates the Hetzner connection', function () {
+    getOdooHetznerFake();
+
+    $token = CloudProviderToken::create([
+        'team_id' => 0,
+        'provider' => 'hetzner',
+        'token' => 'owner-hetzner-token',
+        'name' => 'Instance Hetzner',
+    ]);
+    instanceSettings()->update(['getodoo_hetzner_token_id' => $token->id]);
 
     $catalog = app(GetOdooServerCatalog::class);
     expect($catalog->sync())->toBe(1);
@@ -173,6 +191,7 @@ it('lets an admin launch a published GetOdoo server with the owner Hetzner conne
         'token' => 'owner-hetzner-token',
         'name' => 'Instance Hetzner',
     ]);
+    instanceSettings()->update(['getodoo_hetzner_token_id' => $token->id]);
 
     app(GetOdooServerCatalog::class)->sync();
     $offer = GetOdooServerOffer::query()->first();
@@ -217,12 +236,13 @@ it('lets an admin launch a published GetOdoo server with the owner Hetzner conne
 it('lets the instance owner publish a server with a markup', function () {
     getOdooHetznerFake();
 
-    CloudProviderToken::create([
+    $token = CloudProviderToken::create([
         'team_id' => 0,
         'provider' => 'hetzner',
         'token' => 'owner-hetzner-token',
         'name' => 'Instance Hetzner',
     ]);
+    instanceSettings()->update(['getodoo_hetzner_token_id' => $token->id]);
 
     $owner = User::factory()->create();
     $this->root->members()->attach($owner->id, ['role' => 'owner']);

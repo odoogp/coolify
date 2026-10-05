@@ -4230,5 +4230,10 @@
     "Launch a GetOdoo server.": "Lanza un servidor GetOdoo.",
     "Update the Hetzner connection and choose which servers admins can buy.": "Actualiza la conexión con Hetzner y elige qué servidores pueden comprar los admin.",
     "A bright GetOdoo server, ready for your admins.": "Un servidor GetOdoo brillante, listo para tus admin.",
-    "Launch": "Lanzar"
+    "Launch": "Lanzar",
+    "Choose a Hetzner token. Sold servers are created in that account.": "Elige un token de Hetzner. Los servidores vendidos se crean en esa cuenta.",
+    "Hetzner account": "Cuenta de Hetzner",
+    "Add the Hetzner token first. Sold servers are created in that account.": "Primero añade el token de Hetzner. Los servidores vendidos se crean en esa cuenta.",
+    "Sold servers are created with this token.": "Los servidores vendidos se crean con este token.",
+    "Hetzner account saved. Sold servers are created there.": "Cuenta de Hetzner guardada. Los servidores vendidos se crean ahí."
 }

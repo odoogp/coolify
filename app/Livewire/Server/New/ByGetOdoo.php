@@ -88,7 +88,7 @@ class ByGetOdoo extends Component
         $token = $catalog->ownerToken();
 
         if ($token === null) {
-            return $this->dispatch('error', __('Add a Hetzner credential on the instance team before updating this connection.'));
+            return $this->dispatch('error', __('Choose a Hetzner token. Sold servers are created in that account.'));
         }
 
         $hetzner = new HetznerService($token->token);

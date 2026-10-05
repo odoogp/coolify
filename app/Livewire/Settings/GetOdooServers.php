@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings;
 
+use App\Models\CloudProviderToken;
 use App\Models\GetOdooServerOffer;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use Livewire\Component;
@@ -15,6 +16,8 @@ class GetOdooServers extends Component
     /** @var array<int, bool> */
     public array $available = [];
 
+    public ?int $tokenId = null;
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -23,12 +26,69 @@ class GetOdooServers extends Component
             return;
         }
 
+        $this->tokenId = app(GetOdooServerCatalog::class)->ownerToken()?->id;
         $this->loadOffers();
+    }
+
+    public function getListeners(): array
+    {
+        return [
+            'tokenAdded' => 'useAddedToken',
+        ];
+    }
+
+    public function useAddedToken(int $tokenId, GetOdooServerCatalog $catalog): void
+    {
+        if (! isInstanceOwner()) {
+            return;
+        }
+
+        $token = CloudProviderToken::query()->find($tokenId);
+
+        if (! $token instanceof CloudProviderToken) {
+            return;
+        }
+
+        try {
+            $catalog->rememberToken($token);
+            $this->tokenId = $token->id;
+        } catch (Throwable $exception) {
+            $this->dispatch('error', $exception->getMessage());
+        }
+    }
+
+    public function selectToken(int $tokenId, GetOdooServerCatalog $catalog): void
+    {
+        if (! isInstanceOwner()) {
+            return;
+        }
+
+        $token = CloudProviderToken::query()->find($tokenId);
+
+        if (! $token instanceof CloudProviderToken) {
+            $this->dispatch('error', __('Choose a Hetzner token. Sold servers are created in that account.'));
+
+            return;
+        }
+
+        try {
+            $catalog->rememberToken($token);
+            $this->tokenId = $token->id;
+            $this->dispatch('success', __('Hetzner account saved. Sold servers are created there.'));
+        } catch (Throwable $exception) {
+            $this->dispatch('error', $exception->getMessage());
+        }
     }
 
     public function refreshConnection(GetOdooServerCatalog $catalog): void
     {
         if (! isInstanceOwner()) {
+            return;
+        }
+
+        if ($catalog->ownerToken() === null) {
+            $this->dispatch('error', __('Choose a Hetzner token. Sold servers are created in that account.'));
+
             return;
         }
 
@@ -66,7 +126,12 @@ class GetOdooServers extends Component
     {
         return view('livewire.settings.getodoo-servers', [
             'offers' => GetOdooServerOffer::query()->orderBy('monthly_price')->orderBy('name')->get(),
-            'hasCredential' => app(GetOdooServerCatalog::class)->ownerToken() !== null,
+            'tokens' => CloudProviderToken::query()
+                ->where('team_id', 0)
+                ->where('provider', 'hetzner')
+                ->orderBy('name')
+                ->get(),
+            'selectedToken' => app(GetOdooServerCatalog::class)->ownerToken(),
         ]);
     }
 
