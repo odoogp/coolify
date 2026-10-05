@@ -138,7 +138,7 @@
                         <form wire:submit="saveOdooRuntime" class="flex flex-col gap-4">
                             <div class="grid gap-4 sm:grid-cols-2">
                                 <x-forms.input canGate="update" :canResource="$project" id="odooSubdomain" label="{{ __('Subdomain') }}"
-                                    helper="{{ __('Leave this empty to use the address Coolify generates. Saving does not restart Odoo.') }}"
+                                    helper="{{ __('Leave this empty to use the address Coolify generates. Saving a new address restarts Odoo so the proxy and SSL apply.') }}"
                                     placeholder="arielmim97-20demo" />
                                 <x-forms.input canGate="update" :canResource="$project" id="odooWorkers" type="number" min="0" max="32"
                                     label="{{ __('Workers') }}"

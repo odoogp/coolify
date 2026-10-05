@@ -4199,6 +4199,7 @@
     "Odoo domain saved.": "Dominio de Odoo guardado.",
     "This project runs Odoo :version. Staging uses this same version.": "Este proyecto usa Odoo :version. Staging usa esa misma versión.",
     "Leave this empty to use the address Coolify generates. Saving does not restart Odoo.": "Déjalo vacío para usar la dirección que genera Coolify. Guardar no reinicia Odoo.",
+    "Leave this empty to use the address Coolify generates. Saving a new address restarts Odoo so the proxy and SSL apply.": "Déjalo vacío para usar la dirección que genera Coolify. Guardar una dirección nueva reinicia Odoo para que el proxy y el SSL se apliquen.",
     "Zero is the default. Odoo reads this number the next time it starts. Saving does not restart it.": "Cero es el valor por defecto. Odoo lee este número la próxima vez que arranca. Guardar no lo reinicia.",
     "This Odoo version was chosen when the project was launched. Staging uses the same version. It is not changed from here.": "Esta versión de Odoo se eligió al lanzar el proyecto. Staging usa la misma versión. Desde aquí no se cambia.",
     "JupyterLab for this environment. The Odoo version stays the one chosen at launch.": "JupyterLab de este entorno. La versión de Odoo sigue siendo la que se eligió al lanzar.",

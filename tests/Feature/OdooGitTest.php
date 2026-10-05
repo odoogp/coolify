@@ -1618,13 +1618,14 @@ it('turns an existing odoo link into https', function () {
     ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
 });
 
-it('clears a project subdomain back to the coolify address without restarting', function () {
+it('restarts odoo when the project subdomain changes so the proxy gets the address', function () {
     Bus::fake();
     instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
     $server = Server::factory()->create([
         'team_id' => $this->team->id,
         'ip' => '203.0.113.10',
     ]);
+    $server->settings()->update(['is_reachable' => true, 'is_usable' => true]);
     $production = $this->project->environments()->where('name', 'production')->first();
     $service = Service::factory()->create([
         'environment_id' => $production->id,
@@ -1647,12 +1648,15 @@ it('clears a project subdomain back to the coolify address without restarting', 
         ->set('odooSubdomain', 'sitio1')
         ->set('odooWorkers', 2)
         ->call('saveOdooRuntime')
-        ->assertHasNoErrors();
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
 
     $coolify = OdooGit::coolifyPublicUrl($service->fresh());
     expect($application->fresh()->fqdn)->toBe('https://sitio1.getodoo.sh')
         ->and($production->odooBranch()->first()->domain)->toBe('https://sitio1.getodoo.sh')
         ->and($this->project->odooProfile->fresh()->workers)->toBe(2);
+
+    Bus::assertDispatched(StartService::class);
 
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->set('odooSubdomain', '')
@@ -1664,6 +1668,44 @@ it('clears a project subdomain back to the coolify address without restarting', 
         ->and($application->fresh()->fqdn)->not->toContain('getodoo.sh')
         ->and($production->odooBranch()->first()->domain)->toBe($coolify);
 
+    Bus::assertDispatchedTimes(StartService::class, 2);
+});
+
+it('does not restart odoo when only workers change', function () {
+    Bus::fake();
+    instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
+    $this->project->odooProfile->update(['subdomain' => 'sitio1', 'workers' => 0]);
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '203.0.113.10',
+    ]);
+    $server->settings()->update(['is_reachable' => true, 'is_usable' => true]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://sitio1.getodoo.sh',
+        'is_force_https_enabled' => true,
+    ]);
+    OdooEnvironmentBranch::query()->updateOrCreate(
+        ['environment_id' => $production->id],
+        ['git_branch' => 'production', 'status' => 'idle', 'domain' => 'https://sitio1.getodoo.sh', 'workers' => 0],
+    );
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->set('odooSubdomain', 'sitio1')
+        ->set('odooWorkers', 4)
+        ->call('saveOdooRuntime')
+        ->assertHasNoErrors();
+
+    expect($this->project->odooProfile->fresh()->workers)->toBe(4);
     Bus::assertNotDispatched(StartService::class);
 });
 

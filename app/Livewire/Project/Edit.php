@@ -259,17 +259,23 @@ class Edit extends Component
                 ->whereIn('environment_id', $this->project->environments()->pluck('id'))
                 ->update(['workers' => $workers]);
             $this->project->load('environments.services.server');
+            $addressChanged = false;
             foreach ($this->project->environments as $environment) {
                 foreach ($environment->services as $service) {
                     if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
                         continue;
                     }
-                    OdooGit::applyProjectHost($service);
+                    if (OdooGit::applyProjectHost($service)) {
+                        $addressChanged = true;
+                        OdooGit::startIfPossible($service);
+                    }
                 }
             }
             $this->odooSubdomain = $subdomain;
             $this->odooWorkers = $workers;
-            $this->dispatch('success', __('Project runtime saved. The next start applies the workers and the address.'));
+            $this->dispatch('success', $addressChanged
+                ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
+                : __('Project runtime saved. The next start applies the workers and the address.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
