@@ -65,17 +65,30 @@
                 <form wire:submit="saveOffers" class="flex flex-col gap-4">
                     <div class="grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
                         <label class="flex flex-col gap-1 text-sm">
-                            <span>{{ __('EUR to USD') }}</span>
+                            <span class="inline-flex items-center gap-1">
+                                {{ __('EUR to USD') }}
+                                <x-helper label="{{ __('How euros become dollars') }}"
+                                    :helper="e(__('You set this factor. Right now 1 euro equals :rate dollars. It is not read from a bank. The cost in dollars is the cost in euros multiplied by this number.', ['rate' => number_format((float) $eurUsd, 4)]))" />
+                            </span>
                             <input id="eurUsd" type="number" min="0.0001" step="0.0001" wire:model.live="eurUsd"
                                 class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                            <span class="text-[11px] text-neutral-500 dark:text-fg-faint">1 EUR = {{ number_format((float) $eurUsd, 4) }} USD</span>
                         </label>
                         <label class="flex flex-col gap-1 text-sm">
-                            <span>{{ __('Tax percent') }}</span>
+                            <span class="inline-flex items-center gap-1">
+                                {{ __('Tax percent') }}
+                                <x-helper label="{{ __('How tax is added') }}"
+                                    :helper="e(__('Hetzner adds tax on top of the server and the IPv4. The cost in euros is the Hetzner price plus 1 euro for IPv4, then :tax% tax. Nothing is subtracted.', ['tax' => number_format((float) $taxPercent, 2)]))" />
+                            </span>
                             <input id="taxPercent" type="number" min="0" step="0.01" wire:model.live="taxPercent"
                                 class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
                         </label>
                         <label class="flex flex-col gap-1 text-sm">
-                            <span>{{ __('Your percentage') }}</span>
+                            <span class="inline-flex items-center gap-1">
+                                {{ __('Margin') }}
+                                <x-helper label="{{ __('How the margin changes the price') }}"
+                                    :helper="e(__('The suggested price is the cost in dollars plus a margin of :margin%. Change this number and every suggested price changes. Save so admins see the new price.', ['margin' => number_format((float) $marginPercent, 2)]))" />
+                            </span>
                             <input id="marginPercent" type="number" min="0" step="0.01" wire:model.live="marginPercent"
                                 class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
                         </label>
@@ -93,10 +106,34 @@
                                 <thead>
                                     <tr class="border-b border-neutral-200 text-[11px] tracking-wide text-neutral-500 uppercase dark:border-white/10 dark:text-fg-faint">
                                         <th class="px-2 py-2 font-medium">{{ __('Server') }}</th>
-                                        <th class="px-2 py-2 font-medium">{{ __('Hetzner price') }}</th>
-                                        <th class="px-2 py-2 font-medium">{{ __('Cost in euros') }}</th>
-                                        <th class="px-2 py-2 font-medium">{{ __('Cost in dollars') }}</th>
-                                        <th class="px-2 py-2 font-medium">{{ __('Suggested price') }}</th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Hetzner price') }}
+                                                <x-helper label="{{ __('What the Hetzner price is') }}"
+                                                    :helper="e(__('The Hetzner price in euros, before tax and before the IPv4 charge.'))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Cost in euros') }}
+                                                <x-helper label="{{ __('What is added in euros') }}"
+                                                    :helper="e(__('Adds 1 euro for IPv4, then adds :tax% tax on that sum. Nothing is subtracted.', ['tax' => number_format((float) $taxPercent, 2)]))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Cost in dollars') }}
+                                                <x-helper label="{{ __('How euros become dollars') }}"
+                                                    :helper="e(__('You set this factor. Right now 1 euro equals :rate dollars. It is not read from a bank. The cost in dollars is the cost in euros multiplied by this number.', ['rate' => number_format((float) $eurUsd, 4)]))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Suggested price') }}
+                                                <x-helper label="{{ __('How the margin changes the price') }}"
+                                                    :helper="e(__('The suggested price is the cost in dollars plus a margin of :margin%. Change this number and every suggested price changes. Save so admins see the new price.', ['margin' => number_format((float) $marginPercent, 2)]))" />
+                                            </span>
+                                        </th>
                                         <th class="px-2 py-2 font-medium">{{ __('Available for admins') }}</th>
                                     </tr>
                                 </thead>
@@ -115,7 +152,12 @@
                                             <td class="px-2 py-3">{{ number_format((float) $offer->monthly_price, 2) }} EUR</td>
                                             <td class="px-2 py-3">{{ number_format($pricing->costEur((float) $offer->monthly_price), 2) }} EUR</td>
                                             <td class="px-2 py-3">{{ number_format($pricing->costUsd((float) $offer->monthly_price), 2) }} USD</td>
-                                            <td class="px-2 py-3 font-medium">{{ number_format($pricing->suggestedUsd((float) $offer->monthly_price), 2) }} USD</td>
+                                            <td class="px-2 py-3 font-medium">
+                                                {{ number_format($pricing->suggestedUsd((float) $offer->monthly_price), 2) }} USD
+                                                <div class="text-[11px] font-normal text-neutral-500 dark:text-fg-faint">
+                                                    {{ __('margin :margin%', ['margin' => number_format((float) $marginPercent, 2)]) }}
+                                                </div>
+                                            </td>
                                             <td class="px-2 py-3">
                                                 <input id="available-{{ $offer->id }}" type="checkbox"
                                                     wire:model="available.{{ $offer->id }}" @disabled(! $offer->in_stock)

@@ -4243,5 +4243,17 @@
     "Cost in euros is the Hetzner price plus €1 for IPv4, then tax. Dollars are that cost times the factor. The suggested price adds your percentage on top.": "El costo en euros es el precio de Hetzner más 1 € de IPv4, y después el impuesto. Los dólares son ese costo por el factor. El precio sugerido suma tu porcentaje encima.",
     "Cost in euros": "Costo en euros",
     "Cost in dollars": "Costo en dólares",
-    "Suggested price": "Precio sugerido"
+    "Suggested price": "Precio sugerido",
+    "How euros become dollars": "Cómo pasan los euros a dólares",
+    "You set this factor. Right now 1 euro equals :rate dollars. It is not read from a bank. The cost in dollars is the cost in euros multiplied by this number.": "Tú pones este factor. Ahora 1 euro equivale a :rate dólares. No se lee de un banco. El costo en dólares es el costo en euros multiplicado por este número.",
+    "How tax is added": "Cómo se suma el impuesto",
+    "Hetzner adds tax on top of the server and the IPv4. The cost in euros is the Hetzner price plus 1 euro for IPv4, then :tax% tax. Nothing is subtracted.": "Hetzner suma el impuesto sobre el servidor y la IPv4. El costo en euros es el precio de Hetzner más 1 euro de IPv4, y después :tax% de impuesto. No se resta nada.",
+    "Margin": "Margen",
+    "How the margin changes the price": "Cómo el margen cambia el precio",
+    "The suggested price is the cost in dollars plus a margin of :margin%. Change this number and every suggested price changes. Save so admins see the new price.": "El precio sugerido es el costo en dólares más un margen de :margin%. Cambia este número y cada precio sugerido cambia. Guarda para que los admin vean el precio nuevo.",
+    "What the Hetzner price is": "Qué es el precio de Hetzner",
+    "The Hetzner price in euros, before tax and before the IPv4 charge.": "El precio de Hetzner en euros, antes del impuesto y antes del cargo de IPv4.",
+    "What is added in euros": "Qué se suma en euros",
+    "Adds 1 euro for IPv4, then adds :tax% tax on that sum. Nothing is subtracted.": "Suma 1 euro de IPv4 y después :tax% de impuesto sobre esa suma. No se resta nada.",
+    "margin :margin%": "margen :margin%"
 }
