@@ -429,8 +429,8 @@ test('an owner module is copied into the image addons and odoo logs go to the sh
 
 test('owner jupyter mounts the image addons, owner modules, and branch addons', function () {
     $compose = OdooJupyter::ownerCompose([
-        ['team' => 'Cliente 1', 'environment' => 'production', 'custom' => 'abc_odoo-extra-addons', 'files' => 'abc_odoo-web-data', 'image' => 'odoo:18'],
-        ['team' => 'Cliente 1', 'environment' => 'staging-1', 'custom' => 'def_odoo-extra-addons', 'files' => null, 'image' => 'odoo:18'],
+        ['team' => 'Cliente 1', 'project' => 'Mi Empresa', 'environment' => 'production', 'custom' => 'abc_odoo-extra-addons', 'files' => 'abc_odoo-web-data', 'image' => 'odoo:18'],
+        ['team' => 'Cliente 1', 'project' => 'Mi Empresa', 'environment' => 'staging-1', 'custom' => 'def_odoo-extra-addons', 'files' => null, 'image' => 'odoo:18'],
     ], 'abcdef0123456789', 'jupyter.example.test');
     $services = Yaml::parse($compose)['services'];
     $owner = $services['jupyter'];
@@ -439,11 +439,11 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and($services['stdlib-18']['image'])->toBe('odoo:18')
         ->and($services['stdlib-18']['volumes'])->toBe(['odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'])
         ->and($owner['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner:ro')
-        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro')
-        ->and($owner['volumes'])->toContain('abc_odoo-web-data:/workspace/cliente-1/production/files:ro')
-        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
-        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/staging-1/custom_addons:ro')
-        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/staging-1/odoo:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/mi-empresa/production/custom_addons:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-web-data:/workspace/cliente-1/mi-empresa/production/files:ro')
+        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/mi-empresa/production/odoo:ro')
+        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/mi-empresa/staging-1/custom_addons:ro')
+        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/mi-empresa/staging-1/odoo:ro')
         ->and(json_encode($owner))->not->toContain('docker.sock')
         ->and(OdooJupyter::injectOwner($compose))->toBe($compose)
         ->and(OdooJupyter::ownerExternalVolumes($compose))->toBe(['abc_odoo-extra-addons', 'abc_odoo-web-data', 'def_odoo-extra-addons'])
@@ -475,6 +475,19 @@ test('owner jupyter uses the proxy network and the notebook start script', funct
         ->not->toContain('allow_remote_access')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('cmp -s')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('502|503|000');
+});
+
+test('owner jupyter keeps two projects on the same team in separate folders', function () {
+    $compose = OdooJupyter::ownerCompose([
+        ['team' => 'Root Team', 'project' => 'Odoo', 'environment' => 'production', 'custom' => 'a_odoo-extra-addons', 'files' => null, 'image' => 'odoo:20'],
+        ['team' => 'Root Team', 'project' => 'Pollo campero', 'environment' => 'production', 'custom' => 'b_odoo-extra-addons', 'files' => null, 'image' => 'odoo:20'],
+    ], 'abcdef0123456789', 'jupyter.example.test');
+    $volumes = Yaml::parse($compose)['services']['jupyter']['volumes'];
+
+    expect($volumes)->toContain('a_odoo-extra-addons:/workspace/root-team/odoo/production/custom_addons:ro')
+        ->and($volumes)->toContain('b_odoo-extra-addons:/workspace/root-team/pollo-campero/production/custom_addons:ro')
+        ->and(OdooJupyter::ownerWorkspaceFolder('Root Team', 'Odoo', 'production'))->toBe('root-team/odoo/production')
+        ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('import odoo.tools');
 });
 
 test('owner jupyter drops a missing volume without leaving a broken volumes key', function () {

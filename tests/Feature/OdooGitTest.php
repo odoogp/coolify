@@ -102,8 +102,10 @@ it('shows a client team in the owner jupyter even when its server is not the ins
         ->and($row['custom'])->toBe('client_odoo-extra-addons')
         ->and($row['custom_fallback'])->toBe($service->uuid.'_odoo-extra-addons')
         ->and($row['image'])->toBe('odoo:20')
+        ->and($row['project'])->toBe($project->name)
         ->and((string) $row['server_id'])->toBe((string) $server->id)
-        ->and(OdooJupyter::prepareOwnerInstances([$row], [])[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom');
+        ->and(OdooJupyter::prepareOwnerInstances([$row], [])[0]['custom_bind'])
+        ->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/'.\Illuminate\Support\Str::slug($project->name).'/production/custom');
 });
 
 it('stores each github branch without renaming production or staging', function () {
@@ -943,7 +945,9 @@ it('reapplies the owner package after the client clone on sync and start', funct
         ->and(strpos($sync, 'cloneIntoService'))->toBeLessThan(strpos($sync, 'reinstallOwnerPackageIntoService'))
         ->and(strpos($sync, 'reinstallOwnerPackageIntoService'))->toBeLessThan(strpos($sync, 'RestartOdooBranchJob'))
         ->and($start)->toContain('reinstallOwnerPackageIntoService')
-        ->and(strpos($start, 'cloneIntoService'))->toBeLessThan(strpos($start, 'reinstallOwnerPackageIntoService'));
+        ->and(strpos($start, 'cloneIntoService'))->toBeLessThan(strpos($start, 'reinstallOwnerPackageIntoService'))
+        ->and(strpos($start, '$service->parse()'))->toBeLessThan(strpos($start, 'OdooGit::useHttps'))
+        ->and(strpos($start, 'OdooGit::useHttps'))->toBeLessThan(strpos($start, 'saveComposeConfigs'));
 });
 
 it('hides the owner package panel from non-owners', function () {

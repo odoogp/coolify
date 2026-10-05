@@ -26,6 +26,8 @@ class StartService
         OdooGit::reinstallOwnerPackageIntoService($service);
         OdooGit::prepareInstance($service);
         $service->parse();
+        // Applications exist only after parse(); apply the project host before Traefik labels are written.
+        OdooGit::useHttps($service->fresh(['applications', 'environment.project.odooProfile', 'environment.odooBranch']) ?? $service);
         if ($this->shouldStopBeforeStarting($pullLatestImages, $stopBeforeStart)) {
             StopService::run(service: $service, dockerCleanup: false);
         }
