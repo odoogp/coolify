@@ -107,13 +107,25 @@ class SettleGetOdooServerPayment
 
     private function extendPaidUntil(Server $server): void
     {
-        $start = $server->getodoo_paid_until;
-        $base = $start instanceof Carbon && $start->copy()->endOfDay()->isFuture()
-            ? $start->copy()->startOfDay()
-            : now()->startOfDay();
+        $processedAt = now()->startOfDay();
+        $anchor = $server->getodoo_billing_anchor?->copy()->startOfDay();
+
+        if (! $anchor instanceof Carbon) {
+            $anchor = $server->getodoo_paid_until instanceof Carbon
+                ? $server->getodoo_paid_until->copy()->startOfDay()->subMonth()
+                : $processedAt;
+        }
+
+        $from = $server->getodoo_paid_until instanceof Carbon
+            ? $server->getodoo_paid_until->copy()->startOfDay()
+            : $anchor->copy();
+
+        $next = $from->startOfMonth()->addMonthsNoOverflow(1);
+        $next = $next->day(min($anchor->day, $next->daysInMonth))->startOfDay();
 
         $server->update([
-            'getodoo_paid_until' => $base->addMonth()->toDateString(),
+            'getodoo_billing_anchor' => $anchor->toDateString(),
+            'getodoo_paid_until' => $next->toDateString(),
         ]);
     }
 }

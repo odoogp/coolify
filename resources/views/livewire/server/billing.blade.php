@@ -13,7 +13,7 @@
 
         <x-application.settings-section title="{{ __('Subscriptions') }}">
             <p class="mb-4 text-sm text-neutral-500 dark:text-fg-faint">
-                {{ __('Every subscription is charged on its next billing date. The pay button opens a Wompi charge for the price saved on that server.') }}
+                {{ __('Every subscription is charged on its next billing date, on the same day the first payment was processed. The pay button opens a Wompi charge for the price saved on that server.') }}
             </p>
             @if ($subscriptions->isEmpty())
                 <p class="text-sm text-neutral-500 dark:text-fg-faint">{{ __('No subscriptions yet.') }}</p>
@@ -86,6 +86,7 @@
                                 <th class="px-2 py-2 font-medium">{{ __('Server') }}</th>
                                 <th class="px-2 py-2 font-medium">{{ __('Amount') }}</th>
                                 <th class="px-2 py-2 font-medium">{{ __('Status') }}</th>
+                                <th class="px-2 py-2 font-medium"></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -95,6 +96,14 @@
                                     <td class="px-2 py-3">{{ $order->server?->name ?: $order->server_name }}</td>
                                     <td class="px-2 py-3">${{ number_format((float) $order->amount, 2) }}</td>
                                     <td class="px-2 py-3">{{ $order->statusLabel() }}</td>
+                                    <td class="px-2 py-3 text-right">
+                                        @if (in_array($order->status, ['awaiting_payment', 'failed'], true))
+                                            <button type="button" class="button button-highlighted" wire:click="payOrder({{ $order->id }})"
+                                                wire:loading.attr="disabled" wire:target="payOrder">
+                                                {{ __('Pay') }}
+                                            </button>
+                                        @endif
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>

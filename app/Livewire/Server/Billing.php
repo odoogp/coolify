@@ -97,6 +97,48 @@ class Billing extends Component
         return redirect()->away($link['url']);
     }
 
+    public function payOrder(int $orderId, WompiClient $wompi): mixed
+    {
+        abort_unless(auth()->user()?->canAddServers(), 403);
+
+        $team = currentTeam();
+        abort_unless($team, 403);
+
+        $order = GetOdooServerOrder::query()
+            ->where('team_id', $team->id)
+            ->findOrFail($orderId);
+
+        if (! in_array($order->status, ['awaiting_payment', 'failed'], true)) {
+            return $this->dispatch('error', __('The payment could not be started.'));
+        }
+
+        if (! $wompi->configured()) {
+            return $this->dispatch('error', __('Wompi is not ready for charges.'));
+        }
+
+        if ($order->status === 'awaiting_payment' && filled($order->wompi_link_url)) {
+            return redirect()->away($order->wompi_link_url);
+        }
+
+        $order->forceFill(['uuid' => new_public_id()])->save();
+
+        try {
+            $link = $wompi->createServerLink($order);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $this->dispatch('error', __('The payment could not be started.'));
+        }
+
+        $order->update([
+            'status' => 'awaiting_payment',
+            'wompi_link_id' => $link['id'],
+            'wompi_link_url' => $link['url'],
+        ]);
+
+        return redirect()->away($link['url']);
+    }
+
     public function render(): View
     {
         $teamId = currentTeam()?->id;

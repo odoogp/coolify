@@ -2302,7 +2302,7 @@
     "Amount": "Monto",
     "Continue payment": "Continuar el pago",
     "Date": "Fecha",
-    "Every subscription is charged on its next billing date. The pay button opens a Wompi charge for the price saved on that server.": "Cada suscripción se cobra en su próxima fecha. El botón de pagar abre un cobro de Wompi por el precio guardado en ese servidor.",
+    "Every subscription is charged on its next billing date, on the same day the first payment was processed. The pay button opens a Wompi charge for the price saved on that server.": "Cada suscripción se cobra en su próxima fecha, el mismo día en que se procesó el primer pago. El botón de pagar abre un cobro de Wompi por el precio guardado en ese servidor.",
     "Monthly price": "Precio mensual",
     "Next billing": "Próxima facturación",
     "No purchases yet.": "Todavía no hay compras.",

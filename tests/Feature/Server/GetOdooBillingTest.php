@@ -235,7 +235,7 @@ it('extends the paid date when a renewal charge is approved and does not create 
     Http::assertNothingSent();
 });
 
-it('starts the next month from today when the previous date already passed', function () {
+it('keeps the next billing day on the initial payment even when that date already passed', function () {
     instanceSettings()->update([
         'wompi_client_id' => 'client-1',
         'wompi_client_secret' => 'secret-1',
@@ -275,5 +275,49 @@ it('starts the next month from today when the previous date already passed', fun
         'CONTENT_TYPE' => 'application/json',
     ], $body)->assertOk();
 
-    expect($server->fresh()->getodoo_paid_until?->toDateString())->toBe(now()->startOfDay()->addMonth()->toDateString());
+    $server->refresh();
+
+    expect($server->getodoo_paid_until?->toDateString())->toBe('2026-10-01')
+        ->and($server->getodoo_billing_anchor?->toDateString())->toBe('2026-08-01');
+});
+
+it('opens the existing Wompi link for a cancelled purchase without creating a server', function () {
+    Http::preventStrayRequests();
+    instanceSettings()->update([
+        'wompi_client_id' => 'client-1',
+        'wompi_client_secret' => 'secret-1',
+    ]);
+
+    $offer = getOdooBillingOffer();
+    $team = Team::factory()->create();
+    $admin = User::factory()->create();
+    $team->members()->attach($admin->id, ['role' => 'admin', 'can_add_servers' => true]);
+    $key = PrivateKey::factory()->create(['team_id' => $team->id]);
+    $order = GetOdooServerOrder::query()->create([
+        'team_id' => $team->id,
+        'user_id' => $admin->id,
+        'offer_id' => $offer->id,
+        'private_key_id' => $key->id,
+        'server_name' => 'wompy',
+        'location' => 'fsn1',
+        'amount' => 10.19,
+        'status' => 'awaiting_payment',
+        'purpose' => 'launch',
+        'wompi_link_url' => 'https://lk.wompi.sv/yhDt',
+    ]);
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(Billing::class)
+        ->assertSee('wompy')
+        ->assertSee('Pending payment')
+        ->assertSee('Pay')
+        ->assertSee('No subscriptions yet.')
+        ->call('payOrder', $order->id)
+        ->assertRedirect('https://lk.wompi.sv/yhDt');
+
+    expect(Server::query()->where('team_id', $team->id)->count())->toBe(0)
+        ->and($order->fresh()->status)->toBe('awaiting_payment');
+    Http::assertNothingSent();
 });

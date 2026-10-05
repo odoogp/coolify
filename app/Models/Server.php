@@ -265,6 +265,7 @@ class Server extends BaseModel
         'is_build_server' => 'boolean',
         'force_disabled' => 'boolean',
         'getodoo_paid_until' => 'date',
+        'getodoo_billing_anchor' => 'date',
     ];
 
     /**
@@ -301,6 +302,7 @@ class Server extends BaseModel
         'getodoo_offer_id',
         'getodoo_monthly_price',
         'getodoo_paid_until',
+        'getodoo_billing_anchor',
         'is_validating',
         'validation_logs',
         'detected_traefik_version',
