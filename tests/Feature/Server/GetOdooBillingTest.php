@@ -314,13 +314,42 @@ it('opens the existing Wompi link for a cancelled purchase without creating a se
         ->assertSee('wompy')
         ->assertSee('Pending payment')
         ->assertSee('Pay')
-        ->assertSee('No subscriptions yet.')
+        ->assertDontSee('No subscriptions yet.')
         ->call('payOrder', $order->id)
         ->assertRedirect('https://lk.wompi.sv/yhDt');
 
     expect(Server::query()->where('team_id', $team->id)->count())->toBe(0)
         ->and($order->fresh()->status)->toBe('awaiting_payment');
     Http::assertNothingSent();
+});
+
+it('groups payments for the same server into one subscription', function () {
+    $offer = getOdooBillingOffer();
+    $team = Team::factory()->create();
+    $admin = User::factory()->create();
+    $team->members()->attach($admin->id, ['role' => 'admin', 'can_add_servers' => true]);
+    $key = PrivateKey::factory()->create(['team_id' => $team->id]);
+
+    foreach (['Fdgt', 'fdgt'] as $name) {
+        GetOdooServerOrder::query()->create([
+            'team_id' => $team->id,
+            'user_id' => $admin->id,
+            'offer_id' => $offer->id,
+            'private_key_id' => $key->id,
+            'server_name' => $name,
+            'location' => 'fsn1',
+            'amount' => 10.19,
+            'status' => 'awaiting_payment',
+            'purpose' => 'launch',
+        ]);
+    }
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $team]);
+
+    $html = Livewire::test(Billing::class)->assertSee('Pending payment')->html();
+
+    expect(substr_count($html, 'Fdgt') + substr_count($html, 'fdgt'))->toBe(1);
 });
 
 it('cancels a pending purchase that never created a server', function () {

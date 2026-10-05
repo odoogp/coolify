@@ -2308,7 +2308,7 @@
     "The server could not be deleted.": "No se pudo eliminar el servidor.",
     "Continue payment": "Continuar el pago",
     "Date": "Fecha",
-    "Every subscription is charged on its next billing date, on the same day the first payment was processed. The pay button opens a Wompi charge for the price saved on that server.": "Cada suscripción se cobra en su próxima fecha, el mismo día en que se procesó el primer pago. El botón de pagar abre un cobro de Wompi por el precio guardado en ese servidor.",
+    "Each server is one subscription. Its payments stay inside, and the next charge keeps the day the first payment was processed.": "Cada servidor es una suscripción. Sus pagos quedan dentro, y el siguiente cobro conserva el día en que se procesó el primer pago.",
     "Monthly price": "Precio mensual",
     "Next billing": "Próxima facturación",
     "No purchases yet.": "Todavía no hay compras.",

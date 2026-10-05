@@ -11,6 +11,7 @@ use App\Services\GetOdoo\GetOdooServerCatalog;
 use App\Services\GetOdoo\WompiClient;
 use App\Services\HetznerService;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 use RuntimeException;
 use Throwable;
@@ -203,21 +204,62 @@ class Billing extends Component
     {
         $teamId = currentTeam()?->id;
 
+        $servers = Server::query()
+            ->with('getodooOffer')
+            ->where('team_id', $teamId)
+            ->where('id', '!=', 0)
+            ->whereNotNull('getodoo_offer_id')
+            ->orderBy('name')
+            ->get();
+        $orders = GetOdooServerOrder::query()
+            ->with(['server', 'offer'])
+            ->where('team_id', $teamId)
+            ->latest('id')
+            ->get();
+
         return view('livewire.server.billing', [
-            'subscriptions' => Server::query()
-                ->with('getodooOffer')
-                ->where('team_id', $teamId)
-                ->where('id', '!=', 0)
-                ->whereNotNull('getodoo_offer_id')
-                ->orderBy('name')
-                ->get(),
-            'orders' => GetOdooServerOrder::query()
-                ->with(['server', 'user'])
-                ->where('team_id', $teamId)
-                ->latest('id')
-                ->limit(50)
-                ->get(),
+            'groups' => $this->subscriptionGroups($servers, $orders),
         ]);
+    }
+
+    /**
+     * @param  Collection<int, Server>  $servers
+     * @param  Collection<int, GetOdooServerOrder>  $orders
+     * @return Collection<int, array{key: string, server: ?Server, name: string, offer: ?string, price: float, orders: Collection<int, GetOdooServerOrder>}>
+     */
+    private function subscriptionGroups(Collection $servers, Collection $orders): Collection
+    {
+        $ordersByServer = $orders->filter(fn (GetOdooServerOrder $order) => $order->server_id !== null)->groupBy('server_id');
+        $groups = $servers->map(function (Server $server) use ($ordersByServer) {
+            return [
+                'key' => 'server-'.$server->id,
+                'server' => $server,
+                'name' => $server->name,
+                'offer' => $server->getodooOffer?->description ?: $server->getodooOffer?->name,
+                'price' => (float) $server->getodoo_monthly_price,
+                'orders' => $ordersByServer->get($server->id, collect())->values(),
+            ];
+        });
+
+        $attached = $servers->pluck('id');
+        $loose = $orders->filter(function (GetOdooServerOrder $order) use ($attached) {
+            return $order->server_id === null || ! $attached->contains($order->server_id);
+        })->groupBy(fn (GetOdooServerOrder $order) => mb_strtolower(trim($order->server_name)));
+
+        foreach ($loose as $groupOrders) {
+            $latest = $groupOrders->first();
+
+            $groups->push([
+                'key' => 'name-'.mb_strtolower(trim((string) $latest->server_name)),
+                'server' => null,
+                'name' => $latest->server_name,
+                'offer' => $latest->offer?->description ?: $latest->offer?->name,
+                'price' => (float) $latest->amount,
+                'orders' => $groupOrders->values(),
+            ]);
+        }
+
+        return $groups->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values();
     }
 
     private function removePlan(Server $server): void
