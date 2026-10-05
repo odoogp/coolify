@@ -97,8 +97,12 @@ main .grid > :is(a, article).rounded-xl.shadow-sm {
     --card-border-width: 1px;
 }
 
-html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm,
-html[data-theme="light"] :is(.box, .coolbox, .box-boarding, .empty-state, .application-settings-section) {
+html[data-theme="light"] :is(.box, .coolbox, .box-boarding, .application-settings-section) {
+    --ring-radius: var(--shell-radius, 0.75rem);
+    --card-border-width: 0px;
+}
+
+html[data-theme="light"] .empty-state {
     --ring-radius: 28px;
     --card-border-width: 0px;
 }
@@ -107,15 +111,14 @@ html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     --ring-radius: 28px;
 }
 
-/* Outline sits outside the border edge, so the stroke is not an inner
-   border with a gap, and overflow:hidden cannot hide it on Midnight. */
+/* Project and dashboard cards keep their own radius and do not run the
+   spinning outline. overflow:hidden on those tiles clips the ring, so the
+   highlight blinks as it travels the corner. */
 :is(
     .box,
     .coolbox,
     .box-boarding,
-    .empty-state,
-    main .grid > a.rounded-xl.shadow-sm,
-    main .grid > article.rounded-xl.shadow-sm
+    .empty-state
 ):hover {
     transform: translateY(-4px);
 }
@@ -125,9 +128,7 @@ html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     .coolbox,
     .box-boarding,
     .empty-state,
-    .application-settings-section,
-    main .grid > a.rounded-xl.shadow-sm,
-    main .grid > article.rounded-xl.shadow-sm
+    .application-settings-section
 ):not(.coolbox-loading):hover {
     outline: 2px solid color-mix(in srgb, var(--card-border-accent) 55%, transparent);
     outline-offset: 0;
@@ -140,13 +141,7 @@ html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     .box-boarding,
     .empty-state,
     .application-settings-section
-):not(.coolbox-loading):hover::before,
-html[data-theme="dark"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
-html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
-html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
-html[data-theme="crystal-light"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
-html[data-theme="custom"] main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after,
-main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::after {
+):not(.coolbox-loading):hover::before {
     content: "";
     position: absolute;
     inset: calc((var(--card-border-width, 0px) + 2px) * -1);
@@ -174,9 +169,7 @@ main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::a
         .box,
         .coolbox,
         .box-boarding,
-        .empty-state,
-        main .grid > a.rounded-xl.shadow-sm,
-        main .grid > article.rounded-xl.shadow-sm
+        .empty-state
     ):hover {
         transform: none;
     }
@@ -187,8 +180,7 @@ main .grid > :is(a, article).rounded-xl.shadow-sm:not(.coolbox-loading):hover::a
         .box-boarding,
         .empty-state,
         .application-settings-section
-    ):hover::before,
-    main .grid > :is(a, article).rounded-xl.shadow-sm:hover::after {
+    ):hover::before {
         animation: none;
     }
 }
