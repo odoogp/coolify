@@ -72,4 +72,14 @@ class GetOdooServerOrder extends BaseModel
             default => (string) $this->status,
         };
     }
+
+    public function statusType(): string
+    {
+        return match ($this->status) {
+            'provisioned', 'paid' => 'success',
+            'failed' => 'error',
+            'awaiting_payment' => 'warning',
+            default => 'neutral',
+        };
+    }
 }
