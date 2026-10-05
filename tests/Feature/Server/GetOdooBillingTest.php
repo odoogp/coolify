@@ -2,6 +2,7 @@
 
 use App\Livewire\Server\Billing;
 use App\Livewire\Settings\GetOdooPurchases;
+use App\Models\CloudProviderToken;
 use App\Models\GetOdooServerOffer;
 use App\Models\GetOdooServerOrder;
 use App\Models\InstanceSettings;
@@ -320,4 +321,108 @@ it('opens the existing Wompi link for a cancelled purchase without creating a se
     expect(Server::query()->where('team_id', $team->id)->count())->toBe(0)
         ->and($order->fresh()->status)->toBe('awaiting_payment');
     Http::assertNothingSent();
+});
+
+it('cancels a pending purchase that never created a server', function () {
+    $offer = getOdooBillingOffer();
+    $team = Team::factory()->create();
+    $admin = User::factory()->create();
+    $team->members()->attach($admin->id, ['role' => 'admin', 'can_add_servers' => true]);
+    $key = PrivateKey::factory()->create(['team_id' => $team->id]);
+    $order = GetOdooServerOrder::query()->create([
+        'team_id' => $team->id,
+        'user_id' => $admin->id,
+        'offer_id' => $offer->id,
+        'private_key_id' => $key->id,
+        'server_name' => 'Fdgt',
+        'location' => 'fsn1',
+        'amount' => 10.19,
+        'status' => 'awaiting_payment',
+        'purpose' => 'launch',
+        'wompi_link_url' => 'https://lk.wompi.sv/yhDt',
+    ]);
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(Billing::class)
+        ->assertSee('Cancel')
+        ->call('cancelOrder', $order->id);
+
+    expect($order->fresh()->status)->toBe('cancelled')
+        ->and($order->fresh()->wompi_link_url)->toBeNull()
+        ->and(Server::query()->where('team_id', $team->id)->count())->toBe(0);
+
+    instanceSettings()->update([
+        'wompi_client_id' => 'client-1',
+        'wompi_client_secret' => 'secret-1',
+    ]);
+    $payload = [
+        'IdTransaccion' => 'tx-after-cancel',
+        'Monto' => 10.19,
+        'ResultadoTransaccion' => 'ExitosaAprobada',
+        'EsProductiva' => true,
+        'EnlacePago' => [
+            'IdentificadorEnlaceComercio' => $order->uuid,
+        ],
+    ];
+    $body = json_encode($payload);
+    $hash = app(WompiClient::class)->webhookHash($body);
+
+    $this->call('POST', '/webhooks/payments/wompi', [], [], [], [
+        'HTTP_WOMPI_HASH' => $hash,
+        'CONTENT_TYPE' => 'application/json',
+    ], $body)->assertOk();
+
+    expect(Server::query()->where('name', 'Fdgt')->count())->toBe(0)
+        ->and($order->fresh()->status)->toBe('cancelled');
+});
+
+it('deletes the Hetzner server when the plan is cancelled', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'https://api.hetzner.cloud/v1/servers/99' => Http::response(null, 200),
+    ]);
+
+    $token = CloudProviderToken::create([
+        'team_id' => 0,
+        'provider' => 'hetzner',
+        'token' => 'owner-hetzner-token',
+        'name' => 'Instance Hetzner',
+    ]);
+    instanceSettings()->update(['getodoo_hetzner_token_id' => $token->id]);
+
+    $offer = getOdooBillingOffer();
+    $team = Team::factory()->create();
+    $server = getOdooBillingServer($team, $offer);
+    $server->update(['hetzner_server_id' => 99]);
+    $admin = User::factory()->create();
+    $team->members()->attach($admin->id, ['role' => 'admin', 'can_add_servers' => true]);
+    $order = GetOdooServerOrder::query()->create([
+        'team_id' => $team->id,
+        'user_id' => $admin->id,
+        'offer_id' => $offer->id,
+        'private_key_id' => $server->private_key_id,
+        'server_id' => $server->id,
+        'server_name' => $server->name,
+        'location' => 'fsn1',
+        'amount' => 93,
+        'status' => 'awaiting_payment',
+        'purpose' => 'renewal',
+        'wompi_link_url' => 'https://lk.wompi.sv/yhDt',
+    ]);
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(Billing::class)->call('cancelPlan', $server->id);
+
+    expect(Server::query()->whereKey($server->id)->exists())->toBeFalse()
+        ->and($order->fresh()->status)->toBe('cancelled')
+        ->and($order->fresh()->wompi_link_url)->toBeNull();
+
+    Http::assertSent(function ($request) {
+        return $request->method() === 'DELETE'
+            && str_contains($request->url(), '/servers/99');
+    });
 });

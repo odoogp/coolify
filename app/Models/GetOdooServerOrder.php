@@ -68,6 +68,7 @@ class GetOdooServerOrder extends BaseModel
             'provisioning' => __('Payment in progress'),
             'provisioned', 'paid' => __('Paid'),
             'failed' => __('Failed'),
+            'cancelled' => __('Cancelled'),
             default => (string) $this->status,
         };
     }

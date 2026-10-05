@@ -61,10 +61,17 @@
                                         @endif
                                     </td>
                                     <td class="px-2 py-3 text-right">
-                                        <button type="button" class="button button-highlighted" wire:click="pay({{ $server->id }})"
-                                            wire:loading.attr="disabled" wire:target="pay">
-                                            {{ $pending ? __('Continue payment') : __('Pay') }}
-                                        </button>
+                                        <div class="flex justify-end gap-2">
+                                            <button type="button" class="button button-highlighted" wire:click="pay({{ $server->id }})"
+                                                wire:loading.attr="disabled" wire:target="pay,cancelPlan">
+                                                {{ $pending ? __('Continue payment') : __('Pay') }}
+                                            </button>
+                                            <button type="button" class="button" wire:click="cancelPlan({{ $server->id }})"
+                                                wire:confirm="{{ __('Cancel this plan? The server will be deleted.') }}"
+                                                wire:loading.attr="disabled" wire:target="cancelPlan">
+                                                {{ __('Cancel') }}
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             @endforeach
@@ -98,10 +105,17 @@
                                     <td class="px-2 py-3">{{ $order->statusLabel() }}</td>
                                     <td class="px-2 py-3 text-right">
                                         @if (in_array($order->status, ['awaiting_payment', 'failed'], true))
-                                            <button type="button" class="button button-highlighted" wire:click="payOrder({{ $order->id }})"
-                                                wire:loading.attr="disabled" wire:target="payOrder">
-                                                {{ __('Pay') }}
-                                            </button>
+                                            <div class="flex justify-end gap-2">
+                                                <button type="button" class="button button-highlighted" wire:click="payOrder({{ $order->id }})"
+                                                    wire:loading.attr="disabled" wire:target="payOrder,cancelOrder">
+                                                    {{ __('Pay') }}
+                                                </button>
+                                                <button type="button" class="button" wire:click="cancelOrder({{ $order->id }})"
+                                                    wire:confirm="{{ $order->server && $order->server->getodoo_offer_id ? __('Cancel this plan? The server will be deleted.') : __('Cancel this purchase?') }}"
+                                                    wire:loading.attr="disabled" wire:target="cancelOrder">
+                                                    {{ __('Cancel') }}
+                                                </button>
+                                            </div>
                                         @endif
                                     </td>
                                 </tr>
