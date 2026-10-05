@@ -9,6 +9,7 @@ use App\Models\PrivateKey;
 use App\Models\Server;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\GetOdoo\GetOdooPrice;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use RuntimeException;
@@ -38,8 +39,8 @@ function getOdooHetznerFake(): void
                         ['name' => 'hel1', 'available' => false],
                     ],
                     'prices' => [
-                        ['location' => 'fsn1', 'price_monthly' => ['gross' => '5.9400']],
-                        ['location' => 'hel1', 'price_monthly' => ['gross' => '6.5000']],
+                        ['location' => 'fsn1', 'price_monthly' => ['net' => '4.9900', 'gross' => '5.9400']],
+                        ['location' => 'hel1', 'price_monthly' => ['net' => '5.4600', 'gross' => '6.5000']],
                     ],
                 ], [
                     'id' => 11,
@@ -53,7 +54,7 @@ function getOdooHetznerFake(): void
                         ['name' => 'fsn1', 'available' => false],
                     ],
                     'prices' => [
-                        ['location' => 'fsn1', 'price_monthly' => ['gross' => '3.2900']],
+                        ['location' => 'fsn1', 'price_monthly' => ['net' => '2.7600', 'gross' => '3.2900']],
                     ],
                 ]],
                 'meta' => ['pagination' => ['last_page' => 1, 'next_page' => null]],
@@ -177,11 +178,16 @@ it('lets an admin launch a published GetOdoo server with the owner Hetzner conne
         'token' => 'owner-hetzner-token',
         'name' => 'Instance Hetzner',
     ]);
-    instanceSettings()->update(['getodoo_hetzner_token_id' => $token->id]);
+    instanceSettings()->update([
+        'getodoo_hetzner_token_id' => $token->id,
+        'getodoo_eur_usd_rate' => 1.1,
+        'getodoo_tax_percent' => 19,
+        'getodoo_margin_percent' => 20,
+    ]);
 
     app(GetOdooServerCatalog::class)->sync();
     $offer = GetOdooServerOffer::query()->first();
-    $offer->update(['markup' => 2, 'available_for_admins' => true]);
+    $offer->update(['available_for_admins' => true]);
 
     $team = Team::factory()->create();
     $admin = User::factory()->create();
@@ -204,7 +210,7 @@ it('lets an admin launch a published GetOdoo server with the owner Hetzner conne
         ->and($server->team_id)->toBe($team->id)
         ->and((int) $server->hetzner_server_id)->toBe(99)
         ->and($server->getodoo_offer_id)->toBe($offer->id)
-        ->and((float) $server->getodoo_monthly_price)->toBe(7.94)
+        ->and((float) $server->getodoo_monthly_price)->toBe((new GetOdooPrice(1.1, 19, 20))->suggestedUsd((float) $offer->monthlyFor('fsn1')))
         ->and($server->ip)->toBe('203.0.113.20')
         ->and($server->cloud_provider_token_id)->toBe($token->id)
         ->and($server->vultr_instance_id)->toBeNull()
@@ -239,14 +245,18 @@ it('lets the instance owner publish a server with a markup', function () {
     $offer = GetOdooServerOffer::query()->first();
 
     Livewire::test(GetOdooServers::class)
-        ->set('markups.'.$offer->id, '2.25')
+        ->set('eurUsd', '1.2')
+        ->set('taxPercent', '19')
+        ->set('marginPercent', '25')
         ->set('available.'.$offer->id, true)
         ->call('saveOffers');
 
     $offer->refresh();
 
-    expect((float) $offer->markup)->toBe(2.25)
-        ->and($offer->available_for_admins)->toBeTrue();
+    expect((float) instanceSettings()->getodoo_eur_usd_rate)->toBe(1.2)
+        ->and((float) instanceSettings()->getodoo_margin_percent)->toBe(25.0)
+        ->and($offer->available_for_admins)->toBeTrue()
+        ->and($offer->sellPrice('fsn1'))->toBe((new GetOdooPrice(1.2, 19, 25))->suggestedUsd((float) $offer->monthlyFor('fsn1')));
 });
 
 it('does not open the resale screen for an admin', function () {

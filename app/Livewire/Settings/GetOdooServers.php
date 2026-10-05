@@ -4,17 +4,21 @@ namespace App\Livewire\Settings;
 
 use App\Models\CloudProviderToken;
 use App\Models\GetOdooServerOffer;
+use App\Services\GetOdoo\GetOdooPrice;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use Livewire\Component;
 use Throwable;
 
 class GetOdooServers extends Component
 {
-    /** @var array<int, string> */
-    public array $markups = [];
-
     /** @var array<int, bool> */
     public array $available = [];
+
+    public string $eurUsd = '1.1';
+
+    public string $taxPercent = '19';
+
+    public string $marginPercent = '20';
 
     public ?int $tokenId = null;
 
@@ -27,6 +31,7 @@ class GetOdooServers extends Component
         }
 
         $this->tokenId = app(GetOdooServerCatalog::class)->ownerToken()?->id;
+        $this->loadPricing();
         $this->loadOffers();
     }
 
@@ -94,6 +99,7 @@ class GetOdooServers extends Component
 
         try {
             $count = $catalog->sync();
+            $this->loadPricing();
             $this->loadOffers();
             $this->dispatch('success', __('Hetzner connection updated. :count servers are available.', ['count' => $count]));
         } catch (Throwable $exception) {
@@ -108,16 +114,24 @@ class GetOdooServers extends Component
         }
 
         $this->validate([
-            'markups.*' => 'numeric|min:0|max:999999',
+            'eurUsd' => 'required|numeric|min:0.0001|max:100',
+            'taxPercent' => 'required|numeric|min:0|max:100',
+            'marginPercent' => 'required|numeric|min:0|max:500',
+        ]);
+
+        instanceSettings()->update([
+            'getodoo_eur_usd_rate' => round((float) $this->eurUsd, 4),
+            'getodoo_tax_percent' => round((float) $this->taxPercent, 2),
+            'getodoo_margin_percent' => round((float) $this->marginPercent, 2),
         ]);
 
         foreach (GetOdooServerOffer::query()->get() as $offer) {
             $offer->update([
-                'markup' => round((float) ($this->markups[$offer->id] ?? 0), 2),
                 'available_for_admins' => $offer->in_stock && (bool) ($this->available[$offer->id] ?? false),
             ]);
         }
 
+        $this->loadPricing();
         $this->loadOffers();
         $this->dispatch('success', __('GetOdoo servers saved.'));
     }
@@ -132,16 +146,23 @@ class GetOdooServers extends Component
                 ->orderBy('name')
                 ->get(),
             'selectedToken' => app(GetOdooServerCatalog::class)->ownerToken(),
+            'pricing' => new GetOdooPrice((float) $this->eurUsd, (float) $this->taxPercent, (float) $this->marginPercent),
         ]);
+    }
+
+    private function loadPricing(): void
+    {
+        $pricing = GetOdooPrice::current();
+        $this->eurUsd = (string) $pricing->eurUsd;
+        $this->taxPercent = (string) $pricing->taxPercent;
+        $this->marginPercent = (string) $pricing->marginPercent;
     }
 
     private function loadOffers(): void
     {
-        $this->markups = [];
         $this->available = [];
 
         foreach (GetOdooServerOffer::query()->get() as $offer) {
-            $this->markups[$offer->id] = (string) $offer->markup;
             $this->available[$offer->id] = $offer->available_for_admins;
         }
     }

@@ -172,7 +172,7 @@ class GetOdooServerCatalog
         $locations = [];
 
         foreach ($type['prices'] ?? [] as $price) {
-            $monthly = data_get($price, 'price_monthly.gross') ?? data_get($price, 'price_monthly.net');
+            $monthly = data_get($price, 'price_monthly.net') ?? data_get($price, 'price_monthly.gross');
 
             if ($monthly === null || $monthly === '') {
                 continue;

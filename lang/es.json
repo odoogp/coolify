@@ -4235,5 +4235,13 @@
     "Hetzner account": "Cuenta de Hetzner",
     "Add the Hetzner token first. Sold servers are created in that account.": "Primero añade el token de Hetzner. Los servidores vendidos se crean en esa cuenta.",
     "Sold servers are created with this token.": "Los servidores vendidos se crean con este token.",
-    "Hetzner account saved. Sold servers are created there.": "Cuenta de Hetzner guardada. Los servidores vendidos se crean ahí."
+    "Hetzner account saved. Sold servers are created there.": "Cuenta de Hetzner guardada. Los servidores vendidos se crean ahí.",
+    "Hetzner prices are euros before tax. The suggested price adds tax, the €1 IPv4, converts to dollars, then adds your percentage.": "Los precios de Hetzner son euros antes de impuestos. El precio sugerido suma el impuesto, el euro de la IPv4, lo pasa a dólares y luego añade tu porcentaje.",
+    "EUR to USD": "EUR a USD",
+    "Tax percent": "Porcentaje de impuesto",
+    "Your percentage": "Tu porcentaje",
+    "Cost in euros is the Hetzner price plus €1 for IPv4, then tax. Dollars are that cost times the factor. The suggested price adds your percentage on top.": "El costo en euros es el precio de Hetzner más 1 € de IPv4, y después el impuesto. Los dólares son ese costo por el factor. El precio sugerido suma tu porcentaje encima.",
+    "Cost in euros": "Costo en euros",
+    "Cost in dollars": "Costo en dólares",
+    "Suggested price": "Precio sugerido"
 }

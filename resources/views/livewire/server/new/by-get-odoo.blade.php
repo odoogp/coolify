@@ -22,7 +22,7 @@
                                     <span class="text-sm font-semibold">{{ $offer->description ?: $offer->name }}</span>
                                 </span>
                                 <input type="radio" class="sr-only" wire:model.live="offerId" value="{{ $offer->id }}">
-                                <span class="text-sm font-semibold">{{ number_format($offer->sellPrice((int) $offerId === (int) $offer->id ? $location : $offer->location), 2) }} {{ $offer->currency }}</span>
+                                <span class="text-sm font-semibold">{{ number_format($offer->sellPrice((int) $offerId === (int) $offer->id ? $location : $offer->location), 2) }} USD</span>
                             </span>
                             <span class="text-[11px] text-neutral-500 dark:text-fg-faint">
                                 {{ $offer->cores }} vCPU · {{ (float) $offer->memory }} GB · {{ $offer->disk }} GB · {{ __('per month') }}

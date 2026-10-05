@@ -61,21 +61,42 @@
             </x-application.settings-section>
 
             <x-application.settings-section title="{{ __('Resale') }}"
-                description="{{ __('The sell price is the Hetzner price plus your markup. Only checked servers are shown to admins as GetOdoo.') }}">
-                @if ($offers->isEmpty())
-                    <p class="text-sm text-neutral-500 dark:text-fg-faint">
-                        {{ __('No Hetzner servers yet. Update the connection to fetch them.') }}
+                description="{{ __('Hetzner prices are euros before tax. The suggested price adds tax, the €1 IPv4, converts to dollars, then adds your percentage.') }}">
+                <form wire:submit="saveOffers" class="flex flex-col gap-4">
+                    <div class="grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span>{{ __('EUR to USD') }}</span>
+                            <input id="eurUsd" type="number" min="0.0001" step="0.0001" wire:model.live="eurUsd"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span>{{ __('Tax percent') }}</span>
+                            <input id="taxPercent" type="number" min="0" step="0.01" wire:model.live="taxPercent"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span>{{ __('Your percentage') }}</span>
+                            <input id="marginPercent" type="number" min="0" step="0.01" wire:model.live="marginPercent"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        </label>
+                    </div>
+                    <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-faint">
+                        {{ __('Cost in euros is the Hetzner price plus €1 for IPv4, then tax. Dollars are that cost times the factor. The suggested price adds your percentage on top.') }}
                     </p>
-                @else
-                    <form wire:submit="saveOffers" class="flex flex-col gap-4">
+                    @if ($offers->isEmpty())
+                        <p class="text-sm text-neutral-500 dark:text-fg-faint">
+                            {{ __('No Hetzner servers yet. Update the connection to fetch them.') }}
+                        </p>
+                    @else
                         <div class="overflow-x-auto">
-                            <table class="w-full min-w-[46rem] text-left text-sm">
+                            <table class="w-full min-w-[52rem] text-left text-sm">
                                 <thead>
                                     <tr class="border-b border-neutral-200 text-[11px] tracking-wide text-neutral-500 uppercase dark:border-white/10 dark:text-fg-faint">
                                         <th class="px-2 py-2 font-medium">{{ __('Server') }}</th>
                                         <th class="px-2 py-2 font-medium">{{ __('Hetzner price') }}</th>
-                                        <th class="px-2 py-2 font-medium">{{ __('Markup') }}</th>
-                                        <th class="px-2 py-2 font-medium">{{ __('Sell price') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Cost in euros') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Cost in dollars') }}</th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Suggested price') }}</th>
                                         <th class="px-2 py-2 font-medium">{{ __('Available for admins') }}</th>
                                     </tr>
                                 </thead>
@@ -91,13 +112,10 @@
                                                     @endunless
                                                 </div>
                                             </td>
-                                            <td class="px-2 py-3">{{ number_format((float) $offer->monthly_price, 2) }} {{ $offer->currency }}</td>
-                                            <td class="px-2 py-3">
-                                                <input id="markup-{{ $offer->id }}" type="number" min="0" step="0.01"
-                                                    wire:model="markups.{{ $offer->id }}"
-                                                    class="h-10 w-28 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
-                                            </td>
-                                            <td class="px-2 py-3 font-medium">{{ number_format((float) $offer->monthly_price + (float) ($markups[$offer->id] ?? 0), 2) }} {{ $offer->currency }}</td>
+                                            <td class="px-2 py-3">{{ number_format((float) $offer->monthly_price, 2) }} EUR</td>
+                                            <td class="px-2 py-3">{{ number_format($pricing->costEur((float) $offer->monthly_price), 2) }} EUR</td>
+                                            <td class="px-2 py-3">{{ number_format($pricing->costUsd((float) $offer->monthly_price), 2) }} USD</td>
+                                            <td class="px-2 py-3 font-medium">{{ number_format($pricing->suggestedUsd((float) $offer->monthly_price), 2) }} USD</td>
                                             <td class="px-2 py-3">
                                                 <input id="available-{{ $offer->id }}" type="checkbox"
                                                     wire:model="available.{{ $offer->id }}" @disabled(! $offer->in_stock)
@@ -108,11 +126,11 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div>
-                            <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
-                        </div>
-                    </form>
-                @endif
+                    @endif
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
             </x-application.settings-section>
         </div>
     </x-settings.layout>

@@ -65,6 +65,9 @@ class InstanceSettings extends Model
         'odoo_owner_branch',
         'odoo_mail_daily_limit',
         'getodoo_hetzner_token_id',
+        'getodoo_eur_usd_rate',
+        'getodoo_tax_percent',
+        'getodoo_margin_percent',
     ];
 
     protected $hidden = [

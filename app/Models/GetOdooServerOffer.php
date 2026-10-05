@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\GetOdoo\GetOdooPrice;
 use Illuminate\Database\Eloquent\Builder;
 
 class GetOdooServerOffer extends BaseModel
@@ -55,8 +56,8 @@ class GetOdooServerOffer extends BaseModel
         return (float) $this->monthly_price;
     }
 
-    public function sellPrice(?string $location = null): float
+    public function sellPrice(?string $location = null, ?GetOdooPrice $price = null): float
     {
-        return round($this->monthlyFor($location) + (float) $this->markup, 2);
+        return ($price ?? GetOdooPrice::current())->suggestedUsd($this->monthlyFor($location));
     }
 }
