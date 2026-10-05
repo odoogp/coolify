@@ -33,6 +33,10 @@ function getOdooHetznerFake(): void
                     'memory' => 4,
                     'disk' => 40,
                     'architecture' => 'x86',
+                    'locations' => [
+                        ['name' => 'fsn1', 'available' => true],
+                        ['name' => 'hel1', 'available' => false],
+                    ],
                     'prices' => [
                         ['location' => 'fsn1', 'price_monthly' => ['gross' => '5.9400']],
                         ['location' => 'hel1', 'price_monthly' => ['gross' => '6.5000']],
@@ -45,29 +49,11 @@ function getOdooHetznerFake(): void
                     'memory' => 2,
                     'disk' => 20,
                     'architecture' => 'x86',
+                    'locations' => [
+                        ['name' => 'fsn1', 'available' => false],
+                    ],
                     'prices' => [
                         ['location' => 'fsn1', 'price_monthly' => ['gross' => '3.2900']],
-                    ],
-                ]],
-                'meta' => ['pagination' => ['last_page' => 1, 'next_page' => null]],
-            ]);
-        }
-
-        if (str_contains($url, '/datacenters')) {
-            return Http::response([
-                'datacenters' => [[
-                    'name' => 'fsn1-dc14',
-                    'location' => ['name' => 'fsn1'],
-                    'server_types' => [
-                        'supported' => [22, 11],
-                        'available' => [22],
-                    ],
-                ], [
-                    'name' => 'hel1-dc2',
-                    'location' => ['name' => 'hel1'],
-                    'server_types' => [
-                        'supported' => [22],
-                        'available' => [],
                     ],
                 ]],
                 'meta' => ['pagination' => ['last_page' => 1, 'next_page' => null]],

@@ -223,11 +223,6 @@ class HetznerService
         return array_values($filtered);
     }
 
-    public function getDatacenters(): array
-    {
-        return $this->requestPaginated('get', '/datacenters', 'datacenters');
-    }
-
     public function getSshKeys(): array
     {
         return $this->requestPaginated('get', '/ssh_keys', 'ssh_keys');

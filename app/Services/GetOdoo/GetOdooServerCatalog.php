@@ -46,7 +46,6 @@ class GetOdooServerCatalog
         try {
             $hetzner = new HetznerService($token->token);
             $types = $hetzner->getServerTypes();
-            $availableLocations = $this->availableLocations($hetzner->getDatacenters());
         } catch (Throwable $exception) {
             report($exception);
 
@@ -60,7 +59,7 @@ class GetOdooServerCatalog
         $seen = [];
 
         foreach ($types as $type) {
-            $openLocations = $availableLocations[(int) ($type['id'] ?? 0)] ?? [];
+            $openLocations = $this->availableLocationNames($type);
             $locations = array_values(array_filter(
                 $this->locations($type),
                 fn (array $row): bool => in_array($row['location'], $openLocations, true),
@@ -130,35 +129,38 @@ class GetOdooServerCatalog
     }
 
     /**
-     * Locations where Hetzner can create that server type right now.
+     * Location names where Hetzner can create this server type right now.
      *
-     * @param  array<int, array<string, mixed>>  $datacenters
-     * @return array<int, array<int, string>>
+     * @param  array<string, mixed>  $type
+     * @return array<int, string>
      */
-    private function availableLocations(array $datacenters): array
+    private function availableLocationNames(array $type): array
     {
-        $locations = [];
+        $names = [];
 
-        foreach ($datacenters as $datacenter) {
-            $location = data_get($datacenter, 'location.name');
-
-            if (! is_string($location) || $location === '') {
+        foreach ($type['locations'] ?? [] as $location) {
+            if (! is_array($location) || ($location['available'] ?? false) !== true) {
                 continue;
             }
 
-            foreach (data_get($datacenter, 'server_types.available', []) as $typeId) {
-                if (! is_numeric($typeId)) {
+            $unavailableAfter = data_get($location, 'deprecation.unavailable_after');
+
+            if (is_string($unavailableAfter) && $unavailableAfter !== '') {
+                $timestamp = strtotime($unavailableAfter);
+
+                if ($timestamp !== false && $timestamp <= time()) {
                     continue;
                 }
+            }
 
-                $locations[(int) $typeId][$location] = $location;
+            $name = $location['name'] ?? null;
+
+            if (is_string($name) && $name !== '') {
+                $names[] = $name;
             }
         }
 
-        return array_map(
-            fn (array $names): array => array_values($names),
-            $locations,
-        );
+        return $names;
     }
 
     /**
