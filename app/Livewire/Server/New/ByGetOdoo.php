@@ -2,13 +2,14 @@
 
 namespace App\Livewire\Server\New;
 
-use App\Enums\ProxyTypes;
 use App\Models\GetOdooServerOffer;
+use App\Models\GetOdooServerOrder;
 use App\Models\PrivateKey;
 use App\Models\Server;
 use App\Models\Team;
 use App\Services\GetOdoo\GetOdooServerCatalog;
-use App\Services\HetznerService;
+use App\Services\GetOdoo\ProvisionGetOdooServer;
+use App\Services\GetOdoo\WompiClient;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 use Throwable;
@@ -61,7 +62,7 @@ class ByGetOdoo extends Component
         $this->location = $offer?->location;
     }
 
-    public function submit(GetOdooServerCatalog $catalog)
+    public function submit(GetOdooServerCatalog $catalog, WompiClient $wompi, ProvisionGetOdooServer $provisioner)
     {
         $this->authorize('create', Server::class);
 
@@ -85,66 +86,28 @@ class ByGetOdoo extends Component
             'private_key_id' => 'required|integer|exists:private_keys,id,team_id,'.currentTeam()->id,
         ]);
 
-        $token = $catalog->ownerToken();
-
-        if ($token === null) {
+        if ($catalog->ownerToken() === null) {
             return $this->dispatch('error', __('Choose a Hetzner token. Sold servers are created in that account.'));
         }
 
-        $hetzner = new HetznerService($token->token);
-        $remoteId = null;
+        $price = $offer->sellPrice($this->location);
+
+        if ($wompi->configured()) {
+            return $this->startPayment($wompi, $price);
+        }
 
         try {
-            $privateKey = PrivateKey::ownedByCurrentTeam()->findOrFail($this->private_key_id);
-            $sshKeyId = $this->sshKeyId($hetzner, $privateKey);
-            $imageId = $catalog->ubuntuImageId($hetzner, (string) ($offer->architecture ?: 'x86'));
-            $created = $hetzner->createServer([
-                'name' => strtolower($this->server_name),
-                'server_type' => $offer->name,
-                'image' => $imageId,
-                'location' => $this->location,
-                'start_after_create' => true,
-                'ssh_keys' => [$sshKeyId],
-                'public_net' => [
-                    'enable_ipv4' => true,
-                    'enable_ipv6' => true,
-                ],
-            ]);
-            $remoteId = $created['id'] ?? null;
-            $ip = data_get($created, 'public_net.ipv4.ip') ?: data_get($created, 'public_net.ipv6.ip');
-
-            if (! is_string($ip) || $ip === '' || in_array($ip, ['0.0.0.0', '::', Server::PLACEHOLDER_IP], true)) {
-                $ip = Server::PLACEHOLDER_IP;
-            }
-
-            $server = Server::create([
-                'name' => $this->server_name,
-                'ip' => $ip,
-                'user' => 'root',
-                'port' => 22,
-                'team_id' => currentTeam()->id,
-                'private_key_id' => $this->private_key_id,
-                'cloud_provider_token_id' => $token->id,
-                'hetzner_server_id' => $remoteId,
-                'hetzner_server_status' => $created['status'] ?? null,
-                'getodoo_offer_id' => $offer->id,
-                'getodoo_monthly_price' => $offer->sellPrice($this->location),
-            ]);
-
-            $server->proxy->set('status', 'exited');
-            $server->proxy->set('type', ProxyTypes::TRAEFIK->value);
-            $server->save();
+            $server = $provisioner->launch(
+                $offer,
+                $this->server_name,
+                (string) $this->location,
+                (int) $this->private_key_id,
+                (int) currentTeam()->id,
+                $price,
+            );
 
             return redirect()->route('server.show', ['server_uuid' => $server->uuid]);
         } catch (Throwable $exception) {
-            if (is_numeric($remoteId)) {
-                try {
-                    $hetzner->deleteServer((int) $remoteId);
-                } catch (Throwable $cleanup) {
-                    report($cleanup);
-                }
-            }
-
             report($exception);
 
             return $this->dispatch('error', __('The GetOdoo server could not be created.'));
@@ -158,8 +121,39 @@ class ByGetOdoo extends Component
         return view('livewire.server.new.by-get-odoo', [
             'offers' => $this->offers(),
             'selectedOffer' => $offer,
+            'paysWithWompi' => app(WompiClient::class)->configured(),
             'privateKeyOptions' => $this->private_keys->map(fn ($key) => ['value' => $key->id, 'label' => $key->name])->values()->all(),
         ]);
+    }
+
+    private function startPayment(WompiClient $wompi, float $price): mixed
+    {
+        $order = GetOdooServerOrder::query()->create([
+            'team_id' => currentTeam()->id,
+            'user_id' => auth()->id(),
+            'offer_id' => $offer->id,
+            'private_key_id' => $this->private_key_id,
+            'server_name' => $this->server_name,
+            'location' => $this->location,
+            'amount' => $price,
+            'status' => 'awaiting_payment',
+        ]);
+
+        try {
+            $link = $wompi->createServerLink($order);
+        } catch (Throwable $exception) {
+            $order->delete();
+            report($exception);
+
+            return $this->dispatch('error', __('The payment could not be started.'));
+        }
+
+        $order->update([
+            'wompi_link_id' => $link['id'],
+            'wompi_link_url' => $link['url'],
+        ]);
+
+        return redirect()->away($link['url']);
     }
 
     private function offers(): Collection
@@ -174,20 +168,5 @@ class ByGetOdoo extends Component
         if ($this->private_keys->count() > 0 && $this->private_key_id === null) {
             $this->private_key_id = $this->private_keys->first()->id;
         }
-    }
-
-    private function sshKeyId(HetznerService $hetzner, PrivateKey $privateKey): int
-    {
-        $fingerprint = PrivateKey::generateMd5Fingerprint($privateKey->private_key);
-
-        foreach ($hetzner->getSshKeys() as $key) {
-            if (($key['fingerprint'] ?? null) === $fingerprint) {
-                return (int) $key['id'];
-            }
-        }
-
-        $uploaded = $hetzner->uploadSshKey($privateKey->name, $privateKey->getPublicKey());
-
-        return (int) $uploaded['id'];
     }
 }

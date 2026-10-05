@@ -1,4 +1,7 @@
 <div>
+    @if (session('error'))
+        <span x-data x-init="$wire.dispatch('error', @js(session('error')))"></span>
+    @endif
     @if ($offers->isEmpty())
         <x-application.settings-section title="{{ __('GetOdoo server') }}"
             description="{{ __('No GetOdoo servers are available yet.') }}">
@@ -36,7 +39,7 @@
             </x-application.settings-section>
 
             <x-application.settings-section title="{{ __('Launch') }}"
-                description="{{ __('The server is created from the GetOdoo connection.') }}">
+                description="{{ $paysWithWompi ? __('The GetOdoo server is created after Wompi approves this monthly charge.') : __('The server is created from the GetOdoo connection.') }}">
                 <div class="grid max-w-xl gap-4">
                     <x-forms.input id="server_name" label="{{ __('Server name') }}" required />
                     @if ($selectedOffer && count($selectedOffer->locations ?? []) > 1)
@@ -65,7 +68,7 @@
                     @endif
                     <div>
                         <button type="submit" class="button button-highlighted" @disabled($limit_reached || ! $private_key_id)>
-                            {{ __('Buy and create') }}
+                            {{ $paysWithWompi ? __('Pay with Wompi') : __('Buy and create') }}
                         </button>
                     </div>
                 </div>

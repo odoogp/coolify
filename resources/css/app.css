@@ -5150,3 +5150,17 @@ a.command-palette-item:focus-visible {
     border-color: #1b2c6f;
     box-shadow: 0 0 0 1px #1b2c6f, 0 0 24px rgba(77, 125, 255, 0.35);
 }
+
+.getodoo-offer-published {
+    background: rgba(47, 196, 122, 0.16);
+    box-shadow: inset 3px 0 0 #2fc47a;
+}
+
+.getodoo-published-light {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    background: #2fc47a;
+    box-shadow: 0 0 0 3px rgba(47, 196, 122, 0.35);
+}

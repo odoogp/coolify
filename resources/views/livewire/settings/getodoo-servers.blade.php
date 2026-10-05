@@ -41,6 +41,32 @@
                 @endif
             </x-application.settings-section>
 
+            <x-application.settings-section title="Wompi"
+                description="{{ __('Wompi charges this monthly price before the server is created. Leave the credentials empty and the server is created as soon as it is requested.') }}">
+                <form wire:submit="saveWompi" class="grid max-w-xl gap-4">
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Client ID') }}</span>
+                        <input id="wompiClientId" type="text" wire:model="wompiClientId" autocomplete="off"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('wompiClientId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API secret') }}</span>
+                        <input id="wompiClientSecret" type="password" wire:model="wompiClientSecret" autocomplete="new-password"
+                            placeholder="{{ $wompiReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('wompiClientSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
             <x-application.settings-section title="{{ __('GetOdoo servers') }}"
                 description="{{ __('Fetch only the Hetzner servers that can be created right now, set a markup, and choose which ones admins can launch.') }}">
                 @if ($selectedToken)
@@ -87,7 +113,7 @@
                             <span class="inline-flex items-center gap-1">
                                 {{ __('Margin') }}
                                 <x-helper label="{{ __('How the margin changes the price') }}"
-                                    :helper="e(__('The suggested price is the cost in dollars plus a margin of :margin%. Change this number and every suggested price changes. Save so admins see the new price.', ['margin' => number_format((float) $marginPercent, 2)]))" />
+                                    :helper="e(__('This global margin updates lines that are not published. A published line keeps its own margin. Turn off Available for admins before changing that line.'))" />
                             </span>
                             <input id="marginPercent" type="number" min="0" step="0.01" wire:model.live="marginPercent"
                                 class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
@@ -95,6 +121,7 @@
                     </div>
                     <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-faint">
                         {{ __('Cost in euros is the Hetzner price plus €1 for IPv4, then tax. Dollars are that cost times the factor. The suggested price adds your percentage on top.') }}
+                        {{ __('A published line keeps its margin. The global margin only changes lines that are not available for admins.') }}
                     </p>
                     @if ($offers->isEmpty())
                         <p class="text-sm text-neutral-500 dark:text-fg-faint">
@@ -131,7 +158,7 @@
                                             <span class="inline-flex items-center gap-1">
                                                 {{ __('Suggested price') }}
                                                 <x-helper label="{{ __('How the margin changes the price') }}"
-                                                    :helper="e(__('The suggested price is the cost in dollars plus a margin of :margin%. Change this number and every suggested price changes. Save so admins see the new price.', ['margin' => number_format((float) $marginPercent, 2)]))" />
+                                                    :helper="e(__('Each line can use its own margin. Once it is available for admins, that margin stays until you turn the line off.'))" />
                                             </span>
                                         </th>
                                         <th class="px-2 py-2 font-medium">{{ __('Available for admins') }}</th>
@@ -139,7 +166,15 @@
                                 </thead>
                                 <tbody>
                                     @foreach ($offers as $offer)
-                                        <tr class="border-b border-neutral-100 dark:border-white/5" wire:key="getodoo-offer-{{ $offer->id }}">
+                                        @php
+                                            $published = (bool) ($available[$offer->id] ?? false) && $offer->in_stock;
+                                            $lineMargin = (float) ($lineMargins[$offer->id] ?? $marginPercent);
+                                            $sameMargin = $offer->margin_percent !== null && abs((float) $offer->margin_percent - $lineMargin) < 0.01;
+                                        @endphp
+                                        <tr @class([
+                                            'border-b border-neutral-100 dark:border-white/5',
+                                            'getodoo-offer-published' => $published,
+                                        ]) style="{{ $published ? 'background: rgba(47, 196, 122, 0.16); box-shadow: inset 3px 0 0 #2fc47a;' : '' }}" wire:key="getodoo-offer-{{ $offer->id }}">
                                             <td class="px-2 py-3">
                                                 <div class="font-medium text-black dark:text-fg">{{ $offer->description ?: $offer->name }}</div>
                                                 <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
@@ -153,15 +188,37 @@
                                             <td class="px-2 py-3">{{ number_format($pricing->costEur((float) $offer->monthly_price), 2) }} EUR</td>
                                             <td class="px-2 py-3">{{ number_format($pricing->costUsd((float) $offer->monthly_price), 2) }} USD</td>
                                             <td class="px-2 py-3 font-medium">
-                                                {{ number_format($pricing->suggestedUsd((float) $offer->monthly_price), 2) }} USD
-                                                <div class="text-[11px] font-normal text-neutral-500 dark:text-fg-faint">
-                                                    {{ __('margin :margin%', ['margin' => number_format((float) $marginPercent, 2)]) }}
-                                                </div>
+                                                {{ number_format($this->suggestedUsd((float) $offer->monthly_price, $offer->id), 2) }} USD
+                                                <label class="mt-1 flex items-center gap-1 text-[11px] font-normal text-neutral-500 dark:text-fg-faint">
+                                                    <span>{{ __('Margin') }}</span>
+                                                    <input id="margin-{{ $offer->id }}" type="number" min="0" step="0.01"
+                                                        wire:model.live="lineMargins.{{ $offer->id }}" @disabled($published)
+                                                        title="{{ $published ? __('Uncheck Available for admins before changing this margin.') : '' }}"
+                                                        class="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-sm text-black disabled:cursor-not-allowed disabled:opacity-70 dark:border-white/15 dark:bg-transparent dark:text-fg">
+                                                    <span>%</span>
+                                                </label>
                                             </td>
                                             <td class="px-2 py-3">
-                                                <input id="available-{{ $offer->id }}" type="checkbox"
-                                                    wire:model="available.{{ $offer->id }}" @disabled(! $offer->in_stock)
-                                                    class="size-4 rounded border-neutral-300">
+                                                <div class="flex items-center gap-2">
+                                                    <input id="available-{{ $offer->id }}" type="checkbox"
+                                                        wire:model.live="available.{{ $offer->id }}" @disabled(! $offer->in_stock)
+                                                        class="size-4 rounded border-neutral-300">
+                                                    @if ($published)
+                                                        <span class="inline-flex items-center gap-1.5 text-[11px] font-medium" style="color: #1f9d57;">
+                                                            <span class="getodoo-published-light" aria-hidden="true" style="display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #2fc47a; box-shadow: 0 0 0 3px rgba(47, 196, 122, 0.35);"></span>
+                                                            {{ __('Published') }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                @if ($published && $offer->available_since && $sameMargin)
+                                                    <div class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                        {{ __('Available since :date', ['date' => $offer->available_since->timezone(config('app.timezone'))->locale(app()->getLocale())->isoFormat('D MMM YYYY, HH:mm')]) }}
+                                                    </div>
+                                                @elseif ($published)
+                                                    <div class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                        {{ __('The date is saved when you publish.') }}
+                                                    </div>
+                                                @endif
                                             </td>
                                         </tr>
                                     @endforeach

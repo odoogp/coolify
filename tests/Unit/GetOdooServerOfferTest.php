@@ -21,4 +21,9 @@ it('suggests a dollar price from tax, the euro ipv4, the conversion factor, and 
 
     expect($offer->sellPrice('fsn1', $price))->toBe(9.41)
         ->and($offer->sellPrice('hel1', $price))->toBe($price->suggestedUsd(5.46));
+
+    $offer->margin_percent = 30;
+    $custom = new GetOdooPrice(eurUsd: 1.1, taxPercent: 19, marginPercent: 30);
+
+    expect($offer->sellPrice('fsn1', $price))->toBe($custom->suggestedUsd(4.99));
 });

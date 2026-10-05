@@ -22,7 +22,9 @@ class GetOdooServerOffer extends BaseModel
         'markup',
         'location',
         'locations',
+        'margin_percent',
         'available_for_admins',
+        'available_since',
         'in_stock',
         'synced_at',
     ];
@@ -35,8 +37,10 @@ class GetOdooServerOffer extends BaseModel
             'in_stock' => 'boolean',
             'monthly_price' => 'decimal:4',
             'markup' => 'decimal:2',
+            'margin_percent' => 'decimal:2',
             'memory' => 'decimal:2',
             'synced_at' => 'datetime',
+            'available_since' => 'datetime',
         ];
     }
 
@@ -58,6 +62,12 @@ class GetOdooServerOffer extends BaseModel
 
     public function sellPrice(?string $location = null, ?GetOdooPrice $price = null): float
     {
-        return ($price ?? GetOdooPrice::current())->suggestedUsd($this->monthlyFor($location));
+        $price ??= GetOdooPrice::current();
+
+        if ($this->margin_percent !== null) {
+            $price = new GetOdooPrice($price->eurUsd, $price->taxPercent, (float) $this->margin_percent);
+        }
+
+        return $price->suggestedUsd($this->monthlyFor($location));
     }
 }

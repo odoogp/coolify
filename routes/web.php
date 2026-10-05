@@ -60,6 +60,7 @@ use App\Livewire\Server\Charts as ServerCharts;
 use App\Livewire\Server\CloudflareTunnel;
 use App\Livewire\Server\CloudProviderToken\Show as CloudProviderTokenShow;
 use App\Livewire\Server\CreatePage as ServerCreatePage;
+use App\Livewire\Server\New\WompiReturn;
 use App\Livewire\Server\Delete as DeleteServer;
 use App\Livewire\Server\Destinations as ServerDestinations;
 use App\Livewire\Server\DockerCleanup;
@@ -412,6 +413,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/servers/new', ServerCreatePage::class)->name('server.create')->middleware('can:create,'.Server::class);
     Route::get('/servers/new/{type}/{token_uuid}', ServerCreatePage::class)->name('server.create.token')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean'], AdditionalCloudCatalog::slugs()));
     Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs()));
+    Route::get('/servers/getodoo/orders/{order}', WompiReturn::class)->name('getodoo.wompi.return');
 
     Route::prefix('server/{server_uuid}')->group(function () {
         Route::get('/', ServerShow::class)->name('server.show');

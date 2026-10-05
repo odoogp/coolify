@@ -102,6 +102,7 @@ class GetOdooServerCatalog
             ->update([
                 'in_stock' => false,
                 'available_for_admins' => false,
+                'available_since' => null,
             ]);
 
         return count($seen);

@@ -68,6 +68,8 @@ class InstanceSettings extends Model
         'getodoo_eur_usd_rate',
         'getodoo_tax_percent',
         'getodoo_margin_percent',
+        'wompi_client_id',
+        'wompi_client_secret',
     ];
 
     protected $hidden = [
@@ -80,6 +82,7 @@ class InstanceSettings extends Model
         'resend_api_key',
         'domain_connect_private_key',
         'sentinel_token',
+        'wompi_client_secret',
     ];
 
     protected $casts = [
@@ -96,6 +99,7 @@ class InstanceSettings extends Model
         'resend_enabled' => 'boolean',
         'resend_api_key' => 'encrypted',
         'domain_connect_private_key' => 'encrypted',
+        'wompi_client_secret' => 'encrypted',
 
         'allowed_ip_ranges' => 'array',
         'is_auto_update_enabled' => 'boolean',
