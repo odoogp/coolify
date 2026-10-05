@@ -2666,15 +2666,17 @@ html[data-theme="light"] :is(.application-settings-workspace, .application-setti
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
-@media (max-width: 767px) {
-    /* The mobile top bar's backdrop filter makes it the containing block for
-       fixed descendants. Keep this menu anchored below its trigger instead
-       of centering it within the short top bar. */
+@media (max-width: 1023px) {
+    /* Match the notice panel: the mobile top bar is full width, so the same
+       0.75rem insets span the phone. w-60 stays on desktop. */
     .listbox-panel.top-user-menu-panel {
-        position: absolute !important;
-        top: calc(100% + 0.25rem) !important;
-        right: 0 !important;
-        left: auto !important;
+        position: fixed !important;
+        top: 4.25rem !important;
+        right: 0.75rem !important;
+        left: 0.75rem !important;
+        width: auto !important;
+        max-width: none !important;
+        min-width: 0 !important;
         max-height: calc(100dvh - 4.5rem) !important;
         overflow-y: auto !important;
         transform: none !important;

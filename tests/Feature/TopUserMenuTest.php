@@ -38,7 +38,10 @@ it('positions the account menu below the mobile trigger', function () {
     expect($menu)->toContain('top-user-menu-panel');
     expect($stylesheet)
         ->toContain('.listbox-panel.top-user-menu-panel')
-        ->toContain('top: calc(100% + 0.25rem) !important;')
+        ->toContain('top: 4.25rem !important;')
+        ->toContain('right: 0.75rem !important;')
+        ->toContain('left: 0.75rem !important;')
+        ->toContain('width: auto !important;')
         ->toContain('transform: none !important;')
         ->toContain('max-height: calc(100dvh - 4.5rem) !important;');
 });
