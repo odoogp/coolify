@@ -64,24 +64,24 @@ class GpshNoticeBell extends Component
 
     public function deleteAll(): void
     {
-        abort_unless(isInstanceOwner(), 403);
-        $user = Auth::user();
-        if ($user === null) {
-            return;
-        }
-
-        GpshNotices::forUser($user)->each(fn (GpshNotice $notice) => $notice->delete());
+        // Clears the bell for this user only; hard delete is Notifications\Center::deleteAll.
+        $this->markAllRead();
     }
 
     public function render()
     {
         $user = Auth::user();
-        $notices = $user === null ? collect() : GpshNotices::forUser($user)->with('service.environment.project')->limit(15)->get();
+        $notices = collect();
         $unread = 0;
         if ($user !== null) {
             $unread = GpshNotices::forUser($user)
                 ->whereDoesntHave('reads', fn ($query) => $query->where('user_id', $user->id))
                 ->count();
+            $notices = GpshNotices::forUser($user)
+                ->whereDoesntHave('reads', fn ($query) => $query->where('user_id', $user->id))
+                ->with('service.environment.project')
+                ->limit(15)
+                ->get();
         }
         $latest = $notices->first();
         $settings = GpshNoticeSetting::current();

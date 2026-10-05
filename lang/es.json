@@ -4237,6 +4237,7 @@
     "The owner sends notices to clients. Clients cannot send notices back.": "El owner envía avisos a los clientes. Los clientes no pueden enviar avisos de vuelta.",
     "Delete all": "Eliminar todas",
     "Delete all notices?": "¿Eliminar todos los avisos?",
+    "Clear all notices from this list?": "¿Quitar todos los avisos de esta lista?",
     "Latest": "La más reciente",
     "Notices deleted.": "Avisos eliminados.",
     "Emails per day": "Correos por día",

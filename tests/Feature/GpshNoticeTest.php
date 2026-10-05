@@ -166,7 +166,7 @@ it('removes notices older than the time set in the notification center', functio
         ->and(GpshNotice::query()->where('title', 'Aviso nuevo')->exists())->toBeTrue();
 });
 
-it('puts the newest notice first and lets the owner delete them all', function () {
+it('puts the newest notice first and lets the owner delete them all from the center only', function () {
     $this->actingAs($this->owner);
     $older = GpshNotice::query()->create([
         'title' => 'Primero',
@@ -199,13 +199,25 @@ it('puts the newest notice first and lets the owner delete them all', function (
     ]);
 
     Livewire::test(GpshNoticeBell::class)
+        ->assertSee('Campana')
         ->assertSee('Delete all')
-        ->call('deleteAll');
+        ->call('deleteAll')
+        ->assertDontSee('Campana');
 
-    expect(GpshNotice::query()->whereKey($again->id)->exists())->toBeFalse()
+    expect(GpshNotice::query()->whereKey($again->id)->exists())->toBeTrue()
+        ->and($again->fresh()->reads()->where('user_id', $this->owner->id)->exists())->toBeTrue()
         ->and(file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php')))
         ->toContain('wire:click="deleteAll"')
+        ->toContain('Clear all notices from this list?')
         ->toContain('inset-x-3');
+
+    $this->actingAs($this->client);
+    Livewire::test(GpshNoticeBell::class)
+        ->assertSee('Campana')
+        ->call('deleteAll')
+        ->assertDontSee('Campana');
+
+    expect(GpshNotice::query()->whereKey($again->id)->exists())->toBeTrue();
 });
 
 it('saves how long a new notice stays on screen', function () {

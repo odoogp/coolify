@@ -20,8 +20,8 @@
                         {{ __('Mark as read') }}
                     </button>
                 @endif
-                @if (isInstanceOwner() && $notices->isNotEmpty())
-                    <button type="button" wire:click="deleteAll" wire:confirm="{{ __('Delete all notices?') }}"
+                @if ($notices->isNotEmpty())
+                    <button type="button" wire:click="deleteAll" wire:confirm="{{ __('Clear all notices from this list?') }}"
                         class="text-[12px] text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-white">
                         {{ __('Delete all') }}
                     </button>
