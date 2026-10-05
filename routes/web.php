@@ -54,6 +54,7 @@ use App\Livewire\Security\CloudProviderToken\Show as SecurityCloudProviderTokenS
 use App\Livewire\Security\CloudTokens;
 use App\Livewire\Security\PrivateKey\Index as SecurityPrivateKeyIndex;
 use App\Livewire\Security\PrivateKey\Show as SecurityPrivateKeyShow;
+use App\Livewire\Server\Billing as ServerBilling;
 use App\Livewire\Server\Advanced as ServerAdvanced;
 use App\Livewire\Server\CaCertificate\Show as CaCertificateShow;
 use App\Livewire\Server\Charts as ServerCharts;
@@ -80,6 +81,7 @@ use App\Livewire\Server\Swarm as ServerSwarm;
 use App\Livewire\Server\Transfer as ServerTransfer;
 use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
+use App\Livewire\Settings\GetOdooPurchases as SettingsGetOdooPurchases;
 use App\Livewire\Settings\GetOdooServers as SettingsGetOdooServers;
 use App\Livewire\Settings\Github as SettingsGithub;
 use App\Livewire\Settings\Index as SettingsIndex;
@@ -187,6 +189,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
     Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
     Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
+    Route::get('/settings/getodoo-purchases', SettingsGetOdooPurchases::class)->name('settings.getodoo-purchases');
     Route::get('/settings/github', SettingsGithub::class)->name('settings.github');
     Route::get('/settings/whatsapp', SettingsWhatsapp::class)->name('settings.whatsapp');
 
@@ -409,6 +412,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::get('/servers', ServerIndex::class)->name('server.index');
+    Route::get('/servers/billing', ServerBilling::class)->name('server.billing');
     Route::get('/servers/import', ServerTransferImport::class)->name('server.transfer.import')->middleware('can:create,'.Server::class);
     Route::get('/servers/new', ServerCreatePage::class)->name('server.create')->middleware('can:create,'.Server::class);
     Route::get('/servers/new/{type}/{token_uuid}', ServerCreatePage::class)->name('server.create.token')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean'], AdditionalCloudCatalog::slugs()));

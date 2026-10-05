@@ -137,6 +137,7 @@ class ByGetOdoo extends Component
             'location' => $this->location,
             'amount' => $price,
             'status' => 'awaiting_payment',
+            'purpose' => 'launch',
         ]);
 
         try {

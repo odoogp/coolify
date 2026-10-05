@@ -505,6 +505,7 @@ it('creates the GetOdoo server when Wompi signs a live charge', function () {
         ->and(Server::query()->where('name', 'cliente-uno')->count())->toBe(1)
         ->and((int) $server->hetzner_server_id)->toBe(99)
         ->and((float) $server->getodoo_monthly_price)->toBe((float) $order->amount)
+        ->and($server->getodoo_paid_until?->toDateString())->toBe(now()->startOfDay()->addMonth()->toDateString())
         ->and($order->fresh()->status)->toBe('provisioned')
         ->and($order->fresh()->server_id)->toBe($server->id);
 

@@ -109,6 +109,16 @@
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Servers') }}</span>
                 </a>
             </li>
+            @if (auth()->user()?->canAddServers())
+                <li>
+                    <a title="{{ __('Billing') }}" {{ wireNavigate() }}
+                        class="{{ request()->is('servers/billing') ? 'menu-item menu-item-active' : 'menu-item' }}"
+                        :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('server.billing') }}">
+                        <x-reicon name="calendar" class="menu-item-icon" />
+                        <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Billing') }}</span>
+                    </a>
+                </li>
+            @endif
             @if (isInstanceOwner())
                 <li>
                     <a title="{{ __('Sources') }}" {{ wireNavigate() }}

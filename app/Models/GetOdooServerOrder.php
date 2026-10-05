@@ -18,6 +18,7 @@ class GetOdooServerOrder extends BaseModel
         'location',
         'amount',
         'status',
+        'purpose',
         'wompi_link_id',
         'wompi_link_url',
         'wompi_transaction_id',
@@ -48,5 +49,26 @@ class GetOdooServerOrder extends BaseModel
     public function privateKey(): BelongsTo
     {
         return $this->belongsTo(PrivateKey::class);
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function statusLabel(): string
+    {
+        return match ($this->status) {
+            'awaiting_payment' => __('Pending payment'),
+            'provisioning' => __('Payment in progress'),
+            'provisioned', 'paid' => __('Paid'),
+            'failed' => __('Failed'),
+            default => (string) $this->status,
+        };
     }
 }

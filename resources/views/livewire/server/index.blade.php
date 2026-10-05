@@ -16,6 +16,11 @@
                     </a>
                 @endcan
             @endif
+            @if (auth()->user()?->canAddServers())
+                <a href="{{ route('server.billing') }}" {{ wireNavigate() }} class="button w-fit shrink-0 whitespace-nowrap">
+                    {{ __('Billing') }}
+                </a>
+            @endif
             @can('create', App\Models\Server::class)
                 <a href="{{ route('server.create') }}" {{ wireNavigate() }}
                     class="button w-fit shrink-0 whitespace-nowrap button-highlighted">

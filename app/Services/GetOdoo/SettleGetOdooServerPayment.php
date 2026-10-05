@@ -4,7 +4,9 @@ namespace App\Services\GetOdoo;
 
 use App\Models\GetOdooServerOrder;
 use App\Models\Server;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Throwable;
 
 class SettleGetOdooServerPayment
@@ -20,7 +22,7 @@ class SettleGetOdooServerPayment
                 return ['state' => 'missing'];
             }
 
-            if ($fresh->status === 'provisioned' && $fresh->server_id) {
+            if (in_array($fresh->status, ['provisioned', 'paid'], true) && $fresh->server_id) {
                 return ['state' => 'done', 'server_id' => $fresh->server_id];
             }
 
@@ -48,16 +50,23 @@ class SettleGetOdooServerPayment
             return null;
         }
 
-        $order->refresh()->load('offer');
-        $offer = $order->offer;
-
-        if ($offer === null) {
-            $order->update(['status' => 'failed']);
-
-            throw new \RuntimeException('The GetOdoo server offer is gone.');
-        }
+        $order->refresh();
 
         try {
+            if ($order->purpose === 'renewal') {
+                $server = $this->renew($order);
+                $order->update(['status' => 'paid']);
+
+                return $server;
+            }
+
+            $order->load('offer');
+            $offer = $order->offer;
+
+            if ($offer === null) {
+                throw new RuntimeException('The GetOdoo server offer is gone.');
+            }
+
             $server = $this->provisioner->launch(
                 $offer,
                 $order->server_name,
@@ -66,6 +75,7 @@ class SettleGetOdooServerPayment
                 (int) $order->team_id,
                 (float) $order->amount,
             );
+            $this->extendPaidUntil($server);
             $order->update([
                 'server_id' => $server->id,
                 'status' => 'provisioned',
@@ -80,5 +90,30 @@ class SettleGetOdooServerPayment
 
             throw $exception;
         }
+    }
+
+    private function renew(GetOdooServerOrder $order): Server
+    {
+        $server = Server::query()->find($order->server_id);
+
+        if (! $server instanceof Server || (int) $server->team_id !== (int) $order->team_id || $server->getodoo_offer_id === null) {
+            throw new RuntimeException('The GetOdoo subscription is gone.');
+        }
+
+        $this->extendPaidUntil($server);
+
+        return $server;
+    }
+
+    private function extendPaidUntil(Server $server): void
+    {
+        $start = $server->getodoo_paid_until;
+        $base = $start instanceof Carbon && $start->copy()->endOfDay()->isFuture()
+            ? $start->copy()->startOfDay()
+            : now()->startOfDay();
+
+        $server->update([
+            'getodoo_paid_until' => $base->addMonth()->toDateString(),
+        ]);
     }
 }

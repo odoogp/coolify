@@ -264,6 +264,7 @@ class Server extends BaseModel
         'unreachable_notification_sent' => 'boolean',
         'is_build_server' => 'boolean',
         'force_disabled' => 'boolean',
+        'getodoo_paid_until' => 'date',
     ];
 
     /**
@@ -299,6 +300,7 @@ class Server extends BaseModel
         'provider_server_status',
         'getodoo_offer_id',
         'getodoo_monthly_price',
+        'getodoo_paid_until',
         'is_validating',
         'validation_logs',
         'detected_traefik_version',
@@ -1249,6 +1251,11 @@ $siteAddress {
     public function team()
     {
         return $this->belongsTo(Team::class);
+    }
+
+    public function getodooOffer()
+    {
+        return $this->belongsTo(GetOdooServerOffer::class, 'getodoo_offer_id');
     }
 
     /**
