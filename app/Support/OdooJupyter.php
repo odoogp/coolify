@@ -120,7 +120,7 @@ class OdooJupyter
      * One Jupyter for the instance owner, outside every client stack.
      * Each client team, project, and environment gets custom (extra-addons), odoo (image addons), and files.
      *
-     * @param  list<array{team: string, project?: string, environment: string, custom: ?string, files: ?string, image: string, custom_bind?: ?string}>  $instances
+     * @param  list<array{team: string, project?: string, environment: string, subdomain?: string, custom: ?string, files: ?string, image: string, custom_bind?: ?string}>  $instances
      */
     public static function ownerCompose(array $instances, string $token, string $host, string $network = 'coolify'): string
     {
@@ -137,6 +137,7 @@ class OdooJupyter
                 (string) ($instance['team'] ?? ''),
                 (string) ($instance['project'] ?? ''),
                 (string) ($instance['environment'] ?? ''),
+                (string) ($instance['subdomain'] ?? ''),
             );
             if ($folder === null) {
                 continue;
@@ -413,17 +414,18 @@ BASH], $server);
     }
 
     /**
-     * @return list<array{team: string, project: string, environment: string, custom: ?string, files: ?string, image: string, server_id: ?string, custom_fallback: ?string, files_fallback: ?string}>
+     * @return list<array{team: string, project: string, environment: string, subdomain: string, custom: ?string, files: ?string, image: string, server_id: ?string, custom_fallback: ?string, files_fallback: ?string}>
      */
     public static function ownerInstances(): array
     {
         $rows = [];
-        foreach (Service::query()->with(['environment.project.team', 'applications.persistentStorages', 'destination'])->get() as $service) {
+        foreach (Service::query()->with(['environment.project.odooProfile', 'environment.project.team', 'applications.persistentStorages', 'destination'])->get() as $service) {
             if (! $service->supportsOdooJupyter()) {
                 continue;
             }
             $environment = $service->environment;
-            $team = $environment?->project?->team;
+            $project = $environment?->project;
+            $team = $project?->team;
             if ($environment === null || $team === null) {
                 continue;
             }
@@ -452,8 +454,9 @@ BASH], $server);
             }
             $rows[] = [
                 'team' => (string) $team->name,
-                'project' => (string) ($environment->project?->name ?? ''),
+                'project' => (string) ($project->name ?? ''),
                 'environment' => (string) $environment->name,
+                'subdomain' => (string) ($project->odooProfile?->subdomain ?? ''),
                 'custom' => $custom !== '' ? $custom : null,
                 'files' => $files !== '' ? $files : null,
                 'image' => $image !== '' ? $image : 'odoo:20',
@@ -471,18 +474,26 @@ BASH], $server);
     }
 
     /**
-     * /workspace/{team}/{project}/{environment} so two projects on the same team stay separate.
+     * /workspace/{client}/{environment} — client then branch.
+     * Prefer the project subdomain; otherwise a real client team name; Root Team falls back to the project name (never "root-team").
      */
-    public static function ownerWorkspaceFolder(string $team, string $project, string $environment): ?string
+    public static function ownerWorkspaceFolder(string $team, string $project, string $environment, string $subdomain = ''): ?string
     {
         $team = Str::slug($team);
         $project = Str::slug($project);
         $environment = Str::slug($environment);
-        if ($team === '' || $environment === '') {
+        $subdomain = Str::slug($subdomain);
+        if ($environment === '') {
             return null;
         }
 
-        return $project === '' ? $team.'/'.$environment : $team.'/'.$project.'/'.$environment;
+        $isRootTeam = $team === '' || $team === 'root-team';
+        $client = $subdomain !== '' ? $subdomain : ($isRootTeam ? $project : $team);
+        if ($client === '') {
+            return null;
+        }
+
+        return $client.'/'.$environment;
     }
 
     /**
@@ -511,6 +522,7 @@ BASH], $server);
                 (string) ($instance['team'] ?? ''),
                 (string) ($instance['project'] ?? ''),
                 (string) ($instance['environment'] ?? ''),
+                (string) ($instance['subdomain'] ?? ''),
             );
             if ($remote === null || $bind === null) {
                 continue;
@@ -522,14 +534,14 @@ BASH], $server);
         return $instances;
     }
 
-    public static function customBind(string $team, string $project, string $environment = ''): ?string
+    public static function customBind(string $team, string $project, string $environment = '', string $subdomain = ''): ?string
     {
         // Backward compatible: old callers passed (team, environment).
         if ($environment === '' && $project !== '') {
             $environment = $project;
             $project = '';
         }
-        $folder = self::ownerWorkspaceFolder($team, $project, $environment);
+        $folder = self::ownerWorkspaceFolder($team, $project, $environment, $subdomain);
         if ($folder === null) {
             return null;
         }
