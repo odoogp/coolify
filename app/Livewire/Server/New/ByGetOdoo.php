@@ -93,7 +93,7 @@ class ByGetOdoo extends Component
         $price = $offer->sellPrice($this->location);
 
         if ($wompi->configured()) {
-            return $this->startPayment($wompi, $price);
+            return $this->startPayment($wompi, $offer, $price);
         }
 
         try {
@@ -126,7 +126,7 @@ class ByGetOdoo extends Component
         ]);
     }
 
-    private function startPayment(WompiClient $wompi, float $price): mixed
+    private function startPayment(WompiClient $wompi, GetOdooServerOffer $offer, float $price): mixed
     {
         $order = GetOdooServerOrder::query()->create([
             'team_id' => currentTeam()->id,
