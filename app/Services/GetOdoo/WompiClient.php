@@ -2,6 +2,7 @@
 
 namespace App\Services\GetOdoo;
 
+use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -23,10 +24,47 @@ class WompiClient
         $offer = $order->offer;
         $name = trim((string) ($offer?->description ?: $offer?->name ?: 'GetOdoo'));
 
+        return $this->enlace(
+            $order->uuid,
+            (float) $order->amount,
+            'GetOdoo '.$name,
+            $name.' · '.$order->location.' · '.__('per month'),
+            route('getodoo.wompi.return', ['order' => $order->uuid]),
+        );
+    }
+
+    /**
+     * @return array{id: string, url: string}
+     */
+    public function createPlanLink(GetOdooPlanSignup $signup): array
+    {
+        $signup->loadMissing('plan');
+        $plan = $signup->plan;
+
+        if ($plan === null) {
+            throw new RuntimeException('This signup has no plan.');
+        }
+
+        $name = trim((string) ($plan->name ?: product_name()));
+
+        return $this->enlace(
+            $signup->uuid,
+            (float) $signup->amount,
+            product_name().' '.$name,
+            trim((string) ($plan->summary ?: $name)),
+            route('getodoo.plan.return', ['plan' => $plan->uuid, 'signup' => $signup->uuid]),
+        );
+    }
+
+    /**
+     * @return array{id: string, url: string}
+     */
+    private function enlace(string $identificador, float $amount, string $product, string $description, string $redirect): array
+    {
         $response = $this->request()->post('https://api.wompi.sv/EnlacePago', [
-            'identificadorEnlaceComercio' => $order->uuid,
-            'monto' => (float) $order->amount,
-            'nombreProducto' => 'GetOdoo '.$name,
+            'identificadorEnlaceComercio' => $identificador,
+            'monto' => $amount,
+            'nombreProducto' => $product,
             'formaPago' => [
                 'permitirTarjetaCreditoDebido' => true,
                 'permitirPagoConPuntoAgricola' => false,
@@ -35,10 +73,10 @@ class WompiClient
                 'permitePagoQuickPay' => false,
             ],
             'infoProducto' => [
-                'descripcionProducto' => $name.' · '.$order->location.' · '.__('per month'),
+                'descripcionProducto' => $description,
             ],
             'configuracion' => [
-                'urlRedirect' => route('getodoo.wompi.return', ['order' => $order->uuid]),
+                'urlRedirect' => $redirect,
                 'esMontoEditable' => false,
                 'esCantidadEditable' => false,
                 'urlWebhook' => route('getodoo.wompi.webhook'),
@@ -96,13 +134,21 @@ class WompiClient
      */
     public function chargeIsLiveAndApproved(array $transaction, GetOdooServerOrder $order): bool
     {
+        return $this->liveApprovedAmount($transaction, $order->amount);
+    }
+
+    /**
+     * @param  array<string, mixed>  $transaction
+     */
+    public function liveApprovedAmount(array $transaction, mixed $amount): bool
+    {
         $approved = filter_var(data_get($transaction, 'esAprobada', data_get($transaction, 'EsAprobada')), FILTER_VALIDATE_BOOLEAN);
         $live = filter_var(
             data_get($transaction, 'esReal', data_get($transaction, 'EsReal', data_get($transaction, 'EsProductiva'))),
             FILTER_VALIDATE_BOOLEAN,
         );
 
-        return $approved && $live && $this->sameMoney(data_get($transaction, 'monto', data_get($transaction, 'Monto')), $order->amount);
+        return $approved && $live && $this->sameMoney(data_get($transaction, 'monto', data_get($transaction, 'Monto')), $amount);
     }
 
     /**

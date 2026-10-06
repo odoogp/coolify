@@ -1,6 +1,7 @@
 @props([
     'title',
     'description' => null,
+    'wide' => false,
 ])
 
 <section class="auth-shell application-settings-form">
@@ -43,7 +44,7 @@
         <span class="auth-stage-ridge auth-stage-ridge-b"></span>
     </div>
     <div class="auth-shell-content">
-        <div class="auth-card">
+        <div @class(['auth-card', 'auth-card-wide' => $wide])>
             <div class="auth-card-heading">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">

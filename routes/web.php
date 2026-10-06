@@ -81,6 +81,9 @@ use App\Livewire\Server\Swarm as ServerSwarm;
 use App\Livewire\Server\Transfer as ServerTransfer;
 use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
+use App\Livewire\GetOdoo\PlanReturn;
+use App\Livewire\GetOdoo\PlanSignup;
+use App\Livewire\Settings\GetOdooPlans as SettingsGetOdooPlans;
 use App\Livewire\Settings\GetOdooPurchases as SettingsGetOdooPurchases;
 use App\Livewire\Settings\GetOdooServers as SettingsGetOdooServers;
 use App\Livewire\Settings\Github as SettingsGithub;
@@ -142,6 +145,9 @@ Route::get('/email/verify/{id}/{hash}', [Controller::class, 'email_verify'])->mi
 Route::get('/auth/link', [Controller::class, 'link'])->name('auth.link');
 Route::post('/auth/link', [Controller::class, 'acceptLink'])->middleware('throttle:magic-link')->name('auth.link.accept');
 
+Route::get('/start/{plan}/return/{signup}', PlanReturn::class)->name('getodoo.plan.return');
+Route::get('/start/{plan}', PlanSignup::class)->name('getodoo.plan.start');
+
 Route::get('/auth/{provider}/redirect', [OauthController::class, 'redirect'])->name('auth.redirect');
 Route::get('/auth/{provider}/callback', [OauthController::class, 'callback'])->name('auth.callback');
 
@@ -190,6 +196,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
     Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
     Route::get('/settings/getodoo-purchases', SettingsGetOdooPurchases::class)->name('settings.getodoo-purchases');
+    Route::get('/settings/getodoo-plans', SettingsGetOdooPlans::class)->name('settings.getodoo-plans');
     Route::get('/settings/github', SettingsGithub::class)->name('settings.github');
     Route::get('/settings/whatsapp', SettingsWhatsapp::class)->name('settings.whatsapp');
 

@@ -26,6 +26,11 @@
             'icon' => 'calendar',
         ];
         $settingsMenuSections['Configuration'][] = [
+            'label' => __('Plans'),
+            'route' => 'settings.getodoo-plans',
+            'icon' => 'tags',
+        ];
+        $settingsMenuSections['Configuration'][] = [
             'label' => __('GitHub'),
             'route' => 'settings.github',
             'icon' => 'code',

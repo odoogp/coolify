@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
+use App\Services\GetOdoo\SettleGetOdooPlanSignup;
 use App\Services\GetOdoo\SettleGetOdooServerPayment;
 use App\Services\GetOdoo\WompiClient;
 use Illuminate\Http\Request;
@@ -12,7 +14,7 @@ use Throwable;
 
 class Wompi extends Controller
 {
-    public function __invoke(Request $request, WompiClient $wompi, SettleGetOdooServerPayment $settle): Response
+    public function __invoke(Request $request, WompiClient $wompi, SettleGetOdooServerPayment $settle, SettleGetOdooPlanSignup $plans): Response
     {
         if (! $wompi->configured()) {
             return response('Wompi is not configured.', 404);
@@ -31,28 +33,45 @@ class Wompi extends Controller
             return response('ok', 200);
         }
 
-        $order = GetOdooServerOrder::query()
-            ->where('uuid', (string) data_get($payload, 'EnlacePago.IdentificadorEnlaceComercio'))
-            ->first();
+        $identificador = (string) data_get($payload, 'EnlacePago.IdentificadorEnlaceComercio');
+        $approved = data_get($payload, 'ResultadoTransaccion') === 'ExitosaAprobada';
+        $live = filter_var(data_get($payload, 'EsProductiva'), FILTER_VALIDATE_BOOLEAN);
+        $transactionId = (string) data_get($payload, 'IdTransaccion');
 
-        if (! $order instanceof GetOdooServerOrder) {
+        $order = GetOdooServerOrder::query()->where('uuid', $identificador)->first();
+
+        if ($order instanceof GetOdooServerOrder) {
+            if (! $approved || ! $live || ! $wompi->sameMoney(data_get($payload, 'Monto'), $order->amount)) {
+                return response('ok', 200);
+            }
+
+            try {
+                $settle->settle($order, $transactionId);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return response('The server could not be created.', 500);
+            }
+
             return response('ok', 200);
         }
 
-        $approved = data_get($payload, 'ResultadoTransaccion') === 'ExitosaAprobada';
-        $live = filter_var(data_get($payload, 'EsProductiva'), FILTER_VALIDATE_BOOLEAN);
-        $paid = $wompi->sameMoney(data_get($payload, 'Monto'), $order->amount);
+        $signup = GetOdooPlanSignup::query()->where('uuid', $identificador)->first();
 
-        if (! $approved || ! $live || ! $paid) {
+        if (! $signup instanceof GetOdooPlanSignup) {
+            return response('ok', 200);
+        }
+
+        if (! $approved || ! $live || ! $wompi->sameMoney(data_get($payload, 'Monto'), $signup->amount)) {
             return response('ok', 200);
         }
 
         try {
-            $settle->settle($order, (string) data_get($payload, 'IdTransaccion'));
+            $plans->settle($signup, $transactionId);
         } catch (Throwable $exception) {
             report($exception);
 
-            return response('The server could not be created.', 500);
+            return response('The account could not be created.', 500);
         }
 
         return response('ok', 200);
