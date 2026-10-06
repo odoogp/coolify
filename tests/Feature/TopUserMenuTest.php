@@ -31,19 +31,21 @@ it('animates the dropdown panel when the user menu opens', function () {
     expect($stylesheet)->toContain('@import "tw-animate-css";');
 });
 
-it('positions the account menu below the mobile trigger', function () {
+it('sizes the account menu like the notice panel on mobile and desktop', function () {
     $menu = file_get_contents(resource_path('views/components/top-user-menu.blade.php'));
     $stylesheet = file_get_contents(resource_path('css/app.css'));
 
-    expect($menu)->toContain('top-user-menu-panel');
+    expect($menu)
+        ->toContain("'is-viewport-panel' => ! \$sidebar")
+        ->not->toContain("'right-0! left-auto!' => ! \$sidebar");
+
     expect($stylesheet)
-        ->toContain('.listbox-panel.top-user-menu-panel')
-        ->toContain('top: 4.25rem !important;')
+        ->toContain('.notice-panel,'."\n".'.top-user-menu-panel.is-viewport-panel {')
+        ->toContain('.listbox-panel.top-user-menu-panel.is-viewport-panel')
         ->toContain('right: 0.75rem !important;')
         ->toContain('left: 0.75rem !important;')
         ->toContain('width: auto !important;')
-        ->toContain('transform: none !important;')
-        ->toContain('max-height: calc(100dvh - 4.5rem) !important;');
+        ->toContain('width: 20rem !important;');
 });
 
 it('changes appearance from a submenu instead of navigating to a separate page', function () {

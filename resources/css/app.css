@@ -2666,23 +2666,6 @@ html[data-theme="light"] :is(.application-settings-workspace, .application-setti
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
-@media (max-width: 1023px) {
-    /* Match the notice panel: the mobile top bar is full width, so the same
-       0.75rem insets span the phone. w-60 stays on desktop. */
-    .listbox-panel.top-user-menu-panel {
-        position: fixed !important;
-        top: 4.25rem !important;
-        right: 0.75rem !important;
-        left: 0.75rem !important;
-        width: auto !important;
-        max-width: none !important;
-        min-width: 0 !important;
-        max-height: calc(100dvh - 4.5rem) !important;
-        overflow-y: auto !important;
-        transform: none !important;
-    }
-}
-
 .listbox-option {
     display: flex;
     align-items: center;
@@ -4508,22 +4491,51 @@ html[data-theme="custom"] .logs-viewer-timestamp {
     column-gap: 1rem;
 }
 
-.notice-panel {
+.notice-panel,
+.top-user-menu-panel.is-viewport-panel {
     position: fixed;
     top: 4.25rem;
     right: 0.75rem;
     left: 0.75rem;
+    width: auto;
+    max-width: none;
+    min-width: 0;
     display: flex;
     max-height: min(70dvh, 28rem);
     flex-direction: column;
 }
 
+/* The header account menu shares the notice geometry. !important beats
+   listbox width:max-content and any leftover Tailwind width utilities. */
+.listbox-panel.top-user-menu-panel.is-viewport-panel {
+    position: fixed !important;
+    top: 4.25rem !important;
+    right: 0.75rem !important;
+    left: 0.75rem !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    max-height: min(70dvh, 28rem) !important;
+    margin: 0 !important;
+    transform: none !important;
+}
+
 @media (min-width: 1024px) {
-    .notice-panel {
+    .notice-panel,
+    .top-user-menu-panel.is-viewport-panel {
         top: 3.25rem;
         right: 1rem;
         left: auto;
         width: 20rem;
+        max-width: 20rem;
+    }
+
+    .listbox-panel.top-user-menu-panel.is-viewport-panel {
+        top: 3.25rem !important;
+        right: 1rem !important;
+        left: auto !important;
+        width: 20rem !important;
+        max-width: 20rem !important;
     }
 }
 

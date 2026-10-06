@@ -74,9 +74,9 @@
     </button>
 
     <div x-show="open" x-cloak @class([
-            'top-user-menu-panel listbox-panel z-[90]! max-h-none! w-60! min-w-0! overflow-visible! animate-in fade-in zoom-in-95 duration-150',
-            'right-0! left-auto!' => ! $sidebar,
-            'bottom-full! left-0! right-auto! top-auto! mb-1!' => $sidebar,
+            'top-user-menu-panel listbox-panel z-[90]! animate-in fade-in zoom-in-95 duration-150',
+            'is-viewport-panel' => ! $sidebar,
+            'bottom-full! left-0! right-auto! top-auto! mb-1! w-60!' => $sidebar,
             'origin-bottom-left' => $sidebar,
             'origin-top-right' => ! $sidebar,
         ])>
