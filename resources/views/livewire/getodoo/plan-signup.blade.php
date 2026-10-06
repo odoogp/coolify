@@ -47,7 +47,7 @@
             </p>
         </aside>
 
-        <div class="flex flex-col gap-4">
+        <div class="auth-plan-account">
             <div>
                 <h2 class="text-base font-semibold">{{ __('Admin account') }}</h2>
                 <p class="mt-1 text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
