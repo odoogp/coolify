@@ -2,9 +2,10 @@
     'title',
     'description' => null,
     'wide' => false,
+    'scroll' => false,
 ])
 
-<section class="auth-shell application-settings-form">
+<section class="auth-shell application-settings-form" @if ($scroll) style="overflow: auto" @endif>
     <div class="auth-stage" aria-hidden="true">
         <span class="auth-stage-glow"></span>
         <span class="auth-stage-glow auth-stage-glow-green"></span>

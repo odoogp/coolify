@@ -1,33 +1,41 @@
-<x-auth.shell wide :title="product_name()"
+<x-auth.shell scroll :title="product_name()"
     :description="__('Create the admin account for this package.')">
-    <div class="auth-plan-layout">
-        <aside class="auth-plan-package">
-            <p class="auth-plan-kicker">{{ __('Your plan') }}</p>
-            <h2 class="auth-plan-name">{{ $plan->name }}</h2>
-            <p class="auth-plan-price">
+    <div class="flex flex-col gap-5">
+        <div class="flex flex-col gap-2">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-fg-dim">{{ __('Your plan') }}</p>
+            <h2 class="text-xl font-semibold leading-7">{{ $plan->name }}</h2>
+            <p class="text-2xl font-semibold leading-8">
                 @if ($plan->isFree())
                     {{ __('Free') }}
                 @else
                     ${{ number_format((float) $plan->price, 2) }}
-                    <span>{{ __('per month') }}</span>
+                    <span class="ml-1 text-sm font-medium text-neutral-500 dark:text-fg-dim">{{ __('per month') }}</span>
                 @endif
             </p>
             @if (filled($plan->summary))
-                <p class="auth-plan-copy">{{ $plan->summary }}</p>
+                <p class="text-[13px] leading-5">{{ $plan->summary }}</p>
             @endif
             @if (filled($plan->description))
-                <p class="auth-plan-copy">{{ $plan->description }}</p>
+                <p class="whitespace-pre-line text-[13px] leading-5 text-neutral-600 dark:text-fg-dim">{{ $plan->description }}</p>
             @endif
-            <p class="auth-plan-copy">
+            <p class="text-[13px] leading-5 text-neutral-600 dark:text-fg-dim">
                 @if ($plan->isFree())
                     {{ __('This package has no charge.') }}
                 @else
                     {{ __('This is the monthly price. This step pays the first charge with Wompi.') }}
                 @endif
             </p>
-        </aside>
+            <ul class="mt-1 flex flex-col gap-1 border-t border-neutral-200 pt-3 text-[13px] leading-5 dark:border-white/10">
+                @foreach ($plan->adminLimits() as $limit)
+                    <li class="flex items-start justify-between gap-3">
+                        <span class="text-neutral-500 dark:text-fg-dim">{{ $limit['label'] }}</span>
+                        <span class="shrink-0 font-medium">{{ $limit['value'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </div>
 
-        <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/10">
             <div>
                 <h2 class="text-base font-semibold">{{ __('Admin account') }}</h2>
                 <p class="mt-1 text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">

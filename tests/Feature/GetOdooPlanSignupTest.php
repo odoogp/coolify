@@ -34,6 +34,14 @@ function getOdooPlan(array $overrides = []): GetOdooPlan
         'currency' => 'USD',
         'payment_gateway' => 'wompi',
         'is_active' => true,
+        'max_projects' => 1,
+        'max_environments' => 2,
+        'max_members' => 1,
+        'max_production_branches' => 1,
+        'max_staging_branches' => 1,
+        'max_services' => 2,
+        'can_add_servers' => true,
+        'can_launch_on_instance_server' => false,
     ], $overrides));
 }
 
@@ -79,6 +87,10 @@ it('lets the instance owner save a plan and copy its link', function () {
         ->set('name', 'Oficina')
         ->set('summary', 'Para el equipo')
         ->set('price', '0')
+        ->set('maxProjects', '1')
+        ->set('maxEnvironments', '2')
+        ->set('maxMembers', '1')
+        ->set('canAddServers', true)
         ->call('savePlan')
         ->assertHasNoErrors()
         ->assertSee('Oficina')
@@ -89,6 +101,12 @@ it('lets the instance owner save a plan and copy its link', function () {
     expect($plan)->not->toBeNull()
         ->and((float) $plan->price)->toBe(0.0)
         ->and($plan->payment_gateway)->toBeNull()
+        ->and((int) $plan->max_projects)->toBe(1)
+        ->and((int) $plan->max_environments)->toBe(2)
+        ->and((int) $plan->max_members)->toBe(1)
+        ->and($plan->max_services)->toBeNull()
+        ->and($plan->can_add_servers)->toBeTrue()
+        ->and($plan->can_launch_on_instance_server)->toBeFalse()
         ->and($plan->publicUrl())->toContain('/start/'.$plan->uuid);
 });
 
@@ -113,6 +131,9 @@ it('shows the package and the admin account on the public link', function () {
         ->assertSee('Producción')
         ->assertSee('Admin account')
         ->assertSee('$93.00')
+        ->assertSee('Projects')
+        ->assertSee('Environments')
+        ->assertSee('Can add servers')
         ->assertSee('Continue to payment');
 });
 
@@ -140,10 +161,17 @@ it('opens a free plan without Wompi and without using the public registration sw
         ->assertRedirect(route('dashboard'));
 
     $customer = User::query()->where('email', 'ana@example.com')->first();
+    $team = $customer?->teams()->first();
 
     expect($customer)->not->toBeNull()
         ->and((int) $customer->id)->not->toBe(0)
-        ->and((int) $customer->teams()->first()->getodoo_plan_id)->toBe($plan->id)
+        ->and($customer->teams()->count())->toBe(1)
+        ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
+        ->and($team->pivot->role)->toBe('admin')
+        ->and((int) $team->pivot->max_projects)->toBe(1)
+        ->and((int) $team->pivot->max_environments)->toBe(2)
+        ->and((bool) $team->pivot->can_add_servers)->toBeTrue()
+        ->and((bool) $team->pivot->can_launch_on_instance_server)->toBeFalse()
         ->and(GetOdooPlanSignup::query()->where('email', 'ana@example.com')->value('status'))->toBe('paid');
 });
 
@@ -183,10 +211,13 @@ it('sends a paid plan to Wompi and creates the account only after a live charge'
     $this->call('POST', '/webhooks/payments/wompi', [], [], [], $headers, $body)->assertOk();
 
     $customer = User::query()->where('email', 'ana@example.com')->first();
+    $team = $customer?->teams()->first();
 
     expect($customer)->not->toBeNull()
         ->and(User::query()->where('email', 'ana@example.com')->count())->toBe(1)
-        ->and((int) $customer->teams()->first()->getodoo_plan_id)->toBe($plan->id)
+        ->and($team->pivot->role)->toBe('admin')
+        ->and((int) $team->pivot->max_services)->toBe(2)
+        ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
         ->and($signup->fresh()->status)->toBe('paid')
         ->and($signup->fresh()->password)->toBeNull();
 });

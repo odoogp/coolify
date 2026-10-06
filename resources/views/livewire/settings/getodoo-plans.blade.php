@@ -25,6 +25,25 @@
                     </div>
                     <x-forms.input id="price" type="number" step="0.01" min="0" required
                         label="{{ __('Monthly price') }}" helper="{{ __('Use 0 for a free plan.') }}" />
+                    <div class="flex flex-col gap-3">
+                        <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                            {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
+                        </p>
+                        <div class="grid gap-3 sm:grid-cols-3">
+                            <x-forms.input id="maxProjects" type="number" min="0" label="{{ __('Projects') }}" />
+                            <x-forms.input id="maxEnvironments" type="number" min="0" label="{{ __('Environments') }}" />
+                            <x-forms.input id="maxMembers" type="number" min="0" label="{{ __('Members') }}" />
+                            <x-forms.input id="maxProductionBranches" type="number" min="0" label="{{ __('Production branches') }}" />
+                            <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
+                            <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
+                        </div>
+                        <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
+                        <x-forms.checkbox id="canLaunchOnInstanceServer"
+                            label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('The GitHub account is chosen later, on this client\'s team.') }}
+                        </p>
+                    </div>
                     <label class="flex items-center gap-2 text-sm">
                         <input type="checkbox" class="rounded" wire:model="active">
                         {{ __('Active') }}

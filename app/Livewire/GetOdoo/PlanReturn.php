@@ -91,7 +91,10 @@ class PlanReturn extends Component
     private function enter(User $user): void
     {
         Auth::login($user);
-        session(['currentTeam' => $user->teams()->first()]);
+        $planId = GetOdooPlanSignup::query()->whereKey($this->signupId)->value('plan_id');
+        $team = $user->teams()->where('getodoo_plan_id', $planId)->first()
+            ?? $user->teams()->first();
+        session(['currentTeam' => $team]);
         $this->redirectRoute('dashboard');
     }
 }

@@ -162,7 +162,9 @@ class PlanSignup extends Component
     private function enter(User $user): mixed
     {
         Auth::login($user);
-        session(['currentTeam' => $user->teams()->first()]);
+        $team = $user->teams()->where('getodoo_plan_id', $this->planId)->first()
+            ?? $user->teams()->first();
+        session(['currentTeam' => $team]);
 
         return redirect()->route('dashboard');
     }

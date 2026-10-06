@@ -21,6 +21,22 @@ class GetOdooPlans extends Component
 
     public bool $active = true;
 
+    public mixed $maxProjects = null;
+
+    public mixed $maxEnvironments = null;
+
+    public mixed $maxMembers = null;
+
+    public mixed $maxProductionBranches = null;
+
+    public mixed $maxStagingBranches = null;
+
+    public mixed $maxServices = null;
+
+    public bool $canAddServers = false;
+
+    public bool $canLaunchOnInstanceServer = false;
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -32,7 +48,20 @@ class GetOdooPlans extends Component
     {
         abort_unless(isInstanceOwner(), 403);
 
-        $this->reset(['planId', 'name', 'summary', 'description']);
+        $this->reset([
+            'planId',
+            'name',
+            'summary',
+            'description',
+            'maxProjects',
+            'maxEnvironments',
+            'maxMembers',
+            'maxProductionBranches',
+            'maxStagingBranches',
+            'maxServices',
+            'canAddServers',
+            'canLaunchOnInstanceServer',
+        ]);
         $this->price = '0';
         $this->active = true;
     }
@@ -48,11 +77,30 @@ class GetOdooPlans extends Component
         $this->description = (string) $plan->description;
         $this->price = number_format((float) $plan->price, 2, '.', '');
         $this->active = $plan->is_active;
+        $this->maxProjects = $plan->max_projects;
+        $this->maxEnvironments = $plan->max_environments;
+        $this->maxMembers = $plan->max_members;
+        $this->maxProductionBranches = $plan->max_production_branches;
+        $this->maxStagingBranches = $plan->max_staging_branches;
+        $this->maxServices = $plan->max_services;
+        $this->canAddServers = $plan->can_add_servers;
+        $this->canLaunchOnInstanceServer = $plan->can_launch_on_instance_server;
     }
 
     public function savePlan(): void
     {
         abort_unless(isInstanceOwner(), 403);
+
+        foreach ([
+            'maxProjects',
+            'maxEnvironments',
+            'maxMembers',
+            'maxProductionBranches',
+            'maxStagingBranches',
+            'maxServices',
+        ] as $field) {
+            $this->{$field} = $this->blankToNull($this->{$field});
+        }
 
         $this->validate([
             'name' => ['required', 'string', 'max:80'],
@@ -60,6 +108,14 @@ class GetOdooPlans extends Component
             'description' => ['nullable', 'string', 'max:2000'],
             'price' => ['required', 'numeric', 'min:0', 'max:100000'],
             'active' => ['boolean'],
+            'maxProjects' => ['nullable', 'integer', 'min:0'],
+            'maxEnvironments' => ['nullable', 'integer', 'min:0'],
+            'maxMembers' => ['nullable', 'integer', 'min:0'],
+            'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
+            'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
+            'maxServices' => ['nullable', 'integer', 'min:0'],
+            'canAddServers' => ['boolean'],
+            'canLaunchOnInstanceServer' => ['boolean'],
         ]);
 
         $price = round((float) $this->price, 2);
@@ -71,6 +127,14 @@ class GetOdooPlans extends Component
             'currency' => 'USD',
             'payment_gateway' => $price > 0 ? 'wompi' : null,
             'is_active' => $this->active,
+            'max_projects' => $this->maxProjects,
+            'max_environments' => $this->maxEnvironments,
+            'max_members' => $this->maxMembers,
+            'max_production_branches' => $this->maxProductionBranches,
+            'max_staging_branches' => $this->maxStagingBranches,
+            'max_services' => $this->maxServices,
+            'can_add_servers' => $this->canAddServers,
+            'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
         ];
 
         if ($this->planId) {
@@ -104,6 +168,17 @@ class GetOdooPlans extends Component
         }
 
         $this->dispatch('success', __('The plan was deleted.'));
+    }
+
+    private function blankToNull(mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = trim((string) $value);
+
+        return $value === '' ? null : $value;
     }
 
     public function render(): View
