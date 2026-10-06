@@ -120,7 +120,7 @@ class OdooJupyter
      * One Jupyter for the instance owner, outside every client stack.
      * Each client team, project, and environment gets custom (extra-addons), odoo (image addons), and files.
      *
-     * @param  list<array{team: string, project?: string, environment: string, subdomain?: string, custom: ?string, files: ?string, image: string, custom_bind?: ?string}>  $instances
+     * @param  list<array{team: string, project?: string, environment: string, custom: ?string, files: ?string, image: string, custom_bind?: ?string}>  $instances
      */
     public static function ownerCompose(array $instances, string $token, string $host, string $network = 'coolify'): string
     {
@@ -128,7 +128,8 @@ class OdooJupyter
             throw new \RuntimeException('The owner Jupyter was refused.');
         }
 
-        $mounts = ['/data/coolify/gpsh-owner-modules:/workspace/owner:ro'];
+        // House modules stay next to team folders; /workspace/owner is Root Team's project tree.
+        $mounts = ['/data/coolify/gpsh-owner-modules:/workspace/owner-modules:ro'];
         $stdlib = [];
         $external = [];
         $used = [];
@@ -137,7 +138,6 @@ class OdooJupyter
                 (string) ($instance['team'] ?? ''),
                 (string) ($instance['project'] ?? ''),
                 (string) ($instance['environment'] ?? ''),
-                (string) ($instance['subdomain'] ?? ''),
             );
             if ($folder === null) {
                 continue;
@@ -151,7 +151,7 @@ class OdooJupyter
             $used[$unique] = true;
             $root = '/workspace/'.$unique;
             $bind = (string) ($instance['custom_bind'] ?? '');
-            if (preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){2,3}custom\z#', $bind) === 1) {
+            if (preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){2,4}custom\z#', $bind) === 1) {
                 $mounts[] = $bind.':'.$root.'/custom_addons:ro';
             } else {
                 $volume = (string) ($instance['custom'] ?? '');
@@ -414,12 +414,12 @@ BASH], $server);
     }
 
     /**
-     * @return list<array{team: string, project: string, environment: string, subdomain: string, custom: ?string, files: ?string, image: string, server_id: ?string, custom_fallback: ?string, files_fallback: ?string}>
+     * @return list<array{team: string, project: string, environment: string, custom: ?string, files: ?string, image: string, server_id: ?string, custom_fallback: ?string, files_fallback: ?string}>
      */
     public static function ownerInstances(): array
     {
         $rows = [];
-        foreach (Service::query()->with(['environment.project.odooProfile', 'environment.project.team', 'applications.persistentStorages', 'destination'])->get() as $service) {
+        foreach (Service::query()->with(['environment.project.team', 'applications.persistentStorages', 'destination'])->get() as $service) {
             if (! $service->supportsOdooJupyter()) {
                 continue;
             }
@@ -456,7 +456,6 @@ BASH], $server);
                 'team' => (string) $team->name,
                 'project' => (string) ($project->name ?? ''),
                 'environment' => (string) $environment->name,
-                'subdomain' => (string) ($project->odooProfile?->subdomain ?? ''),
                 'custom' => $custom !== '' ? $custom : null,
                 'files' => $files !== '' ? $files : null,
                 'image' => $image !== '' ? $image : 'odoo:20',
@@ -474,26 +473,26 @@ BASH], $server);
     }
 
     /**
-     * /workspace/{client}/{environment} — client then branch.
-     * Prefer the project subdomain; otherwise a real client team name; Root Team falls back to the project name (never "root-team").
+     * /workspace/{team}/{project}/{environment} — team, then project, then branch.
+     * Root Team is the instance owner: folder name is "owner" so it sits next to client teams.
      */
-    public static function ownerWorkspaceFolder(string $team, string $project, string $environment, string $subdomain = ''): ?string
+    public static function ownerWorkspaceFolder(string $team, string $project, string $environment): ?string
     {
         $team = Str::slug($team);
         $project = Str::slug($project);
         $environment = Str::slug($environment);
-        $subdomain = Str::slug($subdomain);
         if ($environment === '') {
             return null;
         }
 
-        $isRootTeam = $team === '' || $team === 'root-team';
-        $client = $subdomain !== '' ? $subdomain : ($isRootTeam ? $project : $team);
-        if ($client === '') {
-            return null;
+        if ($team === '' || $team === 'root-team') {
+            $team = 'owner';
+        }
+        if ($project === '') {
+            return $team.'/'.$environment;
         }
 
-        return $client.'/'.$environment;
+        return $team.'/'.$project.'/'.$environment;
     }
 
     /**
@@ -522,7 +521,6 @@ BASH], $server);
                 (string) ($instance['team'] ?? ''),
                 (string) ($instance['project'] ?? ''),
                 (string) ($instance['environment'] ?? ''),
-                (string) ($instance['subdomain'] ?? ''),
             );
             if ($remote === null || $bind === null) {
                 continue;
@@ -534,14 +532,14 @@ BASH], $server);
         return $instances;
     }
 
-    public static function customBind(string $team, string $project, string $environment = '', string $subdomain = ''): ?string
+    public static function customBind(string $team, string $project, string $environment = ''): ?string
     {
         // Backward compatible: old callers passed (team, environment).
         if ($environment === '' && $project !== '') {
             $environment = $project;
             $project = '';
         }
-        $folder = self::ownerWorkspaceFolder($team, $project, $environment, $subdomain);
+        $folder = self::ownerWorkspaceFolder($team, $project, $environment);
         if ($folder === null) {
             return null;
         }
@@ -559,7 +557,7 @@ BASH], $server);
         $volume = self::volumeName((string) ($instance['import_volume'] ?? ''));
         $image = (string) ($instance['image'] ?? '');
         $dir = (string) ($instance['custom_bind'] ?? '');
-        if ($volume === null || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1 || preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){2,3}custom\z#', $dir) !== 1) {
+        if ($volume === null || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1 || preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){2,4}custom\z#', $dir) !== 1) {
             return false;
         }
         $remote = Server::query()->find($instance['server_id'] ?? null);
