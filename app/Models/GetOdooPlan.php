@@ -56,21 +56,39 @@ class GetOdooPlan extends BaseModel
     }
 
     /**
-     * @return list<array{label: string, value: string}>
+     * Quotas and permissions the customer actually receives. A zero or a false stays off this list.
+     *
+     * @return list<array{label: string, value: ?string}>
      */
-    public function adminLimits(): array
+    public function includedItems(): array
     {
-        $number = fn (?int $value): string => $value === null ? __('No limit') : (string) $value;
+        $items = [];
 
-        return [
-            ['label' => __('Projects'), 'value' => $number($this->max_projects)],
-            ['label' => __('Environments'), 'value' => $number($this->max_environments)],
-            ['label' => __('Members'), 'value' => $number($this->max_members)],
-            ['label' => __('Production branches'), 'value' => $number($this->max_production_branches)],
-            ['label' => __('Staging branches'), 'value' => $number($this->max_staging_branches)],
-            ['label' => __('Services'), 'value' => $number($this->max_services)],
-            ['label' => __('Can add servers'), 'value' => $this->can_add_servers ? __('Yes') : __('No')],
-            ['label' => __('Can launch instances on the server where GPSH is installed'), 'value' => $this->can_launch_on_instance_server ? __('Yes') : __('No')],
-        ];
+        foreach ([
+            'max_projects' => __('Projects'),
+            'max_environments' => __('Environments'),
+            'max_members' => __('Members'),
+            'max_production_branches' => __('Production branches'),
+            'max_staging_branches' => __('Staging branches'),
+            'max_services' => __('Services'),
+        ] as $column => $label) {
+            $value = $this->{$column};
+
+            if ($value === null) {
+                $items[] = ['label' => $label, 'value' => __('No limit')];
+            } elseif ((int) $value > 0) {
+                $items[] = ['label' => $label, 'value' => (string) (int) $value];
+            }
+        }
+
+        if ($this->can_add_servers) {
+            $items[] = ['label' => __('Can add servers'), 'value' => null];
+        }
+
+        if ($this->can_launch_on_instance_server) {
+            $items[] = ['label' => __('Can launch on the platform server'), 'value' => null];
+        }
+
+        return $items;
     }
 }

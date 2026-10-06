@@ -134,6 +134,7 @@ it('shows the package and the admin account on the public link', function () {
         ->assertSee('Projects')
         ->assertSee('Environments')
         ->assertSee('Can add servers')
+        ->assertDontSee('Can launch instances on the server where GPSH is installed')
         ->assertSee('Continue to payment');
 });
 

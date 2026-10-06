@@ -3930,6 +3930,7 @@
     "Choose the server where this instance will run.": "Elige el servidor donde va a correr esta instancia.",
     "This server has no Docker destination.": "Este servidor no tiene un destino de Docker.",
     "Can add servers": "Puede agregar servidores",
+    "Can launch on the platform server": "Puede lanzar en el servidor de la plataforma",
     "Can launch instances on the server where GPSH is installed": "Puede lanzar instancias en el servidor donde está instalado GPSH",
     "GitHub is connected. Launch production on a new repository, or search an existing one.": "GitHub ya está conectado. Lanza producción en un repositorio nuevo, o busca uno que ya exista.",
     "Launch production on a new repository": "Lanzar producción en un repositorio nuevo",

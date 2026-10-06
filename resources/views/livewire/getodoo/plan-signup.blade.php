@@ -21,19 +21,20 @@
                 @foreach (preg_split('/\R/u', (string) $plan->description) ?: [] as $line)
                     @if (filled(trim($line)))
                         <div class="auth-plan-feature">
-                            <span class="auth-plan-mark" aria-hidden="true"></span>
+                            <x-reicon name="check-circle" class="auth-plan-check" />
                             <span>{{ trim($line) }}</span>
                         </div>
                     @endif
                 @endforeach
-                @foreach ($plan->adminLimits() as $limit)
+                @foreach ($plan->includedItems() as $item)
                     <div class="auth-plan-include">
-                        <span>{{ $limit['label'] }}</span>
-                        <span @class([
-                            'auth-plan-value',
-                            'is-yes' => $limit['value'] === __('Yes'),
-                            'is-no' => $limit['value'] === __('No'),
-                        ])>{{ $limit['value'] }}</span>
+                        <span class="flex min-w-0 items-center gap-2">
+                            <x-reicon name="check-circle" class="auth-plan-check" />
+                            <span>{{ $item['label'] }}</span>
+                        </span>
+                        @if (filled($item['value']))
+                            <span class="auth-plan-value">{{ $item['value'] }}</span>
+                        @endif
                     </div>
                 @endforeach
             </div>

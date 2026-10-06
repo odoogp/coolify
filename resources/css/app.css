@@ -1790,16 +1790,24 @@ main:has(.auth-shell) {
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
-    margin-top: 0.25rem;
-    padding: 0.85rem;
+    margin-top: 0.35rem;
+    padding: 0.9rem;
     border-radius: 16px;
-    background: linear-gradient(165deg, rgb(124 92 255 / 0.22), rgb(79 125 255 / 0.1) 55%, rgb(255 255 255 / 0.35));
-    border: 1px solid rgb(124 92 255 / 0.35);
+    background: linear-gradient(180deg, rgb(18 163 106 / 0.16), rgb(18 163 106 / 0.05));
+    border: 1px solid rgb(18 163 106 / 0.35);
+}
+
+.auth-plan-includes .auth-plan-kicker {
+    color: #0b7a52;
 }
 
 .dark .auth-plan-includes {
-    background: linear-gradient(165deg, rgb(124 92 255 / 0.28), rgb(79 125 255 / 0.12));
-    border-color: rgb(180 160 255 / 0.35);
+    background: linear-gradient(180deg, rgb(18 163 106 / 0.22), rgb(18 163 106 / 0.08));
+    border-color: rgb(120 220 170 / 0.35);
+}
+
+.dark .auth-plan-includes .auth-plan-kicker {
+    color: #b6f3d8;
 }
 
 .auth-plan-feature,
@@ -1830,13 +1838,15 @@ main:has(.auth-shell) {
     min-width: 0;
 }
 
-.auth-plan-mark {
-    width: 0.55rem;
-    height: 0.55rem;
+.auth-plan-check {
+    width: 1.05rem;
+    height: 1.05rem;
     flex: none;
-    border-radius: 999px;
-    background: #7c5cff;
-    box-shadow: 0 0 0 4px rgb(124 92 255 / 0.18);
+    color: #0b7a52;
+}
+
+.dark .auth-plan-check {
+    color: #7dE8bc;
 }
 
 .auth-plan-value {
@@ -1846,13 +1856,13 @@ main:has(.auth-shell) {
     font-size: 0.75rem;
     font-weight: 600;
     line-height: 1.1rem;
-    background: rgb(124 92 255 / 0.16);
-    color: #5b35d6;
+    background: rgb(18 163 106 / 0.16);
+    color: #0b7a52;
 }
 
 .dark .auth-plan-value {
-    background: rgb(124 92 255 / 0.28);
-    color: #e4dcff;
+    background: rgb(18 163 106 / 0.28);
+    color: #b6f3d8;
 }
 
 .auth-plan-value.is-yes {
