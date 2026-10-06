@@ -1711,7 +1711,7 @@ main:has(.auth-shell) {
 }
 
 .auth-card-wide {
-    width: min(100%, 58rem);
+    width: min(100%, 68rem);
 }
 
 @media (min-width: 901px) {
@@ -1789,6 +1789,95 @@ main:has(.auth-shell) {
 
 .dark .auth-plan-copy {
     color: var(--color-fg-dim, #d4d4d4);
+}
+
+.auth-plan-includes {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-top: 0.25rem;
+    padding: 0.85rem;
+    border-radius: 16px;
+    background: linear-gradient(165deg, rgb(124 92 255 / 0.22), rgb(79 125 255 / 0.1) 55%, rgb(255 255 255 / 0.35));
+    border: 1px solid rgb(124 92 255 / 0.35);
+}
+
+.dark .auth-plan-includes {
+    background: linear-gradient(165deg, rgb(124 92 255 / 0.28), rgb(79 125 255 / 0.12));
+    border-color: rgb(180 160 255 / 0.35);
+}
+
+.auth-plan-feature,
+.auth-plan-include {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 2.15rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: 12px;
+    background: rgb(255 255 255 / 0.82);
+    color: #241a4a;
+    font-size: 0.8125rem;
+    line-height: 1.25rem;
+}
+
+.dark .auth-plan-feature,
+.dark .auth-plan-include {
+    background: rgb(16 18 36 / 0.55);
+    color: #f4f1ff;
+}
+
+.auth-plan-include {
+    justify-content: space-between;
+}
+
+.auth-plan-include span:first-child {
+    min-width: 0;
+}
+
+.auth-plan-mark {
+    width: 0.55rem;
+    height: 0.55rem;
+    flex: none;
+    border-radius: 999px;
+    background: #7c5cff;
+    box-shadow: 0 0 0 4px rgb(124 92 255 / 0.18);
+}
+
+.auth-plan-value {
+    flex: none;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.1rem;
+    background: rgb(124 92 255 / 0.16);
+    color: #5b35d6;
+}
+
+.dark .auth-plan-value {
+    background: rgb(124 92 255 / 0.28);
+    color: #e4dcff;
+}
+
+.auth-plan-value.is-yes {
+    background: rgb(16 160 110 / 0.16);
+    color: #0b7a52;
+}
+
+.dark .auth-plan-value.is-yes {
+    background: rgb(16 180 120 / 0.22);
+    color: #b6f3d8;
+}
+
+.auth-plan-value.is-no {
+    background: rgb(90 90 110 / 0.12);
+    color: #5c5c70;
+}
+
+.dark .auth-plan-value.is-no {
+    background: rgb(255 255 255 / 0.08);
+    color: #c8c8d4;
 }
 
 .auth-card {
