@@ -104,7 +104,7 @@
                     stroke-linejoin="round" />
             </svg>
         </button>
-        <div x-show="appearanceOpen" x-collapse class="mx-1 grid gap-0.5 pb-1 pl-6">
+        <div x-show="appearanceOpen" x-cloak class="mx-1 grid shrink-0 gap-0.5 pb-1 pl-6">
             <div class="flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs text-neutral-600 dark:text-fg-dim">
                 <span class="relative size-3.5 shrink-0">
                     <span class="block size-3.5 rounded-full border border-black/10 dark:border-white/20"

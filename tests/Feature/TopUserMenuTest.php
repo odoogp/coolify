@@ -45,7 +45,10 @@ it('sizes the account menu like the notice panel on mobile and desktop', functio
         ->toContain('right: 0.75rem !important;')
         ->toContain('left: 0.75rem !important;')
         ->toContain('width: auto !important;')
-        ->toContain('width: 20rem !important;');
+        ->toContain('width: 20rem !important;')
+        ->toContain('max-height: calc(100dvh - 4.5rem) !important;')
+        ->toContain('overflow-y: auto !important;')
+        ->toContain('flex-shrink: 0;');
 });
 
 it('changes appearance from a submenu instead of navigating to a separate page', function () {
@@ -61,6 +64,8 @@ it('changes appearance from a submenu instead of navigating to a separate page',
         ->toContain('this.appearanceOpen = false;')
         ->toContain('this.open = false;')
         ->toContain('<div x-show="open" x-cloak @class([')
+        ->toContain('<div x-show="appearanceOpen" x-cloak class="mx-1 grid shrink-0 gap-0.5 pb-1 pl-6">')
+        ->not->toContain('x-collapse');
         ->not->toContain('<template x-if="open">')
         ->not->toContain('x-show.important="open"')
         ->not->toContain('<div x-show="open" x-cloak x-transition.opacity.duration.120ms')
