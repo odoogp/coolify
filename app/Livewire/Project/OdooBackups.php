@@ -33,13 +33,15 @@ class OdooBackups extends Component
     {
         $this->guard('odoo.backup.create');
         $plan = $this->project->team?->getodooPlan;
-        if (! EnsureOdooBackupSchedules::planAllowsBackups($plan)) {
-            $this->dispatch('error', __('This plan does not include automatic backups.'));
+        $user = auth()->user();
+        if (! EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, $user)) {
+            $this->dispatch('error', __('Contact an advisor to add backups to your plan.'));
 
             return;
         }
 
-        CreateOdooBackupJob::dispatch($this->environment->id);
+        $bypass = isInstanceOwner() && ! EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        CreateOdooBackupJob::dispatch($this->environment->id, $bypass);
         $this->dispatch('success', __('Backup queued. Database and filestore are saved together.'));
     }
 
@@ -66,10 +68,11 @@ class OdooBackups extends Component
         $this->project->loadMissing('team.getodooPlan', 'odooProfile');
         $this->environment->loadMissing('services');
         $plan = $this->project->team?->getodooPlan;
-        $backupsEnabled = EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        $planAllows = EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        $user = auth()->user();
+        $canCreateManual = EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, $user);
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
         $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
-        $user = auth()->user();
 
         $backups = OdooBackup::query()
             ->with(['databaseExecution', 'volumeExecution'])
@@ -92,11 +95,17 @@ class OdooBackups extends Component
 
         return view('livewire.project.odoo-backups', [
             'backups' => $backups,
-            'backupsEnabled' => $backupsEnabled,
-            'policyLabel' => $backupsEnabled
+            'planName' => filled($plan?->name) ? (string) $plan->name : null,
+            'planAllowsAutomatic' => $planAllows,
+            'backupsBlockedByPlan' => ! $canCreateManual,
+            'policyLabel' => $planAllows
                 ? GetOdooBackupFrequency::label($frequency).' · '.trans_choice(':count day|:count days', $retention, ['count' => $retention])
-                : __('No automatic backups on this plan'),
-            'canCreate' => $user !== null && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.create'),
+                : (isInstanceOwner()
+                    ? __('No automatic backups on this plan · owner may create manually')
+                    : __('Not included — contact an advisor to add them')),
+            'canCreate' => $canCreateManual
+                && $user !== null
+                && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.create'),
             'canRestore' => $user !== null && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.restore'),
             'service' => $this->environment->services->first(fn ($row): bool => $row->supportsOdooJupyter()),
         ]);

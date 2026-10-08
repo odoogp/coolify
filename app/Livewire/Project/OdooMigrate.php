@@ -257,7 +257,7 @@ class OdooMigrate extends Component
         }
 
         if (! $this->project->canCreateStagingEnvironment()) {
-            throw new RuntimeException(__('You cannot create another environment on this project.'));
+            throw new RuntimeException(__('To create another environment, contact an advisor to upgrade your plan.'));
         }
 
         $environment = $this->project->createNextStagingEnvironment();

@@ -200,7 +200,7 @@
                                                         shortConfirmationLabel="{{ __('GitHub App Name') }}" :confirmWithPassword="false"
                                                         step2ButtonText="Permanently Delete" />
                                                 @else
-                                                    <x-forms.button disabled tooltip="You do not have permission to delete this GitHub App.">
+                                                    <x-forms.button disabled tooltip="Contact an advisor if you need this change.">
                                                         {{ __('Delete') }}
                                                     </x-forms.button>
                                                 @endcan
@@ -210,8 +210,8 @@
 
                                     @cannot('delete', $github_app)
                                         <div class="mt-4">
-                                            <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                                                {{ __('Contact a team administrator if this GitHub App must be deleted.') }}
+                                            <x-callout type="info" title="{{ __('Need access?') }}">
+                                                {{ __('Contact an advisor if you need this change.') }}
                                             </x-callout>
                                         </div>
                                     @endcannot
@@ -352,8 +352,8 @@
                 </div>
             </div>
         @else
-            <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                {{ __('You do not have permission to create GitHub Apps. Contact your team administrator.') }}
+            <x-callout type="info" title="{{ __('Need access?') }}">
+                {{ __('Contact an advisor if you need access to this feature.') }}
             </x-callout>
         @endcan
 

@@ -144,7 +144,7 @@
             @if ($dashboardServers->isEmpty())
                 @cannot('create', App\Models\Server::class)
                     <x-empty title="{{ __('No servers assigned') }}"
-                        description="{{ __('No servers are assigned to this instance. Contact your provider to request access.') }}"
+                        description="{{ __('No servers are assigned yet. Contact an advisor to get access.') }}"
                         icon-name="servers" size="sm" />
                 @elseif ($privateKeys->isEmpty())
                     <x-empty title="{{ __('A private key is required') }}"

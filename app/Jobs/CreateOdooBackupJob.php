@@ -17,7 +17,7 @@ class CreateOdooBackupJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public function __construct(public int $environmentId)
+    public function __construct(public int $environmentId, public bool $bypassPlanRestriction = false)
     {
         $this->onQueue('high');
     }
@@ -31,8 +31,8 @@ class CreateOdooBackupJob implements ShouldQueue
         }
 
         $plan = $environment->project?->team?->getodooPlan;
-        if (! EnsureOdooBackupSchedules::planAllowsBackups($plan)) {
-            throw new RuntimeException(__('This plan does not include automatic backups.'));
+        if (! $this->bypassPlanRestriction && ! EnsureOdooBackupSchedules::planAllowsBackups($plan)) {
+            throw new RuntimeException(__('Contact an advisor to add backups to your plan.'));
         }
 
         $schedules = EnsureOdooBackupSchedules::forService($service, $plan);
@@ -50,6 +50,7 @@ class CreateOdooBackupJob implements ShouldQueue
             'backup_id' => $backup->id,
             'database_schedule_id' => $schedules['database']->id,
             'volume_schedule_id' => $schedules['volume']->id,
+            'bypass_plan' => $this->bypassPlanRestriction,
         ]);
 
         return $backup;

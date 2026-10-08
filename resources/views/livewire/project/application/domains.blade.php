@@ -64,8 +64,8 @@
         @endif
 
         @cannot('update', $application)
-            <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                {{ __('You don\'t have permission to manage domains. Contact your team administrator for access.') }}
+            <x-callout type="info" title="{{ __('Need access?') }}">
+                {{ __('Contact an advisor if you need access to this feature.') }}
             </x-callout>
         @endcannot
 

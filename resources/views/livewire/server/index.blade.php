@@ -92,7 +92,7 @@
                     icon-name="servers" />
             @else
                 <x-empty title="{{ __('No servers assigned') }}"
-                    description="{{ __('No servers are assigned to this instance. Contact your provider to request access.') }}"
+                    description="{{ __('No servers are assigned yet. Contact an advisor to get access.') }}"
                     icon-name="servers" />
             @endcan
         @else

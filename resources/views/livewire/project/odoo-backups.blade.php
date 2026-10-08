@@ -25,23 +25,26 @@
                             {{ __('Backups for this branch follow the plan. Restore overwrites the database and filestore on :branch.', ['branch' => $environment->name]) }}
                         </p>
                         <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Plan') }}:
+                            {{ $planName ?? __('No plan') }}
+                            ·
                             {{ __('Plan policy') }}: {{ $policyLabel }}
                         </p>
                     </div>
-                    @if ($canCreate && $backupsEnabled)
+                    @if ($canCreate)
                         <x-forms.button type="button" wire:click="createBackup" isHighlighted>
                             {{ __('Create Backup') }}
                         </x-forms.button>
                     @endif
                 </div>
 
-                @if (! $backupsEnabled)
-                    <x-empty size="sm" title="{{ __('Backups are not included on this plan') }}"
-                        description="{{ __('The owner enables automatic backups on the plan. Clients cannot change the schedule here.') }}"
+                @if ($backupsBlockedByPlan)
+                    <x-empty size="sm" title="{{ __('Want automatic backups?') }}"
+                        description="{{ __('Contact an advisor to add backups to your plan and protect this project.') }}"
                         icon-name="database" />
                 @elseif ($backups === [])
                     <x-empty size="sm" title="{{ __('No backups yet') }}"
-                        description="{{ __('Automatic backups appear here when the plan schedule runs. You can also create one now.') }}"
+                        description="{{ $planAllowsAutomatic ? __('Automatic backups appear here when the plan schedule runs. You can also create one now.') : __('This plan has no automatic backups. You can create a manual backup.') }}"
                         icon-name="database" />
                 @else
                     <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-white/[0.08]">

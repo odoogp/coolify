@@ -122,12 +122,41 @@ it('shows plan-driven odoo backups for a branch and refuses create when the plan
         'environment_uuid' => $production->uuid,
     ])
         ->assertOk()
-        ->assertSee(__('Backups are not included on this plan'))
+        ->assertSee(__('Want automatic backups?'))
+        ->assertSee(__('Contact an advisor to add backups to your plan and protect this project.'))
+        ->assertSee(__('Plan').':')
+        ->assertSee($this->plan->name)
         ->call('createBackup')
         ->assertDispatched('error');
 
     expect(fn () => (new CreateOdooBackupJob($production->id))->handle())
         ->toThrow(RuntimeException::class);
+});
+
+it('lets the instance owner create a manual backup when the plan has none', function () {
+    Queue::fake();
+    Team::factory()->create(['id' => 0]);
+    $this->owner->teams()->attach(0, ['role' => 'owner']);
+    $this->owner->unsetRelation('teams');
+    $this->actingAs($this->owner->fresh(['teams']));
+    session(['currentTeam' => $this->team]);
+    $this->plan->update(['backup_frequency' => 'none']);
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+
+    expect($this->owner->fresh(['teams'])->isInstanceOwner())->toBeTrue();
+
+    Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->assertOk()
+        ->assertSee(__('Create Backup'))
+        ->assertSee($this->plan->name)
+        ->assertDontSee(__('Want automatic backups?'))
+        ->call('createBackup')
+        ->assertDispatched('success');
+
+    Queue::assertPushed(CreateOdooBackupJob::class, fn (CreateOdooBackupJob $job): bool => $job->environmentId === $production->id && $job->bypassPlanRestriction === true);
 });
 
 it('lists branch backups and queues restore for a complete pair', function () {
@@ -146,9 +175,17 @@ it('lists branch backups and queues restore for a complete pair', function () {
         ->assertOk()
         ->assertSee(__('Create Backup'))
         ->assertSee(__('Plan policy'))
+        ->assertSee($this->plan->name)
         ->assertSee($production->name)
         ->call('restore', $backup->id)
         ->assertDispatched('success');
 
     Queue::assertPushed(RestoreOdooBackupJob::class, fn (RestoreOdooBackupJob $job): bool => $job->odooBackupId === $backup->id);
+});
+
+it('shows the team plan on the project page', function () {
+    Livewire::test(\App\Livewire\Project\Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertOk()
+        ->assertSee(__('Plan').':')
+        ->assertSee($this->plan->name);
 });

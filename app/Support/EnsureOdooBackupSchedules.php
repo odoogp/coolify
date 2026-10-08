@@ -9,6 +9,7 @@ use App\Models\ScheduledVolumeBackup;
 use App\Models\Service;
 use App\Models\ServiceDatabase;
 use App\Models\Team;
+use App\Models\User;
 use RuntimeException;
 
 class EnsureOdooBackupSchedules
@@ -22,6 +23,18 @@ class EnsureOdooBackupSchedules
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
 
         return $frequency !== '' && $frequency !== GetOdooBackupFrequency::NONE;
+    }
+
+    /**
+     * Plan policy gates clients. The instance owner may always create a manual backup.
+     */
+    public static function userMayCreateManualBackup(?GetOdooPlan $plan, ?User $user = null): bool
+    {
+        if (self::planAllowsBackups($plan)) {
+            return true;
+        }
+
+        return $user?->isInstanceOwner() ?? false;
     }
 
     public static function isPlanDatabaseSchedule(ScheduledDatabaseBackup $schedule): bool

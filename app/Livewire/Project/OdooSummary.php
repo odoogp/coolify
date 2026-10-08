@@ -2,6 +2,9 @@
 
 namespace App\Livewire\Project;
 
+use App\Domain\Odoo\OdooAbilities;
+use App\Domain\Odoo\OdooStaging;
+use App\Domain\Odoo\OdooVersion;
 use App\Jobs\CloneProductionDataJob;
 use App\Jobs\CreateOdooBackupJob;
 use App\Jobs\SyncStagingBranchJob;
@@ -10,9 +13,7 @@ use App\Models\ApplicationDeploymentQueue;
 use App\Models\Environment;
 use App\Models\OdooBackup;
 use App\Models\Project;
-use App\Domain\Odoo\OdooAbilities;
-use App\Domain\Odoo\OdooStaging;
-use App\Domain\Odoo\OdooVersion;
+use App\Support\EnsureOdooBackupSchedules;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -60,7 +61,16 @@ class OdooSummary extends Component
     {
         $environment = $this->environment($environmentId);
         $this->guard('odoo.backup.create');
-        CreateOdooBackupJob::dispatch($environment->id);
+        $this->project->loadMissing('team.getodooPlan');
+        $plan = $this->project->team?->getodooPlan;
+        if (! EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, auth()->user())) {
+            $this->dispatch('error', __('Contact an advisor to add backups to your plan.'));
+
+            return;
+        }
+
+        $bypass = isInstanceOwner() && ! EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        CreateOdooBackupJob::dispatch($environment->id, $bypass);
         $this->dispatch('success', __('Backup queued.'));
     }
 

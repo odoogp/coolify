@@ -34,6 +34,11 @@ class OdooAbilities
             return false;
         }
 
+        // Instance owner runs the platform and is not limited by client plan abilities.
+        if ($user->isInstanceOwner()) {
+            return true;
+        }
+
         $role = $user->roleInTeam($teamId);
         if ($role === 'owner' || $role === 'admin') {
             return true;

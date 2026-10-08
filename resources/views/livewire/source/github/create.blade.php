@@ -53,7 +53,7 @@
         </x-forms.button>
     </form>
 @else
-    <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-        {{ __('You don\'t have permission to create new GitHub Apps. Contact your team administrator.') }}
+    <x-callout type="info" title="{{ __('Need access?') }}">
+        {{ __('Contact an advisor if you need access to this feature.') }}
     </x-callout>
 @endcan

@@ -14,8 +14,8 @@
                 </x-forms.button>
             </form>
         @else
-            <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                {{ __('You do not have permission to manage tags for this resource.') }}
+            <x-callout type="info" title="{{ __('Need access?') }}">
+                {{ __('Contact an advisor if you need access to this feature.') }}
             </x-callout>
         @endcan
     </x-application.settings-section>

@@ -40,7 +40,7 @@
                             confirmationLabel="{{ __('Enter the resource name to confirm permanent deletion') }}"
                             shortConfirmationLabel="{{ __('Resource name') }}" />
                     @else
-                        <x-forms.button disabled tooltip="You do not have permission to delete this resource.">
+                        <x-forms.button disabled tooltip="Contact an advisor if you need this change.">
                             Delete {{ $resourceLabel }}
                         </x-forms.button>
                     @endif
@@ -50,8 +50,8 @@
 
         @if (!$canDelete)
             <div class="mt-4">
-                <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                    {{ __('Contact a team administrator if this resource must be deleted.') }}
+                <x-callout type="info" title="{{ __('Need access?') }}">
+                    {{ __('Contact an advisor if you need this change.') }}
                 </x-callout>
             </div>
         @endif

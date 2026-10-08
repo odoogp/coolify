@@ -283,8 +283,8 @@
             @endif
         </x-application.settings-section>
     @else
-        <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-            {{ __('You do not have permission to clone or move this resource. Contact a team administrator for access.') }}
+        <x-callout type="info" title="{{ __('Need access?') }}">
+            {{ __('Contact an advisor if you need access to this feature.') }}
         </x-callout>
     @endcan
 </div>

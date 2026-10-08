@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Actions\Odoo\ProvisionOdooEnvironment;
+use App\Domain\Odoo\OdooAbilities;
+use App\Domain\Odoo\OdooStaging;
 use App\Http\Controllers\Controller;
 use App\Jobs\CloneProductionDataJob;
 use App\Jobs\CreateOdooBackupJob;
@@ -13,8 +15,7 @@ use App\Models\Environment;
 use App\Models\OdooBackup;
 use App\Models\Project;
 use App\Models\StandaloneDocker;
-use App\Domain\Odoo\OdooAbilities;
-use App\Domain\Odoo\OdooStaging;
+use App\Support\EnsureOdooBackupSchedules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use RuntimeException;
@@ -107,7 +108,15 @@ class OdooProjectController extends Controller
             return response()->json(['message' => 'Forbidden.'], 403);
         }
 
-        $backup = (new CreateOdooBackupJob($env->id))->handle();
+        $project->loadMissing('team.getodooPlan');
+        $plan = $project->team?->getodooPlan;
+        if (! EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, $request->user())) {
+            return response()->json(['message' => __('Contact an advisor to add backups to your plan.')], 422);
+        }
+
+        $bypass = $request->user()->isInstanceOwner()
+            && ! EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        $backup = (new CreateOdooBackupJob($env->id, $bypass))->handle();
 
         return response()->json(['id' => $backup->id, 'status' => $backup->status]);
     }

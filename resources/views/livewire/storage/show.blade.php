@@ -102,7 +102,7 @@
                                                     shortConfirmationLabel="{{ __('Storage Name') }}" :confirmWithPassword="false"
                                                     step2ButtonText="Permanently Delete" />
                                             @else
-                                                <x-forms.button disabled tooltip="You do not have permission to delete this storage.">
+                                                <x-forms.button disabled tooltip="Contact an advisor if you need this change.">
                                                     {{ __('Delete') }}
                                                 </x-forms.button>
                                             @endcan
@@ -112,8 +112,8 @@
 
                                 @cannot('delete', $storage)
                                     <div class="mt-4">
-                                        <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                                            {{ __('Contact a team administrator if this storage must be deleted.') }}
+                                        <x-callout type="info" title="{{ __('Need access?') }}">
+                                            {{ __('Contact an advisor if you need this change.') }}
                                         </x-callout>
                                     </div>
                                 @endcannot

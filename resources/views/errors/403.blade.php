@@ -6,6 +6,6 @@
         <x-error-page
             code="403"
             title="{{ __('You shall not pass!') }}"
-            description="{{ __('You don\'t have permission to access this page.') }}" />
+            description="{{ __('Contact an advisor if you need access to this page.') }}" />
     </body>
 @endsection

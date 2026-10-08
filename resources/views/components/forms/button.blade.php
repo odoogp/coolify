@@ -81,7 +81,7 @@
 @if ($authDisabled || filled($tooltip))
     <div x-ref="tip" x-show="visible" x-cloak :id="$id('button-tooltip')" role="tooltip"
         class="auth-tooltip">
-        {{ $tooltip ?: 'You do not have permission to perform this action.' }}
+        {{ $tooltip ?: 'Contact an advisor if you need access to this feature.' }}
     </div>
 </span>
 @endif

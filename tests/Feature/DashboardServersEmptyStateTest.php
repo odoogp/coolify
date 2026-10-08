@@ -103,7 +103,7 @@ it('hides the add private key button for members without create permission', fun
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Dashboard::class)
-        ->assertSee('No servers are assigned to this instance. Contact your provider to request access.')
+        ->assertSee('No servers are assigned yet. Contact an advisor to get access.')
         ->assertDontSee('Add private key')
         ->assertDontSee('New server');
 });
@@ -116,6 +116,6 @@ it('shows the provider message to an admin without servers', function () {
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Dashboard::class)
-        ->assertSee('No servers are assigned to this instance. Contact your provider to request access.')
+        ->assertSee('No servers are assigned yet. Contact an advisor to get access.')
         ->assertDontSee('New server');
 });

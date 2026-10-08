@@ -67,8 +67,8 @@
                     </x-slot:actions>
 
                     @cannot('update', $server)
-                        <x-callout type="danger" title="{{ __('Insufficient permissions') }}">
-                            {{ __('You do not have permission to configure Cloudflare Tunnel for this server.') }}
+                        <x-callout type="info" title="{{ __('Need access?') }}">
+                            {{ __('Contact an advisor if you need access to this feature.') }}
                         </x-callout>
                     @else
                         <x-process-dialog @automated.window="processDialogOpen = true" closeWithX size="xl">

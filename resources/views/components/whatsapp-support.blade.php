@@ -9,6 +9,7 @@
     $topics = [
         __('I cannot sign in'),
         __('I want to launch a project'),
+        __('I want to upgrade my plan'),
         __('GitHub'),
         __('Something else'),
     ];

@@ -100,7 +100,7 @@ test('admin does not see add server button on dashboard', function () {
 
     Livewire::test(Dashboard::class)
         ->assertDontSee(route('server.create'))
-        ->assertSee('No servers are assigned to this instance. Contact your provider to request access.');
+        ->assertSee('No servers are assigned yet. Contact an advisor to get access.');
 });
 
 test('member does not see add server button on dashboard', function () {
