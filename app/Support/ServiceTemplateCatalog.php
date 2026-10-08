@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Models\ServiceTemplateOverride;
+use App\Models\Team;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
@@ -160,6 +162,17 @@ class ServiceTemplateCatalog
             ->sortBy(fn (array $row): array => [$row['value'] === 'odoo' ? 0 : 1, strtolower($row['label'])])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string}>
+     */
+    public static function launchOptionsForTeam(?Team $team = null): array
+    {
+        return GetOdooAreaEntitlements::filterLaunchOptions(
+            self::launchOptions(),
+            $team ?? currentTeam(),
+        );
     }
 
     public static function composeFor(string $name): ?string

@@ -21,6 +21,9 @@ class GetOdooPricingArea extends BaseModel
         'extra_fixed',
         'extra_percent',
         'is_active',
+        'allow_multiple_projects',
+        'allow_all_services',
+        'allowed_services',
         'sort_order',
     ];
 
@@ -30,6 +33,9 @@ class GetOdooPricingArea extends BaseModel
             'extra_fixed' => 'decimal:2',
             'extra_percent' => 'decimal:2',
             'is_active' => 'boolean',
+            'allow_multiple_projects' => 'boolean',
+            'allow_all_services' => 'boolean',
+            'allowed_services' => 'array',
             'sort_order' => 'integer',
             'parent_id' => 'integer',
         ];

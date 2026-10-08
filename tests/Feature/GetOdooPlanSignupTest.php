@@ -8,7 +8,9 @@ use App\Models\GetOdooPricingArea;
 use App\Models\InstanceSettings;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use App\Services\GetOdoo\GetOdooPlanPricing;
+use App\Services\GetOdoo\OpenGetOdooPlanAccount;
 use App\Services\GetOdoo\WompiClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -93,6 +95,9 @@ it('lets the instance owner save a plan and copy its link', function () {
         ->set('maxEnvironments', '2')
         ->set('maxMembers', '1')
         ->set('canAddServers', true)
+        ->set('includesMigration', true)
+        ->set('backupFrequency', 'twice_daily')
+        ->set('backupRetentionDays', '14')
         ->call('savePlan')
         ->assertHasNoErrors()
         ->assertSee('Oficina')
@@ -109,6 +114,10 @@ it('lets the instance owner save a plan and copy its link', function () {
         ->and($plan->max_services)->toBeNull()
         ->and($plan->can_add_servers)->toBeTrue()
         ->and($plan->can_launch_on_instance_server)->toBeFalse()
+        ->and($plan->includes_migration)->toBeTrue()
+        ->and($plan->backup_frequency)->toBe('twice_daily')
+        ->and((int) $plan->backup_retention_days)->toBe(14)
+        ->and(collect($plan->includedItems())->pluck('label')->all())->toContain(__('Migration help (GitHub, repository, dump + filestore)'))
         ->and($plan->publicUrl())->toContain('/start/'.$plan->uuid);
 });
 
@@ -368,4 +377,46 @@ it('requires a country on signup when countries are configured and charges the q
 
     expect((float) $signup->amount)->toBe(115.0)
         ->and((int) $signup->pricing_area_id)->toBe($country->id);
+});
+
+it('applies region service and project limits to the new team', function () {
+    User::factory()->create();
+    $plan = getOdooPlan([
+        'price' => 0,
+        'payment_gateway' => null,
+        'max_projects' => null,
+    ]);
+    $region = GetOdooPricingArea::query()->create([
+        'code' => 'ca',
+        'name' => 'Central America',
+        'kind' => GetOdooPricingArea::KIND_REGION,
+        'allow_multiple_projects' => false,
+        'allow_all_services' => false,
+        'allowed_services' => ['odoo', 'redis'],
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+    $country = GetOdooPricingArea::query()->create([
+        'code' => 'hn',
+        'name' => 'Honduras',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'parent_id' => $region->id,
+        'iso_code' => 'HN',
+        'allow_multiple_projects' => true,
+        'allow_all_services' => true,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $user = app(OpenGetOdooPlanAccount::class)->open('Ana', 'ana@example.com', 'password1', $plan, $country);
+    $team = $user->teams()->first();
+    $entitlements = GetOdooAreaEntitlements::forTeam($team);
+
+    expect((int) $team->getodoo_pricing_area_id)->toBe($country->id)
+        ->and((int) $team->pivot->max_projects)->toBe(1)
+        ->and($entitlements['allow_multiple_projects'])->toBeFalse()
+        ->and($entitlements['allow_all_services'])->toBeFalse()
+        ->and($entitlements['allowed_services'])->toBe(['odoo', 'redis'])
+        ->and(GetOdooAreaEntitlements::allowsService($team, 'odoo'))->toBeTrue()
+        ->and(GetOdooAreaEntitlements::allowsService($team, 'n8n'))->toBeFalse();
 });

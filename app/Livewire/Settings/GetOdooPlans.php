@@ -5,6 +5,8 @@ namespace App\Livewire\Settings;
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
+use App\Support\GetOdooBackupFrequency;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -39,6 +41,12 @@ class GetOdooPlans extends Component
 
     public bool $canLaunchOnInstanceServer = false;
 
+    public bool $includesMigration = false;
+
+    public string $backupFrequency = GetOdooBackupFrequency::DAILY;
+
+    public string $backupRetentionDays = '7';
+
     public ?int $areaId = null;
 
     public string $areaKind = GetOdooPricingArea::KIND_COUNTRY;
@@ -56,6 +64,12 @@ class GetOdooPlans extends Component
     public string $areaExtraPercent = '0';
 
     public bool $areaActive = true;
+
+    public bool $areaAllowMultipleProjects = true;
+
+    public bool $areaAllowAllServices = true;
+
+    public string $areaAllowedServices = '';
 
     public string $areaSort = '0';
 
@@ -83,9 +97,12 @@ class GetOdooPlans extends Component
             'maxServices',
             'canAddServers',
             'canLaunchOnInstanceServer',
+            'includesMigration',
         ]);
         $this->price = '0';
         $this->active = true;
+        $this->backupFrequency = GetOdooBackupFrequency::DAILY;
+        $this->backupRetentionDays = '7';
     }
 
     public function editPlan(int $planId): void
@@ -107,6 +124,9 @@ class GetOdooPlans extends Component
         $this->maxServices = $plan->max_services;
         $this->canAddServers = $plan->can_add_servers;
         $this->canLaunchOnInstanceServer = $plan->can_launch_on_instance_server;
+        $this->includesMigration = (bool) $plan->includes_migration;
+        $this->backupFrequency = (string) ($plan->backup_frequency ?: GetOdooBackupFrequency::DAILY);
+        $this->backupRetentionDays = (string) max(1, (int) ($plan->backup_retention_days ?: 7));
     }
 
     public function savePlan(): void
@@ -138,6 +158,9 @@ class GetOdooPlans extends Component
             'maxServices' => ['nullable', 'integer', 'min:0'],
             'canAddServers' => ['boolean'],
             'canLaunchOnInstanceServer' => ['boolean'],
+            'includesMigration' => ['boolean'],
+            'backupFrequency' => ['required', Rule::in(GetOdooBackupFrequency::keys())],
+            'backupRetentionDays' => ['required', 'integer', 'min:1', 'max:365'],
         ]);
 
         $price = round((float) $this->price, 2);
@@ -157,6 +180,9 @@ class GetOdooPlans extends Component
             'max_services' => $this->maxServices,
             'can_add_servers' => $this->canAddServers,
             'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
+            'includes_migration' => $this->includesMigration,
+            'backup_frequency' => $this->backupFrequency,
+            'backup_retention_days' => (int) $this->backupRetentionDays,
         ];
 
         if ($this->planId) {
@@ -210,6 +236,7 @@ class GetOdooPlans extends Component
             'areaCode',
             'areaIso',
             'areaParentId',
+            'areaAllowedServices',
         ]);
         $this->areaKind = $kind === GetOdooPricingArea::KIND_REGION
             ? GetOdooPricingArea::KIND_REGION
@@ -217,6 +244,8 @@ class GetOdooPlans extends Component
         $this->areaExtraFixed = '0';
         $this->areaExtraPercent = '0';
         $this->areaActive = true;
+        $this->areaAllowMultipleProjects = true;
+        $this->areaAllowAllServices = true;
         $this->areaSort = '0';
     }
 
@@ -234,6 +263,9 @@ class GetOdooPlans extends Component
         $this->areaExtraFixed = number_format((float) $area->extra_fixed, 2, '.', '');
         $this->areaExtraPercent = number_format((float) $area->extra_percent, 2, '.', '');
         $this->areaActive = $area->is_active;
+        $this->areaAllowMultipleProjects = $area->allow_multiple_projects;
+        $this->areaAllowAllServices = $area->allow_all_services;
+        $this->areaAllowedServices = implode("\n", is_array($area->allowed_services) ? $area->allowed_services : []);
         $this->areaSort = (string) $area->sort_order;
     }
 
@@ -269,6 +301,9 @@ class GetOdooPlans extends Component
             'areaExtraFixed' => ['required', 'numeric', 'min:0', 'max:100000'],
             'areaExtraPercent' => ['required', 'numeric', 'min:0', 'max:500'],
             'areaActive' => ['boolean'],
+            'areaAllowMultipleProjects' => ['boolean'],
+            'areaAllowAllServices' => ['boolean'],
+            'areaAllowedServices' => ['nullable', 'string', 'max:4000'],
             'areaSort' => ['required', 'integer', 'min:0', 'max:9999'],
         ]);
 
@@ -288,6 +323,13 @@ class GetOdooPlans extends Component
             return;
         }
 
+        $allowedServices = GetOdooAreaEntitlements::normalizeServiceKeys($this->areaAllowedServices);
+        if (! $this->areaAllowAllServices && $allowedServices === []) {
+            $this->addError('areaAllowedServices', __('List at least one service key, or allow all services.'));
+
+            return;
+        }
+
         $values = [
             'code' => $code,
             'name' => trim($this->areaName),
@@ -301,6 +343,9 @@ class GetOdooPlans extends Component
             'extra_fixed' => round((float) $this->areaExtraFixed, 2),
             'extra_percent' => round((float) $this->areaExtraPercent, 2),
             'is_active' => $this->areaActive,
+            'allow_multiple_projects' => $this->areaAllowMultipleProjects,
+            'allow_all_services' => $this->areaAllowAllServices,
+            'allowed_services' => $this->areaAllowAllServices ? null : $allowedServices,
             'sort_order' => (int) $this->areaSort,
         ];
 
@@ -384,6 +429,7 @@ class GetOdooPlans extends Component
                 ['value' => GetOdooPricingArea::KIND_REGION, 'label' => __('Region')],
                 ['value' => GetOdooPricingArea::KIND_COUNTRY, 'label' => __('Country')],
             ],
+            'backupFrequencyChoices' => GetOdooBackupFrequency::choices(),
         ]);
     }
 }

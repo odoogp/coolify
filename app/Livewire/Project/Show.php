@@ -651,6 +651,8 @@ class Show extends Component
         $this->project->loadMissing('environments.odooBranch', 'environments.services');
         $activities = $this->activityMap();
 
+        $this->project->loadMissing('team.getodooPlan');
+
         return view('livewire.project.show', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'usedBranches' => $this->usedOdooBranches(),
@@ -660,6 +662,8 @@ class Show extends Component
             'hasProduction' => $this->project->environments->contains(
                 fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
             ),
+            'canMigrate' => (bool) $this->project->odooProfile
+                && (bool) $this->project->team?->getodooPlan?->includes_migration,
         ]);
     }
 

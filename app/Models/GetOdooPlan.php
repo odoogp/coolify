@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\GetOdooBackupFrequency;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GetOdooPlan extends BaseModel
@@ -22,6 +23,9 @@ class GetOdooPlan extends BaseModel
         'max_services',
         'can_add_servers',
         'can_launch_on_instance_server',
+        'includes_migration',
+        'backup_frequency',
+        'backup_retention_days',
     ];
 
     protected function casts(): array
@@ -37,6 +41,8 @@ class GetOdooPlan extends BaseModel
             'max_services' => 'integer',
             'can_add_servers' => 'boolean',
             'can_launch_on_instance_server' => 'boolean',
+            'includes_migration' => 'boolean',
+            'backup_retention_days' => 'integer',
         ];
     }
 
@@ -87,6 +93,23 @@ class GetOdooPlan extends BaseModel
 
         if ($this->can_launch_on_instance_server) {
             $items[] = ['label' => __('Can launch on the platform server'), 'value' => null];
+        }
+
+        if ($this->includes_migration) {
+            $items[] = ['label' => __('Migration help (GitHub, repository, dump + filestore)'), 'value' => null];
+        }
+
+        $frequency = (string) ($this->backup_frequency ?: GetOdooBackupFrequency::DAILY);
+        if ($frequency !== GetOdooBackupFrequency::NONE) {
+            $items[] = [
+                'label' => __('Automatic Odoo backups'),
+                'value' => GetOdooBackupFrequency::label($frequency),
+            ];
+            $days = max(1, (int) ($this->backup_retention_days ?: 7));
+            $items[] = [
+                'label' => __('Backup retention'),
+                'value' => trans_choice(':count day|:count days', $days, ['count' => $days]),
+            ];
         }
 
         return $items;

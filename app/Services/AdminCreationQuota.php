@@ -2,15 +2,17 @@
 
 namespace App\Services;
 
+use App\Domain\Odoo\OdooStaging;
 use App\Enums\Role;
 use App\Exceptions\AdminCreationQuotaExceeded;
 use App\Models\Application;
 use App\Models\Environment;
 use App\Models\Project;
 use App\Models\Service;
+use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
-use App\Domain\Odoo\OdooStaging;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use Illuminate\Support\Facades\DB;
 
 class AdminCreationQuota
@@ -223,6 +225,8 @@ class AdminCreationQuota
         }
 
         $teamId = (int) $teamId;
+        GetOdooAreaEntitlements::assertServiceAllowed(Team::query()->find($teamId), $service->service_type);
+
         $membership = DB::transactionLevel() > 0
             ? $this->lockedMembership($actor->id, $teamId)
             : $this->membership($actor->id, $teamId);
@@ -359,7 +363,7 @@ class AdminCreationQuota
         return [
             'projects' => [
                 'used' => $usage['projects'],
-                'limit' => $this->limitValue($membership, 'max_projects'),
+                'limit' => $this->effectiveProjectLimit($this->limitValue($membership, 'max_projects'), (int) $team->id),
             ],
             'environments' => [
                 'used' => $usage['environments'],
@@ -427,7 +431,7 @@ class AdminCreationQuota
 
         if ($projects > 0) {
             $this->assertLimit(
-                $membership->max_projects,
+                $this->effectiveProjectLimit($membership->max_projects, $teamId),
                 $this->projectUsage($userId, $teamId),
                 $projects,
                 'proyectos',
@@ -491,6 +495,16 @@ class AdminCreationQuota
         if ($used + $needed > $limit) {
             throw new AdminCreationQuotaExceeded($label, $used, $limit);
         }
+    }
+
+    private function effectiveProjectLimit(mixed $limit, int $teamId): mixed
+    {
+        $asInt = $limit === null ? null : (int) $limit;
+
+        return GetOdooAreaEntitlements::capMaxProjects(
+            $asInt,
+            GetOdooAreaEntitlements::forTeam(Team::query()->find($teamId)),
+        );
     }
 
     private function projectUsage(int $userId, int $teamId): int

@@ -32,6 +32,14 @@
                         <x-reicon name="settings" class="size-3.5" />
                         {{ __('Settings') }}
                     </a>
+                    @if ($canMigrate)
+                    <a href="{{ route('project.odoo.migrate', ['project_uuid' => $project->uuid]) }}"
+                        {{ wireNavigate() }}
+                        class="button"
+                        title="{{ __('Migrate from Odoo.sh') }}">
+                        {{ __('Migrate') }}
+                    </a>
+                    @endif
 
                     @if ($project->odooProfile && ! $hasProduction)
                     <button type="button" class="button button-highlighted" wire:click="continueOdoo">

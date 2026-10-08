@@ -48,6 +48,8 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
         'show_boarding',
         'custom_server_limit',
         'is_mcp_server_enabled',
+        'getodoo_plan_id',
+        'getodoo_pricing_area_id',
     ];
 
     protected $attributes = [
@@ -282,6 +284,16 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
         }
 
         return false;
+    }
+
+    public function getodooPlan()
+    {
+        return $this->belongsTo(GetOdooPlan::class, 'getodoo_plan_id');
+    }
+
+    public function getodooPricingArea()
+    {
+        return $this->belongsTo(GetOdooPricingArea::class, 'getodoo_pricing_area_id');
     }
 
     public function projects()

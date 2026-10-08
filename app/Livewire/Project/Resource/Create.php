@@ -7,6 +7,7 @@ use App\Domain\Odoo\OdooVersion;
 use App\Models\EnvironmentVariable;
 use App\Models\OdooComposeTemplate;
 use App\Models\Service;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use App\Support\ServiceTemplateCatalog;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
@@ -81,6 +82,11 @@ class Create extends Component
             }
             if ($type->startsWith('one-click-service-')) {
                 $oneClickServiceName = $type->after('one-click-service-')->value();
+                try {
+                    GetOdooAreaEntitlements::assertServiceAllowed(currentTeam(), $oneClickServiceName);
+                } catch (\Throwable $e) {
+                    return handleError($e, $this);
+                }
                 $compose = ServiceTemplateCatalog::composeFor($oneClickServiceName);
                 $oneClickDotEnvs = data_get($services, "$oneClickServiceName.envs", null);
                 if ($oneClickDotEnvs) {

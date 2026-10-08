@@ -124,10 +124,41 @@ it('queues an odoo addon application on the addon job and keeps deployment statu
 });
 
 it('marks a backup complete only when database and filestore both succeeded', function () {
+    Queue::fake();
     $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    ProvisionOdooEnvironment::run($staging, $this->destination, 'staging.cliente.com');
+    $service = $staging->fresh()->services()->first();
+    \App\Models\ServiceDatabase::create([
+        'service_id' => $service->id,
+        'name' => 'postgresql',
+        'image' => 'postgres:16-alpine',
+    ]);
+    $odooApp = $service->applications()->where('name', 'odoo')->first();
+    \App\Models\LocalPersistentVolume::create([
+        'name' => \App\Support\OdooAddons::filestoreVolume($service),
+        'mount_path' => '/var/lib/odoo',
+        'resource_id' => $odooApp->id,
+        'resource_type' => $odooApp->getMorphClass(),
+    ]);
+
+    $this->team->update([
+        'getodoo_plan_id' => \App\Models\GetOdooPlan::query()->create([
+            'name' => 'Backup plan',
+            'price' => 0,
+            'currency' => 'USD',
+            'is_active' => true,
+            'includes_migration' => true,
+            'backup_frequency' => 'daily',
+            'backup_retention_days' => 14,
+        ])->id,
+    ]);
+
     $backup = (new CreateOdooBackupJob($staging->id))->handle();
     expect($backup->status)->toBe('pending');
     expect(OdooAuditLog::query()->where('action', 'odoo.backup.create')->exists())->toBeTrue();
+    Queue::assertPushed(\App\Jobs\DatabaseBackupJob::class);
+    Queue::assertPushed(\App\Jobs\VolumeBackupJob::class);
+    Queue::assertPushed(\App\Jobs\SyncOdooBackupLegsJob::class);
 
     $database = ScheduledDatabaseBackupExecution::query()->create([
         'status' => 'success',

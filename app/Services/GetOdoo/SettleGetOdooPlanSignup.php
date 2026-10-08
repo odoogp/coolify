@@ -15,7 +15,7 @@ class SettleGetOdooPlanSignup
     {
         return DB::transaction(function () use ($signup, $transactionId) {
             $signup = GetOdooPlanSignup::query()->whereKey($signup->id)->lockForUpdate()->firstOrFail();
-            $signup->loadMissing('plan');
+            $signup->loadMissing(['plan', 'pricingArea']);
 
             if ($signup->status === 'paid') {
                 $signup->load('user');
@@ -29,7 +29,13 @@ class SettleGetOdooPlanSignup
                 throw new RuntimeException('This signup cannot be paid.');
             }
 
-            $user = $this->accounts->open($signup->name, $signup->email, $signup->password, $signup->plan);
+            $user = $this->accounts->open(
+                $signup->name,
+                $signup->email,
+                $signup->password,
+                $signup->plan,
+                $signup->pricingArea,
+            );
 
             $signup->update([
                 'status' => 'paid',

@@ -14,6 +14,7 @@ use App\Models\Service;
 use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Services\AdminCreationQuota;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use App\Support\OdooGit;
 use App\Support\ServiceTemplateCatalog;
 use App\Support\ValidationPatterns;
@@ -114,6 +115,9 @@ class AddEmpty extends Component
                     $project->refresh();
                 }
                 if ($destination !== null) {
+                    if ($this->service !== '') {
+                        GetOdooAreaEntitlements::assertServiceAllowed(currentTeam(), $this->service);
+                    }
                     $created = $this->createChosenService($project, $productionEnvironment, $destination);
                 }
                 DB::commit();
@@ -231,7 +235,7 @@ class AddEmpty extends Component
 
     public function render()
     {
-        $options = collect(ServiceTemplateCatalog::launchOptions())
+        $options = collect(ServiceTemplateCatalog::launchOptionsForTeam())
             ->map(fn (array $row): array => [
                 'value' => $row['value'],
                 'label' => $row['label'].(filled($row['category']) ? ' · '.$row['category'] : ''),

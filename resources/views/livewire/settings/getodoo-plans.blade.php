@@ -40,6 +40,15 @@
                         <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
                         <x-forms.checkbox id="canLaunchOnInstanceServer"
                             label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+                        <x-forms.checkbox id="includesMigration"
+                            label="{{ __('Includes migration help (GitHub, repository, dump + filestore)') }}" />
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <x-forms.listbox id="backupFrequency" portal label="{{ __('Automatic backup frequency') }}"
+                                :options="$backupFrequencyChoices"
+                                helper="{{ __('How often Odoo instances on this plan back up the database and the filestore.') }}" />
+                            <x-forms.input id="backupRetentionDays" type="number" min="1" max="365"
+                                label="{{ __('Backup retention (days)') }}" />
+                        </div>
                         <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
                             {{ __('The GitHub account is chosen later, on this client\'s team.') }}
                         </p>
@@ -88,6 +97,19 @@
                         <input type="checkbox" class="rounded" wire:model="areaActive">
                         {{ __('Visible for signup') }}
                     </label>
+                    <div class="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-white/[0.08]">
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Features for customers in this area. A country can only tighten what its region already allows.') }}
+                        </p>
+                        <x-forms.checkbox id="areaAllowMultipleProjects"
+                            label="{{ __('Allow more than one project / instance') }}" />
+                        <x-forms.checkbox id="areaAllowAllServices" live label="{{ __('Allow all catalog services') }}" />
+                        @if (! $areaAllowAllServices)
+                            <x-forms.textarea id="areaAllowedServices" rows="4"
+                                label="{{ __('Allowed services') }}"
+                                helper="{{ __('One service key per line, e.g. odoo or redis. Only these appear in Launch.') }}" />
+                        @endif
+                    </div>
                     <div class="flex flex-wrap gap-2">
                         <x-forms.button type="submit" isHighlighted>{{ __('Save area') }}</x-forms.button>
                         <button type="button" class="button" wire:click="newArea">{{ __('New area') }}</button>
@@ -109,6 +131,8 @@
                                             <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
                                                 +{{ number_format((float) $region->extra_percent, 2) }}%
                                                 · +${{ number_format((float) $region->extra_fixed, 2) }}
+                                                · {{ $region->allow_multiple_projects ? __('Multi project') : __('Single project') }}
+                                                · {{ $region->allow_all_services ? __('All services') : __('Limited services') }}
                                                 @unless ($region->is_active)
                                                     · {{ __('Hidden') }}
                                                 @endunless
@@ -139,6 +163,8 @@
                                                 {{ $country->parent?->name ?? __('No region') }}
                                                 · +{{ number_format((float) $country->extra_percent, 2) }}%
                                                 · +${{ number_format((float) $country->extra_fixed, 2) }}
+                                                · {{ $country->allow_multiple_projects ? __('Multi project') : __('Single project') }}
+                                                · {{ $country->allow_all_services ? __('All services') : __('Limited services') }}
                                                 @unless ($country->is_active)
                                                     · {{ __('Hidden') }}
                                                 @endunless

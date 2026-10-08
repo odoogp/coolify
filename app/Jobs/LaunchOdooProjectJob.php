@@ -8,6 +8,7 @@ use App\Enums\ProcessStatus;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Models\User;
+use App\Support\EnsureOdooBackupSchedules;
 use App\Support\GpshNotices;
 use App\Support\OdooGit;
 use App\Domain\Odoo\OdooStaging;
@@ -73,6 +74,16 @@ class LaunchOdooProjectJob implements ShouldQueue
                 $activity = StartService::run($current, pullLatestImages: false);
                 $this->waitForServiceStart($activity, $service);
             });
+
+            try {
+                $service->loadMissing('environment.project.team.getodooPlan');
+                EnsureOdooBackupSchedules::forService(
+                    $service->fresh() ?? $service,
+                    $service->environment?->project?->team?->getodooPlan,
+                );
+            } catch (Throwable) {
+                // Schedules need postgres + filestore volumes; a later backup button will retry.
+            }
 
             $environment = $service->environment;
             $this->progress(4, done: true, redirect: [

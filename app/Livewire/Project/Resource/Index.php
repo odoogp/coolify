@@ -14,6 +14,7 @@ use App\Models\Server;
 use App\Models\Service;
 use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use App\Support\OdooGit;
 use App\Support\ServiceTemplateCatalog;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -232,7 +233,7 @@ class Index extends Component
             'clickhousesJs' => $this->toSearchableArray($this->clickhouses, 'database', 'Database'),
             'servicesJs' => $this->toSearchableArray($this->services, 'service', 'Service'),
             'odooOnly' => $this->project->odooProfile()->exists(),
-            'serviceOptions' => collect(ServiceTemplateCatalog::launchOptions())
+            'serviceOptions' => collect(ServiceTemplateCatalog::launchOptionsForTeam())
                 ->map(fn (array $row): array => [
                     'value' => $row['value'],
                     'label' => $row['label'].(filled($row['category']) ? ' · '.$row['category'] : ''),
@@ -304,6 +305,7 @@ class Index extends Component
                 ]);
             }
 
+            GetOdooAreaEntitlements::assertServiceAllowed(currentTeam(), $name);
             $service = $this->createCatalogService($name, $this->chosenDestination());
             if (! $service instanceof Service) {
                 return;

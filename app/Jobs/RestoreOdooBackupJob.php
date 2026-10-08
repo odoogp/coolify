@@ -42,7 +42,10 @@ class RestoreOdooBackupJob implements ShouldQueue
     public function handle(): void
     {
         $plan = $this->plan();
-        $backup = OdooBackup::query()->with('environment')->findOrFail($this->odooBackupId);
+        $backup = OdooBackup::query()->with(['environment', 'databaseExecution', 'volumeExecution'])->findOrFail($this->odooBackupId);
+        $plan['database_filename'] = $backup->databaseExecution?->filename;
+        $plan['volume_filename'] = $backup->volumeExecution?->filename;
+        // ponytail: full remote restore of Coolify backup files lands next; gate already refuses incomplete pairs.
         OdooAuditLog::write(auth()->id(), $backup->environment->project_id, $plan['environment_id'], 'odoo.backup.restore', 'finished', $plan);
     }
 }
