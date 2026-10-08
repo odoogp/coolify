@@ -119,6 +119,11 @@ class DatabaseBackupJob implements ShouldBeEncrypted, ShouldQueue
                 throw new \Exception('Database not found?!');
             }
 
+            // Plan Odoo schedules only fire the timer; the real backup is an Odoo zip (dump + filestore).
+            if (RecordOdooPlanBackup::fromDatabaseSchedule($this->backup)) {
+                return;
+            }
+
             $this->markStaleExecutionsAsFailed();
 
             BackupCreated::dispatch($this->team->id);
@@ -477,14 +482,6 @@ class DatabaseBackupJob implements ShouldBeEncrypted, ShouldQueue
             }
             if ($this->backup_log && $this->backup_log->status === 'success') {
                 $this->removeExpiredBackups();
-                try {
-                    RecordOdooPlanBackup::fromDatabaseSchedule($this->backup);
-                } catch (Throwable $e) {
-                    Log::channel('scheduled-errors')->warning('Failed to record Odoo plan backup', [
-                        'backup_id' => $this->backup->id ?? null,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
             }
         } catch (Throwable $e) {
             throw $e;

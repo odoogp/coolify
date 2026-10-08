@@ -6,10 +6,12 @@ use App\Domain\Odoo\OdooAbilities;
 use App\Jobs\CreateOdooBackupJob;
 use App\Jobs\RestoreOdooBackupJob;
 use App\Models\Environment;
+use App\Models\OdooAuditLog;
 use App\Models\OdooBackup;
 use App\Models\Project;
 use App\Support\EnsureOdooBackupSchedules;
 use App\Support\GetOdooBackupFrequency;
+use App\Support\OdooZipBackup;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -43,7 +45,7 @@ class OdooBackups extends Component
 
         $bypass = isInstanceOwner() && ! EnsureOdooBackupSchedules::planAllowsBackups($plan);
         CreateOdooBackupJob::dispatch($this->environment->id, $bypass);
-        $this->dispatch('success', __('Backup queued. Database and filestore are saved together.'));
+        $this->dispatch('success', __('Backup queued. Database and filestore are saved together as an Odoo zip.'));
     }
 
     public function restore(int $backupId): void
@@ -54,14 +56,31 @@ class OdooBackups extends Component
             ->where('environment_id', $this->environment->id)
             ->firstOrFail();
 
-        if ($backup->status !== 'complete') {
-            $this->dispatch('error', __('Restore requires a complete database and filestore backup.'));
+        if (! $backup->hasZip()) {
+            $this->dispatch('error', __('Restore requires a complete Odoo backup zip.'));
 
             return;
         }
 
         RestoreOdooBackupJob::dispatch($backup->id);
         $this->dispatch('success', __('Restore queued for this branch.'));
+    }
+
+    public function deleteBackup(int $backupId): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+        $backup = OdooBackup::query()
+            ->whereKey($backupId)
+            ->where('environment_id', $this->environment->id)
+            ->firstOrFail();
+
+        OdooZipBackup::delete($backup);
+        $backup->delete();
+
+        OdooAuditLog::write(auth()->id(), $this->project->id, $this->environment->id, 'odoo.backup.delete', 'finished', [
+            'backup_id' => $backupId,
+        ]);
+        $this->dispatch('success', __('Backup deleted.'));
     }
 
     public function render()
@@ -75,22 +94,12 @@ class OdooBackups extends Component
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
 
         $backups = OdooBackup::query()
-            ->with(['databaseExecution', 'volumeExecution'])
             ->where('environment_id', $this->environment->id)
             ->latest('id')
             ->limit(50)
             ->get()
             ->map(function (OdooBackup $backup): array {
                 [$statusLabel, $statusType] = $this->statusPresentation((string) $backup->status);
-                $databaseExecution = $backup->databaseExecution;
-                $volumeExecution = $backup->volumeExecution;
-                $databaseReady = $databaseExecution !== null
-                    && $databaseExecution->status === 'success'
-                    && filled($databaseExecution->filename);
-                $volumeReady = $volumeExecution !== null
-                    && $volumeExecution->status === 'success'
-                    && filled($volumeExecution->filename)
-                    && ! (bool) ($volumeExecution->local_storage_deleted ?? false);
 
                 return [
                     'id' => $backup->id,
@@ -103,13 +112,10 @@ class OdooBackups extends Component
                         ? __('Automatic :frequency backup', ['frequency' => GetOdooBackupFrequency::label($frequency)])
                         : __('Manual backup'),
                     'automatic' => $backup->kind === OdooBackup::KIND_AUTOMATIC,
-                    'complete' => $backup->status === 'complete',
+                    'complete' => $backup->hasZip(),
                     'busy' => in_array($backup->status, ['pending', 'running'], true),
-                    'databaseDownloadUrl' => $databaseReady
-                        ? route('download.backup', ['executionId' => $databaseExecution->id])
-                        : null,
-                    'volumeDownloadUrl' => $volumeReady
-                        ? route('download.volume-backup', ['executionId' => $volumeExecution->id])
+                    'downloadUrl' => $backup->hasZip()
+                        ? route('download.odoo-backup', ['backupId' => $backup->id])
                         : null,
                 ];
             })
@@ -131,6 +137,7 @@ class OdooBackups extends Component
                 && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.create'),
             'canDownload' => $canDownload,
             'canRestore' => $user !== null && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.restore'),
+            'canDelete' => isInstanceOwner(),
             'service' => $this->environment->services->first(fn ($row): bool => $row->supportsOdooJupyter()),
         ]);
     }

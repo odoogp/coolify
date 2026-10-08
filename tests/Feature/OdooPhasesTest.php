@@ -13,14 +13,10 @@ use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
 use App\Models\GithubApp;
 use App\Models\InstanceSettings;
-use App\Models\OdooAuditLog;
 use App\Models\OdooBackup;
 use App\Models\PrivateKey;
 use App\Models\Project;
 use App\Models\S3Storage;
-use App\Models\ScheduledDatabaseBackupExecution;
-use App\Models\ScheduledVolumeBackup;
-use App\Models\ScheduledVolumeBackupExecution;
 use App\Models\Server;
 use App\Models\StandaloneDocker;
 use App\Models\Team;
@@ -123,23 +119,10 @@ it('queues an odoo addon application on the addon job and keeps deployment statu
         ->and($deployment->fresh()->logs)->toContain($production->odooBranch->fresh()->service_id ? OdooAddons::extraAddonsVolume($production->services()->first()) : '');
 });
 
-it('marks a backup complete only when database and filestore both succeeded', function () {
+it('restores only from a complete odoo zip backup', function () {
     Queue::fake();
     $staging = $this->project->environments()->where('name', 'staging-1')->first();
     ProvisionOdooEnvironment::run($staging, $this->destination, 'staging.cliente.com');
-    $service = $staging->fresh()->services()->first();
-    \App\Models\ServiceDatabase::create([
-        'service_id' => $service->id,
-        'name' => 'postgresql',
-        'image' => 'postgres:16-alpine',
-    ]);
-    $odooApp = $service->applications()->where('name', 'odoo')->first();
-    \App\Models\LocalPersistentVolume::create([
-        'name' => \App\Support\OdooAddons::filestoreVolume($service),
-        'mount_path' => '/var/lib/odoo',
-        'resource_id' => $odooApp->id,
-        'resource_type' => $odooApp->getMorphClass(),
-    ]);
 
     $this->team->update([
         'getodoo_plan_id' => \App\Models\GetOdooPlan::query()->create([
@@ -153,37 +136,23 @@ it('marks a backup complete only when database and filestore both succeeded', fu
         ])->id,
     ]);
 
-    $backup = (new CreateOdooBackupJob($staging->id))->handle();
-    expect($backup->status)->toBe('pending');
-    expect(OdooAuditLog::query()->where('action', 'odoo.backup.create')->exists())->toBeTrue();
-    Queue::assertPushed(\App\Jobs\DatabaseBackupJob::class);
-    Queue::assertPushed(\App\Jobs\VolumeBackupJob::class);
-    Queue::assertPushed(\App\Jobs\SyncOdooBackupLegsJob::class);
+    CreateOdooBackupJob::dispatch($staging->id);
+    Queue::assertPushed(CreateOdooBackupJob::class);
+    Queue::assertNotPushed(\App\Jobs\DatabaseBackupJob::class);
+    Queue::assertNotPushed(\App\Jobs\VolumeBackupJob::class);
+    Queue::assertNotPushed(\App\Jobs\SyncOdooBackupLegsJob::class);
 
-    $database = ScheduledDatabaseBackupExecution::query()->create([
-        'status' => 'success',
-        'scheduled_database_backup_id' => 1,
+    $backup = OdooBackup::query()->create([
+        'environment_id' => $staging->id,
+        'status' => 'complete',
+        'kind' => OdooBackup::KIND_MANUAL,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-staging-1.zip',
+        'filesize' => 1024,
     ]);
-    $schedule = ScheduledVolumeBackup::query()->create([
-        'backupable_type' => \App\Models\Environment::class,
-        'backupable_id' => $staging->id,
-        'team_id' => $this->team->id,
-        'frequency' => '0 0 * * *',
-    ]);
-    $volume = ScheduledVolumeBackupExecution::query()->create([
-        'status' => 'failed',
-        'scheduled_volume_backup_id' => $schedule->id,
-    ]);
-    $backup->syncLegs($database->id, $volume->id);
-    expect($backup->fresh()->status)->toBe('partial');
-
-    $volume->update(['status' => 'success']);
-    $backup->syncLegs($database->id, $volume->id);
-    expect($backup->fresh()->status)->toBe('complete');
-
+    expect($backup->hasZip())->toBeTrue();
     expect(fn () => (new RestoreOdooBackupJob($backup->id))->plan())->not->toThrow(RuntimeException::class);
 
-    $backup->update(['status' => 'pending']);
+    $backup->update(['filename' => null]);
     expect(fn () => (new RestoreOdooBackupJob($backup->id))->plan())->toThrow(RuntimeException::class);
 });
 

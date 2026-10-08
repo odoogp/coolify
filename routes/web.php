@@ -582,6 +582,50 @@ Route::middleware(['auth'])->group(function () {
         }
     })->name('download.volume-backup');
 
+    Route::get('/download/odoo-backup/{backupId}', function () {
+        try {
+            $user = auth()->user();
+            $team = $user->currentTeam();
+            if (is_null($team)) {
+                return response()->json(['message' => 'Team not found.'], 404);
+            }
+            $backup = \App\Models\OdooBackup::query()
+                ->with(['environment.project.team', 'environment.services.destination.server'])
+                ->findOrFail(request()->route('backupId'));
+            if (! $backup->hasZip()) {
+                return response()->json(['message' => 'Backup not found locally on the server.'], 404);
+            }
+            $backupTeamId = (int) ($backup->environment?->project?->team_id ?? 0);
+            $mayDownload = $user->isAdminFromSession()
+                || $user->isInstanceOwner()
+                || (
+                    $backupTeamId > 0
+                    && (
+                        OdooAbilities::allows($user, $backupTeamId, 'odoo.backup.create')
+                        || OdooAbilities::allows($user, $backupTeamId, 'odoo.backup.restore')
+                    )
+                );
+            if (! $mayDownload) {
+                return response()->json(['message' => __('Contact an advisor if you need access to this feature.')], 403);
+            }
+            if ($team->id !== 0 && $team->id !== $backupTeamId && ! $user->isInstanceOwner()) {
+                return response()->json(['message' => 'Permission denied.'], 403);
+            }
+
+            $service = $backup->environment?->services?->first(fn ($row): bool => $row->supportsOdooJupyter());
+            $server = $service?->destination?->server;
+            if (! $server) {
+                return response()->json(['message' => 'Server not found.'], 404);
+            }
+
+            return streamBackupFromServer($server, (string) $backup->filename, 'application/zip');
+        } catch (FileNotFoundException) {
+            return response()->json(['message' => 'Backup not found locally on the server.'], 404);
+        } catch (Throwable) {
+            return response()->json(['message' => 'Failed to download backup.'], 500);
+        }
+    })->name('download.odoo-backup');
+
 });
 
 Route::any('/{any}', function () {

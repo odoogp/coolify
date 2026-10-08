@@ -157,13 +157,15 @@ it('lets the instance owner create a manual backup when the plan has none', func
     Queue::assertPushed(CreateOdooBackupJob::class, fn (CreateOdooBackupJob $job): bool => $job->environmentId === $production->id && $job->bypassPlanRestriction === true);
 });
 
-it('lists branch backups and queues restore for a complete pair', function () {
+it('lists branch backups and queues restore for a complete odoo zip', function () {
     Queue::fake();
     $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
     $backup = OdooBackup::query()->create([
         'environment_id' => $production->id,
         'status' => 'complete',
         'kind' => OdooBackup::KIND_AUTOMATIC,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-production.zip',
+        'filesize' => 2048,
     ]);
 
     Livewire::test(OdooBackups::class, [
@@ -198,31 +200,14 @@ it('translates in-progress backup status on the branch list', function () {
         ->assertDontSee('pending');
 });
 
-it('offers database and filestore download links for a complete backup', function () {
+it('offers a single odoo zip download for a complete backup', function () {
     $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
-    $database = \App\Models\ScheduledDatabaseBackupExecution::query()->create([
-        'status' => 'success',
-        'filename' => 'odoo-db.dump',
-        'scheduled_database_backup_id' => 1,
-    ]);
-    $volumeSchedule = \App\Models\ScheduledVolumeBackup::query()->create([
-        'backupable_type' => \App\Models\Environment::class,
-        'backupable_id' => $production->id,
-        'team_id' => $this->team->id,
-        'frequency' => '0 0 * * *',
-    ]);
-    $volume = \App\Models\ScheduledVolumeBackupExecution::query()->create([
-        'status' => 'success',
-        'filename' => 'odoo-filestore.tar.gz',
-        'scheduled_volume_backup_id' => $volumeSchedule->id,
-        'local_storage_deleted' => false,
-    ]);
-    OdooBackup::query()->create([
+    $backup = OdooBackup::query()->create([
         'environment_id' => $production->id,
         'status' => 'complete',
         'kind' => OdooBackup::KIND_MANUAL,
-        'database_backup_execution_id' => $database->id,
-        'volume_backup_execution_id' => $volume->id,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-production.zip',
+        'filesize' => 4096,
     ]);
 
     Livewire::test(OdooBackups::class, [
@@ -231,10 +216,63 @@ it('offers database and filestore download links for a complete backup', functio
     ])
         ->assertOk()
         ->assertSee(__('Download'))
-        ->assertSee(__('Database dump'))
-        ->assertSee(__('Filestore archive'))
-        ->assertSee(route('download.backup', ['executionId' => $database->id]), false)
-        ->assertSee(route('download.volume-backup', ['executionId' => $volume->id]), false);
+        ->assertDontSee(__('Database dump'))
+        ->assertDontSee(__('Filestore archive'))
+        ->assertSee(route('download.odoo-backup', ['backupId' => $backup->id]), false);
+});
+
+it('lets the instance owner delete an odoo backup', function () {
+    Team::factory()->create(['id' => 0]);
+    $this->owner->teams()->attach(0, ['role' => 'owner']);
+    $this->owner->unsetRelation('teams');
+    $this->actingAs($this->owner->fresh(['teams']));
+    session(['currentTeam' => $this->team]);
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+    $backup = OdooBackup::query()->create([
+        'environment_id' => $production->id,
+        'status' => 'complete',
+        'kind' => OdooBackup::KIND_MANUAL,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-delete-me.zip',
+        'filesize' => 128,
+    ]);
+
+    Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->assertOk()
+        ->assertSee(__('Delete'))
+        ->call('deleteBackup', $backup->id)
+        ->assertDispatched('success');
+
+    expect(OdooBackup::query()->whereKey($backup->id)->exists())->toBeFalse();
+});
+
+it('prunes odoo zip backups older than the plan retention window', function () {
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+    $old = OdooBackup::query()->create([
+        'environment_id' => $production->id,
+        'status' => 'complete',
+        'kind' => OdooBackup::KIND_AUTOMATIC,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-old.zip',
+        'filesize' => 10,
+    ]);
+    OdooBackup::query()->whereKey($old->id)->update([
+        'created_at' => now()->subDays(30),
+        'updated_at' => now()->subDays(30),
+    ]);
+    $fresh = OdooBackup::query()->create([
+        'environment_id' => $production->id,
+        'status' => 'complete',
+        'kind' => OdooBackup::KIND_AUTOMATIC,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-fresh.zip',
+        'filesize' => 10,
+    ]);
+
+    \App\Support\OdooZipBackup::prune($production, 14);
+
+    expect(OdooBackup::query()->whereKey($old->id)->exists())->toBeFalse()
+        ->and(OdooBackup::query()->whereKey($fresh->id)->exists())->toBeTrue();
 });
 
 it('shows the team plan on project settings', function () {

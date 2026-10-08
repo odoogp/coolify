@@ -102,13 +102,14 @@ class EnsureOdooBackupSchedules
             ->orderBy('id')
             ->first();
 
+        // Odoo backups are a single zip (dump.sql + filestore). Coolify volume legs stay disabled.
         if ($volumeSchedule === null) {
             $volumeSchedule = ScheduledVolumeBackup::query()->create([
                 'backupable_type' => $volume->getMorphClass(),
                 'backupable_id' => $volume->id,
                 'team_id' => $team?->id,
                 'frequency' => $cron,
-                'enabled' => $enabled,
+                'enabled' => false,
                 'save_s3' => false,
                 'disable_local_backup' => false,
                 'stop_during_backup' => false,
@@ -118,7 +119,7 @@ class EnsureOdooBackupSchedules
         } else {
             $volumeSchedule->update([
                 'frequency' => $cron,
-                'enabled' => $enabled,
+                'enabled' => false,
                 'retention_amount_locally' => $retentionDays,
                 'retention_days_locally' => $retentionDays,
             ]);

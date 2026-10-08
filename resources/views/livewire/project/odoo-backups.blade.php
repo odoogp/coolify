@@ -19,7 +19,7 @@
 
             <div class="application-settings-form min-w-0 flex flex-col gap-6">
                 <x-application.settings-section title="{{ __('Backups') }}"
-                    helper="{{ __('Restore overwrites the database and filestore on :branch.', ['branch' => $environment->name]) }}">
+                    helper="{{ __('Each backup is an Odoo zip (database dump and filestore). Restore overwrites :branch.', ['branch' => $environment->name]) }}">
                     @if ($canCreate)
                         <x-slot:actions>
                             <x-forms.button type="button" wire:click="createBackup" isHighlighted wire:loading.attr="disabled">
@@ -75,42 +75,12 @@
                                             </td>
                                             <td class="px-3 py-3 text-right">
                                                 <div class="inline-flex flex-wrap items-center justify-end gap-1">
-                                                    @if ($canDownload && ($row['databaseDownloadUrl'] || $row['volumeDownloadUrl']))
-                                                        @if ($row['databaseDownloadUrl'] && $row['volumeDownloadUrl'])
-                                                            <div class="relative" x-data="{ open: false }" @click.outside="open = false">
-                                                                <button type="button" class="button" @click="open = !open"
-                                                                    :aria-expanded="open" title="{{ __('Download') }}">
-                                                                    <x-reicon name="upload" class="size-3.5 rotate-180" />
-                                                                    {{ __('Download') }}
-                                                                    <x-reicon name="chevron-down" class="size-3 opacity-55" />
-                                                                </button>
-                                                                <div x-show="open" x-cloak x-transition.origin.top.right
-                                                                    class="listbox-panel right-0! left-auto! z-[90]! w-48! min-w-48!">
-                                                                    <a role="menuitem" class="listbox-option justify-start! gap-2!"
-                                                                        href="{{ $row['databaseDownloadUrl'] }}" target="_blank" rel="noopener"
-                                                                        @click="open = false">
-                                                                        {{ __('Database dump') }}
-                                                                    </a>
-                                                                    <a role="menuitem" class="listbox-option justify-start! gap-2!"
-                                                                        href="{{ $row['volumeDownloadUrl'] }}" target="_blank" rel="noopener"
-                                                                        @click="open = false">
-                                                                        {{ __('Filestore archive') }}
-                                                                    </a>
-                                                                </div>
-                                                            </div>
-                                                        @elseif ($row['databaseDownloadUrl'])
-                                                            <a class="button" href="{{ $row['databaseDownloadUrl'] }}" target="_blank"
-                                                                rel="noopener" title="{{ __('Download database dump') }}">
-                                                                <x-reicon name="upload" class="size-3.5 rotate-180" />
-                                                                {{ __('Download') }}
-                                                            </a>
-                                                        @else
-                                                            <a class="button" href="{{ $row['volumeDownloadUrl'] }}" target="_blank"
-                                                                rel="noopener" title="{{ __('Download filestore archive') }}">
-                                                                <x-reicon name="upload" class="size-3.5 rotate-180" />
-                                                                {{ __('Download') }}
-                                                            </a>
-                                                        @endif
+                                                    @if ($canDownload && $row['downloadUrl'])
+                                                        <a class="button" href="{{ $row['downloadUrl'] }}" target="_blank"
+                                                            rel="noopener" title="{{ __('Download Odoo backup zip') }}">
+                                                            <x-reicon name="upload" class="size-3.5 rotate-180" />
+                                                            {{ __('Download') }}
+                                                        </a>
                                                     @endif
                                                     @if ($canRestore && $row['complete'])
                                                         <button type="button" class="button"
@@ -120,12 +90,22 @@
                                                             <x-reicon name="time-back" class="size-3.5" />
                                                             {{ __('Restore') }}
                                                         </button>
-                                                    @elseif ($row['busy'])
+                                                    @endif
+                                                    @if ($canDelete)
+                                                        <button type="button" class="button"
+                                                            wire:click="deleteBackup({{ $row['id'] }})"
+                                                            wire:confirm="{{ __('Delete this backup permanently?') }}"
+                                                            title="{{ __('Delete') }}">
+                                                            <x-reicon name="trash" class="size-3.5" />
+                                                            {{ __('Delete') }}
+                                                        </button>
+                                                    @endif
+                                                    @if ($row['busy'])
                                                         <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
                                                             <span class="size-1.5 animate-pulse rounded-full bg-warning"></span>
                                                             {{ __('Saving…') }}
                                                         </span>
-                                                    @elseif (! $canDownload || (! $row['databaseDownloadUrl'] && ! $row['volumeDownloadUrl']))
+                                                    @elseif (! $row['downloadUrl'] && ! $row['complete'] && ! $canDelete)
                                                         <span class="text-[12px] text-neutral-400 dark:text-fg-faint">-</span>
                                                     @endif
                                                 </div>

@@ -4573,5 +4573,12 @@
     "Download filestore archive": "Descargar archivo del filestore",
     "Restore overwrites the database and filestore on :branch.": "Restaurar sobrescribe la base y el filestore en :branch.",
     "The plan is set when the team signs up. Contact an advisor to change it.": "El plan se asigna al registrar el equipo. Contacta a un asesor para cambiarlo.",
-    "Not included": "No incluido"
+    "Not included": "No incluido",
+    "Backup queued. Database and filestore are saved together as an Odoo zip.": "Respaldo en cola. Se guarda un zip de Odoo con la base y el filestore.",
+    "Each backup is an Odoo zip (database dump and filestore). Restore overwrites :branch.": "Cada respaldo es un zip de Odoo (dump de la base y filestore). Restaurar sobrescribe :branch.",
+    "Download Odoo backup zip": "Descargar zip de respaldo de Odoo",
+    "Delete this backup permanently?": "¿Eliminar este respaldo de forma permanente?",
+    "Restore requires a complete Odoo backup zip.": "La restauración necesita un zip de respaldo de Odoo completo.",
+    "The Odoo backup zip was not created on the server.": "No se creó el zip de respaldo de Odoo en el servidor.",
+    "Invalid Odoo database or container name for backup.": "Nombre de base o contenedor de Odoo no válido para el respaldo."
 }

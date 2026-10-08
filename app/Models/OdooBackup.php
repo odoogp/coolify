@@ -17,7 +17,17 @@ class OdooBackup extends Model
         'volume_backup_execution_id',
         'status',
         'kind',
+        'filename',
+        'filesize',
+        'error',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'filesize' => 'integer',
+        ];
+    }
 
     public function environment(): BelongsTo
     {
@@ -32,6 +42,11 @@ class OdooBackup extends Model
     public function volumeExecution(): BelongsTo
     {
         return $this->belongsTo(ScheduledVolumeBackupExecution::class, 'volume_backup_execution_id');
+    }
+
+    public function hasZip(): bool
+    {
+        return filled($this->filename) && $this->status === 'complete';
     }
 
     public function syncLegs(?int $databaseExecutionId, ?int $volumeExecutionId): void
