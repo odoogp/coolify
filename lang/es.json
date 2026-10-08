@@ -4587,5 +4587,8 @@
     "Search GitHub accounts": "Buscar cuentas de GitHub",
     "No matching GitHub account": "Ninguna cuenta de GitHub coincide",
     "Pick any installed GitHub App. House modules clone with this account, not the one on the owner profile.": "Elige cualquier GitHub App instalada. Los módulos de la casa se clonan con esta cuenta, no con la del perfil del propietario.",
-    "Connect a GitHub App before saving the owner branch.": "Conecta una GitHub App antes de guardar la rama del propietario."
+    "Connect a GitHub App before saving the owner branch.": "Conecta una GitHub App antes de guardar la rama del propietario.",
+    "Searching branches…": "Buscando ramas…",
+    "No matching repository": "Ningún repositorio coincide",
+    "Each module is a folder with a manifest. Branches load when you pick a repository.": "Cada módulo es una carpeta con un manifiesto. Las ramas se cargan al elegir un repositorio."
 }

@@ -40,6 +40,13 @@ class Odoo extends Component
     /** @var list<string> */
     public array $ownerBranches = [];
 
+    /** @var list<string> */
+    public array $ownerRepositories = [];
+
+    public bool $ownerRepositoriesLoading = false;
+
+    public bool $ownerBranchesLoading = false;
+
     public string $odooBaseDomain = '';
 
     public int $mailDailyLimit = 20;
@@ -67,13 +74,27 @@ class Odoo extends Component
             ? $storedAppId
             : OdooGit::ownerGithubApp()?->id;
         $this->loadVersion();
+        if ($this->ownerGithubAppId) {
+            $this->loadOwnerRepositories(silent: true);
+            if ($this->ownerRepository !== '') {
+                $this->refreshOwnerBranches(silent: true);
+            }
+        }
     }
 
     public function updatedOwnerGithubAppId(): void
     {
         $this->authorize('update', $this->settings);
+        $this->ownerRepositories = [];
         $this->ownerBranches = [];
         $this->persistOwnerGithubAppId();
+        $this->loadOwnerRepositories();
+    }
+
+    public function updatedOwnerRepository(): void
+    {
+        $this->authorize('update', $this->settings);
+        $this->refreshOwnerBranches();
     }
 
     public function updatedVersion(): void
@@ -160,43 +181,79 @@ class Odoo extends Component
         $this->dispatch('success', __('Owner module saved. The next Odoo start copies it into the image addons.'));
     }
 
-    public function loadOwnerBranches(): void
+    public function loadOwnerRepositories(bool $silent = false): void
     {
-        $this->authorize('update', $this->settings);
+        if (! $silent) {
+            $this->authorize('update', $this->settings);
+        }
+
+        $githubApp = $this->selectedOwnerGithubApp();
+        if (! $githubApp instanceof GithubApp) {
+            $this->ownerRepositories = [];
+
+            return;
+        }
+
+        $this->ownerRepositoriesLoading = true;
+        try {
+            $this->ownerRepositories = collect(OdooGit::repositories($githubApp))
+                ->map(fn (array $row): string => (string) ($row['full_name'] ?? ''))
+                ->filter(fn (string $name): bool => $name !== '')
+                ->values()
+                ->all();
+            if ($this->ownerRepository !== '' && ! in_array($this->ownerRepository, $this->ownerRepositories, true)) {
+                array_unshift($this->ownerRepositories, $this->ownerRepository);
+            }
+        } catch (\Throwable) {
+            $this->ownerRepositories = $this->ownerRepository !== '' ? [$this->ownerRepository] : [];
+            if (! $silent) {
+                $this->dispatch('error', __('GitHub repositories could not be loaded.'));
+            }
+        }
+        $this->ownerRepositoriesLoading = false;
+    }
+
+    public function refreshOwnerBranches(bool $silent = false): void
+    {
+        if (! $silent) {
+            $this->authorize('update', $this->settings);
+        }
+
         $repository = OdooGit::normalizeRepository($this->ownerRepository);
         if (preg_match('#\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\z#', $repository) !== 1) {
-            $this->dispatch('error', __('Use the GitHub repository as owner/name.'));
+            $this->ownerBranches = [];
 
             return;
         }
 
         $this->ownerRepository = $repository;
-        $this->persistOwnerGithubAppId();
         $githubApp = $this->selectedOwnerGithubApp();
         if (! $githubApp instanceof GithubApp) {
-            $this->dispatch('error', __('Connect a GitHub App before loading branches.'));
+            $this->ownerBranches = [];
+            if (! $silent) {
+                $this->dispatch('error', __('Connect a GitHub App before loading branches.'));
+            }
 
             return;
         }
 
+        $this->ownerBranchesLoading = true;
         try {
             $this->ownerBranches = OdooGit::repositoryBranches($githubApp, $repository);
+            if ($this->ownerBranches === []) {
+                if (! $silent) {
+                    $this->dispatch('error', __('GitHub did not return branches for that repository.'));
+                }
+            } elseif (! in_array($this->ownerBranch, $this->ownerBranches, true)) {
+                $this->ownerBranch = $this->ownerBranches[0];
+            }
         } catch (\Throwable) {
             $this->ownerBranches = [];
-            $this->dispatch('error', __('GitHub did not return branches for that repository.'));
-
-            return;
+            if (! $silent) {
+                $this->dispatch('error', __('GitHub did not return branches for that repository.'));
+            }
         }
-
-        if ($this->ownerBranches === []) {
-            $this->dispatch('error', __('GitHub did not return branches for that repository.'));
-
-            return;
-        }
-
-        if (! in_array($this->ownerBranch, $this->ownerBranches, true)) {
-            $this->ownerBranch = $this->ownerBranches[0];
-        }
+        $this->ownerBranchesLoading = false;
     }
 
     public function saveOwnerRepository(): void
@@ -324,6 +381,14 @@ class Odoo extends Component
                 ->all(),
             'ownerGithubLogin' => $ownerGithubLogin,
             'ownerGithubConnected' => $selected instanceof GithubApp,
+            'ownerRepositoryOptions' => collect($this->ownerRepositories)
+                ->map(fn (string $name): array => ['value' => $name, 'label' => $name])
+                ->values()
+                ->all(),
+            'ownerBranchOptions' => collect($this->ownerBranches)
+                ->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])
+                ->values()
+                ->all(),
         ]);
     }
 

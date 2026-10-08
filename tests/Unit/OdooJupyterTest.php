@@ -529,11 +529,11 @@ test('owner jupyter mounts the image addons, owner modules, and branch addons', 
         ->and($services['stdlib-18']['image'])->toBe('odoo:18')
         ->and($services['stdlib-18']['volumes'])->toBe(['odoo-stdlib-18:/usr/lib/python3/dist-packages/odoo/addons'])
         ->and($owner['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner-modules:ro')
-        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/mi-empresa/production/custom_addons:ro')
-        ->and($owner['volumes'])->toContain('abc_odoo-web-data:/workspace/cliente-1/mi-empresa/production/files:ro')
-        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/mi-empresa/production/odoo:ro')
-        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/mi-empresa/staging-1/custom_addons:ro')
-        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/mi-empresa/staging-1/odoo:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro')
+        ->and($owner['volumes'])->toContain('abc_odoo-web-data:/workspace/cliente-1/production/files:ro')
+        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/addons_odoo:ro')
+        ->and($owner['volumes'])->toContain('def_odoo-extra-addons:/workspace/cliente-1/staging-1/custom_addons:ro')
+        ->and($owner['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/staging-1/addons_odoo:ro')
         ->and(json_encode($owner))->not->toContain('docker.sock')
         ->and(OdooJupyter::injectOwner($compose))->toBe($compose)
         ->and(OdooJupyter::ownerExternalVolumes($compose))->toBe(['abc_odoo-extra-addons', 'abc_odoo-web-data', 'def_odoo-extra-addons'])
@@ -567,7 +567,7 @@ test('owner jupyter uses the proxy network and the notebook start script', funct
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('502|503|000');
 });
 
-test('owner jupyter groups by team then project then branch', function () {
+test('owner jupyter groups by team then branch with custom_addons and addons_odoo', function () {
     $compose = OdooJupyter::ownerCompose([
         ['team' => 'Root Team', 'project' => 'Odoo', 'environment' => 'production', 'custom' => 'a_odoo-extra-addons', 'files' => null, 'image' => 'odoo:20'],
         ['team' => 'Root Team', 'project' => 'Odoo', 'environment' => 'staging-1', 'custom' => 'c_odoo-extra-addons', 'files' => null, 'image' => 'odoo:20'],
@@ -577,15 +577,19 @@ test('owner jupyter groups by team then project then branch', function () {
     $volumes = Yaml::parse($compose)['services']['jupyter']['volumes'];
 
     expect($volumes)->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner-modules:ro')
-        ->and($volumes)->toContain('a_odoo-extra-addons:/workspace/owner/odoo/production/custom_addons:ro')
-        ->and($volumes)->toContain('c_odoo-extra-addons:/workspace/owner/odoo/staging-1/custom_addons:ro')
-        ->and($volumes)->toContain('b_odoo-extra-addons:/workspace/owner/pollo-campero/production/custom_addons:ro')
-        ->and($volumes)->toContain('d_odoo-extra-addons:/workspace/cliente-1/mi-empresa/production/custom_addons:ro')
+        ->and($volumes)->toContain('a_odoo-extra-addons:/workspace/owner/production/custom_addons:ro')
+        ->and($volumes)->toContain('odoo-stdlib-20:/workspace/owner/production/addons_odoo:ro')
+        ->and($volumes)->toContain('c_odoo-extra-addons:/workspace/owner/staging-1/custom_addons:ro')
+        ->and($volumes)->toContain('b_odoo-extra-addons:/workspace/owner/production-2/custom_addons:ro')
+        ->and($volumes)->toContain('d_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro')
+        ->and($volumes)->toContain('odoo-stdlib-20:/workspace/cliente-1/production/addons_odoo:ro')
         ->and(json_encode($volumes))->not->toContain('/workspace/root-team/')
         ->and(json_encode($volumes))->not->toContain('/workspace/cliente1/')
-        ->and(OdooJupyter::ownerWorkspaceFolder('Root Team', 'Odoo', 'production'))->toBe('owner/odoo/production')
-        ->and(OdooJupyter::ownerWorkspaceFolder('Root Team', 'Pollo campero', 'production'))->toBe('owner/pollo-campero/production')
-        ->and(OdooJupyter::ownerWorkspaceFolder('Cliente 1', 'Mi Empresa', 'production'))->toBe('cliente-1/mi-empresa/production')
+        ->and(json_encode($volumes))->not->toContain('/mi-empresa/')
+        ->and(json_encode($volumes))->not->toContain('/production/odoo:ro')
+        ->and(OdooJupyter::ownerWorkspaceFolder('Root Team', 'Odoo', 'production'))->toBe('owner/production')
+        ->and(OdooJupyter::ownerWorkspaceFolder('Root Team', 'Pollo campero', 'production'))->toBe('owner/production')
+        ->and(OdooJupyter::ownerWorkspaceFolder('Cliente 1', 'Mi Empresa', 'production'))->toBe('cliente-1/production')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Support/OdooJupyter.php'))->toContain('import odoo.tools');
 });
 
@@ -603,7 +607,7 @@ test('owner jupyter drops a missing volume without leaving a broken volumes key'
         ->and($stripped['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner-modules:ro')
         ->and($gone)->not->toHaveKey('volumes')
         ->and($gone['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner-modules:ro')
-        ->and($remote['services']['jupyter']['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/odoo:ro')
+        ->and($remote['services']['jupyter']['volumes'])->toContain('odoo-stdlib-18:/workspace/cliente-1/production/addons_odoo:ro')
         ->and($remote['services']['jupyter']['volumes'])->toContain('/data/coolify/gpsh-owner-modules:/workspace/owner-modules:ro');
 });
 
@@ -623,11 +627,11 @@ test('owner jupyter shows another server as that team folder with its custom add
     $volumes = Yaml::parse($compose)['services']['jupyter']['volumes'];
 
     expect($ready[0]['custom'])->toBeNull()
-        ->and($ready[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/mi-empresa/production/custom')
+        ->and($ready[0]['custom_bind'])->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom')
         ->and($ready[0]['import_volume'])->toBe('abc_odoo-extra-addons')
-        ->and($volumes)->toContain('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/mi-empresa/production/custom:/workspace/cliente-1/mi-empresa/production/custom_addons:ro')
-        ->and($volumes)->toContain('odoo-stdlib-18:/workspace/cliente-1/mi-empresa/production/odoo:ro')
-        ->and($volumes)->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/mi-empresa/production/custom_addons:ro');
+        ->and($volumes)->toContain('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/production/custom:/workspace/cliente-1/production/custom_addons:ro')
+        ->and($volumes)->toContain('odoo-stdlib-18:/workspace/cliente-1/production/addons_odoo:ro')
+        ->and($volumes)->not->toContain('abc_odoo-extra-addons:/workspace/cliente-1/production/custom_addons:ro');
 
     $local = OdooJupyter::prepareOwnerInstances([[
         'team' => 'Root Team',

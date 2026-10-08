@@ -85,26 +85,49 @@
                             <a class="button" href="{{ route('settings.github') }}">{{ __('Connect GitHub') }}</a>
                         </div>
                     @endif
-                    <x-forms.input id="ownerRepository" label="{{ __('Repository') }}"
-                        helper="{{ __('GitHub repository, as owner/name. Each module is a folder with a manifest.') }}"
-                        placeholder="owner/house-addons" />
-                    <div class="flex items-end gap-2">
-                        <div class="min-w-0 flex-1">
-                            @if ($ownerBranches !== [])
-                                <label class="mb-1.5 block text-sm font-medium" for="owner-branch">{{ __('Current branch') }}</label>
-                                <select id="owner-branch" wire:model="ownerBranch" class="input">
-                                    @foreach ($ownerBranches as $branch)
-                                        <option value="{{ $branch }}">{{ $branch }}</option>
-                                    @endforeach
-                                </select>
+                    @if ($ownerGithubConnected)
+                        <div class="space-y-1.5">
+                            @if ($ownerRepositoriesLoading)
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Loading repositories…') }}</p>
+                            @endif
+                            @if ($ownerRepositoryOptions !== [])
+                                <x-forms.searchable-listbox id="ownerRepository" label="{{ __('Repository') }}" live
+                                    searchPlaceholder="{{ __('Search repositories') }}"
+                                    emptyText="{{ __('No matching repository') }}"
+                                    helper="{{ __('Each module is a folder with a manifest. Branches load when you pick a repository.') }}"
+                                    :options="$ownerRepositoryOptions" />
                             @else
-                                <x-forms.input id="ownerBranch" label="{{ __('Current branch') }}" placeholder="main" />
+                                <x-forms.input id="ownerRepository" label="{{ __('Repository') }}"
+                                    helper="{{ __('GitHub repository, as owner/name. Each module is a folder with a manifest.') }}"
+                                    placeholder="owner/house-addons" />
                             @endif
                         </div>
-                        <x-forms.button type="button" wire:click="loadOwnerBranches">{{ __('Load branches') }}</x-forms.button>
-                    </div>
+                        <div class="space-y-1.5">
+                            @if ($ownerBranchesLoading)
+                                <p class="inline-flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    <span class="size-1.5 animate-pulse rounded-full bg-sky-500"></span>
+                                    {{ __('Searching branches…') }}
+                                </p>
+                            @endif
+                            @if ($ownerBranchOptions !== [])
+                                <x-forms.searchable-listbox id="ownerBranch" label="{{ __('Current branch') }}" live
+                                    searchPlaceholder="{{ __('Search branches') }}"
+                                    emptyText="{{ __('No matching branch') }}"
+                                    :options="$ownerBranchOptions" />
+                            @elseif (! $ownerBranchesLoading)
+                                <x-forms.input id="ownerBranch" label="{{ __('Current branch') }}" placeholder="main" />
+                            @else
+                                <label class="mb-1.5 block text-sm font-medium">{{ __('Current branch') }}</label>
+                                <div class="input flex items-center text-neutral-400 dark:text-fg-faint">{{ __('Searching branches…') }}</div>
+                            @endif
+                        </div>
+                    @endif
                     <div>
-                        <x-forms.button type="submit" isHighlighted>{{ __('Save branch') }}</x-forms.button>
+                        <x-forms.button type="submit" isHighlighted
+                            wire:loading.attr="disabled"
+                            wire:target="saveOwnerRepository,updatedOwnerRepository,updatedOwnerGithubAppId,refreshOwnerBranches,loadOwnerRepositories">
+                            {{ __('Save branch') }}
+                        </x-forms.button>
                     </div>
                 </form>
                 <form wire:submit="addModule" class="flex max-w-xl items-end gap-2">

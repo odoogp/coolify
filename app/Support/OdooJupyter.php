@@ -274,7 +274,7 @@ class OdooJupyter
 
     /**
      * One Jupyter for the instance owner, outside every client stack.
-     * Each client team, project, and environment gets custom (extra-addons), odoo (image addons), and files.
+     * Each client team and environment gets custom_addons, addons_odoo (image addons), and files.
      *
      * @param  list<array{team: string, project?: string, environment: string, custom: ?string, files: ?string, image: string, custom_bind?: ?string}>  $instances
      */
@@ -307,7 +307,7 @@ class OdooJupyter
             $used[$unique] = true;
             $root = '/workspace/'.$unique;
             $bind = (string) ($instance['custom_bind'] ?? '');
-            if (preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){2,4}custom\z#', $bind) === 1) {
+            if (preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){1,4}custom\z#', $bind) === 1) {
                 $mounts[] = $bind.':'.$root.'/custom_addons:ro';
             } else {
                 $volume = (string) ($instance['custom'] ?? '');
@@ -327,7 +327,7 @@ class OdooJupyter
             }
             $volume = self::stdlibVolumeName($image);
             $stdlib[$volume] = $image;
-            $mounts[] = $volume.':'.$root.'/odoo:ro';
+            $mounts[] = $volume.':'.$root.'/addons_odoo:ro';
         }
 
         $services = [];
@@ -629,13 +629,14 @@ BASH], $server);
     }
 
     /**
-     * /workspace/{team}/{project}/{environment} — team, then project, then branch.
+     * /workspace/{team}/{environment} — team, then branch (production / staging-N).
+     * Minimum tree: Cliente 1 > production > custom_addons / addons_odoo.
      * Root Team is the instance owner: folder name is "owner" so it sits next to client teams.
+     * $project is ignored in the path (kept for call-site compatibility).
      */
     public static function ownerWorkspaceFolder(string $team, string $project, string $environment): ?string
     {
         $team = Str::slug($team);
-        $project = Str::slug($project);
         $environment = Str::slug($environment);
         if ($environment === '') {
             return null;
@@ -644,11 +645,8 @@ BASH], $server);
         if ($team === '' || $team === 'root-team') {
             $team = 'owner';
         }
-        if ($project === '') {
-            return $team.'/'.$environment;
-        }
 
-        return $team.'/'.$project.'/'.$environment;
+        return $team.'/'.$environment;
     }
 
     /**
@@ -713,7 +711,7 @@ BASH], $server);
         $volume = self::volumeName((string) ($instance['import_volume'] ?? ''));
         $image = (string) ($instance['image'] ?? '');
         $dir = (string) ($instance['custom_bind'] ?? '');
-        if ($volume === null || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1 || preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){2,4}custom\z#', $dir) !== 1) {
+        if ($volume === null || preg_match('/\A[A-Za-z0-9][A-Za-z0-9._\/:-]{0,200}\z/', $image) !== 1 || preg_match('#\A/data/coolify/gpsh-owner-jupyter/clients/(?:[a-z0-9-]+/){1,4}custom\z#', $dir) !== 1) {
             return false;
         }
         $remote = Server::query()->find($instance['server_id'] ?? null);

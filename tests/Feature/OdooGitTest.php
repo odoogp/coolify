@@ -882,6 +882,56 @@ it('saves the owner repository branch without restarting odoo', function () {
     Bus::assertNotDispatched(StartService::class);
 });
 
+it('auto-loads owner module branches when the repository is chosen', function () {
+    $rootTeam = Team::factory()->make(['name' => 'Root branches']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->actingAs($this->user->fresh());
+
+    $key = PrivateKey::factory()->create(['team_id' => $rootTeam->id]);
+    $app = GithubApp::create([
+        'name' => 'House Branches',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'app_id' => 555,
+        'installation_id' => 666,
+        'private_key_id' => $key->id,
+        'team_id' => $rootTeam->id,
+        'is_public' => false,
+    ]);
+    instanceSettings()->update(['odoo_owner_github_app_id' => $app->id]);
+    Cache::put('github-installation-token:'.$app->id, 'fake-installation-token', 3000);
+    Cache::put('github-installation-account:'.$app->id, ['login' => 'house-org', 'type' => 'Organization'], 3600);
+
+    Http::fake([
+        'https://api.github.com/installation/repositories*' => Http::response([
+            'total_count' => 1,
+            'repositories' => [[
+                'id' => 99,
+                'full_name' => 'house-org/demo20',
+                'name' => 'demo20',
+                'owner' => ['login' => 'house-org'],
+                'default_branch' => 'main',
+            ]],
+        ], 200),
+        'https://api.github.com/repos/house-org/demo20/branches*' => Http::response([
+            ['name' => 'main'],
+            ['name' => '19.0'],
+        ], 200),
+    ]);
+
+    Livewire::test(Odoo::class)
+        ->assertDontSee(__('Load branches'))
+        ->set('ownerGithubAppId', $app->id)
+        ->call('loadOwnerRepositories')
+        ->assertSet('ownerRepositories', ['house-org/demo20'])
+        ->set('ownerRepository', 'house-org/demo20')
+        ->assertSet('ownerBranches', ['main', '19.0'])
+        ->assertSee(__('Search branches'))
+        ->assertSet('ownerBranch', 'main');
+});
+
 it('lets the owner pick a github account for house modules independent of the profile', function () {
     $rootTeam = Team::factory()->make(['name' => 'Root github']);
     $rootTeam->id = 0;
