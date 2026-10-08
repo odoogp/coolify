@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Odoo\OdooAbilities;
 use App\Domain\Odoo\OdooMail;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\LocaleController;
@@ -496,21 +497,27 @@ Route::middleware(['auth'])->group(function () {
             if (is_null($team)) {
                 return response()->json(['message' => 'Team not found.'], 404);
             }
-            if ($user->isAdminFromSession() === false) {
-                return response()->json(['message' => 'Only team admins/owners can download backups.'], 403);
-            }
             $exeuctionId = request()->route('executionId');
             $execution = ScheduledDatabaseBackupExecution::where('id', $exeuctionId)->firstOrFail();
             $execution_team_id = $execution->scheduledDatabaseBackup->database->team()?->id;
+            $mayDownload = $user->isAdminFromSession()
+                || $user->isInstanceOwner()
+                || (
+                    is_int($execution_team_id)
+                    && (
+                        OdooAbilities::allows($user, $execution_team_id, 'odoo.backup.create')
+                        || OdooAbilities::allows($user, $execution_team_id, 'odoo.backup.restore')
+                    )
+                );
+            if (! $mayDownload) {
+                return response()->json(['message' => __('Contact an advisor if you need access to this feature.')], 403);
+            }
             if ($team->id !== 0) {
                 if (is_null($execution_team_id)) {
                     return response()->json(['message' => 'Team not found.'], 404);
                 }
-                if ($team->id !== $execution_team_id) {
+                if ($team->id !== $execution_team_id && ! $user->isInstanceOwner()) {
                     return response()->json(['message' => 'Permission denied.'], 403);
-                }
-                if (is_null($execution)) {
-                    return response()->json(['message' => 'Backup not found.'], 404);
                 }
             }
             $filename = data_get($execution, 'filename');
@@ -539,14 +546,23 @@ Route::middleware(['auth'])->group(function () {
             if (is_null($team)) {
                 return response()->json(['message' => 'Team not found.'], 404);
             }
-            if ($user->isAdminFromSession() === false) {
-                return response()->json(['message' => 'Only team admins/owners can download backups.'], 403);
-            }
-
             $execution = ScheduledVolumeBackupExecution::query()
                 ->with('scheduledVolumeBackup.backupable.resource')
                 ->findOrFail(request()->route('executionId'));
-            if ($team->id !== 0 && $team->id !== $execution->scheduledVolumeBackup->team_id) {
+            $executionTeamId = (int) ($execution->scheduledVolumeBackup->team_id ?? 0);
+            $mayDownload = $user->isAdminFromSession()
+                || $user->isInstanceOwner()
+                || (
+                    $executionTeamId > 0
+                    && (
+                        OdooAbilities::allows($user, $executionTeamId, 'odoo.backup.create')
+                        || OdooAbilities::allows($user, $executionTeamId, 'odoo.backup.restore')
+                    )
+                );
+            if (! $mayDownload) {
+                return response()->json(['message' => __('Contact an advisor if you need access to this feature.')], 403);
+            }
+            if ($team->id !== 0 && $team->id !== $executionTeamId && ! $user->isInstanceOwner()) {
                 return response()->json(['message' => 'Permission denied.'], 403);
             }
             if ($execution->local_storage_deleted || blank($execution->filename)) {

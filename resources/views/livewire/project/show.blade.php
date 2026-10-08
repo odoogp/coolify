@@ -14,9 +14,6 @@
                         @if (filled($project->odooProfile->odoo_version))
                             · Odoo {{ $project->odooProfile->odoo_version }}
                         @endif
-                        @if (filled($project->team?->getodooPlan?->name))
-                            · {{ __('Plan') }}: {{ $project->team->getodooPlan->name }}
-                        @endif
                     @else
                     <span
                         x-text="`${environments.length} ${environments.length === 1 ? @js(__('environment')) : @js(__('environments'))}`"></span>

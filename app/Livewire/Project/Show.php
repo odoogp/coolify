@@ -651,8 +651,6 @@ class Show extends Component
         $this->project->loadMissing('environments.odooBranch', 'environments.services');
         $activities = $this->activityMap();
 
-        $this->project->loadMissing('team.getodooPlan');
-
         return view('livewire.project.show', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'usedBranches' => $this->usedOdooBranches(),

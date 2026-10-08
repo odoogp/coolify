@@ -124,8 +124,7 @@ it('shows plan-driven odoo backups for a branch and refuses create when the plan
         ->assertOk()
         ->assertSee(__('Want automatic backups?'))
         ->assertSee(__('Contact an advisor to add backups to your plan and protect this project.'))
-        ->assertSee(__('Plan').':')
-        ->assertSee($this->plan->name)
+        ->assertDontSee($this->plan->name)
         ->call('createBackup')
         ->assertDispatched('error');
 
@@ -151,7 +150,6 @@ it('lets the instance owner create a manual backup when the plan has none', func
     ])
         ->assertOk()
         ->assertSee(__('Create Backup'))
-        ->assertSee($this->plan->name)
         ->assertDontSee(__('Want automatic backups?'))
         ->call('createBackup')
         ->assertDispatched('success');
@@ -174,8 +172,7 @@ it('lists branch backups and queues restore for a complete pair', function () {
     ])
         ->assertOk()
         ->assertSee(__('Create Backup'))
-        ->assertSee(__('Plan policy'))
-        ->assertSee($this->plan->name)
+        ->assertSee(__('Complete'))
         ->assertSee($production->name)
         ->call('restore', $backup->id)
         ->assertDispatched('success');
@@ -183,9 +180,67 @@ it('lists branch backups and queues restore for a complete pair', function () {
     Queue::assertPushed(RestoreOdooBackupJob::class, fn (RestoreOdooBackupJob $job): bool => $job->odooBackupId === $backup->id);
 });
 
-it('shows the team plan on the project page', function () {
-    Livewire::test(\App\Livewire\Project\Show::class, ['project_uuid' => $this->project->uuid])
+it('translates in-progress backup status on the branch list', function () {
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+    OdooBackup::query()->create([
+        'environment_id' => $production->id,
+        'status' => 'pending',
+        'kind' => OdooBackup::KIND_MANUAL,
+    ]);
+
+    Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
         ->assertOk()
-        ->assertSee(__('Plan').':')
-        ->assertSee($this->plan->name);
+        ->assertSee(__('In progress'))
+        ->assertSee(__('Saving…'))
+        ->assertDontSee('pending');
+});
+
+it('offers database and filestore download links for a complete backup', function () {
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+    $database = \App\Models\ScheduledDatabaseBackupExecution::query()->create([
+        'status' => 'success',
+        'filename' => 'odoo-db.dump',
+        'scheduled_database_backup_id' => 1,
+    ]);
+    $volumeSchedule = \App\Models\ScheduledVolumeBackup::query()->create([
+        'backupable_type' => \App\Models\Environment::class,
+        'backupable_id' => $production->id,
+        'team_id' => $this->team->id,
+        'frequency' => '0 0 * * *',
+    ]);
+    $volume = \App\Models\ScheduledVolumeBackupExecution::query()->create([
+        'status' => 'success',
+        'filename' => 'odoo-filestore.tar.gz',
+        'scheduled_volume_backup_id' => $volumeSchedule->id,
+        'local_storage_deleted' => false,
+    ]);
+    OdooBackup::query()->create([
+        'environment_id' => $production->id,
+        'status' => 'complete',
+        'kind' => OdooBackup::KIND_MANUAL,
+        'database_backup_execution_id' => $database->id,
+        'volume_backup_execution_id' => $volume->id,
+    ]);
+
+    Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->assertOk()
+        ->assertSee(__('Download'))
+        ->assertSee(__('Database dump'))
+        ->assertSee(__('Filestore archive'))
+        ->assertSee(route('download.backup', ['executionId' => $database->id]), false)
+        ->assertSee(route('download.volume-backup', ['executionId' => $volume->id]), false);
+});
+
+it('shows the team plan on project settings', function () {
+    Livewire::test(\App\Livewire\Project\Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertOk()
+        ->assertSee(__('Plan'))
+        ->assertSee($this->plan->name)
+        ->assertSee(__('The plan is set when the team signs up. Contact an advisor to change it.'));
 });

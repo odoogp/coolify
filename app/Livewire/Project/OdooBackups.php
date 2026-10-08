@@ -32,6 +32,7 @@ class OdooBackups extends Component
     public function createBackup(): void
     {
         $this->guard('odoo.backup.create');
+        $this->project->loadMissing('team.getodooPlan');
         $plan = $this->project->team?->getodooPlan;
         $user = auth()->user();
         if (! EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, $user)) {
@@ -72,7 +73,6 @@ class OdooBackups extends Component
         $user = auth()->user();
         $canCreateManual = EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, $user);
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
-        $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
 
         $backups = OdooBackup::query()
             ->with(['databaseExecution', 'volumeExecution'])
@@ -80,35 +80,73 @@ class OdooBackups extends Component
             ->latest('id')
             ->limit(50)
             ->get()
-            ->map(fn (OdooBackup $backup): array => [
-                'id' => $backup->id,
-                'time' => $backup->created_at?->utc()->format('Y-m-d H:i:s'),
-                'branch' => $this->environment->name,
-                'version' => (string) ($this->project->odooProfile?->odoo_version ?: '—'),
-                'status' => $backup->status,
-                'kind' => $backup->kind === OdooBackup::KIND_AUTOMATIC
-                    ? __('Automatic :frequency backup', ['frequency' => GetOdooBackupFrequency::label($frequency)])
-                    : __('Manual backup'),
-                'complete' => $backup->status === 'complete',
-            ])
+            ->map(function (OdooBackup $backup): array {
+                [$statusLabel, $statusType] = $this->statusPresentation((string) $backup->status);
+                $databaseExecution = $backup->databaseExecution;
+                $volumeExecution = $backup->volumeExecution;
+                $databaseReady = $databaseExecution !== null
+                    && $databaseExecution->status === 'success'
+                    && filled($databaseExecution->filename);
+                $volumeReady = $volumeExecution !== null
+                    && $volumeExecution->status === 'success'
+                    && filled($volumeExecution->filename)
+                    && ! (bool) ($volumeExecution->local_storage_deleted ?? false);
+
+                return [
+                    'id' => $backup->id,
+                    'time' => $backup->created_at?->utc()->format('Y-m-d H:i:s'),
+                    'branch' => $this->environment->name,
+                    'version' => (string) ($this->project->odooProfile?->odoo_version ?: '-'),
+                    'status' => $statusLabel,
+                    'statusType' => $statusType,
+                    'kind' => $backup->kind === OdooBackup::KIND_AUTOMATIC
+                        ? __('Automatic :frequency backup', ['frequency' => GetOdooBackupFrequency::label($frequency)])
+                        : __('Manual backup'),
+                    'automatic' => $backup->kind === OdooBackup::KIND_AUTOMATIC,
+                    'complete' => $backup->status === 'complete',
+                    'busy' => in_array($backup->status, ['pending', 'running'], true),
+                    'databaseDownloadUrl' => $databaseReady
+                        ? route('download.backup', ['executionId' => $databaseExecution->id])
+                        : null,
+                    'volumeDownloadUrl' => $volumeReady
+                        ? route('download.volume-backup', ['executionId' => $volumeExecution->id])
+                        : null,
+                ];
+            })
             ->all();
+
+        $hasBusy = collect($backups)->contains(fn (array $row): bool => $row['busy']);
+        $canDownload = $user !== null && (
+            OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.create')
+            || OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.restore')
+        );
 
         return view('livewire.project.odoo-backups', [
             'backups' => $backups,
-            'planName' => filled($plan?->name) ? (string) $plan->name : null,
+            'hasBusy' => $hasBusy,
             'planAllowsAutomatic' => $planAllows,
             'backupsBlockedByPlan' => ! $canCreateManual,
-            'policyLabel' => $planAllows
-                ? GetOdooBackupFrequency::label($frequency).' · '.trans_choice(':count day|:count days', $retention, ['count' => $retention])
-                : (isInstanceOwner()
-                    ? __('No automatic backups on this plan · owner may create manually')
-                    : __('Not included — contact an advisor to add them')),
             'canCreate' => $canCreateManual
                 && $user !== null
                 && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.create'),
+            'canDownload' => $canDownload,
             'canRestore' => $user !== null && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.restore'),
             'service' => $this->environment->services->first(fn ($row): bool => $row->supportsOdooJupyter()),
         ]);
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private function statusPresentation(string $status): array
+    {
+        return match ($status) {
+            'complete', 'success' => [__('Complete'), 'success'],
+            'failed' => [__('Failed'), 'error'],
+            'partial' => [__('Partial'), 'warning'],
+            'pending', 'running' => [__('In progress'), 'warning'],
+            default => [ucfirst($status), 'neutral'],
+        };
     }
 
     private function guard(string $ability): void

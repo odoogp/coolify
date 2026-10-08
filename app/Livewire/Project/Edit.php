@@ -8,6 +8,8 @@ use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Services\ProjectIconStorageService;
+use App\Support\EnsureOdooBackupSchedules;
+use App\Support\GetOdooBackupFrequency;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\ValidationPatterns;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
 use InvalidArgumentException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -475,5 +478,21 @@ class Edit extends Component
         }
 
         return $repository;
+    }
+
+    public function render(): View
+    {
+        $this->project->loadMissing('team.getodooPlan');
+        $plan = $this->project->team?->getodooPlan;
+        $planAllows = EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
+        $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
+
+        return view('livewire.project.edit', [
+            'planName' => filled($plan?->name) ? (string) $plan->name : null,
+            'planBackupPolicy' => $planAllows
+                ? __('Backups').': '.GetOdooBackupFrequency::label($frequency).' · '.trans_choice(':count day|:count days', $retention, ['count' => $retention])
+                : __('Backups').': '.__('Not included'),
+        ]);
     }
 }

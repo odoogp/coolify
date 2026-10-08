@@ -3,7 +3,12 @@
     <div class="w-full max-w-none">
         <header class="mb-5">
             <h1 class="truncate text-[24px]! leading-7! font-semibold! tracking-tight!">{{ $project->name }}</h1>
-            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('Project settings') }}</p>
+            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                {{ __('Project settings') }}
+                @if (filled($planName))
+                    · {{ __('Plan') }}: {{ $planName }}
+                @endif
+            </p>
         </header>
 
         <div class="flex flex-col gap-6">
@@ -99,6 +104,18 @@
                 <div class="application-settings-section-body grid gap-4 sm:grid-cols-2">
                     <x-forms.input label="{{ __('Name') }}" id="name" />
                     <x-forms.input label="{{ __('Description') }}" id="description" />
+                    <div class="sm:col-span-2">
+                        <p class="mb-1 text-[13px] font-medium text-neutral-700 dark:text-fg">{{ __('Plan') }}</p>
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ $planName ?? __('No plan') }}
+                            @if (filled($planBackupPolicy))
+                                · {{ $planBackupPolicy }}
+                            @endif
+                        </p>
+                        <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('The plan is set when the team signs up. Contact an advisor to change it.') }}
+                        </p>
+                    </div>
                 </div>
             </section>
         </form>
