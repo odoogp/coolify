@@ -5,10 +5,8 @@ namespace App\Livewire\Settings;
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
-use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use App\Support\GetOdooBackupFrequency;
 use App\Support\GetOdooCountries;
-use App\Support\ServiceTemplateCatalog;
 use Illuminate\Contracts\View\View;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -51,30 +49,13 @@ class GetOdooPlans extends Component
 
     public bool $planAvailableWorldwide = true;
 
-    /** @var list<string> */
-    public array $planCountryIds = [];
+    /** @var list<string> ISO codes on this plan */
+    public array $planCountryIsos = [];
 
-    /** @var array<string, string> country id => optional promo price */
+    /** @var array<string, string> ISO => optional promo price */
     public array $planCountryPromos = [];
 
-    public ?int $areaId = null;
-
-    public string $areaIso = '';
-
-    public string $areaExtraFixed = '0';
-
-    public string $areaExtraPercent = '0';
-
-    public bool $areaActive = true;
-
-    public bool $areaAllowMultipleProjects = true;
-
-    public bool $areaAllowAllServices = true;
-
-    /** @var list<string> */
-    public array $areaAllowedServiceKeys = [];
-
-    public string $areaSort = '0';
+    public string $pendingCountryIso = '';
 
     public function mount(): void
     {
@@ -101,8 +82,9 @@ class GetOdooPlans extends Component
             'canAddServers',
             'canLaunchOnInstanceServer',
             'includesMigration',
-            'planCountryIds',
+            'planCountryIsos',
             'planCountryPromos',
+            'pendingCountryIso',
         ]);
         $this->price = '0';
         $this->active = true;
@@ -134,26 +116,60 @@ class GetOdooPlans extends Component
         $this->backupFrequency = (string) ($plan->backup_frequency ?: GetOdooBackupFrequency::DAILY);
         $this->backupRetentionDays = (string) max(1, (int) ($plan->backup_retention_days ?: 7));
         $this->planAvailableWorldwide = $plan->isAvailableWorldwide();
-        $this->planCountryIds = $plan->pricingAreas
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->pluck('id')
-            ->map(fn ($id): string => (string) $id)
-            ->values()
-            ->all();
+        $this->planCountryIsos = [];
         $this->planCountryPromos = [];
-        foreach ($plan->pricingAreas as $area) {
+        $this->pendingCountryIso = '';
+
+        foreach ($plan->pricingAreas->where('kind', GetOdooPricingArea::KIND_COUNTRY) as $area) {
+            $iso = strtoupper((string) ($area->iso_code ?: $area->code));
+            if ($iso === '' || GetOdooCountries::name($iso) === null) {
+                continue;
+            }
+            $this->planCountryIsos[] = $iso;
             if ($area->pivot?->promo_price !== null) {
-                $this->planCountryPromos[(string) $area->id] = number_format((float) $area->pivot->promo_price, 2, '.', '');
+                $this->planCountryPromos[$iso] = number_format((float) $area->pivot->promo_price, 2, '.', '');
             }
         }
+        $this->planCountryIsos = array_values(array_unique($this->planCountryIsos));
     }
 
     public function updatedPlanAvailableWorldwide(bool $value): void
     {
         if ($value) {
-            $this->planCountryIds = [];
+            $this->planCountryIsos = [];
             $this->planCountryPromos = [];
+            $this->pendingCountryIso = '';
         }
+    }
+
+    public function addPlanCountry(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $this->planAvailableWorldwide = false;
+        $iso = strtoupper(trim($this->pendingCountryIso));
+        if (GetOdooCountries::name($iso) === null) {
+            $this->addError('pendingCountryIso', __('Pick a country from the list.'));
+
+            return;
+        }
+        if (! in_array($iso, $this->planCountryIsos, true)) {
+            $this->planCountryIsos[] = $iso;
+        }
+        $this->pendingCountryIso = '';
+        $this->resetErrorBag('pendingCountryIso');
+    }
+
+    public function removePlanCountry(string $iso): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $iso = strtoupper(trim($iso));
+        $this->planCountryIsos = array_values(array_filter(
+            $this->planCountryIsos,
+            fn (string $row): bool => $row !== $iso
+        ));
+        unset($this->planCountryPromos[$iso]);
     }
 
     public function savePlan(): void
@@ -189,17 +205,14 @@ class GetOdooPlans extends Component
             'backupFrequency' => ['required', Rule::in(GetOdooBackupFrequency::keys())],
             'backupRetentionDays' => ['required', 'integer', 'min:1', 'max:365'],
             'planAvailableWorldwide' => ['boolean'],
-            'planCountryIds' => ['array'],
-            'planCountryIds.*' => [
-                'integer',
-                Rule::exists('get_odoo_pricing_areas', 'id')->where('kind', GetOdooPricingArea::KIND_COUNTRY),
-            ],
+            'planCountryIsos' => ['array'],
+            'planCountryIsos.*' => ['string', 'size:2', Rule::in(array_keys(GetOdooCountries::names()))],
             'planCountryPromos' => ['array'],
             'planCountryPromos.*' => ['nullable', 'numeric', 'min:0', 'max:100000'],
         ]);
 
-        if (! $this->planAvailableWorldwide && $this->planCountryIds === []) {
-            $this->addError('planCountryIds', __('Pick at least one country, or keep the plan available worldwide.'));
+        if (! $this->planAvailableWorldwide && $this->planCountryIsos === []) {
+            $this->addError('planCountryIsos', __('Add at least one country to this plan, or mark it as available worldwide.'));
 
             return;
         }
@@ -238,10 +251,11 @@ class GetOdooPlans extends Component
             $plan->pricingAreas()->sync([]);
         } else {
             $sync = [];
-            foreach (collect($this->planCountryIds)->map(fn ($id): int => (int) $id)->unique() as $countryId) {
-                $promo = $this->planCountryPromos[(string) $countryId] ?? null;
+            foreach (array_values(array_unique($this->planCountryIsos)) as $iso) {
+                $area = $this->ensureCountryArea($iso);
+                $promo = $this->planCountryPromos[$iso] ?? null;
                 $promo = $promo === null || trim((string) $promo) === '' ? null : round((float) $promo, 2);
-                $sync[$countryId] = ['promo_price' => $promo];
+                $sync[$area->id] = ['promo_price' => $promo];
             }
             $plan->pricingAreas()->sync($sync);
         }
@@ -272,141 +286,45 @@ class GetOdooPlans extends Component
         $this->dispatch('success', __('The plan was deleted.'));
     }
 
-    public function newArea(): void
+    private function ensureCountryArea(string $iso): GetOdooPricingArea
     {
-        abort_unless(isInstanceOwner(), 403);
-
-        $this->reset([
-            'areaId',
-            'areaIso',
-            'areaAllowedServiceKeys',
-        ]);
-        $this->areaExtraFixed = '0';
-        $this->areaExtraPercent = '0';
-        $this->areaActive = true;
-        $this->areaAllowMultipleProjects = true;
-        $this->areaAllowAllServices = true;
-        $this->areaSort = '0';
-    }
-
-    public function editArea(int $areaId): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $area = GetOdooPricingArea::query()->findOrFail($areaId);
-        abort_unless($area->isCountry(), 404);
-
-        $this->areaId = $area->id;
-        $this->areaIso = strtoupper((string) ($area->iso_code ?? ''));
-        $this->areaExtraFixed = number_format((float) $area->extra_fixed, 2, '.', '');
-        $this->areaExtraPercent = number_format((float) $area->extra_percent, 2, '.', '');
-        $this->areaActive = $area->is_active;
-        $this->areaAllowMultipleProjects = $area->allow_multiple_projects;
-        $this->areaAllowAllServices = $area->allow_all_services;
-        $this->areaAllowedServiceKeys = GetOdooAreaEntitlements::normalizeServiceKeys($area->allowed_services);
-        $this->areaSort = (string) $area->sort_order;
-    }
-
-    public function saveArea(): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $this->validate([
-            'areaIso' => ['required', 'string', 'size:2', Rule::in(array_keys(GetOdooCountries::names()))],
-            'areaExtraFixed' => ['required', 'numeric', 'min:0', 'max:100000'],
-            'areaExtraPercent' => ['required', 'numeric', 'min:0', 'max:500'],
-            'areaActive' => ['boolean'],
-            'areaAllowMultipleProjects' => ['boolean'],
-            'areaAllowAllServices' => ['boolean'],
-            'areaAllowedServiceKeys' => ['array'],
-            'areaAllowedServiceKeys.*' => ['string', 'max:80'],
-            'areaSort' => ['required', 'integer', 'min:0', 'max:9999'],
-        ]);
-
-        $iso = strtoupper(trim($this->areaIso));
-        $name = GetOdooCountries::name($iso);
-        if ($name === null) {
-            $this->addError('areaIso', __('Pick a country from the list.'));
-
-            return;
-        }
-
+        $iso = strtoupper($iso);
+        $name = GetOdooCountries::name($iso) ?? $iso;
         $code = GetOdooPricingArea::normalizeCode($iso);
-        $duplicate = GetOdooPricingArea::query()
+
+        $area = GetOdooPricingArea::query()
             ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
             ->where(function ($query) use ($code, $iso) {
-                $query->where('code', $code)->orWhere('iso_code', $iso);
+                $query->where('iso_code', $iso)->orWhere('code', $code);
             })
-            ->when($this->areaId, fn ($query) => $query->whereKeyNot($this->areaId))
-            ->exists();
-        if ($duplicate) {
-            $this->addError('areaIso', __('That country is already configured.'));
+            ->first();
 
-            return;
+        if ($area instanceof GetOdooPricingArea) {
+            $area->update([
+                'name' => $name,
+                'iso_code' => $iso,
+                'code' => $code,
+                'parent_id' => null,
+                'is_active' => true,
+            ]);
+
+            return $area->fresh();
         }
 
-        $catalogKeys = collect(ServiceTemplateCatalog::launchOptions())->pluck('value')->all();
-        $allowedServices = GetOdooAreaEntitlements::normalizeServiceKeys($this->areaAllowedServiceKeys);
-        if ($catalogKeys !== []) {
-            $allowedServices = array_values(array_intersect($allowedServices, $catalogKeys));
-        }
-        if (! $this->areaAllowAllServices && $allowedServices === []) {
-            $this->addError('areaAllowedServiceKeys', __('Pick at least one service from the catalog, or allow all services.'));
-
-            return;
-        }
-
-        $values = [
+        return GetOdooPricingArea::query()->create([
             'code' => $code,
             'name' => $name,
             'kind' => GetOdooPricingArea::KIND_COUNTRY,
             'parent_id' => null,
             'iso_code' => $iso,
-            'extra_fixed' => round((float) $this->areaExtraFixed, 2),
-            'extra_percent' => round((float) $this->areaExtraPercent, 2),
-            'is_active' => $this->areaActive,
-            'allow_multiple_projects' => $this->areaAllowMultipleProjects,
-            'allow_all_services' => $this->areaAllowAllServices,
-            'allowed_services' => $this->areaAllowAllServices ? null : $allowedServices,
-            'sort_order' => (int) $this->areaSort,
-        ];
-
-        if ($this->areaId) {
-            $area = GetOdooPricingArea::query()->findOrFail($this->areaId);
-            abort_unless($area->isCountry(), 404);
-            $area->update($values);
-        } else {
-            $area = GetOdooPricingArea::query()->create($values);
-            $this->areaId = $area->id;
-        }
-
-        $this->areaIso = (string) $area->iso_code;
-        $this->areaExtraFixed = number_format((float) $area->extra_fixed, 2, '.', '');
-        $this->areaExtraPercent = number_format((float) $area->extra_percent, 2, '.', '');
-        $this->areaAllowedServiceKeys = GetOdooAreaEntitlements::normalizeServiceKeys($area->allowed_services);
-        $this->dispatch('success', __('The country was saved.'));
-    }
-
-    public function deleteArea(int $areaId): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $area = GetOdooPricingArea::query()->findOrFail($areaId);
-        abort_unless($area->isCountry(), 404);
-
-        $area->plans()->detach();
-        $area->delete();
-
-        if ($this->areaId === $areaId) {
-            $this->newArea();
-        }
-
-        $this->planCountryIds = array_values(array_filter(
-            $this->planCountryIds,
-            fn (string $id): bool => (int) $id !== $areaId
-        ));
-
-        $this->dispatch('success', __('The country was deleted.'));
+            'extra_fixed' => 0,
+            'extra_percent' => 0,
+            'is_active' => true,
+            'allow_multiple_projects' => true,
+            'allow_all_services' => true,
+            'allowed_services' => null,
+            'sort_order' => 0,
+        ]);
     }
 
     private function blankToNull(mixed $value): mixed
@@ -422,25 +340,27 @@ class GetOdooPlans extends Component
 
     public function render(): View
     {
-        $countries = GetOdooPricingArea::query()
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        $planCountryRows = collect($this->planCountryIsos)
+            ->map(fn (string $iso): array => [
+                'iso' => $iso,
+                'label' => GetOdooCountries::name($iso) ?? $iso,
+                'promo' => $this->planCountryPromos[$iso] ?? '',
+            ])
+            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
+
+        $used = array_flip($this->planCountryIsos);
+        $addCountryChoices = array_values(array_filter(
+            GetOdooCountries::choices(),
+            fn (array $row): bool => ! isset($used[$row['value']])
+        ));
 
         return view('livewire.settings.getodoo-plans', [
             'plans' => GetOdooPlan::query()->with(['pricingAreas'])->withCount('signups')->orderBy('price')->orderBy('name')->get(),
             'signups' => GetOdooPlanSignup::query()->with(['plan', 'pricingArea'])->latest('id')->limit(20)->get(),
-            'countries' => $countries,
-            'standardCountryChoices' => GetOdooCountries::choices(),
-            'catalogServices' => ServiceTemplateCatalog::launchOptions(),
-            'countryCheckChoices' => $countries
-                ->map(fn (GetOdooPricingArea $country): array => [
-                    'value' => (string) $country->id,
-                    'label' => $country->name,
-                ])
-                ->values()
-                ->all(),
+            'planCountryRows' => $planCountryRows,
+            'addCountryChoices' => $addCountryChoices,
             'backupFrequencyChoices' => GetOdooBackupFrequency::choices(),
         ]);
     }

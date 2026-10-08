@@ -287,27 +287,28 @@ it('applies only country extras on the plan price', function () {
         ->and($quote['amount'])->toBe(107.0);
 });
 
-it('lets the owner save a standard country with catalog services', function () {
+it('defines countries inside the plan with optional promo prices', function () {
     $owner = User::factory()->create();
     $this->root->members()->attach($owner->id, ['role' => 'owner']);
     $this->actingAs($owner);
     session(['currentTeam' => $this->root]);
 
     Livewire::test(GetOdooPlans::class)
-        ->set('areaIso', 'SV')
-        ->set('areaExtraPercent', '0')
-        ->set('areaExtraFixed', '3')
-        ->set('areaAllowAllServices', false)
-        ->set('areaAllowedServiceKeys', ['odoo', 'redis'])
-        ->call('saveArea')
-        ->assertHasNoErrors()
-        ->assertSee('El Salvador');
+        ->set('name', 'SV only')
+        ->set('price', '100')
+        ->set('planAvailableWorldwide', false)
+        ->set('pendingCountryIso', 'SV')
+        ->call('addPlanCountry')
+        ->set('planCountryPromos.SV', '49')
+        ->set('pendingCountryIso', 'GT')
+        ->call('addPlanCountry')
+        ->call('savePlan')
+        ->assertHasNoErrors();
 
-    $country = GetOdooPricingArea::query()->where('iso_code', 'SV')->first();
-    expect($country)->not->toBeNull()
-        ->and($country->allow_all_services)->toBeFalse()
-        ->and($country->allowed_services)->toBe(['odoo', 'redis'])
-        ->and(GetOdooPricingArea::countryChoices())->toHaveCount(1);
+    $plan = GetOdooPlan::query()->where('name', 'SV only')->first();
+    expect($plan)->not->toBeNull()
+        ->and($plan->pricingAreas)->toHaveCount(2)
+        ->and((float) $plan->pricingAreas->firstWhere('iso_code', 'SV')?->pivot?->promo_price)->toBe(49.0);
 });
 
 it('limits a plan to specific countries and uses promo price on signup', function () {

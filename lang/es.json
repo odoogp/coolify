@@ -4507,5 +4507,15 @@
     "Optional promo price (USD) is exclusive for that country and replaces the normal quote on signup.": "El precio promo (USD) es exclusivo de ese país y reemplaza la cotización normal en el registro.",
     "Promotional price for your country.": "Precio promocional para tu país.",
     "Base :base. Country extras included.": "Base :base. Extras del país incluidos.",
-    "Upload a database dump and a filestore archive. Add the modules zip when they are not in GitHub.": "Sube un dump de la base y un archivo del filestore. Añade el zip de módulos cuando no estén en GitHub."
+    "Upload a database dump and a filestore archive. Add the modules zip when they are not in GitHub.": "Sube un dump de la base y un archivo del filestore. Añade el zip de módulos cuando no estén en GitHub.",
+    "A plan is the package a new customer buys. Countries belong to the plan: pick where it is sold and optional promo prices for each country.": "Un plan es el paquete que compra un cliente nuevo. Los países van en el plan: elige dónde se vende y precios promo opcionales por país.",
+    "Base USD price. A country promo on this plan can replace it on signup.": "Precio base en USD. Un precio promo por país en este plan puede reemplazarlo en el registro.",
+    "Countries for this plan": "Países de este plan",
+    "Define countries here on the plan. Worldwide means any country. Otherwise only the countries you add can buy this plan.": "Define aquí los países del plan. Mundial = cualquier país. Si no, solo los países que agregues pueden comprar este plan.",
+    "Available worldwide (no country limit)": "Disponible en todo el mundo (sin límite de país)",
+    "Add country": "Agregar país",
+    "Add the countries where this plan is sold.": "Agrega los países donde se vende este plan.",
+    "Add at least one country to this plan, or mark it as available worldwide.": "Agrega al menos un país a este plan, o márcalo como disponible en todo el mundo.",
+    "Promo price is optional and exclusive to that country on this plan. Empty uses the plan monthly price.": "El precio promo es opcional y exclusivo de ese país en este plan. Vacío usa el precio mensual del plan.",
+    "When on, signup shows migration help as included. Anyone who can update an Odoo project can open Migrate.": "Si está activo, el registro muestra ayuda de migración como incluida. Quien pueda actualizar un proyecto Odoo puede abrir Migrar."
 }
