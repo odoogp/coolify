@@ -662,8 +662,8 @@ class Show extends Component
             'hasProduction' => $this->project->environments->contains(
                 fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
             ),
-            'canMigrate' => (bool) $this->project->odooProfile
-                && (bool) $this->project->team?->getodooPlan?->includes_migration,
+            // Visible on every Odoo project for anyone who can update; plan flag is marketing on signup only.
+            'canMigrate' => (bool) $this->project->odooProfile,
         ]);
     }
 

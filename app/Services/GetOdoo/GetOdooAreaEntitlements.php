@@ -21,26 +21,17 @@ class GetOdooAreaEntitlements
     }
 
     /**
-     * Region then country: each layer can only tighten the previous one.
+     * Country entitlements only (regions are no longer used).
      *
      * @return array{allow_multiple_projects: bool, allow_all_services: bool, allowed_services: list<string>}
      */
     public static function resolve(?GetOdooPricingArea $country): array
     {
-        $entitlements = self::open();
-        if (! $country instanceof GetOdooPricingArea) {
-            return $entitlements;
+        if (! $country instanceof GetOdooPricingArea || ! $country->isCountry()) {
+            return self::open();
         }
 
-        $country->loadMissing('parent');
-        foreach (array_filter([$country->parent, $country]) as $area) {
-            if (! $area instanceof GetOdooPricingArea) {
-                continue;
-            }
-            $entitlements = self::tighten($entitlements, $area);
-        }
-
-        return $entitlements;
+        return self::fromArea($country);
     }
 
     /**
@@ -52,16 +43,12 @@ class GetOdooAreaEntitlements
             return self::open();
         }
 
-        $area = GetOdooPricingArea::query()->with('parent')->find($team->getodoo_pricing_area_id);
-        if (! $area instanceof GetOdooPricingArea) {
+        $area = GetOdooPricingArea::query()->find($team->getodoo_pricing_area_id);
+        if (! $area instanceof GetOdooPricingArea || ! $area->isCountry()) {
             return self::open();
         }
 
-        if ($area->isCountry()) {
-            return self::resolve($area);
-        }
-
-        return self::tighten(self::open(), $area);
+        return self::fromArea($area);
     }
 
     public static function allowsService(?Team $team, ?string $serviceType): bool
@@ -103,30 +90,27 @@ class GetOdooAreaEntitlements
             return;
         }
 
-        throw new RuntimeException(__('This service is not available for your region.'));
+        throw new RuntimeException(__('This service is not available for your country.'));
     }
 
     /**
-     * @param  array{allow_multiple_projects: bool, allow_all_services: bool, allowed_services: list<string>}  $current
      * @return array{allow_multiple_projects: bool, allow_all_services: bool, allowed_services: list<string>}
      */
-    private static function tighten(array $current, GetOdooPricingArea $area): array
+    private static function fromArea(GetOdooPricingArea $area): array
     {
-        if (! $area->allow_multiple_projects) {
-            $current['allow_multiple_projects'] = false;
+        if ($area->allow_all_services) {
+            return [
+                'allow_multiple_projects' => (bool) $area->allow_multiple_projects,
+                'allow_all_services' => true,
+                'allowed_services' => [],
+            ];
         }
 
-        if (! $area->allow_all_services) {
-            $keys = self::normalizeServiceKeys($area->allowed_services);
-            if ($current['allow_all_services']) {
-                $current['allow_all_services'] = false;
-                $current['allowed_services'] = $keys;
-            } else {
-                $current['allowed_services'] = array_values(array_intersect($current['allowed_services'], $keys));
-            }
-        }
-
-        return $current;
+        return [
+            'allow_multiple_projects' => (bool) $area->allow_multiple_projects,
+            'allow_all_services' => false,
+            'allowed_services' => self::normalizeServiceKeys($area->allowed_services),
+        ];
     }
 
     /**

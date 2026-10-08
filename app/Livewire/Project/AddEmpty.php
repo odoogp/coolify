@@ -40,6 +40,8 @@ class AddEmpty extends Component
 
     public bool $connectGithub = true;
 
+    public bool $migrateFromOdoo = false;
+
     public ?string $serverId = null;
 
     public bool $launchRunning = false;
@@ -58,7 +60,15 @@ class AddEmpty extends Component
             'service' => ['nullable', 'string'],
             'odooVersion' => ['required', Rule::in(OdooVersion::SUPPORTED)],
             'connectGithub' => ['boolean'],
+            'migrateFromOdoo' => ['boolean'],
         ];
+    }
+
+    public function updatedMigrateFromOdoo(bool $value): void
+    {
+        if ($value) {
+            $this->connectGithub = false;
+        }
     }
 
     protected function messages(): array
@@ -173,7 +183,15 @@ class AddEmpty extends Component
                 $this->launchError = null;
                 $this->launchRunning = true;
 
+                if ($this->migrateFromOdoo) {
+                    return redirect()->route('project.odoo.migrate', ['project_uuid' => $project->uuid]);
+                }
+
                 return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
+            }
+
+            if ($this->service === 'odoo' && $this->migrateFromOdoo) {
+                return redirect()->route('project.odoo.migrate', ['project_uuid' => $project->uuid]);
             }
 
             if ($created instanceof Service) {

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -51,6 +52,16 @@ class GetOdooPricingArea extends BaseModel
         return $this->hasMany(self::class, 'parent_id');
     }
 
+    public function plans(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            GetOdooPlan::class,
+            'get_odoo_plan_pricing_area',
+            'pricing_area_id',
+            'plan_id',
+        )->withPivot('promo_price')->withTimestamps();
+    }
+
     public function isRegion(): bool
     {
         return $this->kind === self::KIND_REGION;
@@ -74,22 +85,39 @@ class GetOdooPricingArea extends BaseModel
         return self::query()
             ->where('kind', self::KIND_COUNTRY)
             ->where('is_active', true)
-            ->with('parent')
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get()
-            ->map(function (self $area): array {
-                $label = $area->name;
-                if ($area->parent instanceof self) {
-                    $label .= ' · '.$area->parent->name;
-                }
-
-                return [
-                    'value' => (string) $area->id,
-                    'label' => $label,
-                ];
-            })
+            ->map(fn (self $area): array => [
+                'value' => (string) $area->id,
+                'label' => $area->name,
+            ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Countries offered on a plan signup. Worldwide plans get every active country.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function countryChoicesForPlan(GetOdooPlan $plan): array
+    {
+        $all = self::countryChoices();
+        if ($plan->isAvailableWorldwide()) {
+            return $all;
+        }
+
+        $ids = $plan->pricingAreas()
+            ->where('kind', self::KIND_COUNTRY)
+            ->where('is_active', true)
+            ->pluck('get_odoo_pricing_areas.id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+
+        return array_values(array_filter(
+            $all,
+            fn (array $row): bool => in_array((int) $row['value'], $ids, true)
+        ));
     }
 }

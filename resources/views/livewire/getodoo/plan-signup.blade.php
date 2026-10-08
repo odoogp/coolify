@@ -12,9 +12,13 @@
                     <span>{{ __('per month') }}</span>
                 @endif
             </p>
-            @if ($quote['amount'] > 0 && ($quote['extra_fixed'] > 0 || $quote['extra_percent'] > 0))
+            @if ($quote['amount'] > 0 && ($quote['promo_price'] ?? null) !== null)
                 <p class="auth-plan-copy">
-                    {{ __('Base :base. Region/country extras included.', ['base' => '$'.number_format((float) $quote['base'], 2)]) }}
+                    {{ __('Promotional price for your country.') }}
+                </p>
+            @elseif ($quote['amount'] > 0 && ($quote['extra_fixed'] > 0 || $quote['extra_percent'] > 0))
+                <p class="auth-plan-copy">
+                    {{ __('Base :base. Country extras included.', ['base' => '$'.number_format((float) $quote['base'], 2)]) }}
                 </p>
             @endif
             @if (filled($plan->summary))

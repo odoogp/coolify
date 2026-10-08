@@ -266,22 +266,12 @@ it('does not create an account from a test charge', function () {
         ->and($signup->fresh()->status)->toBe('awaiting_payment');
 });
 
-it('stacks region and country extras on the plan price', function () {
+it('applies only country extras on the plan price', function () {
     $plan = getOdooPlan(['price' => 100]);
-    $region = GetOdooPricingArea::query()->create([
-        'code' => 'latam',
-        'name' => 'LATAM',
-        'kind' => GetOdooPricingArea::KIND_REGION,
-        'extra_fixed' => 5,
-        'extra_percent' => 10,
-        'is_active' => true,
-        'sort_order' => 1,
-    ]);
     $country = GetOdooPricingArea::query()->create([
         'code' => 'sv',
         'name' => 'El Salvador',
         'kind' => GetOdooPricingArea::KIND_COUNTRY,
-        'parent_id' => $region->id,
         'iso_code' => 'SV',
         'extra_fixed' => 2,
         'extra_percent' => 5,
@@ -291,67 +281,101 @@ it('stacks region and country extras on the plan price', function () {
 
     $quote = GetOdooPlanPricing::quote($plan, $country);
 
-    // 100 * 1.15 + 5 + 2 = 122
-    expect($quote['extra_percent'])->toBe(15.0)
-        ->and($quote['extra_fixed'])->toBe(7.0)
-        ->and($quote['amount'])->toBe(122.0);
+    // 100 * 1.05 + 2 = 107
+    expect($quote['extra_percent'])->toBe(5.0)
+        ->and($quote['extra_fixed'])->toBe(2.0)
+        ->and($quote['amount'])->toBe(107.0);
 });
 
-it('lets the owner save a country under a region', function () {
+it('lets the owner save a standard country with catalog services', function () {
     $owner = User::factory()->create();
     $this->root->members()->attach($owner->id, ['role' => 'owner']);
     $this->actingAs($owner);
     session(['currentTeam' => $this->root]);
 
     Livewire::test(GetOdooPlans::class)
-        ->set('areaKind', 'region')
-        ->set('areaName', 'LATAM')
-        ->set('areaCode', 'latam')
-        ->set('areaExtraPercent', '10')
-        ->set('areaExtraFixed', '5')
-        ->call('saveArea')
-        ->assertHasNoErrors();
-
-    $region = GetOdooPricingArea::query()->where('code', 'latam')->first();
-    expect($region)->not->toBeNull()->and($region->isRegion())->toBeTrue();
-
-    Livewire::test(GetOdooPlans::class)
-        ->set('areaKind', 'country')
-        ->set('areaName', 'El Salvador')
-        ->set('areaCode', 'sv')
         ->set('areaIso', 'SV')
-        ->set('areaParentId', (string) $region->id)
         ->set('areaExtraPercent', '0')
         ->set('areaExtraFixed', '3')
+        ->set('areaAllowAllServices', false)
+        ->set('areaAllowedServiceKeys', ['odoo', 'redis'])
         ->call('saveArea')
         ->assertHasNoErrors()
         ->assertSee('El Salvador');
 
-    expect(GetOdooPricingArea::countryChoices())->toHaveCount(1)
-        ->and(GetOdooPricingArea::countryChoices()[0]['label'])->toContain('LATAM');
+    $country = GetOdooPricingArea::query()->where('iso_code', 'SV')->first();
+    expect($country)->not->toBeNull()
+        ->and($country->allow_all_services)->toBeFalse()
+        ->and($country->allowed_services)->toBe(['odoo', 'redis'])
+        ->and(GetOdooPricingArea::countryChoices())->toHaveCount(1);
+});
+
+it('limits a plan to specific countries and uses promo price on signup', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan(['price' => 100]);
+    $sv = GetOdooPricingArea::query()->create([
+        'code' => 'sv',
+        'name' => 'El Salvador',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'SV',
+        'extra_fixed' => 0,
+        'extra_percent' => 0,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+    $gt = GetOdooPricingArea::query()->create([
+        'code' => 'gt',
+        'name' => 'Guatemala',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'GT',
+        'extra_fixed' => 5,
+        'extra_percent' => 0,
+        'is_active' => true,
+        'sort_order' => 2,
+    ]);
+    $plan->pricingAreas()->sync([$sv->id => ['promo_price' => 49.00]]);
+
+    $choices = GetOdooPricingArea::countryChoicesForPlan($plan->fresh('pricingAreas'));
+    expect($choices)->toHaveCount(1)
+        ->and($choices[0]['value'])->toBe((string) $sv->id)
+        ->and($choices[0]['label'])->toBe('El Salvador');
+
+    $quote = GetOdooPlanPricing::quote($plan->fresh('pricingAreas'), $sv);
+    expect($quote['promo_price'])->toBe(49.0)->and($quote['amount'])->toBe(49.0);
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('pricingAreaId', (string) $gt->id)
+        ->call('register')
+        ->assertHasErrors(['pricingAreaId']);
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('pricingAreaId', (string) $sv->id)
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect((float) GetOdooPlanSignup::query()->first()->amount)->toBe(49.0);
 });
 
 it('requires a country on signup when countries are configured and charges the quoted amount', function () {
     User::factory()->create();
     getOdooPlanWompi();
     $plan = getOdooPlan(['price' => 100]);
-    $region = GetOdooPricingArea::query()->create([
-        'code' => 'latam',
-        'name' => 'LATAM',
-        'kind' => GetOdooPricingArea::KIND_REGION,
-        'extra_fixed' => 0,
-        'extra_percent' => 10,
-        'is_active' => true,
-        'sort_order' => 1,
-    ]);
     $country = GetOdooPricingArea::query()->create([
         'code' => 'gt',
         'name' => 'Guatemala',
         'kind' => GetOdooPricingArea::KIND_COUNTRY,
-        'parent_id' => $region->id,
         'iso_code' => 'GT',
         'extra_fixed' => 5,
-        'extra_percent' => 0,
+        'extra_percent' => 10,
         'is_active' => true,
         'sort_order' => 1,
     ]);
@@ -375,35 +399,26 @@ it('requires a country on signup when countries are configured and charges the q
 
     $signup = GetOdooPlanSignup::query()->first();
 
+    // 100 * 1.10 + 5 = 115
     expect((float) $signup->amount)->toBe(115.0)
         ->and((int) $signup->pricing_area_id)->toBe($country->id);
 });
 
-it('applies region service and project limits to the new team', function () {
+it('applies country service and project limits to the new team', function () {
     User::factory()->create();
     $plan = getOdooPlan([
         'price' => 0,
         'payment_gateway' => null,
         'max_projects' => null,
     ]);
-    $region = GetOdooPricingArea::query()->create([
-        'code' => 'ca',
-        'name' => 'Central America',
-        'kind' => GetOdooPricingArea::KIND_REGION,
-        'allow_multiple_projects' => false,
-        'allow_all_services' => false,
-        'allowed_services' => ['odoo', 'redis'],
-        'is_active' => true,
-        'sort_order' => 1,
-    ]);
     $country = GetOdooPricingArea::query()->create([
         'code' => 'hn',
         'name' => 'Honduras',
         'kind' => GetOdooPricingArea::KIND_COUNTRY,
-        'parent_id' => $region->id,
         'iso_code' => 'HN',
-        'allow_multiple_projects' => true,
-        'allow_all_services' => true,
+        'allow_multiple_projects' => false,
+        'allow_all_services' => false,
+        'allowed_services' => ['odoo', 'redis'],
         'is_active' => true,
         'sort_order' => 1,
     ]);

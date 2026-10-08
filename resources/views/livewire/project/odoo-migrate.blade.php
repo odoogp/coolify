@@ -5,9 +5,9 @@
 
     <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div class="min-w-0">
-            <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Migrate from Odoo.sh') }}</h1>
+            <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Migrate') }}</h1>
             <p class="mt-1 max-w-2xl text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
-                {{ __('Connect GitHub, point at the repository, then upload the database dump and the filestore archive. We restore both onto production together.') }}
+                {{ __('Choose production or staging, connect GitHub or upload a modules zip, then upload the database dump and filestore. We restore both onto the selected environment.') }}
             </p>
         </div>
         <a href="{{ route('project.show', ['project_uuid' => $project->uuid]) }}" class="button" {{ wireNavigate() }}>
@@ -25,29 +25,41 @@
     @endif
 
     <div class="flex flex-col gap-6">
-        <x-application.settings-section :title="__('1. GitHub')">
+        <x-application.settings-section :title="__('1. Target environment')">
+            <x-forms.listbox id="environmentId" portal label="{{ __('Restore into') }}"
+                :options="$environmentChoices"
+                helper="{{ __('Production or any staging that already has Odoo launched.') }}" />
+        </x-application.settings-section>
+
+        <x-application.settings-section :title="__('2. GitHub (optional)')">
             @if ($githubReady)
                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('GitHub is connected on this team.') }}</p>
             @else
                 <p class="mb-3 text-[13px] text-neutral-500 dark:text-fg-dim">
-                    {{ __('Connect the GitHub account that holds the Odoo addons repository.') }}
+                    {{ __('Connect the GitHub account that holds the Odoo addons repository. Skip this if you will upload a zip of modules instead.') }}
                 </p>
                 <x-forms.button type="button" wire:click="connectGithub" isHighlighted>{{ __('Connect GitHub') }}</x-forms.button>
             @endif
         </x-application.settings-section>
 
-        <x-application.settings-section :title="__('2. Repository')">
+        <x-application.settings-section :title="__('3. Repository or modules zip')">
             <form class="flex flex-col gap-3" wire:submit="saveRepository">
                 <x-forms.input id="gitRepository" label="{{ __('Repository') }}"
-                    helper="{{ __('owner/name, for example my-org/odoo-addons. Optional if you only restore data.') }}"
+                    helper="{{ __('owner/name when the addons live on GitHub. Leave empty if you upload a zip below.') }}"
                     placeholder="owner/odoo-addons" />
                 <x-forms.button type="submit">{{ __('Save repository') }}</x-forms.button>
             </form>
+            <p class="mt-4 text-[13px] text-neutral-500 dark:text-fg-dim">
+                {{ __('No GitHub modules? Upload a .zip (or .tar.gz) of the custom addons. We unpack it into /mnt/extra-addons.') }}
+            </p>
+            @if ($migration?->addons_original_name)
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Modules zip') }}: {{ $migration->addons_original_name }}</p>
+            @endif
         </x-application.settings-section>
 
-        <x-application.settings-section :title="__('3. Dump and filestore')">
+        <x-application.settings-section :title="__('4. Dump, filestore, and optional modules zip')">
             <p class="mb-3 text-[13px] text-neutral-500 dark:text-fg-dim">
-                {{ __('Same pair Odoo.sh uses: a database dump (.sql / .dump / .gz) and a filestore archive (.tar.gz / .zip).') }}
+                {{ __('Upload a database dump and a filestore archive. Add the modules zip when they are not in GitHub.') }}
             </p>
             <form class="flex flex-col gap-3" wire:submit="uploadFiles">
                 <div>
@@ -70,16 +82,23 @@
                         <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ $migration->filestore_original_name }}</p>
                     @endif
                 </div>
+                <div>
+                    <label class="mb-1.5 block text-sm font-medium" for="addonsZip">{{ __('Modules zip (optional)') }}</label>
+                    <input id="addonsZip" type="file" class="input w-full" wire:model="addonsZip" accept=".zip,.tar,.gz,.tgz">
+                    @error('addonsZip')
+                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                </div>
                 <x-forms.button type="submit" wire:loading.attr="disabled">{{ __('Upload files') }}</x-forms.button>
             </form>
         </x-application.settings-section>
 
-        <x-application.settings-section :title="__('4. Restore')">
+        <x-application.settings-section :title="__('5. Restore')">
             <p class="mb-3 text-[13px] text-neutral-500 dark:text-fg-dim">
-                {{ __('Production must already have an Odoo instance. The restore writes the dump and filestore, then reclones addons if a repository is set.') }}
+                {{ __('The selected environment must already have Odoo. The restore overwrites that database and filestore.') }}
             </p>
             <x-forms.button type="button" wire:click="start" isHighlighted
-                wire:confirm="{{ __('Restore dump and filestore onto production? This overwrites the current database and filestore.') }}">
+                wire:confirm="{{ __('Restore dump and filestore onto the selected environment? This overwrites the current database and filestore.') }}">
                 {{ __('Start migration') }}
             </x-forms.button>
         </x-application.settings-section>
@@ -87,7 +106,6 @@
         @if ($plan)
             <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
                 {{ __('Plan') }}: {{ $plan->name }}
-                · {{ __('Backups') }}: {{ \App\Support\GetOdooBackupFrequency::label((string) ($plan->backup_frequency ?: 'daily')) }}
             </p>
         @endif
     </div>

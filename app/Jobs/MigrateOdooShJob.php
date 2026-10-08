@@ -40,20 +40,28 @@ class MigrateOdooShJob implements ShouldQueue
                 throw new RuntimeException(__('Upload both the database dump and the filestore archive.'));
             }
 
-            $production = $migration->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
-            if ($production === null) {
-                throw new RuntimeException(__('Create a production environment before migrating.'));
+            $target = $migration->environment_id
+                ? $migration->project->environments->firstWhere('id', $migration->environment_id)
+                : $migration->project->environments->first(fn ($environment): bool => strcasecmp($environment->name, 'production') === 0);
+            if ($target === null) {
+                throw new RuntimeException(__('Choose production or a staging environment before migrating.'));
             }
 
-            $service = $production->services->first(fn ($row): bool => $row->supportsOdooJupyter());
+            $service = $target->services->first(fn ($row): bool => $row->supportsOdooJupyter());
             if (! $service instanceof Service) {
-                throw new RuntimeException(__('Launch Odoo for this project first, then run the migration restore.'));
+                throw new RuntimeException(__('Launch Odoo for that environment first, then run the migration restore.'));
             }
 
             $databasePath = Storage::disk('local')->path((string) $migration->database_disk_path);
             $filestorePath = Storage::disk('local')->path((string) $migration->filestore_disk_path);
+            $addonsPath = $migration->hasAddonsZip()
+                ? Storage::disk('local')->path((string) $migration->addons_disk_path)
+                : null;
             if (! is_file($databasePath) || ! is_file($filestorePath)) {
                 throw new RuntimeException(__('Migration files are missing on disk.'));
+            }
+            if ($addonsPath !== null && ! is_file($addonsPath)) {
+                throw new RuntimeException(__('The modules zip is missing on disk.'));
             }
 
             $server = $service->destination?->server;
@@ -64,16 +72,20 @@ class MigrateOdooShJob implements ShouldQueue
             $remoteDir = '/tmp/gpsh-migrate-'.$migration->uuid;
             $remoteDump = $remoteDir.'/database.dump';
             $remoteStore = $remoteDir.'/filestore.tar.gz';
+            $remoteAddons = $remoteDir.'/addons.zip';
             $volume = OdooAddons::filestoreVolume($service);
             $pg = escapeshellarg('postgresql-'.$service->uuid);
 
-            OdooGit::whileServerIsFree($server, function () use ($server, $service, $databasePath, $filestorePath, $remoteDir, $remoteDump, $remoteStore, $volume, $pg, $migration): void {
+            OdooGit::whileServerIsFree($server, function () use ($server, $service, $databasePath, $filestorePath, $addonsPath, $remoteDir, $remoteDump, $remoteStore, $remoteAddons, $volume, $pg, $migration): void {
                 instant_remote_process(['mkdir -p '.escapeshellarg($remoteDir)], $server);
                 $this->upload($server, $databasePath, $remoteDump);
                 $this->upload($server, $filestorePath, $remoteStore);
+                if ($addonsPath !== null) {
+                    $this->upload($server, $addonsPath, $remoteAddons);
+                }
 
                 // ponytail: Odoo.sh exports vary (sql/pg_dump + tar/zip of filestore); extend parsers when a customer dump breaks.
-                instant_remote_process([
+                $commands = [
                     'docker exec '.$pg.' sh -c '.escapeshellarg('psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c "SELECT 1" >/dev/null'),
                     'docker exec -i '.$pg.' sh -c '.escapeshellarg('(gunzip -cf 2>/dev/null || cat) | psql -U "$POSTGRES_USER" -d "${POSTGRES_DB:-postgres}"').' < '.escapeshellarg($remoteDump),
                     'docker run --rm -v '.escapeshellarg($volume).':/target -v '.escapeshellarg($remoteDir).':/source:ro alpine sh -c '.escapeshellarg(
@@ -83,10 +95,14 @@ class MigrateOdooShJob implements ShouldQueue
                         'elif [ -d /tmp/in ]; then cp -a /tmp/in/. /target/filestore/; fi; '.
                         'chown -R 101:101 /target 2>/dev/null || true'
                     ),
-                    'rm -rf '.escapeshellarg($remoteDir),
-                ], $server);
+                ];
+                if ($addonsPath !== null) {
+                    $commands = array_merge($commands, OdooAddons::unpackArchiveCommands($service, $remoteDir));
+                }
+                $commands[] = 'rm -rf '.escapeshellarg($remoteDir);
+                instant_remote_process($commands, $server);
 
-                if (filled($migration->git_repository)) {
+                if ($addonsPath === null && filled($migration->git_repository)) {
                     $profile = $migration->project->odooProfile;
                     if ($profile !== null) {
                         $profile->git_repository = $migration->git_repository;
@@ -99,10 +115,12 @@ class MigrateOdooShJob implements ShouldQueue
                 OdooGit::startIfPossible($service);
             });
 
-            $migration->update(['status' => 'complete']);
-            OdooAuditLog::write($migration->user_id, $migration->project_id, $production->id, 'odoo.migrate.sh', 'finished', [
+            $migration->update(['status' => 'complete', 'environment_id' => $target->id]);
+            OdooAuditLog::write($migration->user_id, $migration->project_id, $target->id, 'odoo.migrate.sh', 'finished', [
                 'migration_id' => $migration->id,
+                'environment' => $target->name,
                 'git_repository' => $migration->git_repository,
+                'addons_zip' => $migration->hasAddonsZip(),
             ]);
         } catch (Throwable $exception) {
             $migration->update([

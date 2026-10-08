@@ -3650,8 +3650,8 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .getodoo-plans-table-grid {
-    grid-template-columns: minmax(8rem, 1fr) 7rem minmax(12rem, 1.6fr) max-content;
-    min-width: 42rem;
+    grid-template-columns: minmax(7rem, 1fr) 6.5rem minmax(6rem, 0.8fr) minmax(10rem, 1.4fr) max-content;
+    min-width: 48rem;
 }
 
 .server-resources-unmanaged-table-grid {

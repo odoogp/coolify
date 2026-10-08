@@ -42,27 +42,27 @@ beforeEach(function () {
 it('opens the migration wizard when the plan includes migration', function () {
     Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
         ->assertOk()
-        ->assertSee(__('Migrate from Odoo.sh'))
-        ->assertSee(__('Dump and filestore'));
+        ->assertSee(__('Migrate'))
+        ->assertSee(__('Modules zip (optional)'));
 });
 
-it('refuses the migration wizard when the plan does not include it', function () {
+it('opens the migrator for project admins without requiring the plan flag', function () {
     $this->plan->update(['includes_migration' => false]);
 
-    $this->get(route('project.odoo.migrate', ['project_uuid' => $this->project->uuid]))
-        ->assertForbidden();
+    Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
+        ->assertOk()
+        ->assertSee(__('Restore into'));
 });
 
-it('uploads dump and filestore then queues the migrate job', function () {
+it('uploads dump, filestore and modules zip then queues the migrate job', function () {
     Queue::fake();
     Storage::fake('local');
 
     $component = Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
-        ->set('gitRepository', 'acme/odoo-addons')
-        ->call('saveRepository')
-        ->assertHasNoErrors()
+        ->set('gitRepository', '')
         ->set('databaseDump', UploadedFile::fake()->create('db.dump', 100))
         ->set('filestoreArchive', UploadedFile::fake()->create('filestore.tar.gz', 100))
+        ->set('addonsZip', UploadedFile::fake()->create('addons.zip', 100))
         ->call('uploadFiles')
         ->assertHasNoErrors()
         ->call('start')
@@ -71,8 +71,8 @@ it('uploads dump and filestore then queues the migrate job', function () {
     $migration = OdooMigration::query()->where('project_id', $this->project->id)->first();
     expect($migration)->not->toBeNull()
         ->and($migration->status)->toBe('queued')
-        ->and($migration->git_repository)->toBe('acme/odoo-addons')
-        ->and($migration->hasFiles())->toBeTrue();
+        ->and($migration->hasFiles())->toBeTrue()
+        ->and($migration->hasAddonsZip())->toBeTrue();
 
     Queue::assertPushed(MigrateOdooShJob::class, fn (MigrateOdooShJob $job): bool => $job->migrationId === $migration->id);
     expect($component->get('migrationId'))->toBe($migration->id);

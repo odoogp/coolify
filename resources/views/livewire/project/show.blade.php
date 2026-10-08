@@ -36,7 +36,7 @@
                     <a href="{{ route('project.odoo.migrate', ['project_uuid' => $project->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button"
-                        title="{{ __('Migrate from Odoo.sh') }}">
+                        title="{{ __('Migrate') }}">
                         {{ __('Migrate') }}
                     </a>
                     @endif

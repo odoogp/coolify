@@ -39,7 +39,7 @@ class PlanSignup extends Component
         abort_unless($found instanceof GetOdooPlan, 404);
         $this->planId = $found->id;
 
-        $choices = GetOdooPricingArea::countryChoices();
+        $choices = GetOdooPricingArea::countryChoicesForPlan($found);
         if (count($choices) === 1) {
             $this->pricingAreaId = (string) $choices[0]['value'];
         }
@@ -62,23 +62,20 @@ class PlanSignup extends Component
             return null;
         }
 
-        $countriesConfigured = GetOdooPricingArea::query()
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->where('is_active', true)
-            ->exists();
+        $countryChoices = GetOdooPricingArea::countryChoicesForPlan($plan);
+        $countriesRequired = $countryChoices !== [];
 
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'password' => ['required', Password::defaults(), 'confirmed'],
         ];
-        if ($countriesConfigured) {
+        if ($countriesRequired) {
+            $allowedIds = collect($countryChoices)->pluck('value')->map(fn ($id): int => (int) $id)->all();
             $rules['pricingAreaId'] = [
                 'required',
                 'integer',
-                Rule::exists('get_odoo_pricing_areas', 'id')
-                    ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-                    ->where('is_active', true),
+                Rule::in($allowedIds),
             ];
         } else {
             $rules['pricingAreaId'] = ['nullable'];
@@ -90,6 +87,11 @@ class PlanSignup extends Component
         RateLimiter::hit($ipKey, 600);
 
         $country = $this->selectedCountry();
+        if (! $plan->isAvailableInCountry($country)) {
+            $this->addError('pricingAreaId', __('This plan is not available in that country.'));
+
+            return null;
+        }
         $quote = GetOdooPlanPricing::quote($plan, $country);
         $amount = number_format($quote['amount'], 2, '.', '');
 
@@ -184,7 +186,7 @@ class PlanSignup extends Component
         $plan = $this->plan();
         $country = $this->selectedCountry();
         $quote = GetOdooPlanPricing::quote($plan, $country);
-        $countryChoices = GetOdooPricingArea::countryChoices();
+        $countryChoices = GetOdooPricingArea::countryChoicesForPlan($plan);
 
         return view('livewire.getodoo.plan-signup', [
             'plan' => $plan,
@@ -197,7 +199,7 @@ class PlanSignup extends Component
 
     private function plan(): GetOdooPlan
     {
-        return GetOdooPlan::query()->findOrFail($this->planId);
+        return GetOdooPlan::query()->with('pricingAreas')->findOrFail($this->planId);
     }
 
     private function selectedCountry(): ?GetOdooPricingArea

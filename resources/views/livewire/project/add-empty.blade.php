@@ -38,13 +38,20 @@
     @if ($service === 'odoo')
         <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal
             :options="collect(\App\Domain\Odoo\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
-        <x-forms.checkbox id="connectGithub" label="{{ __('Connect GitHub') }}"
-            helper="{{ __('You can leave this off. JupyterLab then shows the addon files, and a repository can be connected later.') }}" />
+        <x-forms.checkbox id="migrateFromOdoo" live label="{{ __('Migrate') }}"
+            helper="{{ __('Creates the project, starts Odoo, then opens the assistant to upload dump, filestore, and optional modules zip. You can restore into production or staging.') }}" />
+        @unless ($migrateFromOdoo)
+            <x-forms.checkbox id="connectGithub" label="{{ __('Connect GitHub') }}"
+                helper="{{ __('You can leave this off. JupyterLab then shows the addon files, and a repository can be connected later.') }}" />
+        @endunless
     @endif
 
     <p
         class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-dim">
         {{ __('A production environment will be created automatically.') }}
+        @if ($service === 'odoo' && $migrateFromOdoo)
+            {{ __('After create you will continue in the migration assistant.') }}
+        @endif
     </p>
 
     <footer class="flex justify-end border-t border-neutral-200 pt-4 dark:border-white/[0.08]">

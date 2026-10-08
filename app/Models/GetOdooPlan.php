@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\GetOdooBackupFrequency;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GetOdooPlan extends BaseModel
@@ -49,6 +50,45 @@ class GetOdooPlan extends BaseModel
     public function signups(): HasMany
     {
         return $this->hasMany(GetOdooPlanSignup::class, 'plan_id');
+    }
+
+    /**
+     * Empty = available in every country. Otherwise only these pricing countries.
+     */
+    public function pricingAreas(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            GetOdooPricingArea::class,
+            'get_odoo_plan_pricing_area',
+            'plan_id',
+            'pricing_area_id',
+        )->withPivot('promo_price')->withTimestamps();
+    }
+
+    public function isAvailableWorldwide(): bool
+    {
+        if ($this->relationLoaded('pricingAreas')) {
+            return $this->pricingAreas->isEmpty();
+        }
+
+        return ! $this->pricingAreas()->exists();
+    }
+
+    public function isAvailableInCountry(?GetOdooPricingArea $country): bool
+    {
+        if ($this->isAvailableWorldwide()) {
+            return true;
+        }
+
+        if (! $country instanceof GetOdooPricingArea) {
+            return false;
+        }
+
+        if ($this->relationLoaded('pricingAreas')) {
+            return $this->pricingAreas->contains('id', $country->id);
+        }
+
+        return $this->pricingAreas()->whereKey($country->id)->exists();
     }
 
     public function isFree(): bool
