@@ -34,16 +34,32 @@ class GetOdooBackupFrequency
     /**
      * @return list<array{value: string, label: string}>
      */
-    public static function choices(): array
+    public static function choices(bool $includeNone = true): array
     {
-        return [
-            ['value' => self::NONE, 'label' => __('No automatic backups')],
+        $choices = [
             ['value' => self::HOURLY, 'label' => __('Every hour')],
             ['value' => self::EVERY_6H, 'label' => __('Every 6 hours')],
             ['value' => self::TWICE_DAILY, 'label' => __('Twice a day')],
             ['value' => self::DAILY, 'label' => __('Daily')],
             ['value' => self::WEEKLY, 'label' => __('Weekly')],
         ];
+
+        if ($includeNone) {
+            array_unshift($choices, ['value' => self::NONE, 'label' => __('No automatic backups')]);
+        }
+
+        return $choices;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function scheduleKeys(): array
+    {
+        return array_values(array_filter(
+            self::keys(),
+            fn (string $key): bool => $key !== self::NONE
+        ));
     }
 
     public static function cron(string $key): ?string

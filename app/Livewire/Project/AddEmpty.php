@@ -346,7 +346,7 @@ class AddEmpty extends Component
             'server_id' => $destination->server_id,
             'destination_id' => $destination->id,
             'destination_type' => $destination->getMorphClass(),
-            'jupyter_enabled' => $this->service === 'odoo',
+            'jupyter_enabled' => ServiceTemplateCatalog::includesJupyter($this->service),
         ]);
         if (in_array($this->service, NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
             $service->connect_to_docker_network = true;

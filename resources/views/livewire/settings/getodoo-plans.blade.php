@@ -43,13 +43,18 @@
                         <x-forms.checkbox id="includesMigration"
                             label="{{ __('Includes migration help (GitHub, repository, dump + filestore)') }}"
                             helper="{{ __('When on, signup shows migration help as included. Anyone who can update an Odoo project can open Migrate.') }}" />
-                        <div class="grid gap-3 sm:grid-cols-2">
-                            <x-forms.listbox id="backupFrequency" portal label="{{ __('Automatic backup frequency') }}"
-                                :options="$backupFrequencyChoices"
-                                helper="{{ __('How often Odoo instances on this plan back up the database and the filestore.') }}" />
-                            <x-forms.input id="backupRetentionDays" type="number" min="1" max="365"
-                                label="{{ __('Backup retention (days)') }}" />
-                        </div>
+                        <x-forms.checkbox id="includesBackups" live
+                            label="{{ __('Includes automatic backups') }}"
+                            helper="{{ __('When on, Odoo on this plan schedules database + filestore backups. Leave off for no automatic backups.') }}" />
+                        @if ($includesBackups)
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <x-forms.listbox id="backupFrequency" portal label="{{ __('Automatic backup frequency') }}"
+                                    :options="$backupFrequencyChoices"
+                                    helper="{{ __('How often Odoo instances on this plan back up the database and the filestore.') }}" />
+                                <x-forms.input id="backupRetentionDays" type="number" min="1" max="365"
+                                    label="{{ __('Backup retention (days)') }}" />
+                            </div>
+                        @endif
 
                         <div class="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-white/[0.08]">
                             <p class="text-sm font-medium">{{ __('Countries for this plan') }}</p>

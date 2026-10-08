@@ -56,6 +56,9 @@
                                 <x-forms.input id="category" label="{{ __('Category') }}" />
                                 <x-forms.textarea id="description" label="{{ __('Description') }}" rows="2" />
                                 <x-forms.checkbox id="isVisible" label="{{ __('Visible in the launch picker') }}" />
+                                <x-forms.checkbox id="includesJupyter"
+                                    label="{{ __('Includes Jupyter for file browsing') }}"
+                                    helper="{{ __('When on, launch enables JupyterLab so members can browse mounted files. If the environment already has Jupyter, that container is reused.') }}" />
                                 <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="18" monospace allowTab
                                     required
                                     helper="{{ __('Copied when someone launches this service.') }}" />
@@ -74,6 +77,9 @@
                                 <x-forms.input id="category" label="{{ __('Category') }}" />
                                 <x-forms.textarea id="description" label="{{ __('Description') }}" rows="2" />
                                 <x-forms.checkbox id="isVisible" label="{{ __('Visible in the launch picker') }}" />
+                                <x-forms.checkbox id="includesJupyter"
+                                    label="{{ __('Includes Jupyter for file browsing') }}"
+                                    helper="{{ __('When on, launch enables JupyterLab so members can browse mounted files. If the environment already has Jupyter, that container is reused.') }}" />
                                 <x-forms.textarea id="compose" :label="$serviceName" rows="18" monospace allowTab
                                     required
                                     helper="{{ __('This Compose is copied when a member creates the service. Redeploying an existing service does not pick up this change.') }}" />

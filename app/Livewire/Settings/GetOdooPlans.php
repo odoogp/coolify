@@ -43,6 +43,8 @@ class GetOdooPlans extends Component
 
     public bool $includesMigration = false;
 
+    public bool $includesBackups = false;
+
     public string $backupFrequency = GetOdooBackupFrequency::DAILY;
 
     public string $backupRetentionDays = '7';
@@ -82,12 +84,14 @@ class GetOdooPlans extends Component
             'canAddServers',
             'canLaunchOnInstanceServer',
             'includesMigration',
+            'includesBackups',
             'planCountryIsos',
             'planCountryPromos',
             'pendingCountryIso',
         ]);
         $this->price = '0';
         $this->active = true;
+        $this->includesBackups = false;
         $this->backupFrequency = GetOdooBackupFrequency::DAILY;
         $this->backupRetentionDays = '7';
         $this->planAvailableWorldwide = true;
@@ -113,7 +117,9 @@ class GetOdooPlans extends Component
         $this->canAddServers = $plan->can_add_servers;
         $this->canLaunchOnInstanceServer = $plan->can_launch_on_instance_server;
         $this->includesMigration = (bool) $plan->includes_migration;
-        $this->backupFrequency = (string) ($plan->backup_frequency ?: GetOdooBackupFrequency::DAILY);
+        $storedFrequency = (string) ($plan->backup_frequency ?: GetOdooBackupFrequency::NONE);
+        $this->includesBackups = $storedFrequency !== GetOdooBackupFrequency::NONE;
+        $this->backupFrequency = $this->includesBackups ? $storedFrequency : GetOdooBackupFrequency::DAILY;
         $this->backupRetentionDays = (string) max(1, (int) ($plan->backup_retention_days ?: 7));
         $this->planAvailableWorldwide = $plan->isAvailableWorldwide();
         $this->planCountryIsos = [];
@@ -139,6 +145,13 @@ class GetOdooPlans extends Component
             $this->planCountryIsos = [];
             $this->planCountryPromos = [];
             $this->pendingCountryIso = '';
+        }
+    }
+
+    public function updatedIncludesBackups(bool $value): void
+    {
+        if ($value && ($this->backupFrequency === '' || $this->backupFrequency === GetOdooBackupFrequency::NONE)) {
+            $this->backupFrequency = GetOdooBackupFrequency::DAILY;
         }
     }
 
@@ -202,8 +215,18 @@ class GetOdooPlans extends Component
             'canAddServers' => ['boolean'],
             'canLaunchOnInstanceServer' => ['boolean'],
             'includesMigration' => ['boolean'],
-            'backupFrequency' => ['required', Rule::in(GetOdooBackupFrequency::keys())],
-            'backupRetentionDays' => ['required', 'integer', 'min:1', 'max:365'],
+            'includesBackups' => ['boolean'],
+            'backupFrequency' => [
+                Rule::requiredIf(fn (): bool => $this->includesBackups),
+                Rule::in(GetOdooBackupFrequency::scheduleKeys()),
+            ],
+            'backupRetentionDays' => [
+                Rule::requiredIf(fn (): bool => $this->includesBackups),
+                'nullable',
+                'integer',
+                'min:1',
+                'max:365',
+            ],
             'planAvailableWorldwide' => ['boolean'],
             'planCountryIsos' => ['array'],
             'planCountryIsos.*' => ['string', 'size:2', Rule::in(array_keys(GetOdooCountries::names()))],
@@ -235,8 +258,12 @@ class GetOdooPlans extends Component
             'can_add_servers' => $this->canAddServers,
             'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
             'includes_migration' => $this->includesMigration,
-            'backup_frequency' => $this->backupFrequency,
-            'backup_retention_days' => (int) $this->backupRetentionDays,
+            'backup_frequency' => $this->includesBackups
+                ? $this->backupFrequency
+                : GetOdooBackupFrequency::NONE,
+            'backup_retention_days' => $this->includesBackups
+                ? (int) $this->backupRetentionDays
+                : max(1, (int) ($this->backupRetentionDays ?: 7)),
         ];
 
         if ($this->planId) {
@@ -361,7 +388,7 @@ class GetOdooPlans extends Component
             'signups' => GetOdooPlanSignup::query()->with(['plan', 'pricingArea'])->latest('id')->limit(20)->get(),
             'planCountryRows' => $planCountryRows,
             'addCountryChoices' => $addCountryChoices,
-            'backupFrequencyChoices' => GetOdooBackupFrequency::choices(),
+            'backupFrequencyChoices' => GetOdooBackupFrequency::choices(includeNone: false),
         ]);
     }
 }

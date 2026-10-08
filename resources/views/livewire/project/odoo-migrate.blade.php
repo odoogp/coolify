@@ -7,7 +7,7 @@
         <div class="min-w-0">
             <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Migrate') }}</h1>
             <p class="mt-1 max-w-2xl text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
-                {{ __('Choose production or staging, connect GitHub or upload a modules zip, then upload the database dump and filestore. We restore both onto the selected environment.') }}
+                {{ __('Choose an existing environment or create a new one, connect GitHub or upload a modules zip, then upload the database dump and filestore. We restore both onto the selected environment.') }}
             </p>
         </div>
         <a href="{{ route('project.show', ['project_uuid' => $project->uuid]) }}" class="button" {{ wireNavigate() }}>
@@ -28,7 +28,7 @@
         <x-application.settings-section :title="__('1. Target environment')">
             <x-forms.listbox id="environmentId" portal label="{{ __('Restore into') }}"
                 :options="$environmentChoices"
-                helper="{{ __('Production or any staging that already has Odoo launched.') }}" />
+                helper="{{ __('Pick production, an existing staging, or a brand-new environment. If Odoo is missing there, we create and start it before restoring.') }}" />
         </x-application.settings-section>
 
         <x-application.settings-section :title="__('2. GitHub (optional)')">
@@ -95,10 +95,10 @@
 
         <x-application.settings-section :title="__('5. Restore')">
             <p class="mb-3 text-[13px] text-neutral-500 dark:text-fg-dim">
-                {{ __('The selected environment must already have Odoo. The restore overwrites that database and filestore.') }}
+                {{ __('A new environment gets a fresh Odoo stack first. Restoring onto an environment that already has data overwrites its database and filestore.') }}
             </p>
             <x-forms.button type="button" wire:click="start" isHighlighted
-                wire:confirm="{{ __('Restore dump and filestore onto the selected environment? This overwrites the current database and filestore.') }}">
+                wire:confirm="{{ __('Start migration onto the selected environment? Existing database and filestore data there will be overwritten.') }}">
                 {{ __('Start migration') }}
             </x-forms.button>
         </x-application.settings-section>

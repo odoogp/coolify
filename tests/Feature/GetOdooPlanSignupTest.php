@@ -96,6 +96,7 @@ it('lets the instance owner save a plan and copy its link', function () {
         ->set('maxMembers', '1')
         ->set('canAddServers', true)
         ->set('includesMigration', true)
+        ->set('includesBackups', true)
         ->set('backupFrequency', 'twice_daily')
         ->set('backupRetentionDays', '14')
         ->call('savePlan')
@@ -119,6 +120,27 @@ it('lets the instance owner save a plan and copy its link', function () {
         ->and((int) $plan->backup_retention_days)->toBe(14)
         ->and(collect($plan->includedItems())->pluck('label')->all())->toContain(__('Migration help (GitHub, repository, dump + filestore)'))
         ->and($plan->publicUrl())->toContain('/start/'.$plan->uuid);
+});
+
+it('saves a plan without automatic backups when the backup option is off', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooPlans::class)
+        ->set('name', 'Sin backups')
+        ->set('price', '0')
+        ->set('includesBackups', false)
+        ->call('savePlan')
+        ->assertHasNoErrors();
+
+    $plan = GetOdooPlan::query()->where('name', 'Sin backups')->first();
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->backup_frequency)->toBe('none')
+        ->and(collect($plan->includedItems())->pluck('label')->all())
+        ->not->toContain(__('Automatic Odoo backups'));
 });
 
 it('hides plan settings from a customer admin', function () {

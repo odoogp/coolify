@@ -25,6 +25,8 @@ class ServiceTemplates extends Component
 
     public bool $isVisible = true;
 
+    public bool $includesJupyter = false;
+
     public bool $creating = false;
 
     public string $newName = '';
@@ -45,6 +47,7 @@ class ServiceTemplates extends Component
         $this->description = '';
         $this->category = 'Custom';
         $this->isVisible = true;
+        $this->includesJupyter = false;
         $this->newName = '';
     }
 
@@ -57,6 +60,7 @@ class ServiceTemplates extends Component
         $this->description = '';
         $this->category = '';
         $this->isVisible = true;
+        $this->includesJupyter = false;
     }
 
     public function selectService(string $name): void
@@ -86,6 +90,7 @@ class ServiceTemplates extends Component
         $this->description = '';
         $this->category = (string) ($summary['category'] ?? '');
         $this->isVisible = (bool) ($summary['is_visible'] ?? true);
+        $this->includesJupyter = (bool) ($summary['includes_jupyter'] ?? ServiceTemplateCatalog::includesJupyter($name));
 
         $row = \App\Models\ServiceTemplateOverride::query()->where('name', $name)->first();
         if ($row !== null) {
@@ -93,6 +98,7 @@ class ServiceTemplates extends Component
             $this->description = (string) ($row->description ?? '');
             $this->category = (string) ($row->category ?? '');
             $this->isVisible = (bool) $row->is_visible;
+            $this->includesJupyter = (bool) $row->includes_jupyter;
         }
     }
 
@@ -106,6 +112,7 @@ class ServiceTemplates extends Component
             'description' => ['nullable', 'string', 'max:2000'],
             'category' => ['nullable', 'string', 'max:80'],
             'isVisible' => ['boolean'],
+            'includesJupyter' => ['boolean'],
         ]);
 
         try {
@@ -114,6 +121,7 @@ class ServiceTemplates extends Component
                 'description' => $this->description,
                 'category' => $this->category !== '' ? $this->category : 'Custom',
                 'is_visible' => $this->isVisible,
+                'includes_jupyter' => $this->includesJupyter,
             ]);
         } catch (\Exception $exception) {
             $this->addError('compose', $exception->getMessage());
@@ -137,6 +145,7 @@ class ServiceTemplates extends Component
             'description' => ['nullable', 'string', 'max:2000'],
             'category' => ['nullable', 'string', 'max:80'],
             'isVisible' => ['boolean'],
+            'includesJupyter' => ['boolean'],
         ]);
 
         try {
@@ -145,6 +154,7 @@ class ServiceTemplates extends Component
                 'description' => $this->description,
                 'category' => $this->category,
                 'is_visible' => $this->isVisible,
+                'includes_jupyter' => $this->includesJupyter,
             ]);
         } catch (\Exception $exception) {
             $this->addError('compose', $exception->getMessage());

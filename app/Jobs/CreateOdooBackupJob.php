@@ -30,10 +30,16 @@ class CreateOdooBackupJob implements ShouldQueue
             throw new RuntimeException(__('This environment has no Odoo service yet.'));
         }
 
-        $schedules = EnsureOdooBackupSchedules::forService($service, $environment->project?->team?->getodooPlan);
+        $plan = $environment->project?->team?->getodooPlan;
+        if (! EnsureOdooBackupSchedules::planAllowsBackups($plan)) {
+            throw new RuntimeException(__('This plan does not include automatic backups.'));
+        }
+
+        $schedules = EnsureOdooBackupSchedules::forService($service, $plan);
         $backup = OdooBackup::query()->create([
             'environment_id' => $environment->id,
             'status' => 'pending',
+            'kind' => OdooBackup::KIND_MANUAL,
         ]);
 
         DatabaseBackupJob::dispatch($schedules['database']);

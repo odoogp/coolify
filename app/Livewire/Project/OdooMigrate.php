@@ -13,11 +13,14 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use RuntimeException;
 
 class OdooMigrate extends Component
 {
     use AuthorizesRequests;
     use WithFileUploads;
+
+    public const NEW_ENVIRONMENT = 'new';
 
     public Project $project;
 
@@ -46,7 +49,7 @@ class OdooMigrate extends Component
         $production = $this->project->environments()
             ->whereRaw('LOWER(name) = ?', ['production'])
             ->first();
-        $this->environmentId = $production ? (string) $production->id : '';
+        $this->environmentId = $production ? (string) $production->id : self::NEW_ENVIRONMENT;
 
         $latest = OdooMigration::query()
             ->where('project_id', $this->project->id)
@@ -64,14 +67,22 @@ class OdooMigrate extends Component
         $this->guardAccess();
         $this->validate([
             'gitRepository' => ['nullable', 'string', 'max:255', 'regex:/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/'],
-            'environmentId' => ['required', 'integer', Rule::in($this->allowedEnvironmentIds())],
+            'environmentId' => ['required', Rule::in($this->allowedEnvironmentValues())],
         ]);
+
+        try {
+            $environmentId = $this->resolveTargetEnvironmentId();
+        } catch (RuntimeException $exception) {
+            $this->addError('environmentId', $exception->getMessage());
+
+            return;
+        }
 
         $migration = $this->draft();
         $migration->update([
             'git_repository' => trim($this->gitRepository) !== '' ? trim($this->gitRepository) : null,
             'odoo_version' => $this->project->odooProfile?->odoo_version,
-            'environment_id' => (int) $this->environmentId,
+            'environment_id' => $environmentId,
         ]);
         $this->migrationId = $migration->id;
         $this->dispatch('success', __('Repository and target environment saved.'));
@@ -82,11 +93,19 @@ class OdooMigrate extends Component
         $this->authorize('update', $this->project);
         $this->guardAccess();
         $this->validate([
-            'environmentId' => ['required', 'integer', Rule::in($this->allowedEnvironmentIds())],
+            'environmentId' => ['required', Rule::in($this->allowedEnvironmentValues())],
             'databaseDump' => ['required', 'file', 'max:51200'],
             'filestoreArchive' => ['required', 'file', 'max:51200'],
             'addonsZip' => ['nullable', 'file', 'max:51200'],
         ]);
+
+        try {
+            $environmentId = $this->resolveTargetEnvironmentId();
+        } catch (RuntimeException $exception) {
+            $this->addError('environmentId', $exception->getMessage());
+
+            return;
+        }
 
         $migration = $this->draft();
         $base = 'odoo-migrations/'.$this->project->uuid.'/'.$migration->uuid;
@@ -101,7 +120,7 @@ class OdooMigrate extends Component
 
         $migration->update([
             'status' => 'files_ready',
-            'environment_id' => (int) $this->environmentId,
+            'environment_id' => $environmentId,
             'database_disk_path' => $databasePath,
             'filestore_disk_path' => $filestorePath,
             'database_original_name' => $this->databaseDump->getClientOriginalName(),
@@ -123,8 +142,16 @@ class OdooMigrate extends Component
         $this->authorize('update', $this->project);
         $this->guardAccess();
         $this->validate([
-            'environmentId' => ['required', 'integer', Rule::in($this->allowedEnvironmentIds())],
+            'environmentId' => ['required', Rule::in($this->allowedEnvironmentValues())],
         ]);
+
+        try {
+            $environmentId = $this->resolveTargetEnvironmentId();
+        } catch (RuntimeException $exception) {
+            $this->addError('environmentId', $exception->getMessage());
+
+            return;
+        }
 
         $migration = $this->draft();
         if (! $migration->hasFiles()) {
@@ -136,13 +163,13 @@ class OdooMigrate extends Component
         $migration->update([
             'status' => 'queued',
             'error' => null,
-            'environment_id' => (int) $this->environmentId,
+            'environment_id' => $environmentId,
             'git_repository' => trim($this->gitRepository) !== '' ? trim($this->gitRepository) : $migration->git_repository,
             'user_id' => auth()->id(),
         ]);
         MigrateOdooShJob::dispatch($migration->id);
         $this->migrationId = $migration->id;
-        $this->dispatch('success', __('Migration queued. We restore dump and filestore onto the selected environment.'));
+        $this->dispatch('success', __('Migration queued. We create Odoo on a new environment if needed, then restore dump and filestore.'));
     }
 
     public function connectGithub(): mixed
@@ -185,7 +212,7 @@ class OdooMigrate extends Component
      */
     private function environmentChoices(): array
     {
-        return $this->project->environments
+        $choices = $this->project->environments
             ->filter(fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
                 || OdooStaging::isStagingName($environment->name))
             ->sortBy(fn (Environment $environment): array => [
@@ -197,20 +224,47 @@ class OdooMigrate extends Component
                 $service = $environment->services->first(fn ($row): bool => $row->supportsOdooJupyter());
                 $label = $environment->name;
                 if ($service === null) {
-                    $label .= ' · '.__('launch Odoo first');
+                    $label .= ' · '.__('Odoo will be created');
                 }
 
                 return ['value' => (string) $environment->id, 'label' => $label];
             })
             ->all();
+
+        if ($this->project->canCreateStagingEnvironment()) {
+            $next = OdooStaging::nextName($this->project);
+            array_unshift($choices, [
+                'value' => self::NEW_ENVIRONMENT,
+                'label' => __('New environment (:name)', ['name' => $next]),
+            ]);
+        }
+
+        return $choices;
     }
 
     /**
-     * @return list<int>
+     * @return list<string>
      */
-    private function allowedEnvironmentIds(): array
+    private function allowedEnvironmentValues(): array
     {
-        return collect($this->environmentChoices())->pluck('value')->map(fn ($id): int => (int) $id)->all();
+        return collect($this->environmentChoices())->pluck('value')->map(fn ($id): string => (string) $id)->all();
+    }
+
+    private function resolveTargetEnvironmentId(): int
+    {
+        if ($this->environmentId !== self::NEW_ENVIRONMENT) {
+            return (int) $this->environmentId;
+        }
+
+        if (! $this->project->canCreateStagingEnvironment()) {
+            throw new RuntimeException(__('You cannot create another environment on this project.'));
+        }
+
+        $environment = $this->project->createNextStagingEnvironment();
+        $this->environmentId = (string) $environment->id;
+        $this->project->load('environments.services');
+
+        return (int) $environment->id;
     }
 
     private function draft(): OdooMigration
@@ -227,7 +281,9 @@ class OdooMigrate extends Component
 
         $migration = OdooMigration::query()->create([
             'project_id' => $this->project->id,
-            'environment_id' => filled($this->environmentId) ? (int) $this->environmentId : null,
+            'environment_id' => $this->environmentId !== self::NEW_ENVIRONMENT && filled($this->environmentId)
+                ? (int) $this->environmentId
+                : null,
             'team_id' => $this->project->team_id,
             'user_id' => auth()->id(),
             'status' => 'draft',

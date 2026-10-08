@@ -7,11 +7,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OdooBackup extends Model
 {
+    public const KIND_MANUAL = 'manual';
+
+    public const KIND_AUTOMATIC = 'automatic';
+
     protected $fillable = [
         'environment_id',
         'database_backup_execution_id',
         'volume_backup_execution_id',
         'status',
+        'kind',
     ];
 
     public function environment(): BelongsTo

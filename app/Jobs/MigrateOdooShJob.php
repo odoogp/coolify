@@ -2,8 +2,16 @@
 
 namespace App\Jobs;
 
+use App\Actions\CoolifyTask\RunRemoteProcess;
+use App\Actions\Service\StartService;
+use App\Domain\Odoo\OdooVersion;
+use App\Enums\ProcessStatus;
+use App\Models\Environment;
+use App\Models\EnvironmentVariable;
 use App\Models\OdooAuditLog;
+use App\Models\OdooComposeTemplate;
 use App\Models\OdooMigration;
+use App\Models\Project;
 use App\Models\Service;
 use App\Support\EnsureOdooBackupSchedules;
 use App\Support\OdooAddons;
@@ -15,6 +23,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 class MigrateOdooShJob implements ShouldQueue
@@ -44,13 +53,11 @@ class MigrateOdooShJob implements ShouldQueue
                 ? $migration->project->environments->firstWhere('id', $migration->environment_id)
                 : $migration->project->environments->first(fn ($environment): bool => strcasecmp($environment->name, 'production') === 0);
             if ($target === null) {
-                throw new RuntimeException(__('Choose production or a staging environment before migrating.'));
+                throw new RuntimeException(__('Choose an environment before migrating.'));
             }
 
-            $service = $target->services->first(fn ($row): bool => $row->supportsOdooJupyter());
-            if (! $service instanceof Service) {
-                throw new RuntimeException(__('Launch Odoo for that environment first, then run the migration restore.'));
-            }
+            $service = $this->ensureOdooService($target, $migration->project);
+            $service->loadMissing('destination.server');
 
             $databasePath = Storage::disk('local')->path((string) $migration->database_disk_path);
             $filestorePath = Storage::disk('local')->path((string) $migration->filestore_disk_path);
@@ -77,6 +84,8 @@ class MigrateOdooShJob implements ShouldQueue
             $pg = escapeshellarg('postgresql-'.$service->uuid);
 
             OdooGit::whileServerIsFree($server, function () use ($server, $service, $databasePath, $filestorePath, $addonsPath, $remoteDir, $remoteDump, $remoteStore, $remoteAddons, $volume, $pg, $migration): void {
+                $this->startOdooIfNeeded($service);
+
                 instant_remote_process(['mkdir -p '.escapeshellarg($remoteDir)], $server);
                 $this->upload($server, $databasePath, $remoteDump);
                 $this->upload($server, $filestorePath, $remoteStore);
@@ -134,6 +143,146 @@ class MigrateOdooShJob implements ShouldQueue
 
             throw $exception;
         }
+    }
+
+    private function ensureOdooService(Environment $target, Project $project): Service
+    {
+        $existing = $target->services->first(fn ($row): bool => $row->supportsOdooJupyter());
+        if ($existing instanceof Service) {
+            return $existing;
+        }
+
+        $production = $project->environments->first(
+            fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
+        );
+        $original = $production?->services->first(fn ($row): bool => $row->supportsOdooJupyter());
+        if ($original instanceof Service) {
+            $original->loadMissing('environment_variables');
+            $copy = $original->replicate();
+            $copy->uuid = new_public_id();
+            $copy->environment_id = $target->id;
+            $copy->config_hash = null;
+            $copy->name = 'odoo-'.$target->name;
+            $copy->created_by = $original->created_by;
+            $copy->save();
+
+            foreach ($original->environment_variables as $variable) {
+                $cloned = $variable->replicate();
+                $cloned->uuid = new_public_id();
+                $cloned->resourceable_id = $copy->id;
+                $cloned->resourceable_type = $copy->getMorphClass();
+                $cloned->save();
+            }
+
+            OdooGit::assignCopiedBranch($copy->fresh() ?? $copy);
+            $target->unsetRelation('services');
+
+            return $copy->fresh() ?? $copy;
+        }
+
+        $destination = OdooGit::firstLaunchDestination();
+        if ($destination === null) {
+            throw new RuntimeException(__('No server is available to create Odoo for this environment.'));
+        }
+
+        $version = (string) ($project->odooProfile?->odoo_version ?: '18');
+        $templates = get_service_templates();
+        $encoded = data_get($templates, 'odoo.compose');
+        $compose = is_string($encoded) && $encoded !== '' ? base64_decode($encoded) : OdooComposeTemplate::defaultCompose($version);
+        $saved = OdooComposeTemplate::composeFor($version);
+        $compose = $saved ?? (is_string($compose) ? OdooVersion::apply($compose, $version) : null);
+        if (! is_string($compose) || $compose === '') {
+            throw new RuntimeException(__('Odoo has no compose template for this version.'));
+        }
+
+        $service = new Service([
+            'docker_compose_raw' => $compose,
+            'environment_id' => $target->id,
+            'service_type' => 'odoo',
+            'server_id' => $destination->server_id,
+            'destination_id' => $destination->id,
+            'destination_type' => $destination->getMorphClass(),
+            'jupyter_enabled' => true,
+        ]);
+        if (in_array('odoo', NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
+            $service->connect_to_docker_network = true;
+        }
+        $service->save();
+        $service->name = 'odoo-'.$service->uuid;
+        $service->save();
+
+        $envs = data_get($templates, 'odoo.envs');
+        if (is_string($envs) && $envs !== '') {
+            collect(preg_split("/\r\n|\r|\n/", base64_decode($envs)))
+                ->filter(fn ($line): bool => is_string($line) && str_contains($line, '='))
+                ->each(function (string $line) use ($service): void {
+                    $key = str($line)->before('=')->value();
+                    $value = str($line)->after('=')->value();
+                    if ($key === '' || $value === '') {
+                        return;
+                    }
+                    EnvironmentVariable::create([
+                        'key' => $key,
+                        'value' => $value,
+                        'resourceable_id' => $service->id,
+                        'resourceable_type' => $service->getMorphClass(),
+                        'is_preview' => false,
+                    ]);
+                });
+        }
+
+        $service->parse(isNew: true);
+        applyServiceApplicationPrerequisites($service);
+        $target->unsetRelation('services');
+
+        return $service->fresh() ?? $service;
+    }
+
+    private function startOdooIfNeeded(Service $service): void
+    {
+        if (OdooGit::loginAnswers($service)) {
+            return;
+        }
+
+        OdooGit::useHttps($service);
+        $activity = StartService::run($service, pullLatestImages: false);
+        $this->waitForServiceStart($activity, $service);
+    }
+
+    private function waitForServiceStart(mixed $activity, Service $service): void
+    {
+        if (! $activity instanceof Activity) {
+            if (OdooGit::loginAnswers($service)) {
+                return;
+            }
+
+            throw new RuntimeException(__('Odoo did not start on the target environment.'));
+        }
+
+        $deadline = time() + 1800;
+        while (time() < $deadline) {
+            $status = RunRemoteProcess::readStatus($activity);
+            if ($status === ProcessStatus::FINISHED->value) {
+                return;
+            }
+            if (in_array($status, [ProcessStatus::ERROR->value, ProcessStatus::KILLED->value, ProcessStatus::CANCELLED->value], true)) {
+                if (OdooGit::loginAnswers($service)) {
+                    return;
+                }
+
+                throw new RuntimeException(__('Odoo did not start on the target environment.'));
+            }
+            if (OdooGit::loginAnswers($service)) {
+                return;
+            }
+            sleep(5);
+        }
+
+        if (OdooGit::loginAnswers($service)) {
+            return;
+        }
+
+        throw new RuntimeException(__('Odoo did not start on the target environment.'));
     }
 
     private function upload($server, string $local, string $remote): void

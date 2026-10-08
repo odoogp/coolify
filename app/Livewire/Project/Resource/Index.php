@@ -339,7 +339,7 @@ class Index extends Component
             'server_id' => $destination->server_id,
             'destination_id' => $destination->id,
             'destination_type' => $destination->getMorphClass(),
-            'jupyter_enabled' => false,
+            'jupyter_enabled' => ServiceTemplateCatalog::includesJupyter($name),
         ]);
         if (in_array($name, NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
             $service->connect_to_docker_network = true;
@@ -445,7 +445,7 @@ class Index extends Component
             'server_id' => $destination->server_id,
             'destination_id' => $destination->id,
             'destination_type' => $destination->getMorphClass(),
-            'jupyter_enabled' => true,
+            'jupyter_enabled' => ServiceTemplateCatalog::includesJupyter('odoo'),
         ]);
         if (in_array('odoo', NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK, true)) {
             $service->connect_to_docker_network = true;

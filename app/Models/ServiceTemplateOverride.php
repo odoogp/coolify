@@ -15,6 +15,7 @@ class ServiceTemplateOverride extends Model
         'logo',
         'category',
         'is_visible',
+        'includes_jupyter',
         'compose',
         'original_compose',
         'updated_by',
@@ -25,6 +26,7 @@ class ServiceTemplateOverride extends Model
         return [
             'is_custom' => 'boolean',
             'is_visible' => 'boolean',
+            'includes_jupyter' => 'boolean',
         ];
     }
 

@@ -11,12 +11,12 @@ use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
 
 /**
- * Optional JupyterLab service for an Odoo compose stack.
+ * Optional JupyterLab for file browsing on a service stack.
  *
- * The client Jupyter mounts that environment's addon volume on /workspace/addons.
- * It does not mount production when the environment is staging.
- * It does not copy files and it does not receive the Docker socket,
- * Odoo config, PostgreSQL, or the instance data directory.
+ * Templates with includes_jupyter set service.jupyter_enabled. Inject adds a
+ * jupyter sidecar (Odoo addon volume preferred; otherwise shareable named volumes).
+ * A second jupyter-enabled service in the same environment reuses the first
+ * Jupyter container by attaching volumes instead of injecting another one.
  */
 class OdooJupyter
 {
@@ -51,6 +51,7 @@ class OdooJupyter
 
     /**
      * External JupyterLab URL for this branch. Empty without the token: there is no anonymous session.
+     * Reuses another Jupyter in the same environment when this service has none.
      */
     public static function sessionUrl(Service $service): ?string
     {
@@ -58,12 +59,21 @@ class OdooJupyter
             return null;
         }
 
+        $host = $service;
         $jupyter = $service->applications()->get()->firstWhere('name', self::SERVICE_NAME);
         if (! filled($jupyter?->fqdn)) {
-            return null;
+            $existing = self::existingJupyterService($service);
+            if ($existing === null) {
+                return null;
+            }
+            $host = $existing;
+            $jupyter = $existing->applications()->get()->firstWhere('name', self::SERVICE_NAME);
+            if (! filled($jupyter?->fqdn)) {
+                return null;
+            }
         }
 
-        $token = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTER')->first()?->value;
+        $token = $host->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTER')->first()?->value;
         if (! filled($token)) {
             return null;
         }
@@ -83,6 +93,157 @@ class OdooJupyter
         return is_array($yaml) && self::odooService($yaml['services'] ?? []) !== null;
     }
 
+    /**
+     * Whether this service should get a jupyter sidecar injected into its own compose.
+     * False when another service in the environment already hosts Jupyter.
+     */
+    public static function shouldInjectInto(Service $service): bool
+    {
+        if (! $service->jupyter_enabled) {
+            return false;
+        }
+
+        return self::existingJupyterService($service) === null;
+    }
+
+    /**
+     * First other service in the same environment (same project/client) that already has Jupyter.
+     * Never reuses owner Jupyter or a Jupyter from another project.
+     */
+    public static function existingJupyterService(Service $service): ?Service
+    {
+        $service->loadMissing('environment.project', 'environment.services');
+        $environment = $service->environment;
+        if (! $environment instanceof Environment || $environment->project_id === null) {
+            return null;
+        }
+
+        foreach ($environment->services as $other) {
+            if ((int) $other->id === (int) $service->id) {
+                continue;
+            }
+            if ((int) ($other->environment?->project_id ?? $environment->project_id) !== (int) $environment->project_id) {
+                continue;
+            }
+            if (self::composeHasJupyter((string) $other->docker_compose_raw)) {
+                return $other;
+            }
+            $other->loadMissing('applications');
+            if ($other->applications->firstWhere('name', self::SERVICE_NAME) !== null) {
+                return $other;
+            }
+        }
+
+        return null;
+    }
+
+    public static function composeHasJupyter(string $compose): bool
+    {
+        $yaml = self::parse($compose);
+
+        return is_array($yaml) && isset($yaml['services'][self::SERVICE_NAME]) && is_array($yaml['services'][self::SERVICE_NAME]);
+    }
+
+    /**
+     * Attach shareable volumes from $guest onto the environment's existing Jupyter host.
+     * Restarts the host when mounts change so files become visible.
+     */
+    public static function attachShareableVolumesFrom(Service $guest): void
+    {
+        if (! $guest->jupyter_enabled) {
+            return;
+        }
+
+        $host = self::existingJupyterService($guest);
+        if ($host === null || self::composeHasJupyter((string) $guest->docker_compose_raw)) {
+            return;
+        }
+
+        $guestYaml = self::parse((string) $guest->docker_compose_raw);
+        if (! is_array($guestYaml)) {
+            return;
+        }
+
+        $sources = self::shareableVolumeSources($guestYaml['services'] ?? []);
+        if ($sources === []) {
+            return;
+        }
+
+        $hostCompose = (string) $host->docker_compose_raw;
+        if (! self::composeHasJupyter($hostCompose)) {
+            $hostCompose = self::inject($hostCompose);
+        }
+
+        $hostYaml = self::parse($hostCompose);
+        if (! is_array($hostYaml) || ! isset($hostYaml['services'][self::SERVICE_NAME]) || ! is_array($hostYaml['services'][self::SERVICE_NAME])) {
+            return;
+        }
+
+        $jupyter = $hostYaml['services'][self::SERVICE_NAME];
+        $allowed = self::environmentShareableSources($host->environment ?? $guest->environment);
+        foreach ($sources as $source) {
+            $allowed[$source] = true;
+        }
+
+        $mounts = is_array($jupyter['volumes'] ?? null) ? $jupyter['volumes'] : [];
+        $kept = [];
+        $existingSources = [];
+        foreach ($mounts as $volume) {
+            $parsed = self::parseVolume($volume);
+            if ($parsed === null || ! isset($allowed[$parsed['source']])) {
+                continue;
+            }
+            $kept[] = $volume;
+            $existingSources[$parsed['source']] = true;
+        }
+
+        $changed = count($kept) !== count($mounts);
+        foreach (array_keys($allowed) as $source) {
+            if (isset($existingSources[$source])) {
+                continue;
+            }
+            $kept[] = $source.':'.self::workspaceMountTarget($source, $kept === []);
+            $existingSources[$source] = true;
+            $changed = true;
+        }
+
+        if (! $changed) {
+            return;
+        }
+
+        $jupyter['volumes'] = array_values($kept);
+        $hostYaml['services'][self::SERVICE_NAME] = $jupyter;
+        $host->docker_compose_raw = Yaml::dump($hostYaml, 8, 2);
+        $host->save();
+        OdooGit::startIfPossible($host->fresh() ?? $host);
+    }
+
+    /**
+     * Named volumes belonging to services in this environment only (one client branch).
+     *
+     * @return array<string, true>
+     */
+    public static function environmentShareableSources(?Environment $environment): array
+    {
+        if (! $environment instanceof Environment) {
+            return [];
+        }
+
+        $environment->loadMissing('services');
+        $allowed = [];
+        foreach ($environment->services as $service) {
+            $yaml = self::parse((string) $service->docker_compose_raw);
+            if (! is_array($yaml)) {
+                continue;
+            }
+            foreach (self::shareableVolumeSources($yaml['services'] ?? []) as $source) {
+                $allowed[$source] = true;
+            }
+        }
+
+        return $allowed;
+    }
+
     public static function inject(string $compose): string
     {
         $yaml = self::parse($compose);
@@ -95,17 +256,12 @@ class OdooJupyter
             return $compose;
         }
 
-        $odoo = self::odooService($services);
-        if ($odoo === null) {
+        $sources = self::shareableVolumeSources($services);
+        if ($sources === []) {
             return $compose;
         }
 
-        $source = self::addonVolumeSource($odoo['volumes'] ?? []);
-        if ($source === null) {
-            return $compose;
-        }
-
-        $services[self::SERVICE_NAME] = self::serviceDefinition($source);
+        $services[self::SERVICE_NAME] = self::serviceDefinitionWithVolumes($sources);
         $yaml['services'] = $services;
 
         return Yaml::dump($yaml, 8, 2);
@@ -1709,6 +1865,42 @@ BASH));
     }
 
     /**
+     * Prefer Odoo addon volume; otherwise every shareable named volume that is not a database volume.
+     *
+     * @param  array<string, mixed>  $services
+     * @return list<string>
+     */
+    public static function shareableVolumeSources(array $services): array
+    {
+        $odoo = self::odooService($services);
+        if ($odoo !== null) {
+            $addon = self::addonVolumeSource($odoo['volumes'] ?? []);
+            if ($addon !== null) {
+                return [$addon];
+            }
+        }
+
+        $sources = [];
+        foreach ($services as $name => $service) {
+            if (! is_array($service) || in_array((string) $name, [self::SERVICE_NAME, self::OWNER_SERVICE_NAME, self::STDLIB_SERVICE_NAME], true)) {
+                continue;
+            }
+            foreach ($service['volumes'] ?? [] as $volume) {
+                $parsed = self::parseVolume($volume);
+                if ($parsed === null) {
+                    continue;
+                }
+                if (! self::sourceIsShareable($parsed['source']) || self::isDatabaseVolumeSource($parsed['source'])) {
+                    continue;
+                }
+                $sources[$parsed['source']] = true;
+            }
+        }
+
+        return array_keys($sources);
+    }
+
+    /**
      * Last addon mount wins: Docker hides an earlier mount on the same path.
      *
      * @param  array<int, mixed>  $volumes
@@ -1728,6 +1920,30 @@ BASH));
         }
 
         return $source;
+    }
+
+    private static function isDatabaseVolumeSource(string $source): bool
+    {
+        $lower = strtolower($source);
+        foreach (['postgres', 'postgresql', 'mysql', 'mariadb', 'mongo', 'redis', 'keydb', 'dragonfly', 'clickhouse'] as $db) {
+            if (str_contains($lower, $db)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function workspaceMountTarget(string $source, bool $asPrimaryWorkspace): string
+    {
+        if ($asPrimaryWorkspace) {
+            return self::WORKSPACE;
+        }
+
+        $base = basename(str_replace('\\', '/', $source));
+        $safe = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $base) ?: 'volume';
+
+        return '/workspace/'.$safe;
     }
 
     /**
@@ -1832,6 +2048,20 @@ PY;
      */
     private static function serviceDefinition(string $volumeSource): array
     {
+        return self::serviceDefinitionWithVolumes([$volumeSource]);
+    }
+
+    /**
+     * @param  list<string>  $volumeSources
+     * @return array<string, mixed>
+     */
+    private static function serviceDefinitionWithVolumes(array $volumeSources): array
+    {
+        $mounts = [];
+        foreach (array_values($volumeSources) as $index => $source) {
+            $mounts[] = $source.':'.self::workspaceMountTarget($source, $index === 0);
+        }
+
         return [
             'image' => self::IMAGE,
             // Root only long enough to give the addon directory to Odoo's user.
@@ -1876,9 +2106,7 @@ PY;
                 '--allow-root',
                 '--no-browser',
             ],
-            'volumes' => [
-                $volumeSource.':'.self::WORKSPACE,
-            ],
+            'volumes' => $mounts,
         ];
     }
 

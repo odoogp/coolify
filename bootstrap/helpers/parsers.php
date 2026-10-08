@@ -1569,7 +1569,7 @@ function serviceParser(Service $resource): Collection
     // Store original compose for later use to update docker_compose_raw with content removed
     $originalCompose = $compose;
     if (is_string($compose)) {
-        if ($resource->jupyter_enabled) {
+        if ($resource->jupyter_enabled && OdooJupyter::shouldInjectInto($resource)) {
             $compose = OdooJupyter::inject($compose);
         }
         $compose = OdooJupyter::injectOwner($compose);

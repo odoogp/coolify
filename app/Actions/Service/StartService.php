@@ -26,6 +26,9 @@ class StartService
         OdooGit::reinstallOwnerPackageIntoService($service);
         OdooGit::prepareInstance($service);
         $service->parse();
+        if ($service->jupyter_enabled) {
+            OdooJupyter::attachShareableVolumesFrom($service->fresh() ?? $service);
+        }
         // Applications exist only after parse(); apply the project host before Traefik labels are written.
         OdooGit::useHttps($service->fresh(['applications', 'environment.project.odooProfile', 'environment.odooBranch']) ?? $service);
         if ($this->shouldStopBeforeStarting($pullLatestImages, $stopBeforeStart)) {

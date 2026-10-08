@@ -37,6 +37,7 @@ use App\Livewire\Project\Database\Configuration as DatabaseConfiguration;
 use App\Livewire\Project\Edit as ProjectEdit;
 use App\Livewire\Project\EnvironmentEdit;
 use App\Livewire\Project\Index as ProjectIndex;
+use App\Livewire\Project\OdooBackups as ProjectOdooBackups;
 use App\Livewire\Project\OdooMigrate as ProjectOdooMigrate;
 use App\Livewire\Project\Resource\Create as ResourceCreate;
 use App\Livewire\Project\Resource\Index as ResourceIndex;
@@ -333,6 +334,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/clone', ProjectCloneMe::class)->name('project.clone-me')->middleware('can.create.resources');
         Route::get('/new', ResourceCreate::class)->name('project.resource.create')->middleware('can.create.resources');
         Route::get('/edit', EnvironmentEdit::class)->name('project.environment.edit')->middleware('can.update.resource');
+        Route::get('/odoo-backups', ProjectOdooBackups::class)->name('project.odoo.backups');
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}/application/{application_uuid}')->group(function () {
         Route::get('/', ApplicationConfiguration::class)->name('project.application.configuration');

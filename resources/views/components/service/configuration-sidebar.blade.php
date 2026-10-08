@@ -1,18 +1,26 @@
 @props(['service', 'currentRoute'])
 
 @php
+    $service->loadMissing('environment.project');
+    $odooIsOdoo = $service->supportsOdooJupyter();
     $serviceRouteParameters = [
         'project_uuid' => $service->environment->project->uuid,
         'environment_uuid' => $service->environment->uuid,
         'service_uuid' => $service->uuid,
     ];
+    $odooBackupParameters = [
+        'project_uuid' => $serviceRouteParameters['project_uuid'],
+        'environment_uuid' => $serviceRouteParameters['environment_uuid'],
+    ];
+    $backupsRoute = $odooIsOdoo ? 'project.odoo.backups' : 'project.service.volume-backups.index';
+    $clientOdooNav = $odooIsOdoo && ! isInstanceOwner();
 
     $configurationItems = collect([
         ['label' => __('General'), 'route' => 'project.service.configuration', 'icon' => 'settings'],
         ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
         ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
         ['label' => __('Persistent Storage'), 'route' => 'project.service.storages', 'icon' => 'storages'],
-        ['label' => __('Backups'), 'route' => 'project.service.volume-backups.index', 'icon' => 'database'],
+        ['label' => __('Backups'), 'route' => $backupsRoute, 'icon' => 'database'],
         ['label' => __('Runtime Logs'), 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
         ['label' => __('Terminal'), 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->canOpenTerminal($service)],
         ['label' => __('Scheduled Tasks'), 'route' => 'project.service.scheduled-tasks.show', 'icon' => 'calendar'],
@@ -21,25 +29,41 @@
         ['label' => __('Tags'), 'route' => 'project.service.tags', 'icon' => 'tags'],
         ['label' => __('Danger Zone'), 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
     ])->filter(fn (array $item): bool => $item['visible'] ?? true)
+        ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
+            'project.service.configuration',
+            'project.odoo.backups',
+            'project.service.logs',
+            'project.service.command',
+            'project.service.danger',
+        ], true)))
         ->map(fn (array $item): array => [
             ...$item,
             'active' => $currentRoute === $item['route']
                 || ($item['route'] === 'project.service.scheduled-tasks.show'
                     && str($currentRoute)->startsWith('project.service.scheduled-tasks'))
                 || ($item['route'] === 'project.service.volume-backups.index'
-                    && str($currentRoute)->startsWith('project.service.volume-backups')),
+                    && str($currentRoute)->startsWith('project.service.volume-backups'))
+                || ($item['route'] === 'project.odoo.backups' && $currentRoute === 'project.odoo.backups'),
         ]);
 
-    $menuGroups = [
-        'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
-        'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
-        'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
-        'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
-    ];
+    $menuGroups = $clientOdooNav
+        ? [
+            'Settings' => ['General'],
+            'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+            'Automation' => ['Backups'],
+            'Operations' => ['Danger Zone'],
+        ]
+        : [
+            'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
+            'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+            'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
+            'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
+        ];
 
     $groupedItems = collect($menuGroups)
         ->map(fn (array $labels) => collect($labels)
-            ->map(fn (string $label) => $configurationItems->firstWhere('label', $label))
+            ->map(fn (string $label) => $configurationItems->firstWhere('label', __($label))
+                ?? $configurationItems->firstWhere('label', $label))
             ->filter()
             ->values())
         ->filter(fn ($items) => $items->isNotEmpty());
@@ -54,9 +78,14 @@
             @endunless
             <div class="nav-section hidden xl:block">{{ $groupLabel }}</div>
             @foreach ($groupItems as $menuItem)
+                @php
+                    $menuRouteParameters = $menuItem['route'] === 'project.odoo.backups'
+                        ? $odooBackupParameters
+                        : $serviceRouteParameters;
+                @endphp
                 <a @class(['menu-item', 'menu-item-active' => $menuItem['active']])
                     @if ($menuItem['navigate'] ?? true) {{ wireNavigate() }} @endif
-                    href="{{ route($menuItem['route'], $serviceRouteParameters) }}">
+                    href="{{ route($menuItem['route'], $menuRouteParameters) }}">
                     <x-reicon :name="$menuItem['icon']" class="menu-item-icon" />
                     <span class="menu-item-label">{{ $menuItem['label'] }}</span>
                     @if ($menuItem['hasWarning'] ?? false)

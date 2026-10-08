@@ -18,7 +18,7 @@
             ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
             ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
             ['label' => __('Persistent Storage'), 'route' => 'project.service.storages', 'icon' => 'storages'],
-            ['label' => __('Backups'), 'route' => 'project.service.volume-backups.index', 'icon' => 'database'],
+            ['label' => __('Backups'), 'route' => $odooIsOdoo ? 'project.odoo.backups' : 'project.service.volume-backups.index', 'icon' => 'database'],
             ['label' => __('Runtime Logs'), 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
             ['label' => __('Terminal'), 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->canOpenTerminal($service)],
             ['label' => __('Scheduled Tasks'), 'route' => 'project.service.scheduled-tasks.show', 'icon' => 'calendar'],
@@ -29,6 +29,7 @@
         ])->filter(fn (array $item): bool => $item['visible'] ?? true)
             ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
                 'project.service.configuration',
+                'project.odoo.backups',
                 'project.service.logs',
                 'project.service.command',
                 'project.service.danger',
@@ -44,6 +45,7 @@
             ? [
                 'Settings' => ['General'],
                 'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+                'Automation' => ['Backups'],
                 'Operations' => ['Danger Zone'],
             ]
             : [
@@ -99,12 +101,20 @@
                         @endunless
                         <div class="nav-section hidden xl:block">{{ $groupLabel }}</div>
                         @foreach ($groupItems as $menuItem)
+                            @php
+                                $menuRouteParameters = $menuItem['route'] === 'project.odoo.backups'
+                                    ? [
+                                        'project_uuid' => $serviceRouteParameters['project_uuid'],
+                                        'environment_uuid' => $serviceRouteParameters['environment_uuid'],
+                                    ]
+                                    : $serviceRouteParameters;
+                            @endphp
                             <a @class([
                                 'menu-item',
                                 'menu-item-active' => $menuItem['active'],
                             ])
                                 @if ($menuItem['navigate'] ?? true) {{ wireNavigate() }} @endif
-                                href="{{ route($menuItem['route'], $serviceRouteParameters) }}">
+                                href="{{ route($menuItem['route'], $menuRouteParameters) }}">
                                 <x-reicon :name="$menuItem['icon']" class="menu-item-icon" />
                                 <span class="menu-item-label">{{ $menuItem['label'] }}</span>
                                 @if ($menuItem['hasWarning'] ?? false)

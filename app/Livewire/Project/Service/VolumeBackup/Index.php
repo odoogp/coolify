@@ -28,6 +28,14 @@ class Index extends Component
         $this->authorize('view', $this->service);
         $this->parameters = get_route_parameters();
         $this->search = request()->string('search')->toString();
+
+        if ($this->service->supportsOdooJupyter()) {
+            $this->service->loadMissing('environment.project');
+            $this->redirectRoute('project.odoo.backups', [
+                'project_uuid' => $this->service->environment->project->uuid,
+                'environment_uuid' => $this->service->environment->uuid,
+            ]);
+        }
     }
 
     public function render(): View

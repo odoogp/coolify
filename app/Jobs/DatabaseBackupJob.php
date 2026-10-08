@@ -20,6 +20,7 @@ use App\Notifications\Database\BackupSuccessWithS3Warning;
 use App\Rules\SafeWebhookUrl;
 use App\Support\BackupCompression;
 use App\Support\ClickhouseBackupCommand;
+use App\Support\RecordOdooPlanBackup;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -476,6 +477,14 @@ class DatabaseBackupJob implements ShouldBeEncrypted, ShouldQueue
             }
             if ($this->backup_log && $this->backup_log->status === 'success') {
                 $this->removeExpiredBackups();
+                try {
+                    RecordOdooPlanBackup::fromDatabaseSchedule($this->backup);
+                } catch (Throwable $e) {
+                    Log::channel('scheduled-errors')->warning('Failed to record Odoo plan backup', [
+                        'backup_id' => $this->backup->id ?? null,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         } catch (Throwable $e) {
             throw $e;

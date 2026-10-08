@@ -13,6 +13,22 @@ use RuntimeException;
 
 class EnsureOdooBackupSchedules
 {
+    public const DATABASE_DESCRIPTION = 'Odoo database + plan schedule';
+
+    public const VOLUME_DESCRIPTION = 'Odoo filestore + plan schedule';
+
+    public static function planAllowsBackups(?GetOdooPlan $plan): bool
+    {
+        $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
+
+        return $frequency !== '' && $frequency !== GetOdooBackupFrequency::NONE;
+    }
+
+    public static function isPlanDatabaseSchedule(ScheduledDatabaseBackup $schedule): bool
+    {
+        return (string) $schedule->description === self::DATABASE_DESCRIPTION;
+    }
+
     /**
      * @return array{database: ScheduledDatabaseBackup, volume: ScheduledVolumeBackup}
      */
@@ -22,7 +38,12 @@ class EnsureOdooBackupSchedules
         $plan ??= $team?->getodooPlan;
         $frequencyKey = $plan?->backup_frequency ?: GetOdooBackupFrequency::DAILY;
         $cron = GetOdooBackupFrequency::cron($frequencyKey) ?? GetOdooBackupFrequency::cron(GetOdooBackupFrequency::DAILY);
-        $enabled = $frequencyKey !== GetOdooBackupFrequency::NONE;
+        $enabled = self::planAllowsBackups($plan) && $frequencyKey !== GetOdooBackupFrequency::NONE;
+        // When plan has no backups, still keep disabled schedules so a later plan change can re-enable.
+        if (! self::planAllowsBackups($plan)) {
+            $enabled = false;
+            $frequencyKey = GetOdooBackupFrequency::NONE;
+        }
         $retentionDays = max(1, (int) ($plan?->backup_retention_days ?: 7));
 
         $database = self::postgresDatabase($service);
@@ -49,14 +70,15 @@ class EnsureOdooBackupSchedules
                 'team_id' => $team?->id,
                 'database_backup_retention_days_locally' => $retentionDays,
                 'database_backup_retention_amount_locally' => $retentionDays,
-                'description' => 'Odoo database + plan schedule',
+                'description' => self::DATABASE_DESCRIPTION,
             ]);
         } else {
             $dbSchedule->update([
                 'enabled' => $enabled,
-                'frequency' => $cron,
+                'frequency' => $cron ?: GetOdooBackupFrequency::cron(GetOdooBackupFrequency::DAILY),
                 'database_backup_retention_days_locally' => $retentionDays,
                 'database_backup_retention_amount_locally' => $retentionDays,
+                'description' => self::DATABASE_DESCRIPTION,
             ]);
         }
 

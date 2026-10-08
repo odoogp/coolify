@@ -94,6 +94,96 @@ YAML;
     expect(OdooJupyter::inject($compose))->toBe($compose);
 });
 
+test('custom compose with a named volume gets jupyter injected for file browsing', function () {
+    $compose = <<<'YAML'
+services:
+  app:
+    image: 'nginx:alpine'
+    volumes:
+      - 'app-files:/data'
+      - 'postgres-data:/var/lib/postgresql/data'
+YAML;
+
+    $parsed = Yaml::parse(OdooJupyter::inject($compose));
+    $jupyter = $parsed['services']['jupyter'];
+
+    expect(OdooJupyter::isOdooCompose($compose))->toBeFalse()
+        ->and($jupyter['volumes'])->toBe(['app-files:/workspace/addons'])
+        ->and(json_encode($jupyter))->not->toContain('postgres-data');
+});
+
+test('shareable volume sources prefer the odoo addon mount', function () {
+    $sources = OdooJupyter::shareableVolumeSources([
+        'odoo' => [
+            'image' => 'odoo:18',
+            'volumes' => [
+                'odoo-extra-addons:/mnt/extra-addons',
+                'odoo-web-data:/var/lib/odoo',
+            ],
+        ],
+        'postgresql' => [
+            'image' => 'postgres:16',
+            'volumes' => ['postgresql-data:/var/lib/postgresql/data'],
+        ],
+    ]);
+
+    expect($sources)->toBe(['odoo-extra-addons']);
+});
+
+test('environment shareable sources stay scoped to that environment compose', function () {
+    $environment = new \App\Models\Environment;
+    $service = new \App\Models\Service;
+    $service->docker_compose_raw = <<<'YAML'
+services:
+  app:
+    image: nginx:alpine
+    volumes:
+      - client-a-files:/data
+      - postgres-data:/var/lib/postgresql/data
+YAML;
+    $environment->setRelation('services', collect([$service]));
+
+    $allowed = OdooJupyter::environmentShareableSources($environment);
+
+    expect($allowed)->toHaveKey('client-a-files')
+        ->and($allowed)->not->toHaveKey('postgres-data')
+        ->and($allowed)->not->toHaveKey('other-client-files');
+});
+
+test('existing jupyter reuse stays inside the same project environment', function () {
+    $project = new \App\Models\Project;
+    $project->id = 11;
+
+    $environment = new \App\Models\Environment;
+    $environment->id = 21;
+    $environment->project_id = 11;
+    $environment->setRelation('project', $project);
+
+    $host = new \App\Models\Service;
+    $host->id = 31;
+    $host->environment_id = 21;
+    $host->docker_compose_raw = <<<'YAML'
+services:
+  jupyter:
+    image: jupyter/datascience-notebook:latest
+    volumes:
+      - client-a-files:/workspace/addons
+YAML;
+    $host->setRelation('environment', $environment);
+    $host->setRelation('applications', collect());
+
+    $guest = new \App\Models\Service;
+    $guest->id = 32;
+    $guest->environment_id = 21;
+    $guest->jupyter_enabled = true;
+    $guest->setRelation('environment', $environment);
+
+    $environment->setRelation('services', collect([$host, $guest]));
+
+    expect(OdooJupyter::existingJupyterService($guest)?->id)->toBe(31)
+        ->and(OdooJupyter::shouldInjectInto($guest))->toBeFalse();
+});
+
 test('jupyter does not mount postgres data, the docker socket, or host data directories', function () {
     $compose = <<<'YAML'
 services:
@@ -143,7 +233,7 @@ test('the odoo checkbox and jupyter port stay behind the existing service checks
     expect($form)->toContain('@if (isInstanceOwner())');
     expect(strpos($form, '@if (isInstanceOwner())'))->toBeLessThan(strpos($form, "__('Network')"));
     expect(strpos($form, "__('Network')"))->toBeLessThan(strpos($form, 'supportsOdooJupyter()'));
-    expect($parser)->toContain('if ($resource->jupyter_enabled)');
+    expect($parser)->toContain('if ($resource->jupyter_enabled && OdooJupyter::shouldInjectInto($resource))');
     expect($parser)->toContain('OdooJupyter::injectOwner($compose)');
     expect($parser)->toContain('OdooJupyter::proxyPort');
     expect(OdooJupyter::proxyPort('jupyter', '80'))->toBe('8888');

@@ -106,6 +106,7 @@ class Create extends Component
                     if (in_array($oneClickServiceName, NEEDS_TO_CONNECT_TO_PREDEFINED_NETWORK)) {
                         data_set($service_payload, 'connect_to_docker_network', true);
                     }
+                    $service_payload['jupyter_enabled'] = ServiceTemplateCatalog::includesJupyter($oneClickServiceName);
                     if ($oneClickServiceName === 'odoo') {
                         $odooVersion = OdooVersion::current($service_payload['docker_compose_raw']) ?? '18';
                         $savedCompose = OdooComposeTemplate::composeFor($odooVersion);
@@ -116,7 +117,6 @@ class Create extends Component
                         if ($environment->project?->odooProfile === null) {
                             $environment->project?->enableOdoo($odooVersion);
                         }
-                        $service_payload['jupyter_enabled'] = true;
                     }
                     $service = new Service($service_payload);
                     $service->save();

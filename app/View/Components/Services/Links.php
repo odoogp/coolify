@@ -19,16 +19,7 @@ class Links extends Component
     {
         $this->links = collect([]);
         $applications = $service->applications()->get();
-        if ($service->jupyter_enabled && auth()->user()?->can('view', $service)) {
-            $jupyter = $applications->firstWhere('name', OdooJupyter::SERVICE_NAME);
-            if (filled($jupyter?->fqdn)) {
-                $this->jupyterUrl = getFqdnWithoutPort(firstDomainFromList($jupyter->fqdn));
-                $token = $service->environment_variables()->where('key', 'SERVICE_PASSWORD_JUPYTER')->first()?->value;
-                if (filled($token)) {
-                    $this->jupyterUrl .= '?token='.urlencode($token);
-                }
-            }
-        }
+        $this->jupyterUrl = OdooJupyter::sessionUrl($service);
         $applications->each(function ($application) {
             if ($this->jupyterUrl && $application->name === OdooJupyter::SERVICE_NAME) {
                 return;

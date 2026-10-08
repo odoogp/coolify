@@ -53,6 +53,7 @@ class ServiceTemplateCatalog
                     if (filled($row->category)) {
                         $template->category = $row->category;
                     }
+                    $template->includes_jupyter = (bool) $row->includes_jupyter;
 
                     return $template;
                 }
@@ -71,6 +72,7 @@ class ServiceTemplateCatalog
                     if (filled($row->category)) {
                         $template['category'] = $row->category;
                     }
+                    $template['includes_jupyter'] = (bool) $row->includes_jupyter;
                 }
 
                 return $template;
@@ -84,6 +86,7 @@ class ServiceTemplateCatalog
                 'logo' => $row->logo ?: 'svgs/default.webp',
                 'category' => $row->category ?: 'Custom',
                 'is_custom' => true,
+                'includes_jupyter' => (bool) $row->includes_jupyter,
             ]);
         }
 
@@ -91,7 +94,7 @@ class ServiceTemplateCatalog
     }
 
     /**
-     * @return list<array{name: string, label: string, overridden: bool, is_custom: bool, is_visible: bool, category: ?string}>
+     * @return list<array{name: string, label: string, overridden: bool, is_custom: bool, is_visible: bool, includes_jupyter: bool, category: ?string}>
      */
     public static function summaries(): array
     {
@@ -111,6 +114,7 @@ class ServiceTemplateCatalog
                     'overridden' => $row instanceof ServiceTemplateOverride && ! $row->is_custom,
                     'is_custom' => false,
                     'is_visible' => $row instanceof ServiceTemplateOverride ? (bool) $row->is_visible : true,
+                    'includes_jupyter' => self::includesJupyter($key),
                     'category' => $row?->category,
                 ];
             });
@@ -123,6 +127,7 @@ class ServiceTemplateCatalog
                 'overridden' => true,
                 'is_custom' => true,
                 'is_visible' => (bool) $row->is_visible,
+                'includes_jupyter' => (bool) $row->includes_jupyter,
                 'category' => $row->category,
             ])
             ->values();
@@ -175,6 +180,23 @@ class ServiceTemplateCatalog
         );
     }
 
+    public static function includesJupyter(string $name): bool
+    {
+        $name = self::normalizeName($name);
+        if ($name === '') {
+            return false;
+        }
+
+        if (Schema::hasTable('service_template_overrides')) {
+            $row = ServiceTemplateOverride::query()->where('name', $name)->first();
+            if ($row instanceof ServiceTemplateOverride) {
+                return (bool) $row->includes_jupyter;
+            }
+        }
+
+        return $name === 'odoo';
+    }
+
     public static function composeFor(string $name): ?string
     {
         self::assertUsableName($name);
@@ -214,7 +236,7 @@ class ServiceTemplateCatalog
     }
 
     /**
-     * @param  array{display_name?: string, description?: string, logo?: string, category?: string, is_visible?: bool}  $meta
+     * @param  array{display_name?: string, description?: string, logo?: string, category?: string, is_visible?: bool, includes_jupyter?: bool}  $meta
      */
     public static function create(string $name, string $compose, ?int $userId, array $meta = []): void
     {
@@ -231,6 +253,7 @@ class ServiceTemplateCatalog
             'logo' => filled($meta['logo'] ?? null) ? (string) $meta['logo'] : null,
             'category' => filled($meta['category'] ?? null) ? (string) $meta['category'] : 'Custom',
             'is_visible' => array_key_exists('is_visible', $meta) ? (bool) $meta['is_visible'] : true,
+            'includes_jupyter' => array_key_exists('includes_jupyter', $meta) ? (bool) $meta['includes_jupyter'] : false,
             'compose' => $compose,
             'original_compose' => null,
             'updated_by' => $userId,
@@ -240,7 +263,7 @@ class ServiceTemplateCatalog
     }
 
     /**
-     * @param  array{display_name?: string, description?: string, logo?: string, category?: string, is_visible?: bool}  $meta
+     * @param  array{display_name?: string, description?: string, logo?: string, category?: string, is_visible?: bool, includes_jupyter?: bool}  $meta
      */
     public static function save(string $name, string $compose, ?int $userId, array $meta = []): void
     {
@@ -272,6 +295,11 @@ class ServiceTemplateCatalog
         }
         if (array_key_exists('is_visible', $meta)) {
             $payload['is_visible'] = (bool) $meta['is_visible'];
+        }
+        if (array_key_exists('includes_jupyter', $meta)) {
+            $payload['includes_jupyter'] = (bool) $meta['includes_jupyter'];
+        } elseif ($existing === null && $name === 'odoo') {
+            $payload['includes_jupyter'] = true;
         }
 
         ServiceTemplateOverride::query()->updateOrCreate(

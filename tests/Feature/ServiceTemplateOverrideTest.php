@@ -157,3 +157,44 @@ test('hiding a custom template removes it from launch options', function () {
 
     expect(collect(ServiceTemplateCatalog::launchOptions())->pluck('value'))->not->toContain('hidden-app');
 });
+
+test('odoo includes jupyter by default and custom templates can opt in', function () {
+    $this->actingAs($this->owner);
+
+    expect(ServiceTemplateCatalog::includesJupyter('odoo'))->toBeTrue();
+
+    Livewire::test(ServiceTemplates::class)
+        ->call('startCreate')
+        ->set('newName', 'file-browser-app')
+        ->set('displayName', 'Files App')
+        ->set('includesJupyter', true)
+        ->set('compose', "services:\n  app:\n    image: nginx:alpine\n    volumes:\n      - app-files:/data\n")
+        ->call('create')
+        ->assertHasNoErrors();
+
+    expect(ServiceTemplateCatalog::includesJupyter('file-browser-app'))->toBeTrue()
+        ->and((bool) ServiceTemplateOverride::query()->where('name', 'file-browser-app')->value('includes_jupyter'))->toBeTrue();
+
+    Livewire::test(ServiceTemplates::class)
+        ->call('selectService', 'file-browser-app')
+        ->assertSet('includesJupyter', true)
+        ->set('includesJupyter', false)
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(ServiceTemplateCatalog::includesJupyter('file-browser-app'))->toBeFalse();
+});
+
+test('saving odoo without an includes_jupyter override keeps jupyter on', function () {
+    $this->actingAs($this->owner);
+
+    Livewire::test(ServiceTemplates::class)
+        ->call('selectService', 'odoo')
+        ->assertSet('includesJupyter', true)
+        ->set('compose', odooCompose())
+        ->call('save')
+        ->assertHasNoErrors();
+
+    expect(ServiceTemplateCatalog::includesJupyter('odoo'))->toBeTrue()
+        ->and((bool) ServiceTemplateOverride::query()->where('name', 'odoo')->value('includes_jupyter'))->toBeTrue();
+});
