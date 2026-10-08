@@ -27,61 +27,53 @@
                     </a>
                 @endcan
                 @can('createAnyResource')
-                    @if (! $odooOnly)
                     <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button whitespace-nowrap button-highlighted">
                         <x-reicon name="plus" class="size-3.5" />
                         {{ __('New resource') }}
                     </a>
-                    @endif
                 @endcan
             </div>
         </header>
 
         @if ($environment->isEmpty())
-            @if ($odooOnly)
-                <x-empty title="{{ __('Odoo is not installed yet') }}"
-                    description="{{ __('Install Odoo for this branch. GitHub stays optional.') }}"
-                    icon-name="layers">
-                    @can('createAnyResource')
-                        <x-slot:contents>
-                            @if ($needsServer)
-                                <p class="mb-3 text-[13px]">{{ __('Do you want to create a server?') }}</p>
-                                @if ($canAddServer)
-                                    <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
-                                        {{ __('Create a new server') }}
-                                    </a>
-                                @else
-                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                        {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
-                                    </p>
-                                @endif
-                            @else
-                                @if ($serverChoices !== [])
-                                    <div class="mb-3 w-full max-w-sm text-left">
-                                        <x-forms.listbox id="serverId" portal
-                                            label="{{ $hasOtherServers ? __('Which server should run this project?') : __('Do you want to create a new server?') }}"
-                                            :options="$serverChoices" />
-                                    </div>
-                                @endif
-                                <button type="button" class="button" wire:click="installOdoo">
-                                    {{ __('Install Odoo') }}
-                                </button>
-                            @endif
-                        </x-slot:contents>
-                    @endcan
-                </x-empty>
-            @elseif (auth()->user()->can('createAnyResource'))
-                <x-empty title="{{ __('No resources yet') }}"
-                    description="{{ __('Add an application, database, or service to this environment.') }}"
+            @if (auth()->user()->can('createAnyResource'))
+                <x-empty title="{{ __('Nothing launched yet') }}"
+                    description="{{ __('Pick a service from the catalog and launch it in one click. Odoo stays the recommended hook; any visible template works.') }}"
                     icon-name="layers">
                     <x-slot:contents>
-                        <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
-                            {{ wireNavigate() }} class="button">
-                            <x-reicon name="plus" class="size-3.5" />
-                            {{ __('Add resource') }}
-                        </a>
+                        @if ($needsServer)
+                            <p class="mb-3 text-[13px]">{{ __('Do you want to create a server?') }}</p>
+                            @if ($canAddServer)
+                                <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
+                                    {{ __('Create a new server') }}
+                                </a>
+                            @else
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
+                                </p>
+                            @endif
+                        @else
+                            <div class="mb-3 flex w-full max-w-md flex-col gap-3 text-left">
+                                @if ($serverChoices !== [])
+                                    <x-forms.listbox id="serverId" portal
+                                        label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
+                                        :options="$serverChoices" />
+                                @endif
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal
+                                    searchPlaceholder="{{ __('Search the catalog') }}"
+                                    emptyText="{{ __('No matching service') }}"
+                                    :options="$serviceOptions" />
+                            </div>
+                            <button type="button" class="button button-highlighted" wire:click="launchService">
+                                {{ __('Launch') }}
+                            </button>
+                            <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
+                                {{ wireNavigate() }} class="button mt-2">
+                                {{ __('Browse full catalog') }}
+                            </a>
+                        @endif
                     </x-slot:contents>
                 </x-empty>
             @else

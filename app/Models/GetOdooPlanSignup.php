@@ -8,6 +8,7 @@ class GetOdooPlanSignup extends BaseModel
 {
     protected $fillable = [
         'plan_id',
+        'pricing_area_id',
         'name',
         'email',
         'password',
@@ -35,6 +36,11 @@ class GetOdooPlanSignup extends BaseModel
     public function plan(): BelongsTo
     {
         return $this->belongsTo(GetOdooPlan::class, 'plan_id');
+    }
+
+    public function pricingArea(): BelongsTo
+    {
+        return $this->belongsTo(GetOdooPricingArea::class, 'pricing_area_id');
     }
 
     public function user(): BelongsTo

@@ -886,6 +886,16 @@ function product_name(): string
     return 'getodoo.sh';
 }
 
+function product_description(): string
+{
+    return __('Launch Odoo — and almost any service — on your own servers, in one click.');
+}
+
+function product_og_image_url(): string
+{
+    return url('/brand/og.png');
+}
+
 function product_text(string $text): string
 {
     return str_replace('Coolify', product_name(), __($text));

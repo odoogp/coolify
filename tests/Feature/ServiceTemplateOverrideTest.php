@@ -116,3 +116,44 @@ test('an owner of another team cannot edit service templates', function () {
 
     Livewire::test(ServiceTemplates::class)->assertForbidden();
 });
+
+test('the instance owner creates a custom template and it appears in launch options', function () {
+    $this->actingAs($this->owner);
+
+    $compose = "services:\n  app:\n    image: nginx:alpine\n    ports:\n      - \"80\"\n";
+
+    Livewire::test(ServiceTemplates::class)
+        ->call('startCreate')
+        ->set('newName', 'My Worker')
+        ->set('displayName', 'My Worker')
+        ->set('category', 'Custom')
+        ->set('compose', $compose)
+        ->call('create')
+        ->assertHasNoErrors()
+        ->assertSet('serviceName', 'my-worker');
+
+    $values = collect(ServiceTemplateCatalog::launchOptions())->pluck('value')->values()->all();
+
+    expect(ServiceTemplateOverride::query()->where('name', 'my-worker')->where('is_custom', true)->exists())->toBeTrue()
+        ->and(ServiceTemplateCatalog::composeFor('my-worker'))->toContain('image: nginx:alpine')
+        ->and($values)->toContain('my-worker')
+        ->and($values)->toContain('odoo')
+        ->and(array_search('odoo', $values, true))->toBeLessThan(array_search('my-worker', $values, true));
+});
+
+test('hiding a custom template removes it from launch options', function () {
+    $this->actingAs($this->owner);
+
+    ServiceTemplateCatalog::create('hidden-app', "services:\n  app:\n    image: nginx:alpine\n", $this->owner->id, [
+        'display_name' => 'Hidden App',
+        'is_visible' => true,
+    ]);
+
+    expect(collect(ServiceTemplateCatalog::launchOptions())->pluck('value'))->toContain('hidden-app');
+
+    ServiceTemplateCatalog::save('hidden-app', "services:\n  app:\n    image: nginx:alpine\n", $this->owner->id, [
+        'is_visible' => false,
+    ]);
+
+    expect(collect(ServiceTemplateCatalog::launchOptions())->pluck('value'))->not->toContain('hidden-app');
+});

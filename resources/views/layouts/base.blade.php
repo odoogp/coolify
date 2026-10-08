@@ -86,19 +86,27 @@
     <meta name="robots" content="noindex">
     <meta name="theme-color" content="#101010" id="theme-color-meta" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="Description" content="{{ product_name() }}: An open-source & self-hostable Heroku / Netlify / Vercel alternative" />
+    @php
+        $productDescription = product_description();
+        $productOgImage = product_og_image_url();
+        $productOgUrl = url()->current();
+    @endphp
+    <meta name="description" content="{{ $productDescription }}" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@coolifyio" />
     <meta name="twitter:title" content="{{ product_name() }}" />
-    <meta name="twitter:description" content="An open-source & self-hostable Heroku / Netlify / Vercel alternative." />
-    <meta name="twitter:image" content="https://cdn.coollabs.io/og-images/coolify.png" />
+    <meta name="twitter:description" content="{{ $productDescription }}" />
+    <meta name="twitter:image" content="{{ $productOgImage }}" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://coolify.io" />
+    <meta property="og:url" content="{{ $productOgUrl }}" />
     <meta property="og:title" content="{{ product_name() }}" />
-    <meta property="og:description" content="An open-source & self-hostable Heroku / Netlify / Vercel alternative." />
+    <meta property="og:description" content="{{ $productDescription }}" />
     <meta property="og:site_name" content="{{ product_name() }}" />
-    <meta property="og:image" content="https://cdn.coollabs.io/og-images/coolify.png" />
+    <meta property="og:image" content="{{ $productOgImage }}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="{{ product_name() }}" />
     @use('App\Models\InstanceSettings')
     @php
 
@@ -119,6 +127,7 @@
     <link rel="icon" href="{{ asset('gpsh-logo.svg') }}" type="image/svg+xml" />
     <link rel="icon" href="{{ asset('brand/favicon-32.png') }}" sizes="32x32" type="image/png" />
     <link rel="icon" href="{{ asset('brand/favicon-16.png') }}" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="{{ asset('brand/icono-app.png') }}" />
     <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
     <link rel="apple-touch-icon" href="{{ asset('pwa/icon-180-v2.png') }}">
     <meta name="mobile-web-app-capable" content="yes">

@@ -23,9 +23,10 @@
 
     <x-creation-quota :quota="$creationQuota" />
 
-    <x-forms.searchable-listbox id="service" label="{{ __('Service') }}" live portal
-        searchPlaceholder="{{ __('Search services') }}"
+    <x-forms.searchable-listbox id="service" label="{{ __('What do you want to launch?') }}" live portal
+        searchPlaceholder="{{ __('Search the catalog (Odoo, Redis, n8n, custom…)') }}"
         emptyText="{{ __('No matching service') }}"
+        helper="{{ __('Odoo is the default hook. Any visible template from Settings → Service templates can launch in one click.') }}"
         :options="$serviceOptions" />
 
     @if ($serverChoices !== [])

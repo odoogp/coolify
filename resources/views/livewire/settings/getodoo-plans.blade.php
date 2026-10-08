@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        {{ __('Plans | Coolify') }}
+        {{ __('Plans') }} | {{ product_name() }}
     </x-slot>
 
     <x-settings.layout>
@@ -8,7 +8,7 @@
             <div>
                 <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Plans') }}</h1>
                 <p class="mt-1 max-w-2xl text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
-                    {{ __('A plan is the package a new customer buys. The link opens registration and the first payment.') }}
+                    {{ __('A plan is the package a new customer buys. The link opens registration and the first payment. Regions and countries set the extras added to that price.') }}
                 </p>
             </div>
 
@@ -24,7 +24,7 @@
                         @enderror
                     </div>
                     <x-forms.input id="price" type="number" step="0.01" min="0" required
-                        label="{{ __('Monthly price') }}" helper="{{ __('Use 0 for a free plan.') }}" />
+                        label="{{ __('Monthly price') }}" helper="{{ __('Base USD price before country or region extras. Use 0 for a free plan.') }}" />
                     <div class="flex flex-col gap-3">
                         <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
                             {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
@@ -55,6 +55,106 @@
                         @endif
                     </div>
                 </form>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('Regions and countries') }}">
+                <p class="mb-4 text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                    {{ __('Customers pick a country on signup. The charge is the plan price plus region extras plus country extras (percent first, then fixed USD).') }}
+                </p>
+                <form class="mb-6 flex flex-col gap-4" wire:submit="saveArea">
+                    <x-forms.listbox id="areaKind" portal label="{{ __('Type') }}" :options="$areaKindChoices" />
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <x-forms.input id="areaName" required label="{{ __('Name') }}" />
+                        <x-forms.input id="areaCode" label="{{ __('Code') }}"
+                            helper="{{ __('Lowercase slug. Empty uses the name.') }}" />
+                    </div>
+                    @if ($areaKind === 'country')
+                        <div class="grid gap-3 sm:grid-cols-2">
+                            <x-forms.input id="areaIso" label="{{ __('ISO code') }}" helper="{{ __('Two letters, e.g. SV.') }}" />
+                            @if ($regionChoices !== [])
+                                <x-forms.listbox id="areaParentId" portal label="{{ __('Region') }}"
+                                    :options="array_merge([['value' => '', 'label' => __('No region')]], $regionChoices)" />
+                            @endif
+                        </div>
+                    @endif
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <x-forms.input id="areaExtraPercent" type="number" step="0.01" min="0"
+                            label="{{ __('Extra %') }}" />
+                        <x-forms.input id="areaExtraFixed" type="number" step="0.01" min="0"
+                            label="{{ __('Extra fixed (USD)') }}" />
+                        <x-forms.input id="areaSort" type="number" min="0" label="{{ __('Sort order') }}" />
+                    </div>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input type="checkbox" class="rounded" wire:model="areaActive">
+                        {{ __('Visible for signup') }}
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        <x-forms.button type="submit" isHighlighted>{{ __('Save area') }}</x-forms.button>
+                        <button type="button" class="button" wire:click="newArea">{{ __('New area') }}</button>
+                    </div>
+                </form>
+
+                <div class="grid gap-4 lg:grid-cols-2">
+                    <div>
+                        <h3 class="mb-2 text-[13px] font-semibold">{{ __('Regions') }}</h3>
+                        @if ($regions->isEmpty())
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No regions yet.') }}</p>
+                        @else
+                            <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-white/[0.08]">
+                                @foreach ($regions as $region)
+                                    <div class="flex items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2 last:border-b-0 dark:border-white/[0.08]"
+                                        wire:key="pricing-region-{{ $region->id }}">
+                                        <div class="min-w-0">
+                                            <div class="truncate text-[13px] font-medium">{{ $region->name }}</div>
+                                            <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                +{{ number_format((float) $region->extra_percent, 2) }}%
+                                                · +${{ number_format((float) $region->extra_fixed, 2) }}
+                                                @unless ($region->is_active)
+                                                    · {{ __('Hidden') }}
+                                                @endunless
+                                            </div>
+                                        </div>
+                                        <div class="flex shrink-0 gap-1">
+                                            <button type="button" class="button" wire:click="editArea({{ $region->id }})">{{ __('Edit') }}</button>
+                                            <button type="button" class="button" wire:click="deleteArea({{ $region->id }})"
+                                                wire:confirm="{{ __('Delete this region?') }}">{{ __('Delete') }}</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                    <div>
+                        <h3 class="mb-2 text-[13px] font-semibold">{{ __('Countries') }}</h3>
+                        @if ($countries->isEmpty())
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No countries yet. Until you add one, signup uses the base plan price.') }}</p>
+                        @else
+                            <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-white/[0.08]">
+                                @foreach ($countries as $country)
+                                    <div class="flex items-center justify-between gap-2 border-b border-neutral-200 px-3 py-2 last:border-b-0 dark:border-white/[0.08]"
+                                        wire:key="pricing-country-{{ $country->id }}">
+                                        <div class="min-w-0">
+                                            <div class="truncate text-[13px] font-medium">{{ $country->name }}</div>
+                                            <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                {{ $country->parent?->name ?? __('No region') }}
+                                                · +{{ number_format((float) $country->extra_percent, 2) }}%
+                                                · +${{ number_format((float) $country->extra_fixed, 2) }}
+                                                @unless ($country->is_active)
+                                                    · {{ __('Hidden') }}
+                                                @endunless
+                                            </div>
+                                        </div>
+                                        <div class="flex shrink-0 gap-1">
+                                            <button type="button" class="button" wire:click="editArea({{ $country->id }})">{{ __('Edit') }}</button>
+                                            <button type="button" class="button" wire:click="deleteArea({{ $country->id }})"
+                                                wire:confirm="{{ __('Delete this country?') }}">{{ __('Delete') }}</button>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                </div>
             </x-application.settings-section>
 
             <x-application.settings-section title="{{ __('Signup link') }}" flush>

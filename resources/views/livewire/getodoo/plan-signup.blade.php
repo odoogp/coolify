@@ -5,13 +5,18 @@
             <p class="auth-plan-kicker">{{ __('Your plan') }}</p>
             <h2 class="auth-plan-name">{{ $plan->name }}</h2>
             <p class="auth-plan-price">
-                @if ($plan->isFree())
+                @if ($quote['amount'] <= 0)
                     {{ __('Free') }}
                 @else
-                    ${{ number_format((float) $plan->price, 2) }}
+                    ${{ number_format((float) $quote['amount'], 2) }}
                     <span>{{ __('per month') }}</span>
                 @endif
             </p>
+            @if ($quote['amount'] > 0 && ($quote['extra_fixed'] > 0 || $quote['extra_percent'] > 0))
+                <p class="auth-plan-copy">
+                    {{ __('Base :base. Region/country extras included.', ['base' => '$'.number_format((float) $quote['base'], 2)]) }}
+                </p>
+            @endif
             @if (filled($plan->summary))
                 <p class="auth-plan-copy">{{ $plan->summary }}</p>
             @endif
@@ -40,10 +45,10 @@
             </div>
 
             <p class="auth-plan-copy">
-                @if ($plan->isFree())
+                @if ($quote['amount'] <= 0)
                     {{ __('This package has no charge.') }}
                 @else
-                    {{ __('This is the monthly price. This step pays the first charge with Wompi.') }}
+                    {{ __('This is the monthly price for the country you choose. This step pays the first charge with Wompi.') }}
                 @endif
             </p>
         </aside>
@@ -73,6 +78,13 @@
                         label="{{ __('input.name') }}" />
                     <x-forms.input id="email" required type="email" autocomplete="email"
                         label="{{ __('input.email') }}" />
+                    @if ($countriesRequired)
+                        <x-forms.searchable-listbox id="pricingAreaId" label="{{ __('Country') }}" live portal required
+                            searchPlaceholder="{{ __('Search countries') }}"
+                            emptyText="{{ __('No matching country') }}"
+                            helper="{{ __('The price updates with the extras for this country and its region.') }}"
+                            :options="$countryChoices" />
+                    @endif
                     <x-forms.input id="password" required type="password" autocomplete="new-password"
                         label="{{ __('input.password') }}" />
                     <x-forms.input id="password_confirmation" required type="password" autocomplete="new-password"
@@ -84,7 +96,7 @@
                     </div>
 
                     <x-forms.button class="w-full justify-center" type="submit" isHighlighted>
-                        {{ $plan->isFree() ? __('Create account') : __('Continue to payment') }}
+                        {{ $quote['amount'] <= 0 ? __('Create account') : __('Continue to payment') }}
                     </x-forms.button>
                 </form>
             @endif

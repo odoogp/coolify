@@ -389,8 +389,9 @@ it('lists environments once and clones production into one staging', function ()
         ->toContain('Cloning the branch')
         ->toContain('Almost there.');
     expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
-        ->toContain('installOdoo')
-        ->toContain('Odoo is not installed yet');
+        ->toContain('launchService')
+        ->toContain('selectedService')
+        ->toContain('Nothing launched yet');
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->call('selectEnvironment', $production->uuid)

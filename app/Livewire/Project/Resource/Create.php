@@ -2,10 +2,12 @@
 
 namespace App\Livewire\Project\Resource;
 
+use App\Actions\Service\StartService;
 use App\Domain\Odoo\OdooVersion;
 use App\Models\EnvironmentVariable;
 use App\Models\OdooComposeTemplate;
 use App\Models\Service;
+use App\Support\ServiceTemplateCatalog;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -30,9 +32,6 @@ class Create extends Component
             return redirect()->route('dashboard');
         }
         $this->project = $project;
-        if ($project->odooProfile()->exists()) {
-            return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
-        }
         $environment = $project->load(['environments'])->environments->where('uuid', request()->route('environment_uuid'))->first();
         if (! $environment) {
             return redirect()->route('dashboard');
@@ -82,16 +81,16 @@ class Create extends Component
             }
             if ($type->startsWith('one-click-service-')) {
                 $oneClickServiceName = $type->after('one-click-service-')->value();
-                $oneClickService = data_get($services, "$oneClickServiceName.compose");
+                $compose = ServiceTemplateCatalog::composeFor($oneClickServiceName);
                 $oneClickDotEnvs = data_get($services, "$oneClickServiceName.envs", null);
                 if ($oneClickDotEnvs) {
                     $oneClickDotEnvs = str(base64_decode($oneClickDotEnvs))->split('/\r\n|\r|\n/')->filter(function ($value) {
                         return ! empty($value);
                     });
                 }
-                if ($oneClickService) {
+                if (is_string($compose) && $compose !== '') {
                     $service_payload = [
-                        'docker_compose_raw' => base64_decode($oneClickService),
+                        'docker_compose_raw' => $compose,
                         'environment_id' => $environment->id,
                         'service_type' => $oneClickServiceName,
                         'server_id' => $destination->server_id,
@@ -108,6 +107,9 @@ class Create extends Component
                             $service_payload['docker_compose_raw'] = $savedCompose;
                         }
                         $environment->loadMissing('project.odooProfile');
+                        if ($environment->project?->odooProfile === null) {
+                            $environment->project?->enableOdoo($odooVersion);
+                        }
                         $service_payload['jupyter_enabled'] = true;
                     }
                     $service = new Service($service_payload);
@@ -133,6 +135,7 @@ class Create extends Component
 
                     // Apply service-specific application prerequisites
                     applyServiceApplicationPrerequisites($service);
+                    StartService::dispatch($service);
 
                     return redirect()->route('project.service.configuration', [
                         'service_uuid' => $service->uuid,

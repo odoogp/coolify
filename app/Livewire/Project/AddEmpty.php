@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Project;
 
+use App\Actions\Service\StartService;
 use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\EnvironmentVariable;
@@ -14,6 +15,7 @@ use App\Models\StandaloneDocker;
 use App\Models\SwarmDocker;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
+use App\Support\ServiceTemplateCatalog;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -61,6 +63,14 @@ class AddEmpty extends Component
     protected function messages(): array
     {
         return ValidationPatterns::combinedMessages();
+    }
+
+    public function mount(): void
+    {
+        $server = OdooGit::allowedLaunchServers()->first();
+        if ($server instanceof Server) {
+            $this->serverId = (string) $server->id;
+        }
     }
 
     public function submit()
@@ -163,6 +173,8 @@ class AddEmpty extends Component
             }
 
             if ($created instanceof Service) {
+                StartService::dispatch($created);
+
                 return redirect()->route('project.service.configuration', [
                     'project_uuid' => $project->uuid,
                     'environment_uuid' => $productionEnvironment->uuid,
@@ -219,25 +231,18 @@ class AddEmpty extends Component
 
     public function render()
     {
-        $names = collect();
-        try {
-            $names = get_service_templates()->keys()->map(fn ($name): string => (string) $name)->values();
-        } catch (\Throwable) {
-            $names = collect();
-        }
-        $names = $names
-            ->reject(fn (string $name): bool => $name === 'odoo')
-            ->sort(SORT_NATURAL)
-            ->values();
-        $names->prepend('odoo');
+        $options = collect(ServiceTemplateCatalog::launchOptions())
+            ->map(fn (array $row): array => [
+                'value' => $row['value'],
+                'label' => $row['label'].(filled($row['category']) ? ' · '.$row['category'] : ''),
+            ])
+            ->prepend(['value' => '', 'label' => __('No service yet')])
+            ->values()
+            ->all();
 
         return view('livewire.project.add-empty', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
-            'serviceOptions' => $names
-                ->map(fn (string $name): array => ['value' => $name, 'label' => $name === 'odoo' ? 'Odoo' : $name])
-                ->prepend(['value' => '', 'label' => __('No service yet')])
-                ->values()
-                ->all(),
+            'serviceOptions' => $options,
             'serverChoices' => $this->serverChoices(),
             'hasOtherServers' => $this->launchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
             'needsServer' => $this->needsServerBeforeProject(),
@@ -301,10 +306,8 @@ class AddEmpty extends Component
         }
 
         $templates = get_service_templates();
-        $encoded = data_get($templates, $this->service.'.compose');
-        $compose = is_string($encoded) && $encoded !== ''
-            ? base64_decode($encoded)
-            : ($this->service === 'odoo' ? OdooComposeTemplate::defaultCompose($this->odooVersion) : null);
+        $compose = ServiceTemplateCatalog::composeFor($this->service)
+            ?? ($this->service === 'odoo' ? OdooComposeTemplate::defaultCompose($this->odooVersion) : null);
         if (! is_string($compose) || $compose === '') {
             return null;
         }
