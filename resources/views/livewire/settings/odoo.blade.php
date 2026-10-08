@@ -62,6 +62,29 @@
             <x-application.settings-section title="{{ __('Owner modules') }}"
                 description="{{ __('House modules come from a GitHub branch on this instance. Each Odoo start copies them into the image addons, so they show up in the Odoo apps and stay out of the client addon folder and Jupyter. Saving does not restart Odoo. To put a package branch into a client project volume, open that service as owner and use Owner package.') }}">
                 <form wire:submit="saveOwnerRepository" class="flex max-w-xl flex-col gap-4">
+                    @if ($ownerGithubConnected)
+                        <p class="text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
+                            {{ __('Connected GitHub account: :login', ['login' => $ownerGithubLogin]) }}
+                        </p>
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('This account is only for owner modules. It is not tied to the instance owner profile and can be changed at any time.') }}
+                        </p>
+                    @else
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('No GitHub account is selected for owner modules yet. Connect a GitHub App, then pick the account below.') }}
+                        </p>
+                    @endif
+                    @if ($ownerGithubApps !== [])
+                        <x-forms.searchable-listbox id="ownerGithubAppId" label="{{ __('GitHub account') }}" live
+                            searchPlaceholder="{{ __('Search GitHub accounts') }}"
+                            emptyText="{{ __('No matching GitHub account') }}"
+                            helper="{{ __('Pick any installed GitHub App. House modules clone with this account, not the one on the owner profile.') }}"
+                            :options="$ownerGithubApps" />
+                    @else
+                        <div>
+                            <a class="button" href="{{ route('settings.github') }}">{{ __('Connect GitHub') }}</a>
+                        </div>
+                    @endif
                     <x-forms.input id="ownerRepository" label="{{ __('Repository') }}"
                         helper="{{ __('GitHub repository, as owner/name. Each module is a folder with a manifest.') }}"
                         placeholder="owner/house-addons" />

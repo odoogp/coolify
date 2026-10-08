@@ -882,6 +882,63 @@ it('saves the owner repository branch without restarting odoo', function () {
     Bus::assertNotDispatched(StartService::class);
 });
 
+it('lets the owner pick a github account for house modules independent of the profile', function () {
+    $rootTeam = Team::factory()->make(['name' => 'Root github']);
+    $rootTeam->id = 0;
+    $rootTeam->save();
+    $this->user->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->actingAs($this->user->fresh());
+
+    $profileKey = PrivateKey::factory()->create(['team_id' => $rootTeam->id]);
+    $profileApp = GithubApp::create([
+        'name' => 'Profile App',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'app_id' => 111,
+        'installation_id' => 222,
+        'private_key_id' => $profileKey->id,
+        'team_id' => $rootTeam->id,
+        'is_public' => false,
+    ]);
+    DB::table('team_user')->where('user_id', $this->user->id)->where('team_id', 0)->update([
+        'github_app_id' => $profileApp->id,
+    ]);
+
+    $houseKey = PrivateKey::factory()->create(['team_id' => $this->team->id]);
+    $houseApp = GithubApp::create([
+        'name' => 'House Org',
+        'api_url' => 'https://api.github.com',
+        'html_url' => 'https://github.com',
+        'app_id' => 333,
+        'installation_id' => 444,
+        'private_key_id' => $houseKey->id,
+        'team_id' => $this->team->id,
+        'is_public' => false,
+    ]);
+
+    Http::fake([
+        'https://api.github.com/app/installations/*' => Http::response([
+            'account' => ['login' => 'house-org', 'type' => 'Organization'],
+        ], 200),
+    ]);
+
+    Livewire::test(Odoo::class)
+        ->assertSee(__('GitHub account'))
+        ->assertSee(__('Search GitHub accounts'))
+        ->set('ownerGithubAppId', $houseApp->id)
+        ->assertSet('ownerGithubAppId', $houseApp->id)
+        ->assertSee('house-org')
+        ->set('ownerRepository', 'house-org/addons')
+        ->set('ownerBranch', 'main')
+        ->call('saveOwnerRepository')
+        ->assertDispatched('success');
+
+    $settings = instanceSettings()->fresh();
+    expect((int) $settings->odoo_owner_github_app_id)->toBe($houseApp->id)
+        ->and((int) OdooGit::ownerGithubApp()?->id)->toBe($houseApp->id)
+        ->and((int) OdooGit::ownerGithubApp()?->id)->not->toBe($profileApp->id);
+});
+
 it('merges the owner package branch into the client volume without wiping client addons', function () {
     $commands = implode("\n", OdooGit::installOwnerPackageCommands(
         'svc_odoo-extra-addons',

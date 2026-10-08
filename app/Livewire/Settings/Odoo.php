@@ -35,6 +35,8 @@ class Odoo extends Component
 
     public string $ownerBranch = '';
 
+    public ?int $ownerGithubAppId = null;
+
     /** @var list<string> */
     public array $ownerBranches = [];
 
@@ -60,7 +62,18 @@ class Odoo extends Component
         $this->mailDailyLimit = max(0, min(10000, (int) ($this->settings->odoo_mail_daily_limit ?? 20)));
         $this->ownerRepository = (string) ($this->settings->odoo_owner_repository ?? '');
         $this->ownerBranch = (string) ($this->settings->odoo_owner_branch ?? '');
+        $storedAppId = (int) ($this->settings->odoo_owner_github_app_id ?? 0);
+        $this->ownerGithubAppId = $storedAppId > 0
+            ? $storedAppId
+            : OdooGit::ownerGithubApp()?->id;
         $this->loadVersion();
+    }
+
+    public function updatedOwnerGithubAppId(): void
+    {
+        $this->authorize('update', $this->settings);
+        $this->ownerBranches = [];
+        $this->persistOwnerGithubAppId();
     }
 
     public function updatedVersion(): void
@@ -158,7 +171,8 @@ class Odoo extends Component
         }
 
         $this->ownerRepository = $repository;
-        $githubApp = OdooGit::ownerGithubApp();
+        $this->persistOwnerGithubAppId();
+        $githubApp = $this->selectedOwnerGithubApp();
         if (! $githubApp instanceof GithubApp) {
             $this->dispatch('error', __('Connect a GitHub App before loading branches.'));
 
@@ -194,6 +208,7 @@ class Odoo extends Component
             $this->settings->update([
                 'odoo_owner_repository' => null,
                 'odoo_owner_branch' => null,
+                'odoo_owner_github_app_id' => $this->resolvedOwnerGithubAppId(),
             ]);
             $this->ownerRepository = '';
             $this->ownerBranch = '';
@@ -216,9 +231,16 @@ class Odoo extends Component
             return;
         }
 
+        if (! $this->selectedOwnerGithubApp() instanceof GithubApp) {
+            $this->dispatch('error', __('Connect a GitHub App before saving the owner branch.'));
+
+            return;
+        }
+
         $this->settings->update([
             'odoo_owner_repository' => $repository,
             'odoo_owner_branch' => $branch,
+            'odoo_owner_github_app_id' => $this->resolvedOwnerGithubAppId(),
         ]);
         $this->ownerRepository = $repository;
         $this->ownerBranch = $branch;
@@ -282,12 +304,50 @@ class Odoo extends Component
     public function render()
     {
         $saved = OdooComposeTemplate::query()->orderBy('version')->pluck('version')->all();
+        $ownerGithubApps = OdooGit::connectedAppsForOwnerModules();
+        $selected = $this->selectedOwnerGithubApp();
+        $ownerGithubLogin = '';
+        if ($selected instanceof GithubApp) {
+            $ownerGithubLogin = OdooGit::githubAppLabel($selected);
+        }
 
         return view('livewire.settings.odoo', [
             'versions' => array_values(array_unique([...OdooVersion::SUPPORTED, ...$saved, $this->version])),
             'ownerModules' => GpshOwnerModule::names(),
             'volumes' => OdooJupyter::pageVolumeRows(OdooJupyter::leftoverVolumeRowsOnInstance(), $this->volumePage),
+            'ownerGithubApps' => $ownerGithubApps
+                ->map(fn (GithubApp $app): array => [
+                    'value' => $app->id,
+                    'label' => OdooGit::githubAppLabel($app),
+                ])
+                ->values()
+                ->all(),
+            'ownerGithubLogin' => $ownerGithubLogin,
+            'ownerGithubConnected' => $selected instanceof GithubApp,
         ]);
+    }
+
+    private function selectedOwnerGithubApp(): ?GithubApp
+    {
+        $id = (int) ($this->ownerGithubAppId ?? 0);
+        if ($id <= 0) {
+            return null;
+        }
+
+        return OdooGit::connectedAppsForOwnerModules()->firstWhere('id', $id);
+    }
+
+    private function resolvedOwnerGithubAppId(): ?int
+    {
+        $app = $this->selectedOwnerGithubApp();
+
+        return $app instanceof GithubApp ? (int) $app->id : null;
+    }
+
+    private function persistOwnerGithubAppId(): void
+    {
+        $this->settings->odoo_owner_github_app_id = $this->resolvedOwnerGithubAppId();
+        $this->settings->save();
     }
 
     private function loadVersion(): void

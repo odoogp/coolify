@@ -4580,5 +4580,12 @@
     "Delete this backup permanently?": "¿Eliminar este respaldo de forma permanente?",
     "Restore requires a complete Odoo backup zip.": "La restauración necesita un zip de respaldo de Odoo completo.",
     "The Odoo backup zip was not created on the server.": "No se creó el zip de respaldo de Odoo en el servidor.",
-    "Invalid Odoo database or container name for backup.": "Nombre de base o contenedor de Odoo no válido para el respaldo."
+    "Invalid Odoo database or container name for backup.": "Nombre de base o contenedor de Odoo no válido para el respaldo.",
+    "Connected GitHub account: :login": "Cuenta de GitHub conectada: :login",
+    "This account is only for owner modules. It is not tied to the instance owner profile and can be changed at any time.": "Esta cuenta es solo para los módulos del propietario. No está ligada al perfil del propietario de la instancia y se puede cambiar en cualquier momento.",
+    "No GitHub account is selected for owner modules yet. Connect a GitHub App, then pick the account below.": "Todavía no hay una cuenta de GitHub seleccionada para los módulos del propietario. Conecta una GitHub App y elige la cuenta abajo.",
+    "Search GitHub accounts": "Buscar cuentas de GitHub",
+    "No matching GitHub account": "Ninguna cuenta de GitHub coincide",
+    "Pick any installed GitHub App. House modules clone with this account, not the one on the owner profile.": "Elige cualquier GitHub App instalada. Los módulos de la casa se clonan con esta cuenta, no con la del perfil del propietario.",
+    "Connect a GitHub App before saving the owner branch.": "Conecta una GitHub App antes de guardar la rama del propietario."
 }

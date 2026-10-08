@@ -1937,9 +1937,52 @@ BASH;
             ->all();
     }
 
+    /**
+     * GitHub App used for house/owner modules. Stored on instance settings and
+     * independent of the instance owner's team_user.github_app_id profile.
+     */
     public static function ownerGithubApp(): ?GithubApp
     {
-        return self::connectedApps(0)->sortBy('id')->first();
+        $connected = self::connectedAppsForOwnerModules();
+        $selectedId = (int) (instanceSettings()->odoo_owner_github_app_id ?? 0);
+        if ($selectedId > 0) {
+            $selected = $connected->firstWhere('id', $selectedId);
+            if ($selected instanceof GithubApp) {
+                return $selected;
+            }
+        }
+
+        return $connected->sortBy('id')->first();
+    }
+
+    /**
+     * Apps the instance owner may pick for house modules (any team). Owner-only UI.
+     *
+     * @return Collection<int, GithubApp>
+     */
+    public static function connectedAppsForOwnerModules(): Collection
+    {
+        return GithubApp::query()
+            ->where('is_public', false)
+            ->whereNotNull('app_id')
+            ->whereNotNull('installation_id')
+            ->whereNotNull('private_key_id')
+            ->orderBy('name')
+            ->get();
+    }
+
+    public static function githubAppLabel(GithubApp $githubApp): string
+    {
+        try {
+            $login = self::accountLogin($githubApp);
+            if ($login !== '') {
+                return $login;
+            }
+        } catch (\Throwable) {
+            // Fall back to the Coolify app name when GitHub is unreachable.
+        }
+
+        return (string) ($githubApp->name ?: ('#'.$githubApp->id));
     }
 
     /**
