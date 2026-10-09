@@ -814,6 +814,7 @@ it('shows editor, monitor, and odoo log icons on the project environments', func
 
     expect(file_get_contents(resource_path('views/livewire/project/show.blade.php')))
         ->toContain('environment-shortcuts')
+        ->toContain('mt-auto flex flex-col gap-2 pt-4')
         ->and(substr_count(file_get_contents(resource_path('views/livewire/project/show.blade.php')), 'environment-shortcuts'))->toBe(2)
         ->and(file_get_contents(resource_path('views/livewire/project/environment-shortcuts.blade.php')))
         ->toContain('group-hover/tool')

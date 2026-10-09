@@ -276,14 +276,14 @@
                                 </div>
                             </div>
 
-                            <div class="mt-auto flex items-center justify-between gap-3 pt-4">
-                                <p class="min-w-0 break-words text-[11px] text-neutral-500 dark:text-fg-dim"
+                            <div class="mt-auto flex flex-col gap-2 pt-4">
+                                <p class="min-w-0 truncate text-[11px] text-neutral-500 dark:text-fg-dim"
                                     x-text="environment.odoo
                                         ? [environment.version ? ('Odoo ' + environment.version) : null, environment.statusLabel, environment.domain].filter(Boolean).join(' · ') || @js(__('Branch'))
                                         : `${environment.resourceCount} ${environment.resourceCount === 1 ? @js(__('resource')) : @js(__('resources'))}`">
                                 </p>
 
-                                <div class="compact-actions relative z-10 flex shrink-0 items-center gap-0.5" x-show="!environment.activity">
+                                <div class="compact-actions relative z-10 flex w-full items-center justify-end gap-0.5" x-show="!environment.activity">
                                     @include('livewire.project.environment-shortcuts')
                                     @include('livewire.project.odoo-open')
                                     <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref"
