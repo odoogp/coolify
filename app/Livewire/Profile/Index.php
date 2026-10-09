@@ -3,9 +3,11 @@
 namespace App\Livewire\Profile;
 
 use App\Services\AvatarStorageService;
+use App\Support\GetOdooCountries;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -27,6 +29,8 @@ class Index extends Component
 
     #[Validate('required')]
     public string $name;
+
+    public string $country = '';
 
     public string $new_email = '';
 
@@ -74,6 +78,8 @@ class Index extends Component
         $this->userId = Auth::id();
         $this->name = Auth::user()->name;
         $this->email = Auth::user()->email;
+        $iso = strtoupper((string) (Auth::user()->country_iso ?? ''));
+        $this->country = $iso !== '' ? (GetOdooCountries::name($iso) ?? '') : '';
 
         // Check if there's a pending email change
         if (Auth::user()->hasEmailChangeRequest()) {
@@ -87,9 +93,17 @@ class Index extends Component
         try {
             $this->validate([
                 'name' => 'required',
+                'country' => ['required', 'string', 'max:120', Rule::in(array_values(GetOdooCountries::names()))],
             ]);
+            $iso = GetOdooCountries::isoFromName($this->country);
+            if ($iso === null) {
+                $this->addError('country', __('Pick a country from the list.'));
+
+                return;
+            }
             Auth::user()->update([
                 'name' => $this->name,
+                'country_iso' => $iso,
             ]);
 
             $this->dispatch('success', __('Profile updated.'));
@@ -301,6 +315,8 @@ class Index extends Component
 
     public function render()
     {
-        return view('livewire.profile.index');
+        return view('livewire.profile.index', [
+            'countryChoices' => GetOdooCountries::choices(),
+        ]);
     }
 }

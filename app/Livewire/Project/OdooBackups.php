@@ -11,7 +11,9 @@ use App\Models\OdooBackup;
 use App\Models\Project;
 use App\Support\EnsureOdooBackupSchedules;
 use App\Support\GetOdooBackupFrequency;
+use App\Support\GetOdooCountries;
 use App\Support\OdooZipBackup;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
@@ -85,7 +87,7 @@ class OdooBackups extends Component
 
     public function render()
     {
-        $this->project->loadMissing('team.getodooPlan', 'odooProfile');
+        $this->project->loadMissing('team.getodooPlan', 'team.getodooPricingArea', 'odooProfile');
         $this->environment->loadMissing('services');
         $plan = $this->project->team?->getodooPlan;
         $planAllows = EnsureOdooBackupSchedules::planAllowsBackups($plan);
@@ -93,17 +95,18 @@ class OdooBackups extends Component
         $canCreateManual = EnsureOdooBackupSchedules::userMayCreateManualBackup($plan, $user);
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
 
+        $displayTimezone = $this->displayTimezoneFor($user);
         $backups = OdooBackup::query()
             ->where('environment_id', $this->environment->id)
             ->latest('id')
             ->limit(50)
             ->get()
-            ->map(function (OdooBackup $backup): array {
+            ->map(function (OdooBackup $backup) use ($frequency, $displayTimezone): array {
                 [$statusLabel, $statusType] = $this->statusPresentation((string) $backup->status);
 
                 return [
                     'id' => $backup->id,
-                    'time' => $backup->created_at?->utc()->format('Y-m-d H:i:s'),
+                    'time' => $this->formatBackupTime($backup->created_at, $displayTimezone),
                     'branch' => $this->environment->name,
                     'version' => (string) ($this->project->odooProfile?->odoo_version ?: '-'),
                     'status' => $statusLabel,
@@ -130,6 +133,9 @@ class OdooBackups extends Component
         return view('livewire.project.odoo-backups', [
             'backups' => $backups,
             'hasBusy' => $hasBusy,
+            'timeColumnLabel' => $displayTimezone === 'UTC'
+                ? __('Time (UTC)')
+                : __('Time (:timezone)', ['timezone' => $displayTimezone]),
             'planAllowsAutomatic' => $planAllows,
             'backupsBlockedByPlan' => ! $canCreateManual,
             'canCreate' => $canCreateManual
@@ -140,6 +146,30 @@ class OdooBackups extends Component
             'canDelete' => isInstanceOwner(),
             'service' => $this->environment->services->first(fn ($row): bool => $row->supportsOdooJupyter()),
         ]);
+    }
+
+    private function displayTimezoneFor(?\App\Models\User $user): string
+    {
+        $iso = strtoupper((string) ($user?->country_iso ?? ''));
+        if ($iso === '') {
+            $area = $this->project->team?->getodooPricingArea;
+            $iso = strtoupper((string) ($area?->iso_code ?: ''));
+        }
+
+        return GetOdooCountries::timezone($iso !== '' ? $iso : null);
+    }
+
+    private function formatBackupTime(?CarbonInterface $at, string $timezone): string
+    {
+        if ($at === null) {
+            return '-';
+        }
+
+        try {
+            return $at->copy()->timezone($timezone)->format('Y-m-d H:i:s');
+        } catch (\Throwable) {
+            return $at->utc()->format('Y-m-d H:i:s');
+        }
     }
 
     /**

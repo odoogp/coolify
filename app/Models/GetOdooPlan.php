@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use App\Support\GetOdooBackupFrequency;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -16,6 +17,7 @@ class GetOdooPlan extends BaseModel
         'currency',
         'payment_gateway',
         'is_active',
+        'is_rest_of_world',
         'max_projects',
         'max_environments',
         'max_members',
@@ -34,6 +36,7 @@ class GetOdooPlan extends BaseModel
         return [
             'price' => 'decimal:2',
             'is_active' => 'boolean',
+            'is_rest_of_world' => 'boolean',
             'max_projects' => 'integer',
             'max_environments' => 'integer',
             'max_members' => 'integer',
@@ -53,7 +56,7 @@ class GetOdooPlan extends BaseModel
     }
 
     /**
-     * Empty = available in every country. Otherwise only these pricing countries.
+     * Country and/or region pricing areas. Empty when the plan is Rest of the world.
      */
     public function pricingAreas(): BelongsToMany
     {
@@ -65,30 +68,49 @@ class GetOdooPlan extends BaseModel
         )->withPivot('promo_price')->withTimestamps();
     }
 
+    public function isRestOfWorld(): bool
+    {
+        return (bool) $this->is_rest_of_world;
+    }
+
+    /**
+     * @deprecated Use isRestOfWorld()
+     */
     public function isAvailableWorldwide(): bool
     {
-        if ($this->relationLoaded('pricingAreas')) {
-            return $this->pricingAreas->isEmpty();
-        }
-
-        return ! $this->pricingAreas()->exists();
+        return $this->isRestOfWorld();
     }
 
     public function isAvailableInCountry(?GetOdooPricingArea $country): bool
     {
-        if ($this->isAvailableWorldwide()) {
-            return true;
+        return ResolveGetOdooPlansForCountry::planIsAvailable($this, $country);
+    }
+
+    public function scopeLabel(): string
+    {
+        if ($this->isRestOfWorld()) {
+            return __('Rest of the world');
         }
 
-        if (! $country instanceof GetOdooPricingArea) {
-            return false;
+        $areas = $this->relationLoaded('pricingAreas')
+            ? $this->pricingAreas
+            : $this->pricingAreas()->get();
+
+        if ($areas->isEmpty()) {
+            return __('Rest of the world');
         }
 
-        if ($this->relationLoaded('pricingAreas')) {
-            return $this->pricingAreas->contains('id', $country->id);
-        }
+        return $areas->map(function (GetOdooPricingArea $area): string {
+            $label = $area->name;
+            if ($area->isRegion()) {
+                $label = __('Region').': '.$label;
+            }
+            if ($area->pivot?->promo_price !== null) {
+                $label .= ' $'.number_format((float) $area->pivot->promo_price, 2);
+            }
 
-        return $this->pricingAreas()->whereKey($country->id)->exists();
+            return $label;
+        })->implode(', ');
     }
 
     public function isFree(): bool

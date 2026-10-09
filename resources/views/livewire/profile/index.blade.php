@@ -138,6 +138,12 @@
                             {{ __('Change') }}
                         </x-forms.button>
                     </div>
+                    <x-forms.searchable-listbox id="country" portal live
+                        label="{{ __('Country') }}"
+                        searchPlaceholder="{{ __('Search countries') }}"
+                        emptyText="{{ __('No matching country') }}"
+                        :options="$countryChoices"
+                        helper="{{ __('The country associated with your account.') }}" />
                 </div>
             </section>
         </form>

@@ -2,18 +2,20 @@
 
 namespace App\Livewire\Team;
 
+use App\Domain\Odoo\OdooAbilities;
 use App\Exceptions\AdminCreationQuotaExceeded;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
-use App\Domain\Odoo\OdooAbilities;
+use App\Support\GetOdooCountries;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -46,6 +48,8 @@ class InviteLink extends Component
     /** @var list<string> */
     public array $odooAbilities = [];
 
+    public string $country = '';
+
     protected $rules = [
         'email' => 'required|email',
         'role' => 'required|string',
@@ -54,6 +58,8 @@ class InviteLink extends Component
     public function mount()
     {
         $this->email = isDev() ? 'test3@example.com' : '';
+        $iso = strtoupper((string) (auth()->user()?->country_iso ?? ''));
+        $this->country = $iso !== '' ? (GetOdooCountries::name($iso) ?? '') : '';
     }
 
     public function viaEmail()
@@ -80,7 +86,14 @@ class InviteLink extends Component
     {
         try {
             $this->authorize('manageInvitations', currentTeam());
-            $this->validate();
+            $inviteRules = [
+                'email' => ['required', 'email'],
+                'role' => ['required', 'string'],
+            ];
+            if (filled($this->country)) {
+                $inviteRules['country'] = ['string', 'max:120', Rule::in(array_values(GetOdooCountries::names()))];
+            }
+            $this->validate($inviteRules);
 
             // Prevent privilege escalation: users cannot invite someone with higher privileges
             $userRole = auth()->user()->role();
@@ -92,6 +105,13 @@ class InviteLink extends Component
             }
 
             $this->email = strtolower($this->email);
+            $countryIso = GetOdooCountries::isoFromName($this->country) ?? '';
+            if ($countryIso === '') {
+                $countryIso = strtoupper((string) (auth()->user()?->country_iso ?? ''));
+            }
+            if ($countryIso !== '' && GetOdooCountries::name($countryIso) === null) {
+                $countryIso = '';
+            }
 
             $member_emails = currentTeam()->members()->get()->pluck('email');
             if ($member_emails->contains($this->email)) {
@@ -108,9 +128,12 @@ class InviteLink extends Component
                     'email' => $this->email,
                     'password' => Hash::make($password),
                     'force_password_reset' => true,
+                    'country_iso' => $countryIso !== '' ? $countryIso : null,
                 ]));
                 $token = Crypt::encryptString("{$user->email}@@@{$uuid}@@@{$password}");
                 $link = $this->invitationUrl('auth.link', ['token' => $token]);
+            } elseif (blank($user->country_iso) && $countryIso !== '') {
+                $user->forceFill(['country_iso' => $countryIso])->save();
             }
             $invitation = TeamInvitation::whereEmail($this->email)->first();
             if (! is_null($invitation)) {
@@ -175,6 +198,7 @@ class InviteLink extends Component
                 ? OdooGit::connectedApps($team->id)->map(fn ($app): array => ['value' => $app->id, 'label' => $app->name])->all()
                 : [],
             'grantableOdooAbilities' => OdooAbilities::GRANTABLE,
+            'countryChoices' => GetOdooCountries::choices(),
         ]);
     }
 

@@ -21,11 +21,18 @@ class GetOdooPlanPricing
             $fixed += (float) $country->extra_fixed;
             $percent += (float) $country->extra_percent;
 
-            $pivot = $plan->relationLoaded('pricingAreas')
-                ? $plan->pricingAreas->firstWhere('id', $country->id)
-                : $plan->pricingAreas()->whereKey($country->id)->first();
-            if ($pivot !== null && $pivot->pivot?->promo_price !== null) {
-                $promo = round((float) $pivot->pivot->promo_price, 2);
+            $areas = $plan->relationLoaded('pricingAreas')
+                ? $plan->pricingAreas
+                : $plan->pricingAreas()->get();
+
+            $countryPivot = $areas->firstWhere('id', $country->id);
+            if ($countryPivot !== null && $countryPivot->pivot?->promo_price !== null) {
+                $promo = round((float) $countryPivot->pivot->promo_price, 2);
+            } elseif ($country->parent_id) {
+                $regionPivot = $areas->firstWhere('id', (int) $country->parent_id);
+                if ($regionPivot !== null && $regionPivot->pivot?->promo_price !== null) {
+                    $promo = round((float) $regionPivot->pivot->promo_price, 2);
+                }
             }
         }
 

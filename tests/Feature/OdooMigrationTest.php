@@ -184,6 +184,31 @@ it('lists branch backups and queues restore for a complete odoo zip', function (
     Queue::assertPushed(RestoreOdooBackupJob::class, fn (RestoreOdooBackupJob $job): bool => $job->odooBackupId === $backup->id);
 });
 
+it('shows backup times in the viewer country timezone', function () {
+    $this->owner->forceFill(['country_iso' => 'GT'])->save();
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+    $utc = \Carbon\Carbon::parse('2026-10-09 18:00:00', 'UTC');
+    $backup = OdooBackup::query()->create([
+        'environment_id' => $production->id,
+        'status' => 'complete',
+        'kind' => OdooBackup::KIND_MANUAL,
+        'filename' => '/data/coolify/backups/odoo/test/odoo-production.zip',
+        'filesize' => 1024,
+    ]);
+    $backup->forceFill(['created_at' => $utc])->saveQuietly();
+
+    $local = $utc->copy()->timezone('America/Guatemala')->format('Y-m-d H:i:s');
+
+    Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->assertOk()
+        ->assertSee(__('Time (:timezone)', ['timezone' => 'America/Guatemala']))
+        ->assertSee($local)
+        ->assertDontSee(__('Time (UTC)'));
+});
+
 it('stacks odoo backup rows on small screens instead of a wide horizontal table', function () {
     $view = file_get_contents(resource_path('views/livewire/project/odoo-backups.blade.php'));
     $css = file_get_contents(resource_path('css/app.css'));

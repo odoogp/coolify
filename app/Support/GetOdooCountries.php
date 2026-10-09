@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use DateTimeZone;
+
 class GetOdooCountries
 {
     /**
@@ -215,15 +217,33 @@ class GetOdooCountries
         return self::names()[$iso] ?? null;
     }
 
+    public static function isoFromName(string $name): ?string
+    {
+        $name = trim($name);
+        if ($name === '') {
+            return null;
+        }
+
+        foreach (self::names() as $iso => $label) {
+            if (strcasecmp($label, $name) === 0) {
+                return $iso;
+            }
+        }
+
+        return null;
+    }
+
     /**
+     * UI choices: value and label are the display name (not the ISO code).
+     *
      * @return list<array{value: string, label: string}>
      */
     public static function choices(): array
     {
         $choices = [];
-        foreach (self::names() as $iso => $name) {
+        foreach (self::names() as $name) {
             $choices[] = [
-                'value' => $iso,
+                'value' => $name,
                 'label' => $name,
             ];
         }
@@ -231,5 +251,45 @@ class GetOdooCountries
         usort($choices, fn (array $a, array $b): int => strcasecmp($a['label'], $b['label']));
 
         return $choices;
+    }
+
+    /**
+     * Primary IANA timezone for a country ISO code. Falls back to UTC.
+     */
+    public static function timezone(?string $iso): string
+    {
+        $iso = strtoupper(trim((string) $iso));
+        if ($iso === '' || self::name($iso) === null) {
+            return 'UTC';
+        }
+
+        try {
+            $zones = DateTimeZone::listIdentifiers(DateTimeZone::PER_COUNTRY, $iso);
+        } catch (\Throwable) {
+            return 'UTC';
+        }
+
+        if ($zones === []) {
+            return 'UTC';
+        }
+
+        // Prefer a capital/common zone when a country has several (e.g. Mexico, US).
+        $preferred = match ($iso) {
+            'MX' => 'America/Mexico_City',
+            'US' => 'America/New_York',
+            'CA' => 'America/Toronto',
+            'BR' => 'America/Sao_Paulo',
+            'ES' => 'Europe/Madrid',
+            'PT' => 'Europe/Lisbon',
+            'CL' => 'America/Santiago',
+            'AR' => 'America/Argentina/Buenos_Aires',
+            default => null,
+        };
+
+        if ($preferred !== null && in_array($preferred, $zones, true)) {
+            return $preferred;
+        }
+
+        return $zones[0];
     }
 }

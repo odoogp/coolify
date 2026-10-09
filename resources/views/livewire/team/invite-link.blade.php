@@ -33,6 +33,12 @@
                         ['value' => 'admin', 'label' => __('Admin')],
                         ['value' => 'member', 'label' => __('Member')],
                     ]))" />
+                    <x-forms.searchable-listbox id="country" portal live
+                        label="{{ __('Country') }}"
+                        searchPlaceholder="{{ __('Search countries') }}"
+                        emptyText="{{ __('No matching country') }}"
+                        :options="$countryChoices"
+                        helper="{{ __('Optional. Empty uses your country. They can change it later in their profile.') }}" />
                 </div>
 
                 @if ($canAssignPermissions && in_array($role, ['admin', 'member'], true))

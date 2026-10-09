@@ -87,7 +87,13 @@ class PlanSignup extends Component
         RateLimiter::hit($ipKey, 600);
 
         $country = $this->selectedCountry();
-        if (! $plan->isAvailableInCountry($country)) {
+        if ($countriesRequired || $country !== null) {
+            if (! $plan->isAvailableInCountry($country)) {
+                $this->addError('pricingAreaId', __('This plan is not available in that country.'));
+
+                return null;
+            }
+        } elseif (! $plan->isRestOfWorld()) {
             $this->addError('pricingAreaId', __('This plan is not available in that country.'));
 
             return null;

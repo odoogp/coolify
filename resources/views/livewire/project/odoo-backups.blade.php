@@ -41,7 +41,7 @@
                         <div
                             class="data-table overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
                             <div class="data-table-header odoo-backups-table-grid text-[11px]! uppercase tracking-wide">
-                                <span>{{ __('Time (UTC)') }}</span>
+                                <span>{{ $timeColumnLabel }}</span>
                                 <span class="odoo-backup-branch">{{ __('Branch') }}</span>
                                 <span class="odoo-backup-version">{{ __('Version') }}</span>
                                 <span class="odoo-backup-comment">{{ __('Comment') }}</span>

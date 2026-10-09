@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -97,27 +98,45 @@ class GetOdooPricingArea extends BaseModel
     }
 
     /**
-     * Countries offered on a plan signup. Worldwide plans get every active country.
+     * Countries where this plan wins the country → region → rest-of-world tier.
      *
      * @return list<array{value: string, label: string}>
      */
     public static function countryChoicesForPlan(GetOdooPlan $plan): array
     {
-        $all = self::countryChoices();
-        if ($plan->isAvailableWorldwide()) {
-            return $all;
-        }
+        $plan->loadMissing('pricingAreas');
 
-        $ids = $plan->pricingAreas()
+        return self::query()
             ->where('kind', self::KIND_COUNTRY)
             ->where('is_active', true)
-            ->pluck('get_odoo_pricing_areas.id')
-            ->map(fn ($id): int => (int) $id)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->filter(fn (self $country): bool => ResolveGetOdooPlansForCountry::planIsAvailable($plan, $country))
+            ->map(fn (self $country): array => [
+                'value' => (string) $country->id,
+                'label' => $country->name,
+            ])
+            ->values()
             ->all();
+    }
 
-        return array_values(array_filter(
-            $all,
-            fn (array $row): bool => in_array((int) $row['value'], $ids, true)
-        ));
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function regionChoices(): array
+    {
+        return self::query()
+            ->where('kind', self::KIND_REGION)
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (self $area): array => [
+                'value' => (string) $area->id,
+                'label' => $area->name,
+            ])
+            ->values()
+            ->all();
     }
 }

@@ -26,11 +26,12 @@ class OpenGetOdooPlanAccount
             return $existing;
         }
 
-        $user = User::withoutPersonalTeam(function () use ($name, $email, $password) {
+        $user = User::withoutPersonalTeam(function () use ($name, $email, $password, $pricingArea) {
             return User::query()->create([
                 'name' => $name,
                 'email' => $email,
                 'password' => Hash::make($password),
+                'country_iso' => self::isoFromArea($pricingArea),
             ]);
         });
 
@@ -47,6 +48,11 @@ class OpenGetOdooPlanAccount
 
     private function attachPlan(User $user, GetOdooPlan $plan, ?GetOdooPricingArea $pricingArea = null): void
     {
+        $iso = self::isoFromArea($pricingArea);
+        if ($iso !== null && blank($user->country_iso)) {
+            $user->forceFill(['country_iso' => $iso])->save();
+        }
+
         $team = $user->teams()->where('getodoo_plan_id', $plan->id)->first();
 
         if (! $team instanceof Team) {
@@ -73,6 +79,17 @@ class OpenGetOdooPlanAccount
         ])->save();
 
         $user->teams()->updateExistingPivot($team->id, $this->membership($plan, $pricingArea));
+    }
+
+    private static function isoFromArea(?GetOdooPricingArea $pricingArea): ?string
+    {
+        if (! $pricingArea instanceof GetOdooPricingArea || ! $pricingArea->isCountry()) {
+            return null;
+        }
+
+        $iso = strtoupper((string) ($pricingArea->iso_code ?: $pricingArea->code));
+
+        return strlen($iso) === 2 ? $iso : null;
     }
 
     /**

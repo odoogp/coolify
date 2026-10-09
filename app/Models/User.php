@@ -60,6 +60,7 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         'avatar_storage_type',
         'avatar_s3_storage_id',
         'locale',
+        'country_iso',
     ];
 
     protected $hidden = [

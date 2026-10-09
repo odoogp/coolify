@@ -8,9 +8,74 @@
             <div>
                 <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Plans') }}</h1>
                 <p class="mt-1 max-w-2xl text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
-                    {{ __('A plan is the package a new customer buys. Countries belong to the plan: pick where it is sold and optional promo prices for each country.') }}
+                    {{ __('A plan is the package a new customer buys. Sell it by country, by region, or as Rest of the world. A country plan always wins over a region plan for that country.') }}
                 </p>
             </div>
+
+            <x-application.settings-section :title="$regionId ? __('Edit region') : __('Regions')">
+                <p class="mb-3 text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                    {{ __('Group countries into a region so one plan can cover many countries. If a country also has its own plan, only the country plan is offered there.') }}
+                </p>
+                <form class="flex flex-col gap-4" wire:submit="saveRegion">
+                    <x-forms.input id="regionName" required label="{{ __('Region name') }}" />
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                        <div class="min-w-0 flex-1">
+                            <x-forms.searchable-listbox id="pendingRegionCountry" portal live
+                                label="{{ __('Add country to region') }}"
+                                searchPlaceholder="{{ __('Search countries') }}"
+                                emptyText="{{ __('No matching country') }}"
+                                :options="$addRegionCountryChoices" />
+                        </div>
+                        <x-forms.button type="button" wire:click="addRegionCountry">{{ __('Add') }}</x-forms.button>
+                    </div>
+                    @error('pendingRegionCountry')
+                        <p class="text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                    @error('regionCountries')
+                        <p class="text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                    @if ($regionCountryRows !== [])
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($regionCountryRows as $row)
+                                <div class="flex items-center gap-2 rounded-md border border-neutral-200 px-2 py-1 text-sm dark:border-white/[0.08]"
+                                    wire:key="region-country-{{ $row['name'] }}">
+                                    <span>{{ $row['label'] }}</span>
+                                    <button type="button" class="button"
+                                        wire:click="removeRegionCountry({{ \Illuminate\Support\Js::from($row['name']) }})">{{ __('Remove') }}</button>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                    <div class="flex flex-wrap gap-2">
+                        <x-forms.button type="submit" isHighlighted>{{ __('Save region') }}</x-forms.button>
+                        @if ($regionId)
+                            <button type="button" class="button" wire:click="newRegion">{{ __('New region') }}</button>
+                        @endif
+                    </div>
+                </form>
+
+                @if ($regions->isNotEmpty())
+                    <div class="mt-4 flex flex-col gap-2">
+                        @foreach ($regions as $region)
+                            <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-200 px-3 py-2 dark:border-white/[0.08]"
+                                wire:key="region-row-{{ $region->id }}">
+                                <div class="min-w-0">
+                                    <div class="text-sm font-medium">{{ $region->name }}</div>
+                                    <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        {{ $region->children->pluck('name')->implode(', ') ?: __('No countries') }}
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button type="button" class="button"
+                                        wire:click="editRegion({{ $region->id }})">{{ __('Edit') }}</button>
+                                    <button type="button" class="button" wire:click="deleteRegion({{ $region->id }})"
+                                        wire:confirm="{{ __('Delete this region?') }}">{{ __('Delete') }}</button>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+            </x-application.settings-section>
 
             <x-application.settings-section :title="$planId ? __('Edit plan') : __('New plan')">
                 <form class="flex flex-col gap-4" wire:submit="savePlan">
@@ -24,7 +89,7 @@
                         @enderror
                     </div>
                     <x-forms.input id="price" type="number" step="0.01" min="0" required
-                        label="{{ __('Monthly price') }}" helper="{{ __('Base USD price. A country promo on this plan can replace it on signup.') }}" />
+                        label="{{ __('Monthly price') }}" helper="{{ __('Base USD price. A country or region promo on this plan can replace it on signup.') }}" />
                     <div class="flex flex-col gap-3">
                         <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
                             {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
@@ -57,17 +122,17 @@
                         @endif
 
                         <div class="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-white/[0.08]">
-                            <p class="text-sm font-medium">{{ __('Countries for this plan') }}</p>
+                            <p class="text-sm font-medium">{{ __('Where this plan is sold') }}</p>
                             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('Define countries here on the plan. Worldwide means any country. Otherwise only the countries you add can buy this plan.') }}
+                                {{ __('Rest of the world is offered only when the buyer’s country has no country plan and no region plan.') }}
                             </p>
-                            <x-forms.checkbox id="planAvailableWorldwide" live
-                                label="{{ __('Available worldwide (no country limit)') }}" />
+                            <x-forms.checkbox id="planIsRestOfWorld" live
+                                label="{{ __('Rest of the world') }}" />
 
-                            @if (! $planAvailableWorldwide)
+                            @if (! $planIsRestOfWorld)
                                 <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
                                     <div class="min-w-0 flex-1">
-                                        <x-forms.searchable-listbox id="pendingCountryIso" portal live
+                                        <x-forms.searchable-listbox id="pendingCountry" portal live
                                             label="{{ __('Add country') }}"
                                             searchPlaceholder="{{ __('Search countries') }}"
                                             emptyText="{{ __('No matching country') }}"
@@ -75,36 +140,73 @@
                                     </div>
                                     <x-forms.button type="button" wire:click="addPlanCountry">{{ __('Add') }}</x-forms.button>
                                 </div>
-                                @error('pendingCountryIso')
+                                @error('pendingCountry')
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
-                                @error('planCountryIsos')
+                                @error('planCountries')
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
 
-                                @if ($planCountryRows === [])
-                                    <p class="text-[13px] text-amber-600 dark:text-amber-400">
-                                        {{ __('Add the countries where this plan is sold.') }}
-                                    </p>
-                                @else
+                                @if ($planCountryRows !== [])
                                     <div class="flex flex-col gap-2">
                                         @foreach ($planCountryRows as $row)
                                             <div class="flex flex-wrap items-center gap-3 rounded-md border border-neutral-200 px-2 py-2 dark:border-white/[0.08]"
-                                                wire:key="plan-iso-{{ $row['iso'] }}">
+                                                wire:key="plan-country-{{ $row['key'] }}">
                                                 <span class="min-w-[8rem] flex-1 text-sm font-medium">{{ $row['label'] }}</span>
                                                 <div class="w-36">
                                                     <input type="number" step="0.01" min="0"
                                                         class="input w-full text-[12px]"
                                                         placeholder="{{ __('Promo price') }}"
-                                                        wire:model="planCountryPromos.{{ $row['iso'] }}">
+                                                        wire:model="planCountryPromos.{{ $row['key'] }}">
                                                 </div>
                                                 <button type="button" class="button"
-                                                    wire:click="removePlanCountry('{{ $row['iso'] }}')">{{ __('Remove') }}</button>
+                                                    wire:click="removePlanCountry({{ \Illuminate\Support\Js::from($row['name']) }})">{{ __('Remove') }}</button>
                                             </div>
                                         @endforeach
                                     </div>
+                                @endif
+
+                                @if ($addRegionChoices !== [] || $planRegionRows !== [])
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                        <div class="min-w-0 flex-1">
+                                            <x-forms.listbox id="pendingRegionId" portal live
+                                                label="{{ __('Add region') }}"
+                                                placeholder="{{ __('Select a region') }}"
+                                                :options="$addRegionChoices" />
+                                        </div>
+                                        <x-forms.button type="button" wire:click="addPlanRegion">{{ __('Add') }}</x-forms.button>
+                                    </div>
+                                    @error('pendingRegionId')
+                                        <p class="text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                @endif
+
+                                @if ($planRegionRows !== [])
+                                    <div class="flex flex-col gap-2">
+                                        @foreach ($planRegionRows as $row)
+                                            <div class="flex flex-wrap items-center gap-3 rounded-md border border-neutral-200 px-2 py-2 dark:border-white/[0.08]"
+                                                wire:key="plan-region-{{ $row['id'] }}">
+                                                <span class="min-w-[8rem] flex-1 text-sm font-medium">{{ __('Region') }}: {{ $row['label'] }}</span>
+                                                <div class="w-36">
+                                                    <input type="number" step="0.01" min="0"
+                                                        class="input w-full text-[12px]"
+                                                        placeholder="{{ __('Promo price') }}"
+                                                        wire:model="planRegionPromos.{{ $row['id'] }}">
+                                                </div>
+                                                <button type="button" class="button"
+                                                    wire:click="removePlanRegion({{ $row['id'] }})">{{ __('Remove') }}</button>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+
+                                @if ($planCountryRows === [] && $planRegionRows === [])
+                                    <p class="text-[13px] text-amber-600 dark:text-amber-400">
+                                        {{ __('Add countries or regions where this plan is sold.') }}
+                                    </p>
+                                @else
                                     <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                        {{ __('Promo price is optional and exclusive to that country on this plan. Empty uses the plan monthly price.') }}
+                                        {{ __('Promo price is optional. Empty uses the plan monthly price plus country extras.') }}
                                     </p>
                                 @endif
                             @endif
@@ -137,7 +239,7 @@
                             <div class="data-table-header getodoo-plans-table-grid">
                                 <span>{{ __('Plan name') }}</span>
                                 <span>{{ __('Monthly price') }}</span>
-                                <span>{{ __('Countries') }}</span>
+                                <span>{{ __('Scope') }}</span>
                                 <span>{{ __('Signup link') }}</span>
                                 <span></span>
                             </div>
@@ -154,18 +256,7 @@
                                         {{ $plan->isFree() ? __('Free') : '$'.number_format((float) $plan->price, 2) }}
                                     </div>
                                     <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                        @if ($plan->pricingAreas->isEmpty())
-                                            {{ __('Worldwide') }}
-                                        @else
-                                            {{ $plan->pricingAreas->map(function ($area) {
-                                                $label = $area->name;
-                                                if ($area->pivot?->promo_price !== null) {
-                                                    $label .= ' $'.number_format((float) $area->pivot->promo_price, 2);
-                                                }
-
-                                                return $label;
-                                            })->implode(', ') }}
-                                        @endif
+                                        {{ $plan->scopeLabel() }}
                                     </div>
                                     <div class="min-w-0">
                                         <input class="input w-full font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
