@@ -29,6 +29,19 @@
                         </x-slot:actions>
                     @endif
 
+                    <div
+                        class="mb-4 flex flex-wrap items-start gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
+                        <x-reicon name="calendar" class="mt-0.5 size-4 shrink-0 text-neutral-500 dark:text-fg-dim" />
+                        <div class="min-w-0">
+                            <p class="text-[13px] font-medium leading-5 text-neutral-800 dark:text-fg">
+                                {{ $backupScheduleSummary }}
+                            </p>
+                            <p class="mt-0.5 text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                                {{ __('Set by your plan. Contact an advisor to change how often backups run.') }}
+                            </p>
+                        </div>
+                    </div>
+
                     @if ($backupsBlockedByPlan)
                         <x-empty size="sm" title="{{ __('Want automatic backups?') }}"
                             description="{{ __('Contact an advisor to add backups to your plan and protect this project.') }}"

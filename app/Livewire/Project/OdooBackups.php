@@ -130,6 +130,14 @@ class OdooBackups extends Component
             || OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.backup.restore')
         );
 
+        $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
+        $backupScheduleSummary = $planAllows
+            ? __('Automatic backups: :frequency · Keep :retention', [
+                'frequency' => GetOdooBackupFrequency::label($frequency),
+                'retention' => trans_choice(':count day|:count days', $retention, ['count' => $retention]),
+            ])
+            : __('Automatic backups: :policy', ['policy' => __('Not included')]);
+
         return view('livewire.project.odoo-backups', [
             'backups' => $backups,
             'hasBusy' => $hasBusy,
@@ -137,6 +145,9 @@ class OdooBackups extends Component
                 ? __('Time (UTC)')
                 : __('Time (:timezone)', ['timezone' => $displayTimezone]),
             'planAllowsAutomatic' => $planAllows,
+            'backupFrequency' => $frequency,
+            'backupFrequencyLabel' => GetOdooBackupFrequency::label($frequency),
+            'backupScheduleSummary' => $backupScheduleSummary,
             'backupsBlockedByPlan' => ! $canCreateManual,
             'canCreate' => $canCreateManual
                 && $user !== null

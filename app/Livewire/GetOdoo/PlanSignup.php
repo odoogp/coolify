@@ -8,7 +8,10 @@ use App\Models\GetOdooPricingArea;
 use App\Models\User;
 use App\Services\GetOdoo\GetOdooPlanPricing;
 use App\Services\GetOdoo\OpenGetOdooPlanAccount;
+use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use App\Services\GetOdoo\WompiClient;
+use App\Support\DetectRequestCountry;
+use App\Support\GetOdooCountries;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -39,9 +42,9 @@ class PlanSignup extends Component
         abort_unless($found instanceof GetOdooPlan, 404);
         $this->planId = $found->id;
 
-        $choices = GetOdooPricingArea::countryChoicesForPlan($found);
-        if (count($choices) === 1) {
-            $this->pricingAreaId = (string) $choices[0]['value'];
+        $country = $this->buyerCountry();
+        if ($country instanceof GetOdooPricingArea && ResolveGetOdooPlansForCountry::planIsAvailable($found, $country)) {
+            $this->pricingAreaId = (string) $country->id;
         }
     }
 
@@ -62,49 +65,56 @@ class PlanSignup extends Component
             return null;
         }
 
-        $countryChoices = GetOdooPricingArea::countryChoicesForPlan($plan);
-        $countriesRequired = $countryChoices !== [];
+        $buyerIso = DetectRequestCountry::iso();
+        $country = $this->lockedBuyerCountry($plan);
 
-        $rules = [
+        if ($buyerIso === null) {
+            $this->addError('pricingAreaId', __('We could not determine your country from your location. Contact an advisor.'));
+
+            return null;
+        }
+
+        if (! $country instanceof GetOdooPricingArea) {
+            $this->addError(
+                'pricingAreaId',
+                __('This plan is not available in :country. Contact an advisor.', [
+                    'country' => GetOdooCountries::name($buyerIso) ?? $buyerIso,
+                ])
+            );
+
+            return null;
+        }
+
+        $this->pricingAreaId = (string) $country->id;
+
+        $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'password' => ['required', Password::defaults(), 'confirmed'],
-        ];
-        if ($countriesRequired) {
-            $allowedIds = collect($countryChoices)->pluck('value')->map(fn ($id): int => (int) $id)->all();
-            $rules['pricingAreaId'] = [
-                'required',
-                'integer',
-                Rule::in($allowedIds),
-            ];
-        } else {
-            $rules['pricingAreaId'] = ['nullable'];
-        }
-
-        $this->validate($rules);
+            'pricingAreaId' => ['required', 'integer', Rule::in([(int) $country->id])],
+        ]);
 
         RateLimiter::hit($key, 600);
         RateLimiter::hit($ipKey, 600);
 
-        $country = $this->selectedCountry();
-        if ($countriesRequired || $country !== null) {
-            if (! $plan->isAvailableInCountry($country)) {
-                $this->addError('pricingAreaId', __('This plan is not available in that country.'));
-
-                return null;
-            }
-        } elseif (! $plan->isRestOfWorld()) {
-            $this->addError('pricingAreaId', __('This plan is not available in that country.'));
+        if (! ResolveGetOdooPlansForCountry::planIsAvailable($plan, $country)) {
+            $this->addError(
+                'pricingAreaId',
+                __('This plan is not available in :country. Contact an advisor.', [
+                    'country' => $country->name,
+                ])
+            );
 
             return null;
         }
+
         $quote = GetOdooPlanPricing::quote($plan, $country);
         $amount = number_format($quote['amount'], 2, '.', '');
 
         if ($quote['amount'] <= 0) {
             $user = $accounts->open($this->name, $this->email, $this->password, $plan, $country);
             $plan->signups()->create([
-                'pricing_area_id' => $country?->id,
+                'pricing_area_id' => $country->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'amount' => 0,
@@ -139,7 +149,7 @@ class PlanSignup extends Component
 
         if (! $signup instanceof GetOdooPlanSignup) {
             $signup = $plan->signups()->create([
-                'pricing_area_id' => $country?->id,
+                'pricing_area_id' => $country->id,
                 'name' => trim($this->name),
                 'email' => strtolower($this->email),
                 'password' => $this->password,
@@ -149,7 +159,7 @@ class PlanSignup extends Component
             ]);
         } else {
             $signup->fill([
-                'pricing_area_id' => $country?->id,
+                'pricing_area_id' => $country->id,
                 'name' => trim($this->name),
                 'password' => $this->password,
             ]);
@@ -190,16 +200,24 @@ class PlanSignup extends Component
     public function render(): View
     {
         $plan = $this->plan();
-        $country = $this->selectedCountry();
+        $buyerIso = DetectRequestCountry::iso();
+        $country = $this->lockedBuyerCountry($plan);
+        if ($country instanceof GetOdooPricingArea) {
+            $this->pricingAreaId = (string) $country->id;
+        }
+
         $quote = GetOdooPlanPricing::quote($plan, $country);
-        $countryChoices = GetOdooPricingArea::countryChoicesForPlan($plan);
+        $locationReady = $buyerIso !== null && $country instanceof GetOdooPricingArea;
+        $locationLabel = $country?->name
+            ?? ($buyerIso !== null ? (GetOdooCountries::name($buyerIso) ?? $buyerIso) : null);
 
         return view('livewire.getodoo.plan-signup', [
             'plan' => $plan,
             'quote' => $quote,
-            'countryChoices' => $countryChoices,
-            'countriesRequired' => $countryChoices !== [],
-            'canRegister' => ! auth()->check() && User::query()->count() > 0,
+            'locationReady' => $locationReady,
+            'locationLabel' => $locationLabel,
+            'locationBlockedMessage' => $this->locationBlockedMessage($buyerIso, $country),
+            'canRegister' => ! auth()->check() && User::query()->count() > 0 && $locationReady,
         ])->layout('layouts.simple');
     }
 
@@ -208,17 +226,38 @@ class PlanSignup extends Component
         return GetOdooPlan::query()->with('pricingAreas')->findOrFail($this->planId);
     }
 
-    private function selectedCountry(): ?GetOdooPricingArea
+    private function buyerCountry(): ?GetOdooPricingArea
     {
-        if ($this->pricingAreaId === null || $this->pricingAreaId === '') {
+        return GetOdooPricingArea::findCountryByIso(DetectRequestCountry::iso());
+    }
+
+    private function lockedBuyerCountry(GetOdooPlan $plan): ?GetOdooPricingArea
+    {
+        $country = $this->buyerCountry();
+        if (! $country instanceof GetOdooPricingArea) {
             return null;
         }
 
-        return GetOdooPricingArea::query()
-            ->whereKey((int) $this->pricingAreaId)
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->where('is_active', true)
-            ->first();
+        if (! ResolveGetOdooPlansForCountry::planIsAvailable($plan, $country)) {
+            return null;
+        }
+
+        return $country;
+    }
+
+    private function locationBlockedMessage(?string $buyerIso, ?GetOdooPricingArea $country): ?string
+    {
+        if ($country instanceof GetOdooPricingArea) {
+            return null;
+        }
+
+        if ($buyerIso === null) {
+            return __('We could not determine your country from your location. Contact an advisor.');
+        }
+
+        return __('This plan is not available in :country. Contact an advisor.', [
+            'country' => GetOdooCountries::name($buyerIso) ?? $buyerIso,
+        ]);
     }
 
     private function enter(User $user): mixed

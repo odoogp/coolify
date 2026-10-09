@@ -52,7 +52,7 @@
                 @if ($quote['amount'] <= 0)
                     {{ __('This package has no charge.') }}
                 @else
-                    {{ __('This is the monthly price for the country you choose. This step pays the first charge with Wompi.') }}
+                    {{ __('This is the monthly price for your location. This step pays the first charge with Wompi.') }}
                 @endif
             </p>
         </aside>
@@ -72,6 +72,10 @@
                 <a href="{{ route('dashboard') }}" class="button button-highlighted w-full justify-center">
                     {{ __('Go to the dashboard') }}
                 </a>
+            @elseif (filled($locationBlockedMessage))
+                <x-auth.alert type="warning">
+                    <p>{{ $locationBlockedMessage }}</p>
+                </x-auth.alert>
             @elseif (! $canRegister)
                 <x-auth.alert type="warning">
                     <p>{{ __('This instance is not ready for customers yet.') }}</p>
@@ -82,13 +86,18 @@
                         label="{{ __('input.name') }}" />
                     <x-forms.input id="email" required type="email" autocomplete="email"
                         label="{{ __('input.email') }}" />
-                    @if ($countriesRequired)
-                        <x-forms.searchable-listbox id="pricingAreaId" label="{{ __('Country') }}" live portal required
-                            searchPlaceholder="{{ __('Search countries') }}"
-                            emptyText="{{ __('No matching country') }}"
-                            helper="{{ __('The price updates with the extras for this country and its region.') }}"
-                            :options="$countryChoices" />
-                    @endif
+                    <div>
+                        <p class="mb-1 text-[13px] font-medium text-neutral-700 dark:text-fg">{{ __('Country') }}</p>
+                        <p class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-[13px] text-neutral-800 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-fg">
+                            {{ $locationLabel }}
+                        </p>
+                        <p class="mt-1 text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Detected from your location. The price for this country applies.') }}
+                        </p>
+                        @error('pricingAreaId')
+                            <p class="mt-1 text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
                     <x-forms.input id="password" required type="password" autocomplete="new-password"
                         label="{{ __('input.password') }}" />
                     <x-forms.input id="password_confirmation" required type="password" autocomplete="new-password"
