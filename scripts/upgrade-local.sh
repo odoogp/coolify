@@ -23,6 +23,12 @@ write_status() {
 }
 
 fail() {
+    if [ "${STASHED:-0}" = "1" ]; then
+        log "Restoring stashed nginx/s6-overlay changes after failure"
+        git stash pop >>"${LOGFILE:-/dev/null}" 2>&1 || log "WARNING: could not restore stash; check git stash list"
+        STASHED=0
+    fi
+
     if [ -n "${PREVIOUS_ID:-}" ]; then
         docker tag "$PREVIOUS_ID" "$IMAGE" >>"${LOGFILE:-/dev/null}" 2>&1 || true
     fi
@@ -70,6 +76,79 @@ resolve_branch() {
     if [ "$BRANCH" = "HEAD" ]; then
         fail "Detached HEAD. Set COOLIFY_GIT_BRANCH to the branch this install tracks."
     fi
+}
+
+# Host checkouts often chmod nginx/s6 scripts so the image boots; that dirties
+# git and used to abort the updater. Stash only these paths around ff-only pull.
+PRESERVE_PATHS=(
+    docker/production/etc/nginx
+    docker/production/etc/s6-overlay
+)
+
+STASHED=0
+
+porcelain_path() {
+    # "XY path" | "XY orig -> path" | "XY \"path with spaces\""
+    local line="$1"
+    local rest="${line:3}"
+
+    if [[ "$rest" == *' -> '* ]]; then
+        rest="${rest##* -> }"
+    fi
+
+    printf '%s' "$rest" | sed -e 's/^"//' -e 's/"$//'
+}
+
+path_is_preserved() {
+    local path="$1"
+    local allowed
+
+    for allowed in "${PRESERVE_PATHS[@]}"; do
+        if [ "$path" = "$allowed" ] || [[ "$path" == "$allowed"/* ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+assert_or_stash_local_changes() {
+    local line path dirty_other=""
+
+    if [ -z "$(git status --porcelain)" ]; then
+        return 0
+    fi
+
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        path=$(porcelain_path "$line")
+        if ! path_is_preserved "$path"; then
+            dirty_other="${dirty_other}${path}"$'\n'
+        fi
+    done < <(git status --porcelain)
+
+    if [ -n "$dirty_other" ]; then
+        fail "Local changes in ${CONTEXT} outside nginx/s6-overlay. Commit or stash them before updating:"$'\n'"${dirty_other}"
+    fi
+
+    log "Stashing local nginx/s6-overlay customizations before pull"
+    git stash push --include-untracked -m "coolify-upgrade-preserve-$(date +%s)" -- "${PRESERVE_PATHS[@]}" \
+        || fail "Could not stash nginx/s6-overlay local changes."
+    STASHED=1
+}
+
+restore_stashed_local_changes() {
+    if [ "${STASHED}" != "1" ]; then
+        return 0
+    fi
+
+    log "Restoring local nginx/s6-overlay customizations"
+    if ! git stash pop; then
+        # Leave the stash for manual resolution; do not pop again from fail().
+        STASHED=0
+        fail "Pulled updates, but restoring nginx/s6-overlay changes conflicted. Resolve git stash manually. The running container was not replaced."
+    fi
+    STASHED=0
 }
 
 assert_local_image_config() {
@@ -224,10 +303,7 @@ fi
 
 cd "$CONTEXT"
 resolve_branch
-
-if [ -n "$(git status --porcelain)" ]; then
-    fail "Local changes in ${CONTEXT}. Commit or stash them before updating."
-fi
+assert_or_stash_local_changes
 
 write_status "1" "Fetching ${BRANCH}"
 log "Fetching origin ${BRANCH}"
@@ -239,6 +315,7 @@ if ! git merge-base --is-ancestor HEAD "origin/${BRANCH}"; then
     fail "Branch ${BRANCH} has diverged from origin. Fast-forward is not possible, so the running container was left unchanged."
 fi
 git pull --ff-only origin "$BRANCH" || fail "Fast-forward of ${BRANCH} failed. The branch has diverged."
+restore_stashed_local_changes
 
 PREVIOUS_ID=$(docker image inspect --format '{{.Id}}' "$IMAGE" 2>/dev/null || true)
 export PREVIOUS_ID

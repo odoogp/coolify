@@ -78,6 +78,11 @@ it('updates a local checkout without pulling the official image', function () {
         ->toContain('write_status "2" "Pulling ${BRANCH}"')
         ->toContain('git pull --ff-only origin "$BRANCH"')
         ->toContain('git status --porcelain')
+        ->toContain('assert_or_stash_local_changes')
+        ->toContain('restore_stashed_local_changes')
+        ->toContain('docker/production/etc/nginx')
+        ->toContain('docker/production/etc/s6-overlay')
+        ->toContain('git stash push --include-untracked')
         ->toContain('git merge-base --is-ancestor HEAD "origin/${BRANCH}"')
         ->toContain('docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT"')
         ->toContain('coolify-custom:local')
@@ -91,6 +96,149 @@ it('updates a local checkout without pulling the official image', function () {
         ->not->toContain('git reset --hard')
         ->not->toContain('git clean')
         ->not->toContain('.env.production');
+});
+
+it('stashes only nginx and s6-overlay local changes around a fast-forward', function () {
+    $root = sys_get_temp_dir().'/coolify-upgrade-stash-'.bin2hex(random_bytes(4));
+    $origin = $root.'/origin.git';
+    $work = $root.'/work';
+
+    try {
+        expect(mkdir($root, 0777, true))->toBeTrue();
+        exec('git init --bare '.escapeshellarg($origin).' 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        exec('git clone '.escapeshellarg($origin).' '.escapeshellarg($work).' 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        $nginx = $work.'/docker/production/etc/nginx';
+        $s6 = $work.'/docker/production/etc/s6-overlay/s6-rc.d/init-script';
+        expect(mkdir($nginx, 0777, true))->toBeTrue()
+            ->and(mkdir($s6, 0777, true))->toBeTrue();
+        file_put_contents($nginx.'/custom.conf', "# base\n");
+        file_put_contents($s6.'/up', "#!/bin/execlineb -P\necho base\n");
+        file_put_contents($work.'/README', "v1\n");
+
+        $git = 'git -C '.escapeshellarg($work);
+        exec($git.' config user.email test@example.com && '.$git.' config user.name test && '.$git.' add -A && '.$git.' commit -m base && '.$git.' branch -M main && '.$git.' push -u origin main 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        // Upstream advances
+        $other = $root.'/other';
+        exec('git clone '.escapeshellarg($origin).' '.escapeshellarg($other).' 2>&1', $out, $code);
+        expect($code)->toBe(0);
+        file_put_contents($other.'/README', "v2\n");
+        $gitOther = 'git -C '.escapeshellarg($other);
+        exec($gitOther.' config user.email test@example.com && '.$gitOther.' config user.name test && '.$gitOther.' add README && '.$gitOther.' commit -m upstream && '.$gitOther.' push origin main 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        // Local nginx/s6 customizations (the production blocker)
+        file_put_contents($nginx.'/custom.conf', "# local nginx fix\n");
+        chmod($s6.'/up', 0755);
+        file_put_contents($s6.'/up', "#!/bin/execlineb -P\necho local-s6\n");
+
+        $helpers = <<<'BASH'
+STASHED=0
+PRESERVE_PATHS=(docker/production/etc/nginx docker/production/etc/s6-overlay)
+fail() { echo "FAIL: $*" >&2; exit 1; }
+log() { echo "$*"; }
+porcelain_path() {
+    local line="$1" rest="${line:3}"
+    if [[ "$rest" == *' -> '* ]]; then rest="${rest##* -> }"; fi
+    printf '%s' "$rest" | sed -e 's/^"//' -e 's/"$//'
+}
+path_is_preserved() {
+    local path="$1" allowed
+    for allowed in "${PRESERVE_PATHS[@]}"; do
+        if [ "$path" = "$allowed" ] || [[ "$path" == "$allowed"/* ]]; then return 0; fi
+    done
+    return 1
+}
+assert_or_stash_local_changes() {
+    local line path dirty_other=""
+    if [ -z "$(git status --porcelain)" ]; then return 0; fi
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        path=$(porcelain_path "$line")
+        if ! path_is_preserved "$path"; then dirty_other="${dirty_other}${path}"$'\n'; fi
+    done < <(git status --porcelain)
+    if [ -n "$dirty_other" ]; then fail "outside preserve paths:"$'\n'"$dirty_other"; fi
+    git stash push --include-untracked -m "coolify-upgrade-preserve-test" -- "${PRESERVE_PATHS[@]}" || fail stash
+    STASHED=1
+}
+restore_stashed_local_changes() {
+    if [ "${STASHED}" != "1" ]; then return 0; fi
+    git stash pop || fail "stash pop conflicted"
+    STASHED=0
+}
+BASH;
+
+        $script = "set -euo pipefail\ncd ".escapeshellarg($work)."\n{$helpers}\nassert_or_stash_local_changes\ngit pull --ff-only origin main\nrestore_stashed_local_changes\n";
+        $tmp = $root.'/run.sh';
+        file_put_contents($tmp, $script);
+        exec('bash '.escapeshellarg($tmp).' 2>&1', $out, $code);
+        expect($code)->toBe(0, implode("\n", $out))
+            ->and(file_get_contents($work.'/README'))->toBe("v2\n")
+            ->and(file_get_contents($nginx.'/custom.conf'))->toBe("# local nginx fix\n")
+            ->and(file_get_contents($s6.'/up'))->toContain('local-s6')
+            ->and(trim(shell_exec($git.' status --porcelain') ?? ''))->not->toBe('');
+    } finally {
+        exec('rm -rf '.escapeshellarg($root));
+    }
+});
+
+it('rejects local changes outside nginx and s6-overlay before updating', function () {
+    $root = sys_get_temp_dir().'/coolify-upgrade-reject-'.bin2hex(random_bytes(4));
+    $work = $root.'/work';
+
+    try {
+        expect(mkdir($work, 0777, true))->toBeTrue();
+        exec('git -C '.escapeshellarg($work).' init 2>&1', $out, $code);
+        expect($code)->toBe(0);
+        file_put_contents($work.'/README', "v1\n");
+        $git = 'git -C '.escapeshellarg($work);
+        exec($git.' config user.email test@example.com && '.$git.' config user.name test && '.$git.' add README && '.$git.' commit -m base 2>&1', $out, $code);
+        expect($code)->toBe(0);
+        file_put_contents($work.'/README', "dirty\n");
+
+        $helpers = <<<'BASH'
+STASHED=0
+PRESERVE_PATHS=(docker/production/etc/nginx docker/production/etc/s6-overlay)
+fail() { echo "FAIL: $*" >&2; exit 1; }
+log() { :; }
+porcelain_path() {
+    local line="$1" rest="${line:3}"
+    if [[ "$rest" == *' -> '* ]]; then rest="${rest##* -> }"; fi
+    printf '%s' "$rest" | sed -e 's/^"//' -e 's/"$//'
+}
+path_is_preserved() {
+    local path="$1" allowed
+    for allowed in "${PRESERVE_PATHS[@]}"; do
+        if [ "$path" = "$allowed" ] || [[ "$path" == "$allowed"/* ]]; then return 0; fi
+    done
+    return 1
+}
+assert_or_stash_local_changes() {
+    local line path dirty_other=""
+    if [ -z "$(git status --porcelain)" ]; then return 0; fi
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        path=$(porcelain_path "$line")
+        if ! path_is_preserved "$path"; then dirty_other="${dirty_other}${path}"$'\n'; fi
+    done < <(git status --porcelain)
+    if [ -n "$dirty_other" ]; then fail "Local changes outside nginx/s6-overlay:"$'\n'"$dirty_other"; fi
+}
+BASH;
+        $script = "set -euo pipefail\ncd ".escapeshellarg($work)."\n{$helpers}\nassert_or_stash_local_changes\n";
+        $tmp = $root.'/run.sh';
+        file_put_contents($tmp, $script);
+        exec('bash '.escapeshellarg($tmp).' 2>&1', $out, $code);
+        expect($code)->not->toBe(0)
+            ->and(implode("\n", $out))->toContain('outside nginx/s6-overlay')
+            ->and(file_get_contents($work.'/README'))->toBe("dirty\n");
+    } finally {
+        exec('rm -rf '.escapeshellarg($root));
+    }
 });
 
 it('copies the local upgrade script into the production image', function () {
