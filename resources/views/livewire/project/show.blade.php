@@ -268,9 +268,14 @@
                                     <x-reicon name="layers" class="size-4" />
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <h2
-                                        class="break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg"
-                                        x-text="environment.name"></h2>
+                                    <a x-show="!environment.activity"
+                                        :href="environment.odoo ? environment.environmentHref : environment.href"
+                                        {{ wireNavigate() }}
+                                        class="relative z-10 block truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
+                                        x-text="environment.name"></a>
+                                    <span x-show="environment.activity"
+                                        class="block truncate text-[13px] font-semibold text-black opacity-70 dark:text-fg"
+                                        x-text="environment.name"></span>
                                     <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint"
                                         x-text="environment.branch || environment.description || @js(__('Environment'))"></p>
                                 </div>

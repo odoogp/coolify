@@ -48,6 +48,41 @@ class GpshNotices
         ]);
     }
 
+    public static function rememberRequestFailure(string $message): ?GpshNotice
+    {
+        if (! GpshNoticeSetting::current()->allows('custom')) {
+            return null;
+        }
+
+        $raw = trim($message);
+        if ($raw === '' || str_contains($raw, '<') || str_contains($raw, '<!DOCTYPE')) {
+            $message = __('The request was interrupted.');
+        } else {
+            $message = $raw;
+        }
+        if (strlen($message) > 500) {
+            $message = substr($message, 0, 500);
+        }
+
+        $user = Auth::user();
+        $owner = (bool) $user?->isInstanceOwner();
+        $teamId = $owner ? null : currentTeam()?->id;
+        $scope = $owner ? 'owner' : 'team:'.($teamId ?? 'none');
+        if (! Cache::add('gpsh:request-failure:'.sha1($scope.'|'.$message), true, now()->addMinutes(10))) {
+            return null;
+        }
+
+        return self::publish(
+            null,
+            'custom',
+            __('The request did not finish'),
+            $message,
+            $owner ? 'owner' : 'clients',
+            $teamId,
+            $user?->id,
+        );
+    }
+
     public static function rememberUpgradeFailure(string $message): ?GpshNotice
     {
         if (! GpshNoticeSetting::current()->allows('custom')) {

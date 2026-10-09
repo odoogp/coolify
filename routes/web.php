@@ -200,6 +200,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
     Route::get('/upgrade/status', [UpgradeWatchController::class, 'status'])->name('upgrade.status');
     Route::get('/upgrade/log', [UpgradeWatchController::class, 'log'])->name('upgrade.log');
+    Route::post('/notices/request-failure', [UpgradeWatchController::class, 'requestFailure'])->name('notices.request-failure');
     Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
     Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
     Route::get('/settings/getodoo-purchases', SettingsGetOdooPurchases::class)->name('settings.getodoo-purchases');

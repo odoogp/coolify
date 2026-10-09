@@ -150,6 +150,10 @@
         [x-cloak] {
             display: none !important;
         }
+
+        dialog#livewire-error {
+            display: none !important;
+        }
     </style>
     @if (config('app.name') == 'Coolify Cloud')
         <script defer data-domain="app.coolify.io" src="https://analytics.coollabs.io/js/plausible.js"></script>
@@ -362,17 +366,61 @@
         document.addEventListener('livewire:init', () => {
             const dismissLivewireError = () => {
                 document.getElementById('livewire-error')?.remove()
+                document.querySelectorAll('body > iframe, dialog iframe').forEach((frame) => {
+                    if (frame.style.backgroundColor.replace(/\s/g, '') !== 'rgb(23,22,26)') {
+                        return
+                    }
+                    frame.closest('dialog')?.remove()
+                    frame.remove()
+                })
             }
+
+            let livewireFailureReported = false
+            let livewireFailureSaved = false
+            const reportCutRequest = (message) => {
+                dismissLivewireError()
+                const title = @js(__('The request did not finish'))
+                const body = typeof message === 'string' && message !== '' ? message : @js(__('The request was interrupted.'))
+                if (!livewireFailureReported) {
+                    livewireFailureReported = true
+                    window.dispatchEvent(new CustomEvent('gpsh-toast', {
+                        detail: { title, body, seconds: 8 },
+                    }))
+                }
+                if (livewireFailureSaved) {
+                    return
+                }
+
+                const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                fetch(@js(route('notices.request-failure')), {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': token,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ message: body }),
+                }).then((response) => {
+                    if (response.ok) {
+                        livewireFailureSaved = true
+                    }
+                }).catch(() => {})
+            }
+
+            window.gpshReportCutRequest = reportCutRequest
 
             window.Livewire.hook('request', ({ fail }) => {
                 fail(({ preventDefault }) => {
-                    if (document.documentElement.dataset.upgrading !== '1') {
-                        return
-                    }
-
                     preventDefault()
-                    dismissLivewireError()
+                    reportCutRequest()
                 })
+            })
+
+            new MutationObserver(() => dismissLivewireError()).observe(document.body, {
+                childList: true,
+                subtree: true,
             })
 
             window.Livewire.on('reloadWindow', (timeout) => {
