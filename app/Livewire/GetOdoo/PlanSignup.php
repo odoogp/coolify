@@ -11,7 +11,6 @@ use App\Services\GetOdoo\OpenGetOdooPlanAccount;
 use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use App\Services\GetOdoo\WompiClient;
 use App\Support\DetectRequestCountry;
-use App\Support\GetOdooCountries;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
@@ -65,19 +64,7 @@ class PlanSignup extends Component
             return null;
         }
 
-        $buyerIso = DetectRequestCountry::iso();
         $lockedCountry = $this->lockedBuyerCountry($plan);
-
-        if ($buyerIso !== null && $lockedCountry === null) {
-            $this->addError(
-                'pricingAreaId',
-                __('This plan is not available in :country. Contact an advisor.', [
-                    'country' => GetOdooCountries::name($buyerIso) ?? $buyerIso,
-                ])
-            );
-
-            return null;
-        }
 
         if ($lockedCountry instanceof GetOdooPricingArea) {
             $this->pricingAreaId = (string) $lockedCountry->id;
@@ -89,7 +76,7 @@ class PlanSignup extends Component
                 'pricingAreaId' => ['required', 'integer', Rule::in([(int) $country->id])],
             ]);
         } else {
-            // Location unknown: standard plan price, no country extras / promo.
+            // Unknown location, or country not on this plan: standard plan price.
             $this->pricingAreaId = null;
             $country = null;
             $this->validate([
@@ -195,7 +182,6 @@ class PlanSignup extends Component
     public function render(): View
     {
         $plan = $this->plan();
-        $buyerIso = DetectRequestCountry::iso();
         $lockedCountry = $this->lockedBuyerCountry($plan);
         $locationLocked = $lockedCountry instanceof GetOdooPricingArea;
 
@@ -208,25 +194,14 @@ class PlanSignup extends Component
         }
 
         $quote = GetOdooPlanPricing::quote($plan, $country);
-        $locationBlockedMessage = null;
-        if ($buyerIso !== null && ! $locationLocked) {
-            $locationBlockedMessage = __('This plan is not available in :country. Contact an advisor.', [
-                'country' => GetOdooCountries::name($buyerIso) ?? $buyerIso,
-            ]);
-        }
-
-        $canRegister = ! auth()->check()
-            && User::query()->count() > 0
-            && $locationBlockedMessage === null;
 
         return view('livewire.getodoo.plan-signup', [
             'plan' => $plan,
             'quote' => $quote,
             'locationLocked' => $locationLocked,
             'locationLabel' => $lockedCountry?->name,
-            'locationBlockedMessage' => $locationBlockedMessage,
-            'usesStandardPrice' => ! $locationLocked && $buyerIso === null,
-            'canRegister' => $canRegister,
+            'usesStandardPrice' => ! $locationLocked,
+            'canRegister' => ! auth()->check() && User::query()->count() > 0,
         ])->layout('layouts.simple');
     }
 

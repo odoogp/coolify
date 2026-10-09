@@ -396,7 +396,17 @@ it('limits a plan to specific countries and uses promo price on signup', functio
 
     config(['constants.getodoo.force_country_iso' => 'GT']);
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
-        ->assertSee(__('This plan is not available in :country. Contact an advisor.', ['country' => 'Guatemala']));
+        ->assertSee('$100.00')
+        ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
+        ->set('name', 'Ana')
+        ->set('email', 'ana-gt@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect((float) GetOdooPlanSignup::query()->where('email', 'ana-gt@example.com')->value('amount'))->toBe(100.0)
+        ->and(GetOdooPlanSignup::query()->where('email', 'ana-gt@example.com')->value('pricing_area_id'))->toBeNull();
 
     config(['constants.getodoo.force_country_iso' => 'SV']);
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
@@ -407,7 +417,7 @@ it('limits a plan to specific countries and uses promo price on signup', functio
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
-    expect((float) GetOdooPlanSignup::query()->first()->amount)->toBe(49.0);
+    expect((float) GetOdooPlanSignup::query()->where('email', 'ana@example.com')->value('amount'))->toBe(49.0);
 });
 
 it('prefers a country plan over a region plan and falls back to rest of the world', function () {

@@ -74,10 +74,6 @@
                 <a href="{{ route('dashboard') }}" class="button button-highlighted w-full justify-center">
                     {{ __('Go to the dashboard') }}
                 </a>
-            @elseif (filled($locationBlockedMessage))
-                <x-auth.alert type="warning">
-                    <p>{{ $locationBlockedMessage }}</p>
-                </x-auth.alert>
             @elseif (! $canRegister)
                 <x-auth.alert type="warning">
                     <p>{{ __('This instance is not ready for customers yet.') }}</p>
