@@ -105,12 +105,30 @@ class GetOdooPricingArea extends BaseModel
         }
 
         return self::query()
+            ->with('parent')
             ->where('kind', self::KIND_COUNTRY)
             ->where('is_active', true)
             ->whereRaw('UPPER(iso_code) = ?', [$iso])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->first();
+    }
+
+    /**
+     * Region this country belongs to (for IP regionalization), if configured.
+     */
+    public function region(): ?self
+    {
+        if (! $this->isCountry()) {
+            return null;
+        }
+
+        $this->loadMissing('parent');
+        $parent = $this->parent;
+
+        return $parent instanceof self && $parent->isRegion() && $parent->is_active
+            ? $parent
+            : null;
     }
 
     /**

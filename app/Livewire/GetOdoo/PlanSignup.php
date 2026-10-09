@@ -195,11 +195,19 @@ class PlanSignup extends Component
 
         $quote = GetOdooPlanPricing::quote($plan, $country);
 
+        $region = $lockedCountry?->region();
+        $locationLabel = null;
+        if ($lockedCountry instanceof GetOdooPricingArea) {
+            $locationLabel = $region instanceof GetOdooPricingArea
+                ? __(':country · :region', ['country' => $lockedCountry->name, 'region' => $region->name])
+                : $lockedCountry->name;
+        }
+
         return view('livewire.getodoo.plan-signup', [
             'plan' => $plan,
             'quote' => $quote,
             'locationLocked' => $locationLocked,
-            'locationLabel' => $lockedCountry?->name,
+            'locationLabel' => $locationLabel,
             'usesStandardPrice' => ! $locationLocked,
             'canRegister' => ! auth()->check() && User::query()->count() > 0,
         ])->layout('layouts.simple');
@@ -210,6 +218,10 @@ class PlanSignup extends Component
         return GetOdooPlan::query()->with('pricingAreas')->findOrFail($this->planId);
     }
 
+    /**
+     * Country from IP, only when that country (or its region) makes this plan available.
+     * Region membership comes from GetOdooPricingArea parent_id.
+     */
     private function lockedBuyerCountry(GetOdooPlan $plan): ?GetOdooPricingArea
     {
         $country = GetOdooPricingArea::findCountryByIso(DetectRequestCountry::iso());

@@ -135,10 +135,9 @@ class GetOdooPlan extends BaseModel
         foreach ([
             'max_projects' => __('Projects'),
             'max_environments' => __('Environments'),
-            'max_members' => __('Members'),
+            'max_members' => __('Members (users)'),
             'max_production_branches' => __('Production branches'),
             'max_staging_branches' => __('Staging branches'),
-            'max_services' => __('Services'),
         ] as $column => $label) {
             $value = $this->{$column};
 
@@ -147,10 +146,6 @@ class GetOdooPlan extends BaseModel
             } elseif ((int) $value > 0) {
                 $items[] = ['label' => $label, 'value' => (string) (int) $value];
             }
-        }
-
-        if ($this->can_add_servers) {
-            $items[] = ['label' => __('Can add servers'), 'value' => null];
         }
 
         if ($this->can_launch_on_instance_server) {

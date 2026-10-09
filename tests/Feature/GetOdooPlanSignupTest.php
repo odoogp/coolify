@@ -190,7 +190,9 @@ it('shows the package and the admin account on the public link', function () {
         ->assertSee('$93.00')
         ->assertSee('Projects')
         ->assertSee('Environments')
-        ->assertSee('Can add servers')
+        ->assertSee(__('Members (users)'))
+        ->assertDontSee(__('Services'))
+        ->assertDontSee(__('Can add servers'))
         ->assertDontSee('Can launch instances on the server where GPSH is installed')
         ->assertSee('Continue to payment')
         ->assertSee('Guatemala')
@@ -480,6 +482,13 @@ it('prefers a country plan over a region plan and falls back to rest of the worl
         ->toBe([(string) $mx->id])
         ->and(collect(GetOdooPricingArea::countryChoicesForPlan($restPlan->fresh('pricingAreas')))->pluck('value')->all())
         ->toBe([(string) $jp->id]);
+
+    // IP in Mexico → country belongs to LatAm → regional plan price applies automatically.
+    config(['constants.getodoo.force_country_iso' => 'MX']);
+    Livewire::test(PlanSignup::class, ['plan' => $regionPlan->uuid])
+        ->assertSee('$55.00')
+        ->assertSee(__(':country · :region', ['country' => 'Mexico', 'region' => 'LatAm']))
+        ->assertDontSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'));
 });
 
 it('locks signup to the buyer ip country and charges the quoted amount', function () {

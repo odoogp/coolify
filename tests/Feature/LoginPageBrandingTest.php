@@ -32,6 +32,7 @@ test('page body uses the dynamic viewport height on mobile', function () {
 test('auth scene shares one viewport and moves its objects', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
     $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
+    $signup = file_get_contents(resource_path('views/livewire/getodoo/plan-signup.blade.php'));
 
     expect($styles)
         ->toContain('@keyframes auth-float')
@@ -41,11 +42,15 @@ test('auth scene shares one viewport and moves its objects', function () {
         ->toContain('.auth-stage {')
         ->toMatch('/\.auth-stage\s*\{[^}]*position:\s*relative;/s')
         ->toMatch('/@media \(min-width: 901px\)\s*\{[^}]*\.auth-stage\s*\{[^}]*position:\s*absolute;/s')
+        ->toMatch('/\.auth-shell-wide\s+\.auth-stage\s*\{[^}]*position:\s*fixed;/s')
         ->not->toContain('padding: 42vh')
         ->not->toContain('grid-template-columns: minmax(0, 1.15fr)')
         ->and($shell)
         ->toContain('auth-stage-mark-slot')
-        ->toContain('auth-stage-glow');
+        ->toContain('auth-stage-glow')
+        ->toContain('auth-shell-wide')
+        ->and($signup)
+        ->toContain('x-auth.shell wide');
 });
 
 test('auth pages use the Coollabs purple background glow', function () {

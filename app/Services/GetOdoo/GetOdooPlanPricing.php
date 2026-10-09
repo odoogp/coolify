@@ -28,10 +28,14 @@ class GetOdooPlanPricing
             $countryPivot = $areas->firstWhere('id', $country->id);
             if ($countryPivot !== null && $countryPivot->pivot?->promo_price !== null) {
                 $promo = round((float) $countryPivot->pivot->promo_price, 2);
-            } elseif ($country->parent_id) {
-                $regionPivot = $areas->firstWhere('id', (int) $country->parent_id);
-                if ($regionPivot !== null && $regionPivot->pivot?->promo_price !== null) {
-                    $promo = round((float) $regionPivot->pivot->promo_price, 2);
+            } else {
+                // IP → country → region: use the region's promo when the plan is regionalized.
+                $region = $country->region();
+                if ($region instanceof GetOdooPricingArea) {
+                    $regionPivot = $areas->firstWhere('id', $region->id);
+                    if ($regionPivot !== null && $regionPivot->pivot?->promo_price !== null) {
+                        $promo = round((float) $regionPivot->pivot->promo_price, 2);
+                    }
                 }
             }
         }
