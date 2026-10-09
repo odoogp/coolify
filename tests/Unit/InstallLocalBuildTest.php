@@ -255,6 +255,7 @@ it('copies the local upgrade script into the production image', function () {
 it('keeps production s6 init as root and ships user/type for the bundle', function () {
     $dockerfile = file_get_contents(base_path('docker/production/Dockerfile'));
     $userType = base_path('docker/production/etc/s6-overlay/s6-rc.d/user/type');
+    $contents = base_path('docker/production/etc/s6-overlay/s6-rc.d/user/contents.d');
 
     expect($dockerfile)
         ->toContain('USER root')
@@ -263,7 +264,9 @@ it('keeps production s6 init as root and ships user/type for the bundle', functi
     expect(preg_match('/^USER www-data\s*$/m', $dockerfile))->toBe(0);
 
     expect(is_file($userType))->toBeTrue()
-        ->and(trim((string) file_get_contents($userType)))->toBe('bundle');
+        ->and(trim((string) file_get_contents($userType)))->toBe('bundle')
+        ->and(is_file($contents.'/nginx'))->toBeTrue()
+        ->and(is_file($contents.'/php-fpm'))->toBeTrue();
 });
 
 it('parses the install scripts as bash', function () {
