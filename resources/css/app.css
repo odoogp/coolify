@@ -4802,13 +4802,22 @@ html[data-theme="custom"] .logs-viewer-timestamp {
 }
 
 @media (max-width: 640px) {
+    /* Name above actions — otherwise Abrir Odoo steals the row and name width hits 0. */
     .environments-table-grid {
-        grid-template-columns: minmax(0, 1fr) auto;
-        column-gap: 0.75rem;
+        grid-template-columns: minmax(0, 1fr);
+        row-gap: 0.5rem;
+        column-gap: 0;
     }
 
-    .environments-table-grid .environment-resource-count {
+    .environments-table-grid .environment-resource-count,
+    .environments-table-grid .environment-actions-header {
         display: none;
+    }
+
+    .environments-table-grid .compact-actions {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        max-width: 100%;
     }
 }
 

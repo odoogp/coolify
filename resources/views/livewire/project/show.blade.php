@@ -326,7 +326,7 @@
                     <div>{{ __('Environment') }}</div>
                     <div class="environment-resource-count">{{ $project->odooProfile ? __('Status') : __('Resources') }}</div>
                     <div class="environment-description">{{ $project->odooProfile ? __('Branch / domain') : __('Description') }}</div>
-                    <div></div>
+                    <div class="environment-actions-header"></div>
                 </div>
 
                 <template x-for="environment in paginatedEnvironments" :key="environment.uuid">
@@ -343,13 +343,13 @@
                                 <x-reicon name="layers" class="size-4" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <a x-show="!environment.odoo" :href="environment.href" {{ wireNavigate() }}
+                                <a x-show="!environment.activity"
+                                    :href="environment.odoo ? environment.environmentHref : environment.href"
+                                    {{ wireNavigate() }}
                                     class="relative block truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
                                     x-text="environment.name"></a>
-                                <a x-show="environment.odoo && !environment.activity" :href="environment.environmentHref" {{ wireNavigate() }}
-                                    class="block truncate text-[13px] font-semibold hover:underline"
-                                    x-text="environment.name"></a>
-                                <span x-show="environment.odoo && environment.activity" class="block truncate text-[13px] font-semibold opacity-70"
+                                <span x-show="environment.activity"
+                                    class="block truncate text-[13px] font-semibold text-black opacity-70 dark:text-fg"
                                     x-text="environment.name"></span>
                                 <p class="environment-mobile-meta mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-dim"
                                     x-text="environment.odoo

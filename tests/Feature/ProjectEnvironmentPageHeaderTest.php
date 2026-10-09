@@ -70,9 +70,13 @@ it('shows the environment name and branch under the list row on mobile', functio
 
     expect($view)
         ->toContain('environment-mobile-meta')
-        ->toContain('[environment.branch, environment.domain].filter(Boolean).join(');
+        ->toContain('[environment.branch, environment.domain].filter(Boolean).join(')
+        ->toContain('x-text="environment.name"')
+        ->toContain('environment-actions-header');
 
     expect($css)
         ->toContain('.environments-table-grid .environment-mobile-meta')
-        ->toContain('display: block');
+        ->toContain('display: block')
+        ->toContain('.environments-table-grid .environment-actions-header')
+        ->toContain('grid-template-columns: minmax(0, 1fr);');
 });
