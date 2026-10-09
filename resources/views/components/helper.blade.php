@@ -102,7 +102,7 @@
             'size-3.5' => ! isset($trigger),
         ])
         aria-label="{{ $label }}" :aria-describedby="open ? $id('helper-popup') : null"
-        @mouseenter="show()" @mouseleave="hide" @focus="show()" @blur="closeWhenFocusLeaves()"
+        @mouseenter="show()" @mouseleave="hide()" @focus="show()" @blur="closeWhenFocusLeaves()"
         @click.prevent.stop="show()">
         @isset($trigger)
             {{ $trigger }}

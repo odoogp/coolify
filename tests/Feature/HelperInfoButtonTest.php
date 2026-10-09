@@ -42,6 +42,7 @@ test('helper popup remains open while moving from the trigger into interactive c
         ->toContain('hideTimer: null')
         ->toContain('setTimeout(() =>')
         ->toContain('@mouseenter="cancelHide()"')
+        ->toContain('@mouseenter="show()" @mouseleave="hide()"')
         ->toContain('@mouseleave="hide()"');
 });
 

@@ -76,10 +76,11 @@
         {{-- } --}}
     }
 }">
+    <div class="pointer-events-none fixed inset-x-0 bottom-0 z-[999] flex flex-col items-center gap-3 px-3 pb-3 sm:px-5 sm:pb-5">
     @auth
-        <span x-show="popups.realtime === true">
+        <span x-show="popups.realtime === true" class="pointer-events-none w-full max-w-2xl">
             @if (!isCloud())
-                <x-popup>
+                <x-popup stacked>
                     <x-slot:customActions>
                         <div
                             class="relative mx-auto flex w-full max-w-2xl flex-col gap-5 overflow-hidden rounded-2xl border border-red-200 bg-white p-5 shadow-modal sm:p-6 dark:border-red-500/20 dark:bg-surface">
@@ -179,8 +180,8 @@
         </x-banner>
     @endif
     @if (!currentTeam()->isAnyNotificationEnabled())
-        <span x-show="popups.notification">
-            <x-popup>
+        <span x-show="popups.notification" class="pointer-events-none w-full">
+            <x-popup stacked>
                 <x-slot:customActions>
                     <div class="relative mx-auto flex w-full flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-modal transition-all duration-300 dark:border-white/[0.1] dark:bg-surface"
                         :class="reminders.notification.compact ? 'max-w-sm gap-3 p-4' : 'max-w-2xl gap-5 p-5 sm:p-6'">
@@ -226,6 +227,7 @@
             </x-popup>
         </span>
     @endif
+    </div>
     <script>
         function disableNotification() {
             // Store current timestamp instead of just 'false'

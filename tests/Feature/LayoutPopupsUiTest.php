@@ -35,5 +35,7 @@ test('non-critical reminders collapse after ten seconds', function () {
         ->toContain('reminders.notification.compact = true')
         ->not->toContain('GitHub Sponsors')
         ->not->toContain('Love Coolify? Support our work.')
-        ->not->toContain('opencollective.com');
+        ->not->toContain('opencollective.com')
+        ->toContain('flex flex-col items-center gap-3')
+        ->toContain('<x-popup stacked>');
 });
