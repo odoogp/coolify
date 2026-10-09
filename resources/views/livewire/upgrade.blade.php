@@ -49,6 +49,7 @@
                             <div class="min-w-0 flex-1">
                                 <h3 class="truncate"
                                     x-text="upgradeComplete ? @js(__('Upgrade complete')) : (showProgress ? @js(__('Upgrading…')) : @js(__('Upgrade available')))">
+                                    {{ __('Upgrade available') }}
                                 </h3>
                                 <p class="mt-0.5 text-[12px] leading-4"
                                     style="color: var(--coollabs-subtle)">
@@ -67,8 +68,7 @@
                         <div class="application-settings-section-body min-h-0 flex-1 overflow-y-auto"
                             style="-webkit-overflow-scrolling: touch;">
                             {{-- Progress View --}}
-                            <template x-if="showProgress">
-                                <div class="flex flex-col gap-4">
+                            <div x-show="showProgress" x-cloak class="flex flex-col gap-4">
                                     <div class="flex items-center justify-between gap-3">
                                         <span class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"
                                             x-text="updateSummary()"></span>
@@ -153,12 +153,10 @@
                                             </div>
                                         </div>
                                     </template>
-                                </div>
-                            </template>
+                            </div>
 
                             {{-- Confirmation View --}}
-                            <template x-if="!showProgress">
-                                <div class="flex flex-col gap-4">
+                            <div x-show="!showProgress" class="flex flex-col gap-4">
                                     <x-callout type="warning" title="{{ __('Caution') }}">
                                         <p>{{ __('Any deployments running during the update process will fail.') }}</p>
                                     </x-callout>
@@ -183,8 +181,7 @@
                                             {{ __('Upgrade now') }}
                                         </x-forms.button>
                                     </div>
-                                </div>
-                            </template>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -196,8 +193,9 @@
 </div>
 
 <script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('upgradeModal', (config) => ({
+    (() => {
+        const registerUpgradeModal = () => {
+            Alpine.data('upgradeModal', (config) => ({
             modalOpen: false,
             showProgress: false,
             currentStatus: '',
@@ -329,7 +327,7 @@
                 }, 2000);
             },
 
-            confirmed() {
+            async confirmed() {
                 this.showProgress = true;
                 this.showUpgradeLog = true;
                 this.currentStep = 1;
@@ -628,6 +626,13 @@
                     });
                 }, 2000);
             }
-        }))
-    })
+        }));
+        };
+
+        if (window.Alpine) {
+            registerUpgradeModal();
+        } else {
+            document.addEventListener('alpine:init', registerUpgradeModal);
+        }
+    })();
 </script>

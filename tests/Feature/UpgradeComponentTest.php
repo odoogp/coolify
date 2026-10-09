@@ -215,15 +215,17 @@ it('hides the update steps without changing how the upgrade runs', function () {
         ->toContain('showUpdateSteps')
         ->toContain('x-show="showUpdateSteps"')
         ->toContain('x-text="currentStatus"')
-        ->toContain("this.\$wire.\$call('upgrade')")
-        ->toContain('this.$wire.getUpgradeStatus()')
+        ->toContain('async confirmed()')
+        ->toContain('await this.$wire.upgrade()')
+        ->toContain("route('upgrade.status')")
+        ->toContain("route('upgrade.log')")
         ->toContain('Update in progress...')
         ->toContain('Show steps')
         ->toContain('Hide steps')
         ->toContain('Show log')
         ->toContain('Hide log')
         ->toContain('showUpgradeLog')
-        ->toContain('this.$wire.upgradeLog()')
+        ->toContain('upgradeFetch')
         ->not->toContain('upgrade-*.log');
 
     expect($progressView)
@@ -232,6 +234,17 @@ it('hides the update steps without changing how the upgrade runs', function () {
         ->toContain('Building image')
         ->toContain('Recreating Coolify')
         ->toContain('Health check');
+});
+
+it('makes confirmed async so await this.$wire.upgrade does not break alpine parsing', function () {
+    $upgradeView = file_get_contents(resource_path('views/livewire/upgrade.blade.php'));
+
+    expect($upgradeView)
+        ->toContain("Alpine.data('upgradeModal'")
+        ->toContain('async confirmed()')
+        ->toContain('await this.$wire.upgrade()')
+        ->toContain('x-show="!showProgress"')
+        ->toContain('registerUpgradeModal');
 });
 
 it('shows the upgrade log from the running job', function () {
