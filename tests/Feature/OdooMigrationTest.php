@@ -110,7 +110,8 @@ it('offers a brand-new environment and creates it when starting migration', func
 it('lists backup frequency on the plan included items', function () {
     $labels = collect($this->plan->includedItems())->pluck('label')->all();
     expect($labels)->toContain(__('Migration help (GitHub, repository, dump + filestore)'))
-        ->and($labels)->toContain(__('Automatic Odoo backups'));
+        ->and($labels)->toContain(__('Automatic Odoo backups'))
+        ->and($labels)->not->toContain(__('Backup retention'));
 });
 
 it('shows plan-driven odoo backups for a branch and refuses create when the plan has none', function () {

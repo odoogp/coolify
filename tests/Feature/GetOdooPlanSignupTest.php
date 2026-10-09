@@ -16,6 +16,7 @@ use App\Services\GetOdoo\WompiClient;
 use App\Support\DetectRequestCountry;
 use App\Support\GetOdooCountries;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -499,32 +500,54 @@ it('locks signup to the buyer ip country and charges the quoted amount', functio
         ->and((int) $signup->pricing_area_id)->toBe($country->id);
 });
 
-it('blocks signup when the buyer location cannot be determined', function () {
+it('uses the standard plan price when the buyer location cannot be determined', function () {
     User::factory()->create();
-    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooPlanWompi();
+    $plan = getOdooPlan(['price' => 100]);
     GetOdooPricingArea::query()->create([
         'code' => 'gt',
         'name' => 'Guatemala',
         'kind' => GetOdooPricingArea::KIND_COUNTRY,
         'iso_code' => 'GT',
+        'extra_fixed' => 5,
+        'extra_percent' => 10,
         'is_active' => true,
         'sort_order' => 1,
     ]);
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
-        ->assertSee(__('We could not determine your country from your location. Contact an advisor.'))
-        ->assertDontSee(__('Create account'));
+        ->assertSee('$100.00')
+        ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
+        ->assertDontSee(__('Search countries'))
+        ->assertDontSee(__('Detected from your location. The price for this country applies.'))
+        ->set('name', 'Ana')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    $signup = GetOdooPlanSignup::query()->first();
+    expect((float) $signup->amount)->toBe(100.0)
+        ->and($signup->pricing_area_id)->toBeNull();
 });
 
-it('reads the buyer country from cloudflare headers', function () {
-    $request = request()->duplicate(server: array_merge($_SERVER, [
-        'HTTP_CF_IPCOUNTRY' => 'sv',
-    ]));
+it('reads the buyer country from cloudflare headers and public ip lookup', function () {
+    $request = Request::create('/');
     $request->headers->set('CF-IPCountry', 'SV');
 
     expect(DetectRequestCountry::iso($request))->toBe('SV')
         ->and(DetectRequestCountry::normalize('XX'))->toBeNull()
         ->and(DetectRequestCountry::normalize('gt'))->toBe('GT');
+
+    Http::fake([
+        'ip-api.com/*' => Http::response(['status' => 'success', 'countryCode' => 'HN']),
+    ]);
+
+    $public = Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '8.8.8.8']);
+    expect(DetectRequestCountry::iso($public))->toBe('HN')
+        ->and(DetectRequestCountry::clientIp($public))->toBe('8.8.8.8')
+        ->and(DetectRequestCountry::clientIp(Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '127.0.0.1'])))->toBeNull();
 });
 
 it('applies country service and project limits to the new team', function () {
