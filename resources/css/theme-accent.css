@@ -130,8 +130,6 @@ html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     .empty-state,
     .application-settings-section
 ):not(.coolbox-loading):hover {
-    outline: 2px solid color-mix(in srgb, var(--card-border-accent) 55%, transparent);
-    outline-offset: 0;
     overflow: visible;
 }
 
@@ -148,14 +146,21 @@ html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
     box-sizing: border-box;
     padding: 2px;
     border-radius: calc(var(--ring-radius, 16px) + 2px);
-    background: conic-gradient(from var(--card-border-angle), transparent 0 58%, var(--card-border-accent) 74%, transparent 90%);
+    background: conic-gradient(
+        from var(--card-border-angle),
+        transparent 0 40%,
+        color-mix(in srgb, var(--card-border-accent) 45%, transparent) 58%,
+        var(--card-border-accent) 74%,
+        color-mix(in srgb, var(--card-border-accent) 45%, transparent) 90%,
+        transparent 100%
+    );
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     -webkit-mask-composite: xor;
     mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
     mask-composite: exclude;
     pointer-events: none;
-    z-index: 5;
-    animation: card-border-spin 2.6s linear infinite;
+    z-index: 6;
+    animation: card-border-spin 4.5s linear infinite;
 }
 
 @keyframes card-border-spin {

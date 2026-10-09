@@ -59,7 +59,7 @@ html[data-theme="light"] .coolbox,
 html[data-theme="light"] .box-boarding {
     /* Same corner as the Compose resources table (rounded-xl). */
     --shell-radius: 0.75rem;
-    border: 0;
+    border: 1px solid var(--coollabs-fill);
     border-radius: var(--shell-radius);
     background: #ffffff;
     box-shadow: 0 10px 40px var(--letify-glow);

@@ -37,6 +37,7 @@ it('sizes the account menu like the notice panel on mobile and desktop', functio
 
     expect($menu)
         ->toContain("'is-viewport-panel' => ! \$sidebar")
+        ->toContain("'bottom-full! left-0! right-auto! top-auto! mb-1! w-60! max-h-none! min-w-0! overflow-visible!' => \$sidebar")
         ->not->toContain("'right-0! left-auto!' => ! \$sidebar");
 
     expect($stylesheet)
