@@ -13,7 +13,10 @@ use App\Services\GetOdoo\GetOdooPlanPricing;
 use App\Services\GetOdoo\OpenGetOdooPlanAccount;
 use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use App\Services\GetOdoo\WompiClient;
+use App\Support\DetectRequestCountry;
+use App\Support\GetOdooCountries;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
@@ -23,11 +26,28 @@ beforeEach(function () {
     config([
         'cache.default' => 'array',
         'session.driver' => 'array',
+        'constants.getodoo.force_country_iso' => null,
     ]);
 
     InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
     $this->root = Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
 });
+
+function getOdooBuyerCountry(string $iso = 'GT', array $overrides = []): GetOdooPricingArea
+{
+    config(['constants.getodoo.force_country_iso' => strtoupper($iso)]);
+
+    return GetOdooPricingArea::query()->create(array_merge([
+        'code' => strtolower($iso),
+        'name' => GetOdooCountries::name(strtoupper($iso)) ?? strtoupper($iso),
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => strtoupper($iso),
+        'extra_fixed' => 0,
+        'extra_percent' => 0,
+        'is_active' => true,
+        'sort_order' => 1,
+    ], $overrides));
+}
 
 function getOdooPlan(array $overrides = []): GetOdooPlan
 {
@@ -159,6 +179,7 @@ it('hides plan settings from a customer admin', function () {
 it('shows the package and the admin account on the public link', function () {
     User::factory()->create();
     $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
 
     $this->get(route('getodoo.plan.start', ['plan' => $plan->uuid]))
         ->assertOk()
@@ -171,7 +192,9 @@ it('shows the package and the admin account on the public link', function () {
         ->assertSee('Environments')
         ->assertSee('Can add servers')
         ->assertDontSee('Can launch instances on the server where GPSH is installed')
-        ->assertSee('Continue to payment');
+        ->assertSee('Continue to payment')
+        ->assertSee('Guatemala')
+        ->assertSee(__('Detected from your location. The price for this country applies.'));
 });
 
 it('does not open an inactive plan', function () {
@@ -188,6 +211,7 @@ it('opens a free plan without Wompi and without using the public registration sw
         'price' => 0,
         'payment_gateway' => null,
     ]);
+    $country = getOdooBuyerCountry('GT');
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->set('name', 'Ana')
@@ -202,8 +226,10 @@ it('opens a free plan without Wompi and without using the public registration sw
 
     expect($customer)->not->toBeNull()
         ->and((int) $customer->id)->not->toBe(0)
+        ->and($customer->country_iso)->toBe('GT')
         ->and($customer->teams()->count())->toBe(1)
         ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
+        ->and((int) $team->getodoo_pricing_area_id)->toBe($country->id)
         ->and($team->pivot->role)->toBe('admin')
         ->and((int) $team->pivot->max_projects)->toBe(1)
         ->and((int) $team->pivot->max_environments)->toBe(2)
@@ -216,6 +242,7 @@ it('sends a paid plan to Wompi and creates the account only after a live charge'
     User::factory()->create();
     getOdooPlanWompi();
     $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->set('name', 'Ana')
@@ -341,17 +368,8 @@ it('limits a plan to specific countries and uses promo price on signup', functio
     User::factory()->create();
     getOdooPlanWompi();
     $plan = getOdooPlan(['price' => 100, 'is_rest_of_world' => false]);
-    $sv = GetOdooPricingArea::query()->create([
-        'code' => 'sv',
-        'name' => 'El Salvador',
-        'kind' => GetOdooPricingArea::KIND_COUNTRY,
-        'iso_code' => 'SV',
-        'extra_fixed' => 0,
-        'extra_percent' => 0,
-        'is_active' => true,
-        'sort_order' => 1,
-    ]);
-    $gt = GetOdooPricingArea::query()->create([
+    $sv = getOdooBuyerCountry('SV');
+    GetOdooPricingArea::query()->create([
         'code' => 'gt',
         'name' => 'Guatemala',
         'kind' => GetOdooPricingArea::KIND_COUNTRY,
@@ -368,28 +386,38 @@ it('limits a plan to specific countries and uses promo price on signup', functio
         ->and($choices[0]['value'])->toBe((string) $sv->id)
         ->and($choices[0]['label'])->toBe('El Salvador');
 
+    expect(GetOdooPricingArea::countryChoicesForPlan($plan->fresh('pricingAreas'), 'SV'))
+        ->toHaveCount(1)
+        ->and(GetOdooPricingArea::countryChoicesForPlan($plan->fresh('pricingAreas'), 'GT'))
+        ->toHaveCount(0);
+
     $quote = GetOdooPlanPricing::quote($plan->fresh('pricingAreas'), $sv);
     expect($quote['promo_price'])->toBe(49.0)->and($quote['amount'])->toBe(49.0);
 
+    config(['constants.getodoo.force_country_iso' => 'GT']);
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee('$100.00')
+        ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
         ->set('name', 'Ana')
-        ->set('email', 'ana@example.com')
+        ->set('email', 'ana-gt@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
-        ->set('pricingAreaId', (string) $gt->id)
-        ->call('register')
-        ->assertHasErrors(['pricingAreaId']);
-
-    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
-        ->set('name', 'Ana')
-        ->set('email', 'ana@example.com')
-        ->set('password', 'password1')
-        ->set('password_confirmation', 'password1')
-        ->set('pricingAreaId', (string) $sv->id)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
-    expect((float) GetOdooPlanSignup::query()->first()->amount)->toBe(49.0);
+    expect((float) GetOdooPlanSignup::query()->where('email', 'ana-gt@example.com')->value('amount'))->toBe(100.0)
+        ->and(GetOdooPlanSignup::query()->where('email', 'ana-gt@example.com')->value('pricing_area_id'))->toBeNull();
+
+    config(['constants.getodoo.force_country_iso' => 'SV']);
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect((float) GetOdooPlanSignup::query()->where('email', 'ana@example.com')->value('amount'))->toBe(49.0);
 });
 
 it('prefers a country plan over a region plan and falls back to rest of the world', function () {
@@ -454,11 +482,39 @@ it('prefers a country plan over a region plan and falls back to rest of the worl
         ->toBe([(string) $jp->id]);
 });
 
-it('requires a country on signup when countries are configured and charges the quoted amount', function () {
+it('locks signup to the buyer ip country and charges the quoted amount', function () {
     User::factory()->create();
     getOdooPlanWompi();
     $plan = getOdooPlan(['price' => 100]);
-    $country = GetOdooPricingArea::query()->create([
+    $country = getOdooBuyerCountry('GT', [
+        'extra_fixed' => 5,
+        'extra_percent' => 10,
+    ]);
+
+    Livewire::withHeaders(['CF-IPCountry' => 'GT'])
+        ->test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSet('pricingAreaId', (string) $country->id)
+        ->assertSee('Guatemala')
+        ->assertDontSee(__('Search countries'))
+        ->set('name', 'Ana')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    $signup = GetOdooPlanSignup::query()->first();
+
+    // 100 * 1.10 + 5 = 115
+    expect((float) $signup->amount)->toBe(115.0)
+        ->and((int) $signup->pricing_area_id)->toBe($country->id);
+});
+
+it('uses the standard plan price when the buyer location cannot be determined', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan(['price' => 100]);
+    GetOdooPricingArea::query()->create([
         'code' => 'gt',
         'name' => 'Guatemala',
         'kind' => GetOdooPricingArea::KIND_COUNTRY,
@@ -470,27 +526,38 @@ it('requires a country on signup when countries are configured and charges the q
     ]);
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee('$100.00')
+        ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
+        ->assertDontSee(__('Search countries'))
+        ->assertDontSee(__('Detected from your location. The price for this country applies.'))
         ->set('name', 'Ana')
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
-        ->call('register')
-        ->assertHasErrors(['pricingAreaId']);
-
-    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
-        ->set('name', 'Ana')
-        ->set('email', 'ana@example.com')
-        ->set('password', 'password1')
-        ->set('password_confirmation', 'password1')
-        ->set('pricingAreaId', (string) $country->id)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
     $signup = GetOdooPlanSignup::query()->first();
+    expect((float) $signup->amount)->toBe(100.0)
+        ->and($signup->pricing_area_id)->toBeNull();
+});
 
-    // 100 * 1.10 + 5 = 115
-    expect((float) $signup->amount)->toBe(115.0)
-        ->and((int) $signup->pricing_area_id)->toBe($country->id);
+it('reads the buyer country from cloudflare headers and public ip lookup', function () {
+    $request = Request::create('/');
+    $request->headers->set('CF-IPCountry', 'SV');
+
+    expect(DetectRequestCountry::iso($request))->toBe('SV')
+        ->and(DetectRequestCountry::normalize('XX'))->toBeNull()
+        ->and(DetectRequestCountry::normalize('gt'))->toBe('GT');
+
+    Http::fake([
+        'ip-api.com/*' => Http::response(['status' => 'success', 'countryCode' => 'HN']),
+    ]);
+
+    $public = Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '8.8.8.8']);
+    expect(DetectRequestCountry::iso($public))->toBe('HN')
+        ->and(DetectRequestCountry::clientIp($public))->toBe('8.8.8.8')
+        ->and(DetectRequestCountry::clientIp(Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '127.0.0.1'])))->toBeNull();
 });
 
 it('applies country service and project limits to the new team', function () {

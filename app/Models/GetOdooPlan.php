@@ -167,11 +167,6 @@ class GetOdooPlan extends BaseModel
                 'label' => __('Automatic Odoo backups'),
                 'value' => GetOdooBackupFrequency::label($frequency),
             ];
-            $days = max(1, (int) ($this->backup_retention_days ?: 7));
-            $items[] = [
-                'label' => __('Backup retention'),
-                'value' => trans_choice(':count day|:count days', $days, ['count' => $days]),
-            ];
         }
 
         return $items;

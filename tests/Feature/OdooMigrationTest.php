@@ -110,7 +110,8 @@ it('offers a brand-new environment and creates it when starting migration', func
 it('lists backup frequency on the plan included items', function () {
     $labels = collect($this->plan->includedItems())->pluck('label')->all();
     expect($labels)->toContain(__('Migration help (GitHub, repository, dump + filestore)'))
-        ->and($labels)->toContain(__('Automatic Odoo backups'));
+        ->and($labels)->toContain(__('Automatic Odoo backups'))
+        ->and($labels)->not->toContain(__('Backup retention'));
 });
 
 it('shows plan-driven odoo backups for a branch and refuses create when the plan has none', function () {
@@ -218,6 +219,7 @@ it('stacks odoo backup rows on small screens instead of a wide horizontal table'
         ->toContain('odoo-backup-mobile-meta')
         ->toContain('odoo-backup-actions')
         ->toContain('odoo-backup-action')
+        ->toContain('backupScheduleSummary')
         ->not->toContain('min-w-[44rem]');
 
     expect($css)
@@ -226,6 +228,25 @@ it('stacks odoo backup rows on small screens instead of a wide horizontal table'
         ->toContain('.odoo-backup-action.button')
         ->toContain('grid-column: 1 / -1')
         ->not->toContain('minmax(11rem, max-content)');
+});
+
+it('shows the plan automatic backup frequency on the backups screen', function () {
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+    $this->plan->update([
+        'backup_frequency' => GetOdooBackupFrequency::DAILY,
+        'backup_retention_days' => 7,
+    ]);
+
+    Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->assertOk()
+        ->assertSee(__('Automatic backups: :frequency · Keep :retention', [
+            'frequency' => GetOdooBackupFrequency::label(GetOdooBackupFrequency::DAILY),
+            'retention' => trans_choice(':count day|:count days', 7, ['count' => 7]),
+        ]))
+        ->assertSee(__('Set by your plan. Contact an advisor to change how often backups run.'));
 });
 
 it('translates in-progress backup status on the branch list', function () {

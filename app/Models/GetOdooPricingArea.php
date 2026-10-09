@@ -97,20 +97,42 @@ class GetOdooPricingArea extends BaseModel
             ->all();
     }
 
+    public static function findCountryByIso(?string $iso): ?self
+    {
+        $iso = strtoupper(trim((string) $iso));
+        if ($iso === '') {
+            return null;
+        }
+
+        return self::query()
+            ->where('kind', self::KIND_COUNTRY)
+            ->where('is_active', true)
+            ->whereRaw('UPPER(iso_code) = ?', [$iso])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->first();
+    }
+
     /**
      * Countries where this plan wins the country → region → rest-of-world tier.
      *
      * @return list<array{value: string, label: string}>
      */
-    public static function countryChoicesForPlan(GetOdooPlan $plan): array
+    public static function countryChoicesForPlan(GetOdooPlan $plan, ?string $buyerIso = null): array
     {
         $plan->loadMissing('pricingAreas');
 
-        return self::query()
+        $query = self::query()
             ->where('kind', self::KIND_COUNTRY)
             ->where('is_active', true)
             ->orderBy('sort_order')
-            ->orderBy('name')
+            ->orderBy('name');
+
+        if ($buyerIso !== null && $buyerIso !== '') {
+            $query->whereRaw('UPPER(iso_code) = ?', [strtoupper($buyerIso)]);
+        }
+
+        return $query
             ->get()
             ->filter(fn (self $country): bool => ResolveGetOdooPlansForCountry::planIsAvailable($plan, $country))
             ->map(fn (self $country): array => [

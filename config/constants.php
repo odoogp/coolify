@@ -151,4 +151,9 @@ return [
         //   - 2000 servers: 300s (hits maximum)
         'notification_delay_scaling' => 0.2,
     ],
+
+    'getodoo' => [
+        // ISO 3166-1 alpha-2 override for plan signup geo (tests / local without CF-IPCountry).
+        'force_country_iso' => env('GETODOO_FORCE_COUNTRY_ISO'),
+    ],
 ];
