@@ -252,6 +252,20 @@ it('copies the local upgrade script into the production image', function () {
         ->and(is_executable(base_path('scripts/upgrade-local.sh')))->toBeTrue();
 });
 
+it('keeps production s6 init as root and ships user/type for the bundle', function () {
+    $dockerfile = file_get_contents(base_path('docker/production/Dockerfile'));
+    $userType = base_path('docker/production/etc/s6-overlay/s6-rc.d/user/type');
+
+    expect($dockerfile)
+        ->toContain('USER root')
+        ->toContain("can't create /etc/s6-overlay/s6-rc.d/user/type");
+
+    expect(preg_match('/^USER www-data\s*$/m', $dockerfile))->toBe(0);
+
+    expect(is_file($userType))->toBeTrue()
+        ->and(trim((string) file_get_contents($userType)))->toBe('bundle');
+});
+
 it('parses the install scripts as bash', function () {
     foreach (['scripts/install.sh', 'scripts/install-custom.sh', 'scripts/upgrade-local.sh'] as $path) {
         $output = [];

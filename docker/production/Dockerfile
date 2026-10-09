@@ -177,13 +177,16 @@ COPY docker/production/etc/nginx/conf.d/custom.conf /etc/nginx/conf.d/custom.con
 COPY docker/production/etc/nginx/site-opts.d/http.conf /etc/nginx/site-opts.d/http.conf
 COPY --chmod=755 docker/production/etc/s6-overlay/ /etc/s6-overlay/
 
-RUN mkdir -p /etc/nginx/conf.d && \
+RUN mkdir -p /etc/nginx/conf.d /etc/s6-overlay/s6-rc.d/user && \
+    printf 'bundle\n' > /etc/s6-overlay/s6-rc.d/user/type && \
     chown -R www-data:www-data /etc/nginx && \
-    chmod -R 755 /etc/nginx
+    chmod -R 755 /etc/nginx /etc/s6-overlay
 
 # Install MinIO client
 COPY --from=minio-client /usr/bin/mc /usr/bin/mc
 RUN chmod +x /usr/bin/mc
 
-# Switch to non-root user
-USER www-data
+# Stay as root for s6 init. PHP-FPM/nginx still run as www-data via their
+# service configs. USER www-data here makes s6-rc fail with
+# "can't create /etc/s6-overlay/s6-rc.d/user/type: Permission denied".
+USER root
