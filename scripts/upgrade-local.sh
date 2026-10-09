@@ -80,6 +80,8 @@ resolve_branch() {
 
 # Host checkouts often chmod nginx/s6 scripts so the image boots; that dirties
 # git and used to abort the updater. Stash only these paths around ff-only pull.
+# Markers already committed upstream (e.g. user/contents.d/nginx) must not be
+# stashed as untracked — pull brings them and stash pop then conflicts.
 PRESERVE_PATHS=(
     docker/production/etc/nginx
     docker/production/etc/s6-overlay
@@ -112,6 +114,41 @@ path_is_preserved() {
     return 1
 }
 
+upstream_has_path() {
+    local path="$1"
+
+    git cat-file -e "origin/${BRANCH}:${path}" 2>/dev/null
+}
+
+# Untracked copies of files already on origin collide after pull+stash pop.
+drop_untracked_preserve_already_on_origin() {
+    local line path
+
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        [[ "$line" == \?\?* ]] || continue
+        path=$(porcelain_path "$line")
+        path_is_preserved "$path" || continue
+        upstream_has_path "$path" || continue
+        log "Dropping untracked ${path}; already on origin/${BRANCH}"
+        rm -f "$path"
+    done < <(git status --porcelain)
+}
+
+preserve_paths_are_dirty() {
+    local line path
+
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        path=$(porcelain_path "$line")
+        if path_is_preserved "$path"; then
+            return 0
+        fi
+    done < <(git status --porcelain)
+
+    return 1
+}
+
 assert_or_stash_local_changes() {
     local line path dirty_other=""
 
@@ -131,6 +168,13 @@ assert_or_stash_local_changes() {
         fail "Local changes in ${CONTEXT} outside nginx/s6-overlay. Commit or stash them before updating:"$'\n'"${dirty_other}"
     fi
 
+    drop_untracked_preserve_already_on_origin
+
+    if ! preserve_paths_are_dirty; then
+        log "nginx/s6-overlay matches origin; no stash needed"
+        return 0
+    fi
+
     log "Stashing local nginx/s6-overlay customizations before pull"
     git stash push --include-untracked -m "coolify-upgrade-preserve-$(date +%s)" -- "${PRESERVE_PATHS[@]}" \
         || fail "Could not stash nginx/s6-overlay local changes."
@@ -143,11 +187,15 @@ restore_stashed_local_changes() {
     fi
 
     log "Restoring local nginx/s6-overlay customizations"
-    if ! git stash pop; then
-        # Leave the stash for manual resolution; do not pop again from fail().
+    if git stash pop >>"${LOGFILE:-/dev/null}" 2>&1; then
         STASHED=0
-        fail "Pulled updates, but restoring nginx/s6-overlay changes conflicted. Resolve git stash manually. The running container was not replaced."
+        return 0
     fi
+
+    # Typical case: stash held untracked markers that pull already materialized.
+    log "WARNING: stash pop conflicted; keeping pulled nginx/s6-overlay from origin"
+    git checkout HEAD -- "${PRESERVE_PATHS[@]}" >>"${LOGFILE:-/dev/null}" 2>&1 || true
+    git stash drop >>"${LOGFILE:-/dev/null}" 2>&1 || true
     STASHED=0
 }
 
@@ -303,11 +351,14 @@ fi
 
 cd "$CONTEXT"
 resolve_branch
-assert_or_stash_local_changes
 
 write_status "1" "Fetching ${BRANCH}"
 log "Fetching origin ${BRANCH}"
 git fetch origin || fail "git fetch origin failed."
+
+# Need origin/${BRANCH} before deciding which untracked nginx/s6 files to drop.
+assert_or_stash_local_changes
+
 write_status "2" "Pulling ${BRANCH}"
 log "Checking out ${BRANCH}"
 git checkout "$BRANCH" 2>>"$LOGFILE" || git checkout -b "$BRANCH" "origin/${BRANCH}" || fail "Could not checkout ${BRANCH}."

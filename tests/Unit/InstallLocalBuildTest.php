@@ -80,9 +80,11 @@ it('updates a local checkout without pulling the official image', function () {
         ->toContain('git status --porcelain')
         ->toContain('assert_or_stash_local_changes')
         ->toContain('restore_stashed_local_changes')
+        ->toContain('drop_untracked_preserve_already_on_origin')
         ->toContain('docker/production/etc/nginx')
         ->toContain('docker/production/etc/s6-overlay')
         ->toContain('git stash push --include-untracked')
+        ->toContain('keeping pulled nginx/s6-overlay from origin')
         ->toContain('git merge-base --is-ancestor HEAD "origin/${BRANCH}"')
         ->toContain('docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT"')
         ->toContain('coolify-custom:local')
@@ -182,6 +184,127 @@ BASH;
             ->and(file_get_contents($nginx.'/custom.conf'))->toBe("# local nginx fix\n")
             ->and(file_get_contents($s6.'/up'))->toContain('local-s6')
             ->and(trim(shell_exec($git.' status --porcelain') ?? ''))->not->toBe('');
+    } finally {
+        exec('rm -rf '.escapeshellarg($root));
+    }
+});
+
+it('drops untracked nginx/s6 files already on origin instead of stashing them', function () {
+    $root = sys_get_temp_dir().'/coolify-upgrade-drop-'.bin2hex(random_bytes(4));
+    $origin = $root.'/origin.git';
+    $work = $root.'/work';
+
+    try {
+        expect(mkdir($root, 0777, true))->toBeTrue();
+        exec('git init --bare '.escapeshellarg($origin).' 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        exec('git clone '.escapeshellarg($origin).' '.escapeshellarg($work).' 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        // Track the preserve roots so untracked markers are not reported as ?? docker/.
+        $s6Root = $work.'/docker/production/etc/s6-overlay';
+        $nginxRoot = $work.'/docker/production/etc/nginx';
+        expect(mkdir($s6Root, 0777, true))->toBeTrue()
+            ->and(mkdir($nginxRoot, 0777, true))->toBeTrue();
+        file_put_contents($s6Root.'/.gitkeep', '');
+        file_put_contents($nginxRoot.'/.gitkeep', '');
+        file_put_contents($work.'/README', "v1\n");
+        $git = 'git -C '.escapeshellarg($work);
+        exec($git.' config user.email test@example.com && '.$git.' config user.name test && '.$git.' add -A && '.$git.' commit -m base && '.$git.' branch -M main && '.$git.' push -u origin main 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        // Upstream commits the s6 markers (what the host had only as untracked emergency files).
+        $other = $root.'/other';
+        exec('git clone '.escapeshellarg($origin).' '.escapeshellarg($other).' 2>&1', $out, $code);
+        expect($code)->toBe(0);
+        $otherMarkers = $other.'/docker/production/etc/s6-overlay/s6-rc.d/user/contents.d';
+        expect(mkdir($otherMarkers, 0777, true))->toBeTrue();
+        file_put_contents($otherMarkers.'/nginx', '');
+        file_put_contents($otherMarkers.'/php-fpm', '');
+        file_put_contents($other.'/README', "v2\n");
+        $gitOther = 'git -C '.escapeshellarg($other);
+        exec($gitOther.' config user.email test@example.com && '.$gitOther.' config user.name test && '.$gitOther.' add -A && '.$gitOther.' commit -m upstream-markers && '.$gitOther.' push origin main 2>&1', $out, $code);
+        expect($code)->toBe(0);
+
+        // Host (still on v1) has the same markers only as untracked copies.
+        $markers = $work.'/docker/production/etc/s6-overlay/s6-rc.d/user/contents.d';
+        expect(mkdir($markers, 0777, true))->toBeTrue();
+        file_put_contents($markers.'/nginx', '');
+        file_put_contents($markers.'/php-fpm', '');
+
+        $helpers = <<<'BASH'
+STASHED=0
+BRANCH=main
+PRESERVE_PATHS=(docker/production/etc/nginx docker/production/etc/s6-overlay)
+fail() { echo "FAIL: $*" >&2; exit 1; }
+log() { echo "$*"; }
+porcelain_path() {
+    local line="$1" rest="${line:3}"
+    if [[ "$rest" == *' -> '* ]]; then rest="${rest##* -> }"; fi
+    printf '%s' "$rest" | sed -e 's/^"//' -e 's/"$//'
+}
+path_is_preserved() {
+    local path="$1" allowed
+    for allowed in "${PRESERVE_PATHS[@]}"; do
+        if [ "$path" = "$allowed" ] || [[ "$path" == "$allowed"/* ]]; then return 0; fi
+    done
+    return 1
+}
+upstream_has_path() { git cat-file -e "origin/${BRANCH}:${1}" 2>/dev/null; }
+drop_untracked_preserve_already_on_origin() {
+    local line path
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        [[ "$line" == \?\?* ]] || continue
+        path=$(porcelain_path "$line")
+        path_is_preserved "$path" || continue
+        upstream_has_path "$path" || continue
+        log "Dropping untracked ${path}; already on origin/${BRANCH}"
+        rm -f "$path"
+    done < <(git status --porcelain)
+}
+preserve_paths_are_dirty() {
+    local line path
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        path=$(porcelain_path "$line")
+        if path_is_preserved "$path"; then return 0; fi
+    done < <(git status --porcelain)
+    return 1
+}
+assert_or_stash_local_changes() {
+    local line path dirty_other=""
+    if [ -z "$(git status --porcelain)" ]; then return 0; fi
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        path=$(porcelain_path "$line")
+        if ! path_is_preserved "$path"; then dirty_other="${dirty_other}${path}"$'\n'; fi
+    done < <(git status --porcelain)
+    if [ -n "$dirty_other" ]; then fail "outside preserve paths:"$'\n'"$dirty_other"; fi
+    drop_untracked_preserve_already_on_origin
+    if ! preserve_paths_are_dirty; then log "nginx/s6-overlay matches origin; no stash needed"; return 0; fi
+    git stash push --include-untracked -m "coolify-upgrade-preserve-test" -- "${PRESERVE_PATHS[@]}" || fail stash
+    STASHED=1
+}
+restore_stashed_local_changes() {
+    if [ "${STASHED}" != "1" ]; then return 0; fi
+    git stash pop || fail "stash pop conflicted"
+    STASHED=0
+}
+BASH;
+
+        $script = "set -euo pipefail\ncd ".escapeshellarg($work)."\ngit fetch origin\n{$helpers}\nassert_or_stash_local_changes\ngit pull --ff-only origin main\nrestore_stashed_local_changes\n";
+        $tmp = $root.'/run.sh';
+        file_put_contents($tmp, $script);
+        exec('bash '.escapeshellarg($tmp).' 2>&1', $out, $code);
+        expect($code)->toBe(0, implode("\n", $out))
+            ->and(implode("\n", $out))->toContain('no stash needed')
+            ->and(file_get_contents($work.'/README'))->toBe("v2\n")
+            ->and(is_file($markers.'/nginx'))->toBeTrue()
+            ->and(is_file($markers.'/php-fpm'))->toBeTrue()
+            ->and(trim(shell_exec($git.' status --porcelain') ?? ''))->toBe('')
+            ->and(trim(shell_exec($git.' stash list') ?? ''))->toBe('');
     } finally {
         exec('rm -rf '.escapeshellarg($root));
     }
