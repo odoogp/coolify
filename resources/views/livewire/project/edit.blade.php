@@ -144,6 +144,19 @@
                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                             {{ __('This project runs Odoo :version. Staging uses this same version.', ['version' => $project->odooProfile->odoo_version]) }}
                         </p>
+                        @if ($canMigrate)
+                            <div class="flex flex-wrap items-center gap-3">
+                                <a href="{{ route('project.odoo.migrate', ['project_uuid' => $project->uuid]) }}"
+                                    {{ wireNavigate() }}
+                                    class="button"
+                                    title="{{ __('Migrate') }}">
+                                    {{ __('Migrate') }}
+                                </a>
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Import a database dump and filestore into a branch of this project.') }}
+                                </p>
+                            </div>
+                        @endif
                         @php
                             $baseDomain = \App\Support\OdooGit::baseDomain();
                             $productionHost = \App\Support\OdooGit::projectHost($odooSubdomain, $baseDomain, 'production');

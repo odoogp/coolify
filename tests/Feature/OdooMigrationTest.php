@@ -282,3 +282,15 @@ it('shows the team plan on project settings', function () {
         ->assertSee($this->plan->name)
         ->assertSee(__('The plan is set when the team signs up. Contact an advisor to change it.'));
 });
+
+it('puts migrate on project settings and not on the project show page', function () {
+    Livewire::test(\App\Livewire\Project\Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertOk()
+        ->assertSee(__('Migrate'))
+        ->assertSee(route('project.odoo.migrate', ['project_uuid' => $this->project->uuid]), false);
+
+    Livewire::test(\App\Livewire\Project\Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertOk()
+        ->assertDontSee(__('Import a database dump and filestore into a branch of this project.'))
+        ->assertDontSeeHtml('href="'.route('project.odoo.migrate', ['project_uuid' => $this->project->uuid]).'"');
+});

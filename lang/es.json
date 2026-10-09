@@ -4590,5 +4590,6 @@
     "Connect a GitHub App before saving the owner branch.": "Conecta una GitHub App antes de guardar la rama del propietario.",
     "Searching branches…": "Buscando ramas…",
     "No matching repository": "Ningún repositorio coincide",
-    "Each module is a folder with a manifest. Branches load when you pick a repository.": "Cada módulo es una carpeta con un manifiesto. Las ramas se cargan al elegir un repositorio."
+    "Each module is a folder with a manifest. Branches load when you pick a repository.": "Cada módulo es una carpeta con un manifiesto. Las ramas se cargan al elegir un repositorio.",
+    "Import a database dump and filestore into a branch of this project.": "Importa un dump de la base y el filestore a una rama de este proyecto."
 }

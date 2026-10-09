@@ -493,6 +493,9 @@ class Edit extends Component
             'planBackupPolicy' => $planAllows
                 ? __('Backups').': '.GetOdooBackupFrequency::label($frequency).' · '.trans_choice(':count day|:count days', $retention, ['count' => $retention])
                 : __('Backups').': '.__('Not included'),
+            // On project settings only (not the project list/show header). Plan flag stays marketing on signup.
+            'canMigrate' => (bool) $this->project->odooProfile
+                && auth()->user()?->can('update', $this->project),
         ]);
     }
 }
