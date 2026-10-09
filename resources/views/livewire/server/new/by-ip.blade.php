@@ -69,6 +69,9 @@
                             </div>
                         @endcan
                     </div>
+                    <div class="mt-2">
+                        <x-private-key.download :keys="$private_keys" :selected="$private_key_id" />
+                    </div>
                 </div>
 
                 <div class="grid gap-4 border-t border-neutral-200 pt-4 lg:grid-cols-2 dark:border-white/[0.08]">

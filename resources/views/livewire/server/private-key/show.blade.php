@@ -83,6 +83,7 @@
                             </div>
                         </div>
                         <div class="flex shrink-0 items-center gap-2">
+                            <x-private-key.download :private-key="$privateKey" />
                             <x-forms.button
                                 @click.prevent="copyPublicKeyToClipboard({{ Js::from($privateKey->public_key) }})">
                                 {{ __('Copy public key') }}

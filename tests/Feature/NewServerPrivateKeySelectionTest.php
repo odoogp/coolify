@@ -89,5 +89,7 @@ it('preselects a manually added private key without clearing server form data', 
         ->assertSet('user', 'deploy.user')
         ->assertSet('port', 2222)
         ->assertSet('is_build_server', true)
-        ->assertSee('Manual SSH Key');
+        ->assertSee('Manual SSH Key')
+        ->assertSee('Download key')
+        ->assertSee('/security/private-key/'.$manualPrivateKey->uuid.'/download');
 });

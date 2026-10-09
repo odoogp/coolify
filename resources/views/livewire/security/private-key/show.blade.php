@@ -11,8 +11,11 @@
                 <div class="lg:col-span-2">
                     <div class="mb-1.5 flex items-center justify-between gap-3">
                         <label class="text-[13px] font-medium">{{ __('Private key') }} <span class="text-helper">*</span></label>
-                        <button type="button" class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
-                            x-on:click="showPrivateKey = !showPrivateKey" x-text="showPrivateKey ? @js(__('Hide editor')) : @js(__('Edit key'))"></button>
+                        <div class="flex items-center gap-3">
+                            <x-private-key.download :private-key="$private_key" />
+                            <button type="button" class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
+                                x-on:click="showPrivateKey = !showPrivateKey" x-text="showPrivateKey ? @js(__('Hide editor')) : @js(__('Edit key'))"></button>
+                        </div>
                     </div>
                     <div x-show="!showPrivateKey">
                         <x-forms.input canGate="update" :canResource="$private_key" allowToPeak="false"
@@ -76,10 +79,13 @@
                 <div class="lg:col-span-2">
                     <div class="mb-1.5 flex items-center justify-between gap-3">
                         <label class="text-[13px] font-medium">{{ __('Private key') }} <span class="text-helper">*</span></label>
-                        <button type="button"
-                            class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
-                            x-on:click="showPrivateKey = !showPrivateKey"
-                            x-text="showPrivateKey ? @js(__('Hide editor')) : @js(__('Edit key'))"></button>
+                        <div class="flex items-center gap-3">
+                            <x-private-key.download :private-key="$private_key" />
+                            <button type="button"
+                                class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
+                                x-on:click="showPrivateKey = !showPrivateKey"
+                                x-text="showPrivateKey ? @js(__('Hide editor')) : @js(__('Edit key'))"></button>
+                        </div>
                     </div>
                     <div x-show="!showPrivateKey">
                         <x-forms.input canGate="update" :canResource="$private_key" allowToPeak="false"

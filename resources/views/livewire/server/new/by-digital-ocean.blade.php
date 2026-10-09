@@ -112,9 +112,12 @@
                                     </div>
                                 </div>
                             @else
-                                <x-forms.listbox id="private_key_id" label="{{ __('Private key') }}" required
-                                    placeholder="{{ __('Select a private key') }}" :options="$privateKeyOptions"
-                                    helper="{{ __('This key is added to the Droplet automatically.') }}" />
+                                <div class="flex flex-col gap-2">
+                                    <x-forms.listbox id="private_key_id" label="{{ __('Private key') }}" required
+                                        placeholder="{{ __('Select a private key') }}" :options="$privateKeyOptions"
+                                        helper="{{ __('This key is added to the Droplet automatically.') }}" />
+                                    <x-private-key.download :keys="$private_keys" :selected="$private_key_id" />
+                                </div>
                             @endif
                         </div>
                     </x-application.settings-section>

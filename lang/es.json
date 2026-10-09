@@ -4569,6 +4569,7 @@
     "Manual backup": "Respaldo manual",
     "I want to upgrade my plan": "Quiero mejorar mi plan",
     "Download": "Descargar",
+    "Download key": "Descargar clave",
     "Download database dump": "Descargar dump de la base",
     "Download filestore archive": "Descargar archivo del filestore",
     "Restore overwrites the database and filestore on :branch.": "Restaurar sobrescribe la base y el filestore en :branch.",
