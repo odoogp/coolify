@@ -4783,6 +4783,10 @@ html[data-theme="custom"] .logs-viewer-timestamp {
     column-gap: 1rem;
 }
 
+.environments-table-grid .environment-mobile-meta {
+    display: none;
+}
+
 @media (max-width: 900px) {
     .environments-table-grid {
         grid-template-columns: minmax(180px, 1fr) 4.5rem auto;
@@ -4790,6 +4794,10 @@ html[data-theme="custom"] .logs-viewer-timestamp {
 
     .environments-table-grid .environment-description {
         display: none;
+    }
+
+    .environments-table-grid .environment-mobile-meta {
+        display: block;
     }
 }
 

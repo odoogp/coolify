@@ -63,3 +63,16 @@ it('uses a stable class for the environment resource count on mobile', function 
         ->toContain('.environments-table-grid .environment-resource-count')
         ->not->toContain('.environments-table-grid > :nth-child(2)');
 });
+
+it('shows the environment name and branch under the list row on mobile', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
+    $css = file_get_contents(resource_path('css/app.css'));
+
+    expect($view)
+        ->toContain('environment-mobile-meta')
+        ->toContain('[environment.branch, environment.domain].filter(Boolean).join(');
+
+    expect($css)
+        ->toContain('.environments-table-grid .environment-mobile-meta')
+        ->toContain('display: block');
+});
