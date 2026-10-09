@@ -53,3 +53,6 @@ ref
 
 # Multi-instance local Coolify env files (scripts/dev-instances)
 .dev-instances/
+
+# local agent scratch
+.tmp*
