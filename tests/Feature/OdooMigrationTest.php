@@ -176,10 +176,28 @@ it('lists branch backups and queues restore for a complete odoo zip', function (
         ->assertSee(__('Create Backup'))
         ->assertSee(__('Complete'))
         ->assertSee($production->name)
+        ->assertSee('odoo-backups-table-grid', false)
+        ->assertSee('odoo-backup-mobile-meta', false)
         ->call('restore', $backup->id)
         ->assertDispatched('success');
 
     Queue::assertPushed(RestoreOdooBackupJob::class, fn (RestoreOdooBackupJob $job): bool => $job->odooBackupId === $backup->id);
+});
+
+it('stacks odoo backup rows on small screens instead of a wide horizontal table', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/odoo-backups.blade.php'));
+    $css = file_get_contents(resource_path('css/app.css'));
+
+    expect($view)
+        ->toContain('odoo-backups-table-grid')
+        ->toContain('odoo-backup-mobile-meta')
+        ->toContain('odoo-backup-actions')
+        ->not->toContain('min-w-[44rem]');
+
+    expect($css)
+        ->toContain('.odoo-backups-table-grid')
+        ->toContain('.odoo-backups-table-grid .odoo-backup-mobile-meta')
+        ->toContain('grid-column: 1 / -1');
 });
 
 it('translates in-progress backup status on the branch list', function () {

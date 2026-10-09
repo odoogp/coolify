@@ -38,82 +38,84 @@
                             description="{{ $planAllowsAutomatic ? __('Automatic backups appear here when the plan schedule runs. You can also create one now.') : __('This plan has no automatic backups. You can create a manual backup.') }}"
                             icon-name="database" />
                     @else
-                        <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-white/[0.08]">
-                            <table class="w-full min-w-[44rem] text-left text-[13px]">
-                                <thead
-                                    class="border-b border-neutral-200 bg-neutral-50 text-[11px] font-medium tracking-wide text-neutral-500 uppercase dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-fg-faint">
-                                    <tr>
-                                        <th class="px-3 py-2.5">{{ __('Time (UTC)') }}</th>
-                                        <th class="px-3 py-2.5">{{ __('Branch') }}</th>
-                                        <th class="px-3 py-2.5">{{ __('Version') }}</th>
-                                        <th class="px-3 py-2.5">{{ __('Comment') }}</th>
-                                        <th class="px-3 py-2.5">{{ __('Status') }}</th>
-                                        <th class="px-3 py-2.5 text-right">{{ __('Actions') }}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($backups as $row)
-                                        <tr class="border-b border-neutral-200 last:border-b-0 dark:border-white/[0.08]"
-                                            wire:key="odoo-backup-{{ $row['id'] }}">
-                                            <td class="px-3 py-3 font-mono text-[12px] tabular-nums text-neutral-800 dark:text-fg">
-                                                {{ $row['time'] }}
-                                            </td>
-                                            <td class="px-3 py-3">{{ $row['branch'] }}</td>
-                                            <td class="px-3 py-3 tabular-nums">{{ $row['version'] }}</td>
-                                            <td class="px-3 py-3">
-                                                <span
-                                                    @class([
-                                                        'inline-flex h-6 items-center rounded-full border px-2 text-[12px] font-medium',
-                                                        'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200' => $row['automatic'],
-                                                        'border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-white/[0.12] dark:bg-white/[0.07] dark:text-fg' => ! $row['automatic'],
-                                                    ])>
-                                                    {{ $row['kind'] }}
-                                                </span>
-                                            </td>
-                                            <td class="px-3 py-3">
-                                                <x-status-badge :status="$row['status']" :type="$row['statusType']" />
-                                            </td>
-                                            <td class="px-3 py-3 text-right">
-                                                <div class="inline-flex flex-wrap items-center justify-end gap-1">
-                                                    @if ($canDownload && $row['downloadUrl'])
-                                                        <a class="button" href="{{ $row['downloadUrl'] }}" target="_blank"
-                                                            rel="noopener" title="{{ __('Download Odoo backup zip') }}">
-                                                            <x-reicon name="upload" class="size-3.5 rotate-180" />
-                                                            {{ __('Download') }}
-                                                        </a>
-                                                    @endif
-                                                    @if ($canRestore && $row['complete'])
-                                                        <button type="button" class="button"
-                                                            wire:click="restore({{ $row['id'] }})"
-                                                            wire:confirm="{{ __('Restore this backup onto :branch? Database and filestore will be overwritten.', ['branch' => $environment->name]) }}"
-                                                            title="{{ __('Restore') }}">
-                                                            <x-reicon name="time-back" class="size-3.5" />
-                                                            {{ __('Restore') }}
-                                                        </button>
-                                                    @endif
-                                                    @if ($canDelete)
-                                                        <button type="button" class="button"
-                                                            wire:click="deleteBackup({{ $row['id'] }})"
-                                                            wire:confirm="{{ __('Delete this backup permanently?') }}"
-                                                            title="{{ __('Delete') }}">
-                                                            <x-reicon name="trash" class="size-3.5" />
-                                                            {{ __('Delete') }}
-                                                        </button>
-                                                    @endif
-                                                    @if ($row['busy'])
-                                                        <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
-                                                            <span class="size-1.5 animate-pulse rounded-full bg-warning"></span>
-                                                            {{ __('Saving…') }}
-                                                        </span>
-                                                    @elseif (! $row['downloadUrl'] && ! $row['complete'] && ! $canDelete)
-                                                        <span class="text-[12px] text-neutral-400 dark:text-fg-faint">-</span>
-                                                    @endif
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                        <div
+                            class="data-table overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
+                            <div class="data-table-header odoo-backups-table-grid text-[11px]! uppercase tracking-wide">
+                                <span>{{ __('Time (UTC)') }}</span>
+                                <span class="odoo-backup-branch">{{ __('Branch') }}</span>
+                                <span class="odoo-backup-version">{{ __('Version') }}</span>
+                                <span class="odoo-backup-comment">{{ __('Comment') }}</span>
+                                <span class="odoo-backup-status">{{ __('Status') }}</span>
+                                <span class="odoo-backup-actions-header text-right">{{ __('Actions') }}</span>
+                            </div>
+                            @foreach ($backups as $row)
+                                <div class="data-table-row odoo-backups-table-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.06]"
+                                    wire:key="odoo-backup-{{ $row['id'] }}">
+                                    <div class="min-w-0">
+                                        <span
+                                            class="block truncate font-mono text-[12px] font-semibold tabular-nums text-black dark:text-fg">
+                                            {{ $row['time'] }}
+                                        </span>
+                                        <p class="odoo-backup-mobile-meta mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-dim">
+                                            {{ collect([$row['branch'], $row['version'] !== '' && $row['version'] !== '-' ? $row['version'] : null, $row['kind']])->filter()->implode(' · ') }}
+                                        </p>
+                                    </div>
+                                    <div class="odoo-backup-branch min-w-0 truncate text-[12px] text-neutral-700 dark:text-fg-dim">
+                                        {{ $row['branch'] }}
+                                    </div>
+                                    <div class="odoo-backup-version tabular-nums text-[12px] text-neutral-700 dark:text-fg-dim">
+                                        {{ $row['version'] }}
+                                    </div>
+                                    <div class="odoo-backup-comment min-w-0">
+                                        <span
+                                            @class([
+                                                'inline-flex h-6 max-w-full items-center truncate rounded-full border px-2 text-[12px] font-medium',
+                                                'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-400/20 dark:bg-sky-400/10 dark:text-sky-200' => $row['automatic'],
+                                                'border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-white/[0.12] dark:bg-white/[0.07] dark:text-fg' => ! $row['automatic'],
+                                            ])>
+                                            {{ $row['kind'] }}
+                                        </span>
+                                    </div>
+                                    <div class="odoo-backup-status">
+                                        <x-status-badge :status="$row['status']" :type="$row['statusType']" />
+                                    </div>
+                                    <div class="odoo-backup-actions flex flex-wrap items-center justify-end gap-1">
+                                        @if ($canDownload && $row['downloadUrl'])
+                                            <a class="button h-7 px-2 text-[11px]" href="{{ $row['downloadUrl'] }}" target="_blank"
+                                                rel="noopener" title="{{ __('Download Odoo backup zip') }}">
+                                                <x-reicon name="upload" class="size-3.5 rotate-180" />
+                                                <span class="odoo-backup-action-label">{{ __('Download') }}</span>
+                                            </a>
+                                        @endif
+                                        @if ($canRestore && $row['complete'])
+                                            <button type="button" class="button h-7 px-2 text-[11px]"
+                                                wire:click="restore({{ $row['id'] }})"
+                                                wire:confirm="{{ __('Restore this backup onto :branch? Database and filestore will be overwritten.', ['branch' => $environment->name]) }}"
+                                                title="{{ __('Restore') }}">
+                                                <x-reicon name="time-back" class="size-3.5" />
+                                                <span class="odoo-backup-action-label">{{ __('Restore') }}</span>
+                                            </button>
+                                        @endif
+                                        @if ($canDelete)
+                                            <button type="button" class="button h-7 px-2 text-[11px]"
+                                                wire:click="deleteBackup({{ $row['id'] }})"
+                                                wire:confirm="{{ __('Delete this backup permanently?') }}"
+                                                title="{{ __('Delete') }}">
+                                                <x-reicon name="trash" class="size-3.5" />
+                                                <span class="odoo-backup-action-label">{{ __('Delete') }}</span>
+                                            </button>
+                                        @endif
+                                        @if ($row['busy'])
+                                            <span class="inline-flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                <span class="size-1.5 animate-pulse rounded-full bg-warning"></span>
+                                                {{ __('Saving…') }}
+                                            </span>
+                                        @elseif (! $row['downloadUrl'] && ! $row['complete'] && ! $canDelete)
+                                            <span class="text-[12px] text-neutral-400 dark:text-fg-faint">-</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
                     @endif
                 </x-application.settings-section>
