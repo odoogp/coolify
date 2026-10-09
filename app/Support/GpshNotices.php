@@ -8,6 +8,8 @@ use App\Models\GpshNoticeSetting;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class GpshNotices
 {
@@ -44,6 +46,32 @@ class GpshNotices
             'service_id' => $service?->id,
             'created_by' => $userId,
         ]);
+    }
+
+    public static function rememberUpgradeFailure(string $message): ?GpshNotice
+    {
+        if (! GpshNoticeSetting::current()->allows('custom')) {
+            return null;
+        }
+
+        $message = trim($message);
+        if ($message === '') {
+            $message = __('The update stopped before it finished.');
+        }
+
+        if (! Cache::add('gpsh:upgrade-failure:'.sha1($message), true, now()->addHours(6))) {
+            return null;
+        }
+
+        return self::publish(
+            null,
+            'custom',
+            __('Update did not finish'),
+            $message,
+            'owner',
+            null,
+            Auth::id(),
+        );
     }
 
     public static function announce(Service $service, string $kind): ?GpshNotice

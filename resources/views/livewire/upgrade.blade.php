@@ -253,7 +253,7 @@
 
             async refreshUpgradeLog() {
                 try {
-                    const data = await this.$wire.upgradeLog();
+                    const data = await this.upgradeFetch(@js(route('upgrade.log')));
                     const next = data && data.text ? data.text : '';
                     if (next === this.upgradeLog) {
                         return;
@@ -336,9 +336,12 @@
                 this.backendStep = 0;
                 this.currentStatus = 'Starting upgrade...';
                 this.startTimer();
-                // Trigger server-side upgrade script via Livewire
-                this.$wire.$call('upgrade');
-                // Start client-side status polling
+                document.documentElement.dataset.upgrading = '1';
+                try {
+                    await this.$wire.upgrade();
+                } catch (error) {
+                    this.serviceDown = true;
+                }
                 this.upgrade();
                 this.refreshUpgradeLog();
                 // Prevent accidental navigation during upgrade
@@ -400,7 +403,7 @@
 
                     let data;
                     try {
-                        data = await this.$wire.getUpgradeStatus();
+                        data = await this.upgradeFetch(@js(route('upgrade.status')));
                     } catch (error) {
                         if (this.instanceWentDown) {
                             this.showSuccess();
@@ -421,6 +424,7 @@
                     if (data.status === 'complete') {
                         this.showSuccess();
                     } else if (data.status === 'error') {
+                        this.announceUpgradeFailure(data);
                         this.showError(data.message);
                     } else if (data.status === 'none' && this.instanceWentDown) {
                         // Older target releases cannot report the new upgrade status.
@@ -478,6 +482,7 @@
                     this.beforeUnloadHandler = null;
                 }
 
+                delete document.documentElement.dataset.upgrading;
                 this.upgradeComplete = true;
                 this.currentStep = 5;
                 this.backendStep = 6;
@@ -522,6 +527,7 @@
             },
 
             closeErrorModal() {
+                delete document.documentElement.dataset.upgrading;
                 this.modalOpen = false;
                 this.showProgress = false;
                 this.upgradeError = false;
@@ -530,9 +536,40 @@
                 this.backendStep = 0;
             },
 
+            announceUpgradeFailure(data) {
+                if (!data || !data.notice) {
+                    return;
+                }
+
+                window.dispatchEvent(new CustomEvent('gpsh-toast', {
+                    detail: {
+                        title: data.notice.title,
+                        body: data.notice.body,
+                        seconds: 8,
+                    },
+                }));
+            },
+
+            async upgradeFetch(url) {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Upgrade request failed');
+                }
+
+                return response.json();
+            },
+
             async readUpgradeTick() {
                 try {
-                    const data = await this.$wire.getUpgradeStatus();
+                    const data = await this.upgradeFetch(@js(route('upgrade.status')));
+                    this.announceUpgradeFailure(data);
                     this.livewireFailures = 0;
                     if (data.status === 'in_progress') {
                         this.currentStep = this.mapStepToUI(data.step);

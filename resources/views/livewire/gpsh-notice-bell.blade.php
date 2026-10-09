@@ -1,7 +1,5 @@
 <div class="relative" x-data="{ open: false, show: false, title: '', body: '', hide: null }"
-    @if ($announce)
-        x-on:gpsh-toast.window="title = $event.detail.title || ''; body = $event.detail.body || ''; show = true; clearTimeout(hide); hide = setTimeout(() => { show = false }, ($event.detail.seconds || 8) * 1000)"
-    @endif
+    x-on:gpsh-toast.window="title = $event.detail.title || ''; body = $event.detail.body || ''; show = true; clearTimeout(hide); hide = setTimeout(() => { show = false }, ($event.detail.seconds || 8) * 1000)"
     @click.outside="open = false" wire:poll.15s>
     <button type="button" class="relative flex size-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 hover:text-black dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-white"
         x-on:click="open = !open" aria-label="{{ __('Notices') }}">
@@ -56,11 +54,9 @@
             </a>
         @endif
     </div>
-    @if ($announce)
-        <div x-cloak x-show="show" x-transition.opacity.duration.200ms
-            class="fixed inset-x-3 top-16 z-[100] max-w-sm rounded-lg border border-neutral-200 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-4 dark:border-white/[0.08] dark:bg-panel">
-            <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
-            <p class="mt-1 break-words text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
-        </div>
-    @endif
+    <div x-cloak x-show="show"
+        class="fixed top-16 right-4 z-[100] w-[min(22rem,calc(100%-2rem))] rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-panel">
+        <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
+        <p class="mt-1 break-words text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
+    </div>
 </div>

@@ -360,6 +360,21 @@
             return value;
         };
         document.addEventListener('livewire:init', () => {
+            const dismissLivewireError = () => {
+                document.getElementById('livewire-error')?.remove()
+            }
+
+            window.Livewire.hook('request', ({ fail }) => {
+                fail(({ preventDefault }) => {
+                    if (document.documentElement.dataset.upgrading !== '1') {
+                        return
+                    }
+
+                    preventDefault()
+                    dismissLivewireError()
+                })
+            })
+
             window.Livewire.on('reloadWindow', (timeout) => {
                 if (timeout) {
                     setTimeout(() => {

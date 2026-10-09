@@ -10,6 +10,7 @@ use App\Http\Controllers\PrivateKeyDownloadController;
 use App\Http\Controllers\OwnerJupyterController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProjectIconController;
+use App\Http\Controllers\UpgradeWatchController;
 use App\Http\Controllers\UploadController;
 use App\Livewire\Admin\Index as AdminIndex;
 use App\Livewire\Boarding\Index as BoardingIndex;
@@ -197,6 +198,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings', SettingsIndex::class)->name('settings.index');
     Route::get('/settings/advanced', SettingsAdvanced::class)->name('settings.advanced');
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
+    Route::get('/upgrade/status', [UpgradeWatchController::class, 'status'])->name('upgrade.status');
+    Route::get('/upgrade/log', [UpgradeWatchController::class, 'log'])->name('upgrade.log');
     Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
     Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
     Route::get('/settings/getodoo-purchases', SettingsGetOdooPurchases::class)->name('settings.getodoo-purchases');

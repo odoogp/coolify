@@ -7,7 +7,9 @@ use App\Actions\Server\UpdateCoolify;
 use App\Enums\ProcessStatus;
 use App\Models\InstanceSettings;
 use App\Models\Server;
+use App\Models\GpshNotice;
 use App\Services\CoolifyUpgradeStatus;
+use App\Support\GpshNotices;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
@@ -111,9 +113,12 @@ class Upgrade extends Component
                     UpdateCoolify::run(manual_update: true);
                 } catch (\Throwable $e) {
                     report($e);
+                    GpshNotices::rememberUpgradeFailure($e->getMessage());
                 }
             })->afterResponse();
         } catch (\Throwable $e) {
+            $this->announceUpgradeFailure($e->getMessage());
+
             return handleError($e, $this);
         }
     }
@@ -128,24 +133,55 @@ class Upgrade extends Component
         $processStatus = (string) data_get($activity?->properties, 'status');
         $running = in_array($processStatus, [ProcessStatus::QUEUED->value, ProcessStatus::IN_PROGRESS->value], true);
         if ($running) {
-            return $this->statusFromActivity($activity) ?? $this->upgradeVersions() + [
+            return $this->withFailureNotice($this->statusFromActivity($activity) ?? $this->upgradeVersions() + [
                 'status' => 'in_progress',
                 'step' => 0,
                 'message' => 'Preparing update',
-            ];
+            ]);
         }
 
         $fromFile = $this->statusFromFile();
         if ($fromFile['status'] !== 'none') {
-            return $fromFile;
+            return $this->withFailureNotice($fromFile);
         }
 
         $inferred = $this->statusFromActivity($activity);
         if ($inferred !== null) {
-            return $inferred;
+            return $this->withFailureNotice($inferred);
         }
 
-        return $fromFile;
+        return $this->withFailureNotice($fromFile);
+    }
+
+    /**
+     * @param  array<string, mixed>  $status
+     * @return array<string, mixed>
+     */
+    private function withFailureNotice(array $status): array
+    {
+        if (($status['status'] ?? '') !== 'error') {
+            return $status;
+        }
+
+        $notice = GpshNotices::rememberUpgradeFailure((string) ($status['message'] ?? ''));
+        if ($notice instanceof GpshNotice) {
+            $status['notice'] = [
+                'title' => $notice->title,
+                'body' => $notice->body,
+            ];
+        }
+
+        return $status;
+    }
+
+    private function announceUpgradeFailure(string $message): void
+    {
+        $notice = GpshNotices::rememberUpgradeFailure($message);
+        if (! $notice instanceof GpshNotice) {
+            return;
+        }
+
+        $this->dispatch('gpsh-toast', title: $notice->title, body: $notice->body, seconds: 8);
     }
 
     /**

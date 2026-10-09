@@ -90,6 +90,23 @@ it('hides owner notices from clients and blocks a kind that is turned off', func
     expect(GpshNotice::query()->where('title', 'No debe salir')->exists())->toBeFalse();
 });
 
+it('records an upgrade failure once for the owner notice list', function () {
+    $this->actingAs($this->owner);
+
+    $first = GpshNotices::rememberUpgradeFailure('The image pull failed.');
+    $second = GpshNotices::rememberUpgradeFailure('The image pull failed.');
+
+    expect($first)->not->toBeNull()
+        ->and($second)->toBeNull()
+        ->and(GpshNotice::query()->where('body', 'The image pull failed.')->count())->toBe(1)
+        ->and($first->audience)->toBe('owner');
+
+    Livewire::test(GpshNoticeBell::class)->assertSee('The image pull failed.');
+
+    $this->actingAs($this->client);
+    Livewire::test(GpshNoticeBell::class)->assertDontSee('The image pull failed.');
+});
+
 it('announces when the instance is up and when it can be opened', function () {
     $project = Project::factory()->create(['name' => 'Mi Empresa', 'team_id' => $this->clientTeam->id]);
     $environment = $project->environments()->first()
