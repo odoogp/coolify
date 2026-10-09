@@ -358,7 +358,11 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
         ->assertDontSee('Clone')
         ->assertSee('Open Odoo')
         ->assertSee('production')
-        ->assertSee(route('project.service.configuration', [
+        ->assertSee(route('project.odoo.backups', [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $production->uuid,
+        ], false))
+        ->assertDontSee(route('project.service.configuration', [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $production->uuid,
             'service_uuid' => $service->uuid,

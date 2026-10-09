@@ -758,10 +758,9 @@ class Show extends Component
                 'logsHref' => $logsHref,
                 'terminalHref' => $terminalHref,
                 'environmentHref' => $odooOnly && $service instanceof Service
-                    ? route('project.service.configuration', [
+                    ? route('project.odoo.backups', [
                         'project_uuid' => $this->project->uuid,
                         'environment_uuid' => $environment->uuid,
-                        'service_uuid' => $service->uuid,
                     ])
                     : route('project.resource.index', [
                         'project_uuid' => $this->project->uuid,

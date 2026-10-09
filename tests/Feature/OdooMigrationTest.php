@@ -192,12 +192,15 @@ it('stacks odoo backup rows on small screens instead of a wide horizontal table'
         ->toContain('odoo-backups-table-grid')
         ->toContain('odoo-backup-mobile-meta')
         ->toContain('odoo-backup-actions')
+        ->toContain('odoo-backup-action')
         ->not->toContain('min-w-[44rem]');
 
     expect($css)
         ->toContain('.odoo-backups-table-grid')
         ->toContain('.odoo-backups-table-grid .odoo-backup-mobile-meta')
-        ->toContain('grid-column: 1 / -1');
+        ->toContain('.odoo-backup-action.button')
+        ->toContain('grid-column: 1 / -1')
+        ->not->toContain('minmax(11rem, max-content)');
 });
 
 it('translates in-progress backup status on the branch list', function () {

@@ -1,14 +1,43 @@
-<div class="relative inline-flex" x-data="{ menu: false }" @click.outside="menu = false" @keydown.escape.window="menu = false">
+<div class="relative inline-flex" x-data="{
+    menu: false,
+    panelStyle: 'position: fixed; visibility: hidden;',
+    toggle() {
+        if (this.menu) {
+            this.menu = false;
+            return;
+        }
+        this.panelStyle = 'position: fixed; visibility: hidden;';
+        this.menu = true;
+        this.$nextTick(() => this.place());
+    },
+    place() {
+        const trigger = this.$root.getBoundingClientRect();
+        const panel = this.$refs.panel.getBoundingClientRect();
+        const pad = 8;
+        let left = trigger.left;
+        if (left + panel.width + pad > window.innerWidth) {
+            left = window.innerWidth - panel.width - pad;
+        }
+        left = Math.max(pad, left);
+        const below = window.innerHeight - trigger.bottom - pad;
+        const top = below >= panel.height
+            ? trigger.bottom + 4
+            : Math.max(pad, trigger.top - panel.height - 4);
+        this.panelStyle = `position: fixed; left: ${left}px; top: ${top}px;`;
+    },
+}" @click.outside="menu = false" @keydown.escape.window="menu = false"
+    x-on:resize.window="if (menu) place()" x-on:scroll.window="if (menu) place()">
     <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $enterUrl }}"
         style="border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0">
         {{ __('Open Odoo') }}
     </a>
-    <button type="button" class="button button-highlighted" x-on:click="menu = ! menu" :aria-expanded="menu"
+    <button type="button" class="button button-highlighted" x-on:click="toggle()" :aria-expanded="menu"
         aria-label="{{ __('Connect as') }}" aria-haspopup="menu"
         style="border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0.4rem;padding-right:0.45rem">
         <x-reicon name="chevron-down" class="size-3 opacity-70" />
     </button>
-    <div x-cloak x-show="menu" x-transition.origin.top.right class="listbox-panel top-full! right-0! left-auto! mt-1! w-44! min-w-0!" role="menu">
+    <div x-ref="panel" x-cloak x-show="menu" :style="panelStyle"
+        class="listbox-panel fixed! right-auto! bottom-auto! z-[90]! mt-0! w-44! min-w-0!" role="menu">
         <a class="listbox-option justify-start!" target="_blank" rel="noopener noreferrer" role="menuitem"
             href="{{ $enterUrl }}" x-on:click="menu = false">{{ __('Open') }}</a>
         <button type="button" class="listbox-option justify-start!" role="menuitem"

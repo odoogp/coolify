@@ -79,28 +79,28 @@
                                     <div class="odoo-backup-status">
                                         <x-status-badge :status="$row['status']" :type="$row['statusType']" />
                                     </div>
-                                    <div class="odoo-backup-actions flex flex-wrap items-center justify-end gap-1">
+                                    <div class="odoo-backup-actions flex flex-nowrap items-center justify-end gap-1">
                                         @if ($canDownload && $row['downloadUrl'])
-                                            <a class="button h-7 px-2 text-[11px]" href="{{ $row['downloadUrl'] }}" target="_blank"
-                                                rel="noopener" title="{{ __('Download Odoo backup zip') }}">
+                                            <a class="button odoo-backup-action" href="{{ $row['downloadUrl'] }}" target="_blank"
+                                                rel="noopener" title="{{ __('Download') }}" aria-label="{{ __('Download') }}">
                                                 <x-reicon name="upload" class="size-3.5 rotate-180" />
                                                 <span class="odoo-backup-action-label">{{ __('Download') }}</span>
                                             </a>
                                         @endif
                                         @if ($canRestore && $row['complete'])
-                                            <button type="button" class="button h-7 px-2 text-[11px]"
+                                            <button type="button" class="button odoo-backup-action"
                                                 wire:click="restore({{ $row['id'] }})"
                                                 wire:confirm="{{ __('Restore this backup onto :branch? Database and filestore will be overwritten.', ['branch' => $environment->name]) }}"
-                                                title="{{ __('Restore') }}">
+                                                title="{{ __('Restore') }}" aria-label="{{ __('Restore') }}">
                                                 <x-reicon name="time-back" class="size-3.5" />
                                                 <span class="odoo-backup-action-label">{{ __('Restore') }}</span>
                                             </button>
                                         @endif
                                         @if ($canDelete)
-                                            <button type="button" class="button h-7 px-2 text-[11px]"
+                                            <button type="button" class="button odoo-backup-action"
                                                 wire:click="deleteBackup({{ $row['id'] }})"
                                                 wire:confirm="{{ __('Delete this backup permanently?') }}"
-                                                title="{{ __('Delete') }}">
+                                                title="{{ __('Delete') }}" aria-label="{{ __('Delete') }}">
                                                 <x-reicon name="trash" class="size-3.5" />
                                                 <span class="odoo-backup-action-label">{{ __('Delete') }}</span>
                                             </button>
