@@ -176,51 +176,50 @@
                     </form>
                 </x-application.settings-section>
             @else
-                <x-application.settings-section title="{{ __('Plans') }}" flush>
-                    @if ($plans->isEmpty())
+                @if ($plans->isEmpty())
+                    <x-application.settings-section title="{{ __('Plans') }}" flush>
                         <x-empty size="sm" title="{{ __('No plans yet.') }}"
                             description="{{ __('Create a plan to get the signup link for the website.') }}" icon-name="tags" />
-                    @else
-                        <div class="overflow-x-auto">
-                            <div class="data-table">
-                                <div class="data-table-header getodoo-plans-table-grid">
-                                    <span>{{ __('Plan name') }}</span>
-                                    <span>{{ __('Monthly price') }}</span>
-                                    <span>{{ __('Scope') }}</span>
-                                    <span>{{ __('Signup link') }}</span>
-                                    <span></span>
-                                </div>
-                                @foreach ($plans as $plan)
-                                    <div class="data-table-row getodoo-plans-table-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.08]"
-                                        wire:key="getodoo-plan-{{ $plan->id }}">
-                                        <div class="min-w-0">
-                                            <div class="truncate text-[13px] font-medium">{{ $plan->name }}</div>
-                                            @if (! $plan->is_active)
-                                                <div class="text-[11px] text-neutral-500">{{ __('Inactive') }}</div>
-                                            @endif
-                                        </div>
-                                        <div class="text-[13px]">
-                                            {{ $plan->isFree() ? __('Free') : '$'.number_format((float) $plan->price, 2) }}
-                                        </div>
-                                        <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                            {{ $plan->scopeLabel() }}
-                                        </div>
-                                        <div class="min-w-0">
-                                            <input class="input w-full font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
-                                        </div>
-                                        <div class="flex justify-end gap-2">
-                                            <button type="button" class="button" wire:click="editPlan({{ $plan->id }})">{{ __('Edit') }}</button>
-                                            @if ($plan->signups_count === 0)
-                                                <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
-                                                    wire:confirm="{{ __('Delete this plan?') }}">{{ __('Delete') }}</button>
-                                            @endif
-                                        </div>
-                                    </div>
-                                @endforeach
+                    </x-application.settings-section>
+                @else
+                    <div class="getodoo-plans-scroll">
+                        <div class="getodoo-plans-list">
+                            <div class="getodoo-plans-list-head">
+                                <span>{{ __('Plan name') }}</span>
+                                <span>{{ __('Monthly price') }}</span>
+                                <span>{{ __('Scope') }}</span>
+                                <span>{{ __('Signup link') }}</span>
+                                <span></span>
                             </div>
+                            @foreach ($plans as $plan)
+                                <div class="getodoo-plans-row" wire:key="getodoo-plan-{{ $plan->id }}">
+                                    <div class="min-w-0">
+                                        <div class="truncate text-[13px] font-medium">{{ $plan->name }}</div>
+                                        @if (! $plan->is_active)
+                                            <div class="text-[11px] text-neutral-500">{{ __('Inactive') }}</div>
+                                        @endif
+                                    </div>
+                                    <div class="text-[13px]">
+                                        {{ $plan->isFree() ? __('Free') : '$'.number_format((float) $plan->price, 2) }}
+                                    </div>
+                                    <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        {{ $plan->scopeLabel() }}
+                                    </div>
+                                    <div class="min-w-0">
+                                        <input class="getodoo-plans-link" readonly value="{{ $plan->publicUrl() }}">
+                                    </div>
+                                    <div class="flex justify-end gap-2">
+                                        <button type="button" class="button" wire:click="editPlan({{ $plan->id }})">{{ __('Edit') }}</button>
+                                        @if ($plan->signups_count === 0)
+                                            <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
+                                                wire:confirm="{{ __('Delete this plan?') }}">{{ __('Delete') }}</button>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endforeach
                         </div>
-                    @endif
-                </x-application.settings-section>
+                    </div>
+                @endif
             @endif
         </div>
     </x-settings.layout>

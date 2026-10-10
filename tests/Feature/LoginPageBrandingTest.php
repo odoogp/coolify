@@ -43,6 +43,7 @@ test('auth scene shares one viewport and moves its objects', function () {
         ->toMatch('/\.auth-stage\s*\{[^}]*position:\s*relative;/s')
         ->toMatch('/@media \(min-width: 901px\)\s*\{[^}]*\.auth-stage\s*\{[^}]*position:\s*absolute;/s')
         ->toMatch('/\.auth-shell-wide\s+\.auth-stage\s*\{[^}]*position:\s*fixed;/s')
+        ->toMatch('/\.auth-shell-wide \.auth-stage-mark-slot\s*\{[^}]*position:\s*fixed;[^}]*top:\s*1\.15rem;[^}]*z-index:\s*2;/s')
         ->not->toContain('padding: 42vh')
         ->not->toContain('grid-template-columns: minmax(0, 1.15fr)')
         ->and($shell)
@@ -117,4 +118,20 @@ test('team invitation page uses the shared auth shell', function () {
         ->toContain('Accept invitation')
         ->not->toContain('bg-gray-50 dark:bg-base')
         ->not->toContain('!text-5xl font-extrabold');
+});
+
+test('plan signup keeps the crystal above the form and the plans list stays open', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+    $plans = file_get_contents(resource_path('views/livewire/settings/getodoo-plans.blade.php'));
+
+    expect($styles)
+        ->toContain('.auth-shell-wide .auth-stage-mark-slot')
+        ->toContain('transform: translateX(-50%)')
+        ->toContain('.getodoo-plans-list')
+        ->toContain('.getodoo-plans-link');
+
+    expect($plans)
+        ->toContain('getodoo-plans-list')
+        ->toContain('class="getodoo-plans-link"')
+        ->not->toContain('data-table-header getodoo-plans-table-grid');
 });
