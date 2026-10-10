@@ -1,6 +1,6 @@
 <?php
 
-it('keeps the volume backup executions table horizontally scrollable on mobile', function () {
+it('stacks volume backup executions on a narrow screen and keeps the desktop min width', function () {
     $view = file_get_contents(resource_path('views/livewire/project/shared/storages/volume-backups/executions.blade.php'));
     $css = file_get_contents(resource_path('css/app.css'));
 
@@ -10,7 +10,8 @@ it('keeps the volume backup executions table horizontally scrollable on mobile',
         ->and($css)
         ->toContain('.volume-backup-executions-grid')
         ->toContain('min-width: 50rem;')
-        ->not->toContain('.data-table-header.volume-backup-executions-grid');
+        ->toContain('.data-table-header.volume-backup-executions-grid')
+        ->toContain('.data-table-row.volume-backup-executions-grid');
 });
 
 it('uses compact icon actions for volume backup executions', function () {

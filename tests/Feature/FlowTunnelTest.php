@@ -24,6 +24,16 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($login)->toContain('tunnel="login"');
     expect($register)->toContain('<x-auth.shell crystal');
     expect(file_exists(public_path('media/login.mp4')))->toBeTrue();
+    expect(file_exists(public_path('media/login-mobile.mp4')))->toBeTrue();
+
+    $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
+
+    expect($shell)->toContain('mobile-video="media/login-mobile.mp4"');
+    expect($component)
+        ->toContain('data-mobile-src')
+        ->toContain("tick('a')")
+        ->toContain('is-front');
+    expect($styles)->toContain('.flow-tunnel.is-playing video.is-front');
     expect(file_exists(public_path('brand/getodoo-mark.png')))->toBeTrue();
     expect(file_exists(public_path('brand/getodoo-wordmark.png')))->toBeTrue();
 

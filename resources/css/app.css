@@ -1961,6 +1961,65 @@ main:has(.auth-shell) {
     height: auto;
 }
 
+.auth-login-mark,
+.auth-lockup-mark-mobile {
+    display: none;
+}
+
+.auth-shell-login .auth-lockup-mark-mobile {
+    display: block;
+}
+
+@media (min-width: 901px) {
+    .auth-shell-login .auth-login-mark {
+        display: block;
+        position: fixed;
+        left: 25%;
+        top: 50%;
+        z-index: 2;
+        width: min(9.5rem, 18vw);
+        height: auto;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+    }
+
+    .auth-shell-login .auth-lockup-mark-mobile {
+        display: none;
+    }
+
+    .auth-shell-login .auth-shell-content {
+        width: 50%;
+        margin-left: auto;
+        min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1.5rem;
+    }
+}
+
+.auth-shell-login .auth-text-link,
+.auth-shell-login .auth-card-footer,
+.auth-shell-login .auth-card-footer .auth-text-link {
+    color: #1c1730;
+    font-weight: 600;
+    opacity: 1;
+}
+
+.auth-shell-login .auth-locale select,
+html:not(.dark) .auth-shell-login .auth-locale select {
+    height: auto;
+    max-width: none;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    color: #1c1730;
+    padding: 0;
+    font-weight: 600;
+    appearance: none;
+}
+
 .auth-shell-crystal .auth-card {
     position: relative;
     --ring-radius: 28px;
@@ -2120,10 +2179,10 @@ main:has(.auth-shell) {
 
 .flow-tunnel video {
     opacity: 0;
-    transition: opacity 700ms ease;
+    transition: opacity 800ms linear;
 }
 
-.flow-tunnel.is-playing video {
+.flow-tunnel.is-playing video.is-front {
     opacity: 1;
 }
 
@@ -4026,6 +4085,90 @@ input[type="search"]::-webkit-search-results-decoration {
     min-width: 32rem;
 }
 
+/* Wide record tables that had no phone layout: stack every field. */
+@media (max-width: 900px) {
+    .getodoo-plans-table-grid,
+    .getodoo-regions-table-grid,
+    .backup-table-grid,
+    .service-backup-table-grid,
+    .volume-backup-executions-grid,
+    .deployment-table-grid {
+        min-width: 0;
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .data-table-header.getodoo-plans-table-grid,
+    .data-table-header.getodoo-regions-table-grid,
+    .data-table-header.backup-table-grid,
+    .data-table-header.volume-backup-executions-grid,
+    .data-table-header.deployment-table-grid {
+        display: none;
+    }
+
+    .data-table-row.getodoo-plans-table-grid,
+    .data-table-row.getodoo-regions-table-grid,
+    .data-table-row.backup-table-grid,
+    .data-table-row.volume-backup-executions-grid,
+    .data-table-row.deployment-table-grid {
+        align-items: start;
+        row-gap: 0.4rem;
+        padding-top: 0.85rem;
+        padding-bottom: 0.85rem;
+        min-height: 0;
+    }
+
+    .data-table-row.getodoo-plans-table-grid {
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            'name price'
+            'scope scope'
+            'link link'
+            'actions actions';
+    }
+
+    .data-table-row.getodoo-plans-table-grid > :nth-child(1) {
+        grid-area: name;
+    }
+
+    .data-table-row.getodoo-plans-table-grid > :nth-child(2) {
+        grid-area: price;
+        justify-self: end;
+    }
+
+    .data-table-row.getodoo-plans-table-grid > :nth-child(3) {
+        grid-area: scope;
+    }
+
+    .data-table-row.getodoo-plans-table-grid > :nth-child(4) {
+        grid-area: link;
+        min-width: 0;
+    }
+
+    .data-table-row.getodoo-plans-table-grid > :nth-child(4) .input {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .data-table-row.getodoo-plans-table-grid > :nth-child(5) {
+        grid-area: actions;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .data-table-row.getodoo-regions-table-grid > :last-child {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .data-table-row.getodoo-regions-table-grid > :nth-child(1),
+    .data-table-row.getodoo-regions-table-grid > :nth-child(2),
+    .data-table-row.backup-table-grid > :nth-child(1) {
+        white-space: normal;
+        overflow: visible;
+        text-overflow: unset;
+    }
+}
+
 .server-resources-unmanaged-table-grid {
     grid-template-columns: minmax(9rem, 1fr) minmax(12rem, 1.5fr) 7rem minmax(9rem, auto);
 }
@@ -4169,7 +4312,8 @@ html[data-accent="on"] .odoo-backups-table-grid .odoo-backup-action.button:not(:
     }
 
     .backup-executions-table-grid {
-        grid-template-columns: 7.5rem minmax(9rem, 0.8fr) minmax(14rem, 1.5fr) 8rem 6rem minmax(9rem, auto);
+        grid-template-columns: minmax(0, 0.7fr) minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 0.7fr) minmax(0, 0.5fr) auto;
+        min-width: 0;
     }
 
     .backup-executions-table-grid > :nth-child(6),
@@ -4295,8 +4439,8 @@ html[data-accent="on"] .odoo-backups-table-grid .odoo-backup-action.button:not(:
     }
 
     .backup-executions-table-grid {
-        grid-template-columns: 7.5rem 9rem minmax(14rem, 1fr) minmax(7rem, auto);
-        min-width: 42rem;
+        grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.9fr) minmax(0, 1.4fr) auto;
+        min-width: 0;
     }
 
     .backup-executions-table-grid > :nth-child(4),

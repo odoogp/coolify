@@ -135,5 +135,8 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain('data-table-row getodoo-plans-table-grid')
         ->not->toContain('getodoo-plan-row');
 
-    expect($styles)->toContain('13rem');
+    expect($styles)
+        ->toContain('13rem')
+        ->toContain("'name price'")
+        ->toContain('.data-table-header.getodoo-plans-table-grid');
 });
