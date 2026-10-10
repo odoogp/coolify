@@ -23,7 +23,7 @@
         if (!this.popups.realtime) {
             checkPusherInterval = setInterval(() => {
                 if (window.Echo) {
-                    if (window.Echo.connector.pusher.connection.state === 'connected') {
+                    if (typeof window.Echo?.private === 'function' && window.Echo.connector?.pusher?.connection?.state === 'connected') {
                         this.popups.realtime = false;
                     } else {
                         checkNumber++;

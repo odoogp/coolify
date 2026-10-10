@@ -5,9 +5,13 @@ it('does not open the blank livewire dialog while an update is restarting', func
     $upgrade = file_get_contents(resource_path('views/livewire/upgrade.blade.php'));
 
     expect($layout)
-        ->toContain("document.documentElement.dataset.upgrading !== '1'")
+        ->toContain('window.gpshBindEcho')
+        ->toContain("typeof window.Echo.private === 'function'")
+        ->toContain('status === 0 || body === \'\'')
+        ->toContain("document.documentElement.dataset.upgrading === '1'")
         ->toContain("document.getElementById('livewire-error')?.remove()")
         ->toContain('preventDefault()')
+        ->not->toContain('const EchoConstructor')
         ->not->toContain('dialog#livewire-error')
         ->not->toContain('window.gpshReportCutRequest');
 

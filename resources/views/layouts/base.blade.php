@@ -135,11 +135,13 @@
     <meta name="apple-mobile-web-app-title" content="GetOdoo">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
-    <script>
+    <script data-navigate-once>
         // Update theme-color meta tag (non-critical, can run async)
-        const t = localStorage.theme || 'light';
-        const isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+        (function () {
+            var t = localStorage.theme || 'light';
+            var isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+            document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+        })();
     </script>
     <script data-navigate-once>
         if ('serviceWorker' in navigator) {
@@ -156,8 +158,8 @@
         <script src="https://js.sentry-cdn.com/0f8593910512b5cdd48c6da78d4093be.min.js" crossorigin="anonymous"></script>
     @endif
     @auth
-        <script type="text/javascript" src="{{ URL::asset('js/echo.js') }}"></script>
-        <script type="text/javascript" src="{{ URL::asset('js/pusher.js') }}"></script>
+        <script type="text/javascript" src="{{ URL::asset('js/echo.js') }}" data-navigate-once></script>
+        <script type="text/javascript" src="{{ URL::asset('js/pusher.js') }}" data-navigate-once></script>
         <script type="text/javascript" src="{{ URL::asset('js/apexcharts.js') }}"></script>
         <script type="text/javascript" src="{{ URL::asset('js/purify.min.js') }}"></script>
     @endauth
@@ -270,35 +272,41 @@
             }
         }
         @auth
-            window.Pusher = Pusher;
-            const EchoConstructor = typeof Echo === 'function' ? Echo : Echo.default;
-            window.Echo = new EchoConstructor({
-                broadcaster: 'pusher',
-                cluster: "{{ config('constants.pusher.host') }}" || window.location.hostname,
-                key: "{{ config('constants.pusher.app_key') }}" || 'coolify',
-                wsHost: "{{ config('constants.pusher.host') }}" || window.location.hostname,
-                wsPort: "{{ getRealtime() }}",
-                wssPort: "{{ getRealtime() }}",
-                forceTLS: false,
-                encrypted: true,
-                enableStats: false,
-                enableLogging: true,
-                enabledTransports: ['ws', 'wss'],
-                disableStats: true,
-                // Add auto reconnection settings
-                enabledTransports: ['ws', 'wss'],
-                disabledTransports: ['sockjs', 'xhr_streaming', 'xhr_polling'],
-                // Attempt to reconnect on connection lost
-                autoReconnect: true,
-                // Wait 1 second before first reconnect attempt
-                reconnectionDelay: 1000,
-                // Maximum delay between reconnection attempts
-                maxReconnectionDelay: 1000,
-                // Multiply delay by this number for each reconnection attempt
-                reconnectionDelayGrowth: 1,
-                // Maximum number of reconnection attempts
-                maxAttempts: 15
-            });
+            window.gpshBindEcho = function () {
+                if (window.Echo && typeof window.Echo.private === 'function') {
+                    return;
+                }
+
+                var library = (typeof Echo !== 'undefined' && (typeof Echo === 'function' || (Echo && Echo.default))) ? Echo : window.Echo;
+                var EchoConstructor = library && (typeof library === 'function' ? library : library.default);
+                if (typeof EchoConstructor !== 'function' || typeof Pusher === 'undefined') {
+                    return;
+                }
+
+                window.Pusher = Pusher;
+                window.Echo = new EchoConstructor({
+                    broadcaster: 'pusher',
+                    cluster: "{{ config('constants.pusher.host') }}" || window.location.hostname,
+                    key: "{{ config('constants.pusher.app_key') }}" || 'coolify',
+                    wsHost: "{{ config('constants.pusher.host') }}" || window.location.hostname,
+                    wsPort: "{{ getRealtime() }}",
+                    wssPort: "{{ getRealtime() }}",
+                    forceTLS: window.location.protocol === 'https:',
+                    encrypted: true,
+                    enableStats: false,
+                    enableLogging: true,
+                    enabledTransports: ['ws', 'wss'],
+                    disableStats: true,
+                    disabledTransports: ['sockjs', 'xhr_streaming', 'xhr_polling'],
+                    autoReconnect: true,
+                    reconnectionDelay: 1000,
+                    maxReconnectionDelay: 1000,
+                    reconnectionDelayGrowth: 1,
+                    maxAttempts: 15
+                });
+            };
+            window.gpshBindEcho();
+            document.addEventListener('livewire:navigated', window.gpshBindEcho);
         @endauth
         let checkHealthInterval = null;
         let checkIfIamDeadInterval = null;
@@ -360,13 +368,17 @@
             return value;
         };
         document.addEventListener('livewire:init', () => {
+            window.gpshBindEcho?.()
+
             const dismissLivewireError = () => {
                 document.getElementById('livewire-error')?.remove()
             }
 
             window.Livewire.hook('request', ({ fail }) => {
-                fail(({ preventDefault }) => {
-                    if (document.documentElement.dataset.upgrading !== '1') {
+                fail(({ status, content, preventDefault }) => {
+                    const body = typeof content === 'string' ? content.trim() : ''
+                    const dropped = status === 0 || body === '' || document.documentElement.dataset.upgrading === '1'
+                    if (!dropped) {
                         return
                     }
 
