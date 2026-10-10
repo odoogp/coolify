@@ -7,9 +7,9 @@
                 return;
             }
             if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                video.removeAttribute('autoplay');
                 return;
             }
+            video.src = video.dataset.src;
             const start = () => {
                 video.play().catch(() => {});
             };
@@ -32,6 +32,6 @@
     :class="playing && 'is-playing'"
     aria-hidden="true">
     <img src="{{ asset('media/moon-walk.jpg') }}" alt="">
-    <video x-ref="video" src="{{ asset('media/moon-walk.mp4') }}" poster="{{ asset('media/moon-walk.jpg') }}"
-        muted loop playsinline autoplay preload="auto" @playing="playing = true"></video>
+    <video x-ref="video" data-src="{{ asset('media/moon-walk.mp4') }}" poster="{{ asset('media/moon-walk.jpg') }}"
+        muted loop playsinline preload="auto" @playing="playing = true"></video>
 </div>

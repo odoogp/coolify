@@ -22,5 +22,14 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('.auth-shell-split .auth-plan-layout')
         ->toContain('align-items: center')
         ->toContain('.auth-shell-tunnel:not(.auth-shell-split) .auth-terms-body')
-        ->toContain('max-height: none');
+        ->toContain('max-height: none')
+        ->toContain('.auth-shell-split .auth-plan-package::before')
+        ->toContain('animation: card-border-spin 4.5s linear infinite')
+        ->toContain('color: #f7f9fc');
+
+    $nginx = file_get_contents(base_path('docker/production/etc/nginx/site-opts.d/http.conf'));
+
+    expect($nginx)
+        ->toContain('location ^~ /media/')
+        ->toContain('public, max-age=31536000, immutable');
 });
