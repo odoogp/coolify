@@ -326,8 +326,16 @@ fi
 
 if [ "${1:-}" = "--restart" ]; then
     load_paths
-    LOGFILE=${LOCAL_UPGRADE_LOGFILE:?}
-    LOG_ALREADY_FILED=1
+    # Full upgrades export LOCAL_UPGRADE_LOGFILE before backgrounding --restart.
+    # Manual recovery (e.g. after docker rm -f coolify) must still work.
+    if [ -n "${LOCAL_UPGRADE_LOGFILE:-}" ]; then
+        LOGFILE="$LOCAL_UPGRADE_LOGFILE"
+        LOG_ALREADY_FILED=1
+    else
+        DATE=$(date +%Y-%m-%d-%H-%M-%S)
+        LOGFILE="${SOURCE_DIR}/upgrade-restart-${DATE}.log"
+        LOG_ALREADY_FILED=0
+    fi
     restart_new_image
     exit 0
 fi

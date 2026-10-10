@@ -92,6 +92,8 @@ it('updates a local checkout without pulling the official image', function () {
         ->toContain('up -d --no-deps --force-recreate --wait --wait-timeout 180 coolify')
         ->toContain('http://127.0.0.1:${APP_PORT}/api/health')
         ->toContain('docker tag "$PREVIOUS_ID" "$IMAGE"')
+        ->toContain('upgrade-restart-${DATE}.log')
+        ->not->toContain('LOCAL_UPGRADE_LOGFILE:?')
         ->not->toContain('coollabsio/coolify')
         ->not->toContain('docker pull')
         ->not->toContain('down -v')
