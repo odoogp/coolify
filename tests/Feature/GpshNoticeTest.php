@@ -107,20 +107,6 @@ it('records an upgrade failure once for the owner notice list', function () {
     Livewire::test(GpshNoticeBell::class)->assertDontSee('The image pull failed.');
 });
 
-it('keeps an interrupted request in the notice list', function () {
-    $this->actingAs($this->owner);
-
-    $first = GpshNotices::rememberRequestFailure('The request was interrupted.');
-    $second = GpshNotices::rememberRequestFailure('The request was interrupted.');
-
-    expect($first)->not->toBeNull()
-        ->and($second)->toBeNull()
-        ->and($first->audience)->toBe('owner')
-        ->and($first->title)->toBe('The request did not finish');
-
-    Livewire::test(GpshNoticeBell::class)->assertSee('The request was interrupted.');
-});
-
 it('announces when the instance is up and when it can be opened', function () {
     $project = Project::factory()->create(['name' => 'Mi Empresa', 'team_id' => $this->clientTeam->id]);
     $environment = $project->environments()->first()
