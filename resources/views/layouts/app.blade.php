@@ -34,21 +34,19 @@
                 :class="{ 'z-[1000]': resourceActionsOpen }"
                 class="hidden lg:flex fixed top-0 inset-x-0 z-50 h-12 items-center bg-white/95 dark:bg-panel/95 backdrop-blur">
                 {{-- Brand (width tracks sidebar) --}}
-                <div class="flex items-center gap-2 h-full shrink-0 border-r border-neutral-200 dark:border-white/[0.06] transition-[width] duration-200"
+                <div class="flex h-full shrink-0 items-center gap-1.5 overflow-hidden border-r border-neutral-200 dark:border-white/[0.06] transition-[width] duration-200"
                     :class="collapsed ? 'w-16 justify-center px-0' : 'w-56 px-4'">
-                    <div class="flex shrink-0 items-center gap-1.5 min-w-0">
-                        <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
-                            class="flex items-center hover:opacity-80 transition-opacity">
-                            <img x-show="collapsed" x-cloak src="/gpsh-logo.svg" alt="{{ product_name() }}"
-                                class="size-5" />
-                            <img x-show="!collapsed" x-cloak src="/brand/logotipo.svg" alt="GetOdoo"
-                                class="h-7 w-auto dark:hidden" />
-                            <img x-show="!collapsed" x-cloak src="/brand/logotipo-oscuro.svg" alt=""
-                                class="hidden h-7 w-auto dark:block" />
-                        </a>
-                        <x-version x-show="!collapsed"
-                            class="!text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 dark:hover:text-fg hover:text-black" />
-                    </div>
+                    <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
+                        class="flex min-w-0 shrink items-center hover:opacity-80 transition-opacity">
+                        <img x-show="collapsed" x-cloak src="/gpsh-logo.svg" alt="{{ product_name() }}"
+                            class="size-5 shrink-0" />
+                        <img x-show="!collapsed" x-cloak src="/brand/logotipo.svg" alt="GetOdoo"
+                            class="h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:hidden" />
+                        <img x-show="!collapsed" x-cloak src="/brand/logotipo-oscuro.svg" alt=""
+                            class="hidden h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:block" />
+                    </a>
+                    <x-version x-show="!collapsed"
+                        class="shrink-0 !text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 dark:hover:text-fg hover:text-black" />
                     @if (isInstanceAdmin() && !isCloud())
                         <div x-show="!collapsed" class="ml-auto shrink-0">
                             @persist('upgrade')

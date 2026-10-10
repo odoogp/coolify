@@ -11,6 +11,8 @@ test('desktop header version links to the coolify github release for the install
 
     expect($layout)
         ->toContain('<x-version')
+        ->toContain('overflow-hidden border-r')
+        ->toContain('class="shrink-0 !text-[10.5px]')
         ->not->toContain("class=\"text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint\">v{{ config('constants.coolify.version') }}</span>");
 
     expect($version)

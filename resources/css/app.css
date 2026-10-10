@@ -1950,20 +1950,20 @@ main:has(.auth-shell) {
 .auth-shell-wide .auth-shell-content {
     position: relative;
     z-index: 1;
-    align-items: flex-start;
+    align-items: safe center;
     justify-content: center;
     width: min(100%, 72rem);
     margin-inline: auto;
     min-height: 100dvh;
     margin-top: 0;
-    padding: 12rem 1.25rem 2.5rem;
+    padding: 2rem 1.25rem;
 }
 
 .auth-shell-wide .auth-stage-mark-slot {
     position: fixed;
     left: 50%;
     top: 1.15rem;
-    z-index: 2;
+    z-index: 0;
     transform: translateX(-50%);
 }
 
@@ -3734,70 +3734,9 @@ input[type="search"]::-webkit-search-results-decoration {
     min-width: 36rem;
 }
 
-.getodoo-plans-table-grid,
-.getodoo-plans-list-head,
-.getodoo-plans-row {
+.getodoo-plans-table-grid {
     grid-template-columns: minmax(7rem, 1fr) 6.5rem minmax(6rem, 0.8fr) minmax(10rem, 1.4fr) max-content;
     min-width: 48rem;
-}
-
-.getodoo-plans-scroll {
-    overflow-x: auto;
-}
-
-.getodoo-plans-list-head,
-.getodoo-plans-row {
-    display: grid;
-    align-items: center;
-    gap: 1rem;
-}
-
-.getodoo-plans-list-head {
-    padding: 0 0.15rem 0.35rem;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--coollabs-subtle, #737373);
-}
-
-.getodoo-plans-row {
-    position: relative;
-    padding: 0.9rem 0.15rem;
-    border-top: 1px solid color-mix(in oklab, var(--color-coollabs) 14%, transparent);
-    transition: background-color 180ms ease;
-}
-
-.getodoo-plans-row::after {
-    content: '';
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    left: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--color-coollabs) 70%, white), transparent);
-    transform: scaleX(0);
-    transform-origin: center;
-    transition: transform 420ms ease;
-}
-
-.getodoo-plans-row:hover {
-    background: color-mix(in oklab, var(--color-coollabs) 7%, transparent);
-}
-
-.getodoo-plans-row:hover::after {
-    transform: scaleX(1);
-}
-
-.getodoo-plans-link {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    padding: 0;
-    box-shadow: none;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    font-size: 12px;
-    color: inherit;
 }
 
 .getodoo-regions-table-grid {
