@@ -81,7 +81,7 @@ html[data-theme="light"] .button:not(:disabled) {
     background: var(--letify-primary);
     color: var(--theme-accent-foreground, #ffffff);
     box-shadow: none;
-    font-size: 0.8125rem;
+    font-size: var(--type-body);
     line-height: 1;
     transition: background-color 220ms ease-out, color 220ms ease-out;
 }
@@ -100,7 +100,7 @@ html[data-theme="light"] .compact-actions .button:not(:disabled) {
     padding: 0 0.85rem;
     border-radius: 999px;
     box-shadow: none;
-    font-size: 0.8125rem;
+    font-size: var(--type-body);
     line-height: 1;
 }
 

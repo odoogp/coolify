@@ -112,7 +112,14 @@ it('adjusts font size from inside the appearance menu without showing a number',
         ->toContain('--font-delta: 0')
         ->toContain('--type-title: calc(24px + (var(--font-delta) * 1px))')
         ->toContain('--type-subtitle: calc(14px + (var(--font-delta) * 1px))')
-        ->toContain('--type-body: calc(13px + (var(--font-delta) * 1px))');
+        ->toContain('--type-body: calc(13px + (var(--font-delta) * 1px))')
+        ->toContain('--type-ui: calc(12px + (var(--font-delta) * 1px))')
+        ->toContain('--type-meta: calc(11px + (var(--font-delta) * 1px))')
+        ->toContain('--type-kicker: calc(10px + (var(--font-delta) * 1px))')
+        ->toContain('.menu-subitem,')
+        ->toContain('.sub-menu-item,')
+        ->toContain('.nav-section {')
+        ->toContain('.dropdown-item,');
 
     expect($layout)->toContain('window.applyFontDelta');
 });
