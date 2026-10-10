@@ -9,6 +9,14 @@ it('strips leftover x-cloak after wire:navigate to prevent blank page', function
         ->toContain("removeAttribute('x-cloak')");
 });
 
+it('keeps x-cloak on x-show elements after wire:navigate so closed helpers stay hidden', function () {
+    $appJs = file_get_contents(resource_path('js/app.js'));
+
+    expect($appJs)
+        ->toContain("if (el.hasAttribute('x-show'))")
+        ->toContain('return;');
+});
+
 it('keeps the initial-load x-cloak guard on the app wrapper', function () {
     $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 

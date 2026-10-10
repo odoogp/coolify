@@ -3,9 +3,17 @@ import { initializeTerminalComponent } from './terminal.js';
 // Livewire 3.5.19+ re-applies `x-cloak` to morphed elements during wire:navigate
 // (via replaceHtmlAttributes). With `[x-cloak]{display:none}` on the app wrapper,
 // this blanks the whole page on every navigation until Alpine re-processes it.
-// Strip leftover x-cloak after each navigation; the initial-load FOUC guard stays.
+// Strip leftover x-cloak after each navigation, but keep it on x-show-gated
+// nodes (helpers, menus, modals). Stripping those reveals every closed popup
+// when Alpine has not yet re-applied display:none after a morph.
 document.addEventListener('livewire:navigated', () => {
-    document.querySelectorAll('[x-cloak]').forEach((el) => el.removeAttribute('x-cloak'));
+    document.querySelectorAll('[x-cloak]').forEach((el) => {
+        if (el.hasAttribute('x-show')) {
+            return;
+        }
+
+        el.removeAttribute('x-cloak');
+    });
 });
 
 // Register the terminal data provider before Alpine initializes the page.

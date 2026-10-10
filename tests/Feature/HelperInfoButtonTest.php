@@ -24,7 +24,8 @@ test('helper popup uses the redesigned raised surface styles', function () {
     expect($helper)
         ->toContain('info-helper-popup')
         ->toContain('x-transition:enter')
-        ->toContain('text-[13px] leading-5');
+        ->toContain('text-[13px] leading-5')
+        ->toContain('x-show="open" x-cloak');
 
     expect($utilities)
         ->toContain('@utility info-helper-popup')
