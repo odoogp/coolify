@@ -20,9 +20,11 @@
     ])>
     @if ($tunnel === 'login')
         <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" :poster="null" :width="3840" :height="2160" />
-        <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-login-mark">
     @elseif (filled($tunnel))
         <x-flow-tunnel />
+    @endif
+    @if ($tunnel === 'login' || $tunnel === 'split' || $crystal)
+        <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-brand-mark">
     @endif
     <div class="auth-stage" aria-hidden="true">
         <span class="auth-stage-glow"></span>
@@ -69,8 +71,6 @@
                     <div class="min-w-0">
                         @if ($tunnel === 'login')
                             <div class="auth-lockup">
-                                <img src="{{ asset('brand/getodoo-mark.png') }}" alt=""
-                                    class="auth-lockup-mark auth-lockup-mark-mobile">
                                 <img src="{{ asset('brand/getodoo-wordmark.png') }}" alt="{{ $title }}"
                                     class="auth-lockup-word">
                             </div>

@@ -9,7 +9,8 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($component)
         ->toContain('media/moon-walk.jpg')
         ->toContain('media/moon-walk.mp4')
-        ->toContain("@playing=\"playing = true\"")
+        ->toContain('webkit-playsinline')
+        ->toContain('playbackRate = 0.75')
         ->toContain('absolute inset-0 h-full w-full -z-10 pointer-events-none');
 
     expect(file_exists(public_path('media/moon-walk.jpg')))->toBeTrue();
@@ -29,11 +30,16 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
 
     expect($shell)->toContain('mobile-video="media/login-mobile.mp4"');
+    expect($shell)->toContain('class="auth-brand-mark"');
+    expect($styles)->toContain('@keyframes auth-breathe');
     expect($component)
         ->toContain('data-mobile-src')
-        ->toContain("tick('a')")
-        ->toContain('is-front');
-    expect($styles)->toContain('.flow-tunnel.is-playing video.is-front');
+        ->toContain('flow-tunnel-fade')
+        ->toContain('playsInline = true');
+    expect($styles)
+        ->toContain('.flow-tunnel-fade.is-dim')
+        ->toContain('transition: opacity 2.8s linear')
+        ->toContain('.auth-shell-login .auth-shell-content');
     expect(file_exists(public_path('brand/getodoo-mark.png')))->toBeTrue();
     expect(file_exists(public_path('brand/getodoo-wordmark.png')))->toBeTrue();
 
@@ -52,5 +58,6 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
 
     expect($nginx)
         ->toContain('location ^~ /media/')
-        ->toContain('public, max-age=31536000, immutable');
+        ->toContain('public, max-age=31536000, immutable')
+        ->toContain('Accept-Ranges bytes always');
 });

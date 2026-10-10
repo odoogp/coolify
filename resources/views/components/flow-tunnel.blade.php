@@ -10,21 +10,17 @@
     data-src="{{ asset($video) }}"
     @if (filled($mobileVideo)) data-mobile-src="{{ asset($mobileVideo) }}" @endif
     x-data="{
-        playing: false,
-        front: 'a',
-        incoming: null,
-        busy: false,
+        dim: false,
+        primed: false,
         init() {
-            const a = this.$refs.a;
-            const b = this.$refs.b;
-            if (! a || ! b) {
+            const video = this.$refs.video;
+            if (! video) {
                 return;
             }
             if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
                 return;
             }
             const query = window.matchMedia('(max-width: 900px)');
-            let generation = 0;
             const pick = () => {
                 const mobile = this.$el.dataset.mobileSrc;
                 if (query.matches && mobile) {
@@ -32,101 +28,103 @@
                 }
                 return this.$el.dataset.src;
             };
-            const load = (url) => {
-                const current = ++generation;
-                this.front = 'a';
-                this.busy = false;
-                this.playing = false;
-                for (const video of [a, b]) {
-                    video.pause();
-                    if (video.dataset.loaded !== url) {
-                        video.src = url;
-                        video.dataset.loaded = url;
-                    }
+            const boot = (url) => {
+                video.muted = true;
+                video.defaultMuted = true;
+                video.playsInline = true;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('webkit-playsinline', '');
+                video.playbackRate = 0.75;
+                if (video.dataset.loaded !== url) {
+                    video.src = url;
+                    video.dataset.loaded = url;
+                    video.load();
                 }
                 const start = () => {
-                    if (current !== generation) {
-                        return;
-                    }
-                    a.play().catch(() => {});
+                    video.play().catch(() => {});
                 };
-                if (a.readyState >= 3) {
+                if (video.readyState >= 2) {
                     start();
                 } else {
-                    a.addEventListener('canplay', start, { once: true });
+                    video.addEventListener('canplay', start, { once: true });
                 }
             };
-            const onChange = () => load(pick());
+            const onChange = () => {
+                this.dim = false;
+                this.primed = false;
+                boot(pick());
+            };
             this.releaseViewport = () => query.removeEventListener('change', onChange);
-            load(pick());
+            boot(pick());
             query.addEventListener('change', onChange);
         },
-        tick(which) {
-            const from = this.$refs[which];
-            const next = which === 'a' ? 'b' : 'a';
-            const to = this.$refs[next];
-            if (! from || ! to) {
+        tick() {
+            const video = this.$refs.video;
+            if (! video || ! Number.isFinite(video.duration) || video.duration < 1) {
                 return;
             }
-            if (this.front === which && this.busy && this.incoming === which && from.currentTime > 1) {
-                this.busy = false;
-                this.incoming = null;
-                to.pause();
-            }
-            if (this.front !== which || this.busy || ! Number.isFinite(from.duration)) {
+            const left = video.duration - video.currentTime;
+            const lead = 2.8 * (video.playbackRate || 0.75);
+            if (! this.dim && left < lead && left > 0.08) {
+                this.dim = true;
+                this.primed = true;
                 return;
             }
-            const left = from.duration - from.currentTime;
-            if (left > 0.85 || left < 0) {
-                return;
+            if (this.dim && this.primed && video.currentTime < 0.35 && left > lead) {
+                this.dim = false;
             }
-            this.busy = true;
-            this.incoming = next;
-            const begin = () => {
-                to.currentTime = 0;
-                to.play().catch(() => {});
-                this.front = next;
-            };
-            if (to.readyState >= 2) {
-                begin();
-            } else {
-                to.addEventListener('canplay', begin, { once: true });
-            }
-        },
-        ended(which) {
-            if (this.front !== which) {
-                return;
-            }
-            const video = this.$refs[which];
-            if (! video) {
-                return;
-            }
-            this.busy = false;
-            video.currentTime = 0;
-            video.play().catch(() => {});
         },
         destroy() {
             this.releaseViewport?.();
-            for (const video of [this.$refs.a, this.$refs.b]) {
-                if (! video) {
-                    continue;
-                }
-                video.pause();
-                video.removeAttribute('src');
-                video.load();
+            const video = this.$refs.video;
+            if (! video) {
+                return;
             }
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
         },
     }"
-    :class="playing && 'is-playing'"
     aria-hidden="true">
     @if (filled($poster))
         <img src="{{ asset($poster) }}" alt="">
     @endif
-    <video x-ref="a" class="flow-tunnel-layer" :class="front === 'a' && 'is-front'"
-        @if (filled($poster)) poster="{{ asset($poster) }}" @endif
-        width="{{ $width }}" height="{{ $height }}" muted playsinline preload="auto"
-        @playing="playing = true" @timeupdate="tick('a')" @ended="ended('a')"></video>
-    <video x-ref="b" class="flow-tunnel-layer" :class="front === 'b' && 'is-front'"
-        width="{{ $width }}" height="{{ $height }}" muted playsinline preload="auto"
-        @playing="playing = true" @timeupdate="tick('b')" @ended="ended('b')"></video>
+    <div class="flow-tunnel-fade" :class="dim && 'is-dim'">
+        <video x-ref="video" autoplay muted loop playsinline webkit-playsinline preload="auto"
+            width="{{ $width }}" height="{{ $height }}"
+            @if (filled($poster)) poster="{{ asset($poster) }}" @endif
+            disablepictureinpicture
+            @timeupdate="tick()">
+        </video>
+    </div>
+    <script>
+        (function () {
+            var video = document.currentScript.previousElementSibling.querySelector('video');
+            if (! video) {
+                return;
+            }
+            var root = video.closest('.flow-tunnel');
+            var mobile = root && root.dataset.mobileSrc;
+            var narrow = window.matchMedia('(max-width: 900px)').matches;
+            var src = narrow && mobile ? mobile : root.dataset.src;
+            video.muted = true;
+            video.defaultMuted = true;
+            video.playsInline = true;
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.playbackRate = 0.75;
+            if (src && video.getAttribute('src') !== src) {
+                video.src = src;
+                video.dataset.loaded = src;
+            }
+            var start = function () {
+                video.play().catch(function () {});
+            };
+            if (video.readyState >= 2) {
+                start();
+            } else {
+                video.addEventListener('canplay', start, { once: true });
+            }
+        })();
+    </script>
 </div>

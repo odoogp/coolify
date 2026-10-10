@@ -1961,6 +1961,45 @@ main:has(.auth-shell) {
     height: auto;
 }
 
+.auth-shell-login .auth-shell-content {
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 100dvh;
+    margin-top: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 6.5rem 1rem 1.5rem;
+}
+
+.auth-brand-mark {
+    position: fixed;
+    top: 1.15rem;
+    left: 50%;
+    z-index: 3;
+    width: min(4.75rem, 22vw);
+    height: auto;
+    pointer-events: none;
+    transform: translateX(-50%);
+    transform-origin: center;
+    animation: auth-breathe 4.6s ease-in-out infinite;
+}
+
+@keyframes auth-breathe {
+    0%, 100% { transform: translateX(-50%) scale(1); }
+    50% { transform: translateX(-50%) scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-brand-mark {
+        animation: none;
+    }
+}
+
+.auth-shell-crystal:not(.auth-shell-login) .auth-shell-content {
+    margin-top: 0;
+    padding-top: 6.5rem;
+}
+
 .auth-login-mark,
 .auth-lockup-mark-mobile {
     display: none;
@@ -1971,29 +2010,13 @@ main:has(.auth-shell) {
 }
 
 @media (min-width: 901px) {
-    .auth-shell-login .auth-login-mark {
-        display: block;
-        position: fixed;
-        left: 25%;
-        top: 50%;
-        z-index: 2;
-        width: min(9.5rem, 18vw);
-        height: auto;
-        transform: translate(-50%, -50%);
-        pointer-events: none;
-    }
-
-    .auth-shell-login .auth-lockup-mark-mobile {
-        display: none;
-    }
-
     .auth-shell-login .auth-shell-content {
         width: 50%;
         margin-left: auto;
         min-height: 100dvh;
         align-items: center;
         justify-content: center;
-        padding: 2rem 1.5rem;
+        padding: 6.5rem 1.5rem 2rem;
     }
 }
 
@@ -2083,7 +2106,7 @@ html:not(.dark) .auth-shell-login .auth-locale select {
     margin-inline: auto;
     min-height: 100dvh;
     margin-top: 0;
-    padding: 2rem 1.25rem;
+    padding: 6.5rem 1.25rem 2rem;
 }
 
 .auth-shell-wide .auth-stage-mark-slot {
@@ -2168,7 +2191,8 @@ html:not(.dark) .auth-shell-login .auth-locale select {
 }
 
 .flow-tunnel img,
-.flow-tunnel video {
+.flow-tunnel-fade,
+.flow-tunnel-fade video {
     position: absolute;
     inset: 0;
     width: 100%;
@@ -2177,13 +2201,21 @@ html:not(.dark) .auth-shell-login .auth-locale select {
     object-position: center;
 }
 
-.flow-tunnel video {
-    opacity: 0;
-    transition: opacity 800ms linear;
+.flow-tunnel-fade {
+    opacity: 1;
+    transition: opacity 2.8s linear;
 }
 
-.flow-tunnel.is-playing video.is-front {
+.flow-tunnel-fade.is-dim {
+    opacity: 0;
+}
+
+.flow-tunnel-fade video {
+    display: block;
     opacity: 1;
+    background: #070b14;
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
 }
 
 .auth-shell-tunnel .auth-stage {
