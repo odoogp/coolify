@@ -30,11 +30,21 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
 
     expect($shell)->toContain('mobile-video="media/login-mobile.mp4"');
-    expect($shell)->toContain('class="auth-brand-mark"');
+    expect($shell)->toContain('poster="media/login-poster.jpg"');
+    expect($shell)->toContain('mobile-poster="media/login-mobile-poster.jpg"');
+    expect($shell)->not->toContain('moon-walk');
+    expect($shell)->toContain('class="auth-login-mark"');
+    expect($shell)->toContain('class="auth-plan-mark"');
     expect($styles)->toContain('@keyframes auth-breathe');
+    expect($styles)->toContain('@keyframes auth-breathe-login');
+    expect($styles)->toContain('left: 25%');
+    expect($styles)->toContain('.auth-plan-mark');
+    expect(file_exists(public_path('media/login-poster.jpg')))->toBeTrue();
+    expect(file_exists(public_path('media/login-mobile-poster.jpg')))->toBeTrue();
     expect($component)
         ->toContain('data-mobile-src')
         ->toContain('flow-tunnel-fade')
+        ->toContain('flow-tunnel-poster')
         ->toContain('playsInline = true');
     expect($styles)
         ->toContain('.flow-tunnel-fade.is-dim')
@@ -52,6 +62,8 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('animation: card-border-spin 4.5s linear infinite')
         ->toContain('calc((var(--card-border-width, 1px) + 2px) * -1)')
         ->toContain('scrollbar-color: rgb(40 32 64 / 0.38) transparent')
+        ->toContain('html:has(.auth-shell)')
+        ->toContain('background: transparent')
         ->toContain('color: #f7f9fc');
 
     $nginx = file_get_contents(base_path('docker/production/etc/nginx/site-opts.d/http.conf'));

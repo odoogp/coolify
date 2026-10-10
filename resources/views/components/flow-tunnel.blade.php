@@ -1,5 +1,6 @@
 @props([
     'poster' => 'media/moon-walk.jpg',
+    'mobilePoster' => null,
     'video' => 'media/moon-walk.mp4',
     'mobileVideo' => null,
     'width' => 2888,
@@ -28,7 +29,25 @@
                 }
                 return this.$el.dataset.src;
             };
+            const posterEl = this.$el.querySelector('.flow-tunnel-poster');
+            const posterFor = (narrow) => {
+                if (! posterEl) {
+                    return '';
+                }
+                const mobilePoster = posterEl.dataset.mobileSrc;
+                if (narrow && mobilePoster) {
+                    return mobilePoster;
+                }
+                return posterEl.dataset.src || posterEl.getAttribute('src') || '';
+            };
             const boot = (url) => {
+                const posterUrl = posterFor(query.matches);
+                if (posterEl && posterUrl) {
+                    posterEl.src = posterUrl;
+                }
+                if (posterUrl) {
+                    video.poster = posterUrl;
+                }
                 video.muted = true;
                 video.defaultMuted = true;
                 video.playsInline = true;
@@ -87,12 +106,18 @@
     }"
     aria-hidden="true">
     @if (filled($poster))
-        <img src="{{ asset($poster) }}" alt="">
+        <img class="flow-tunnel-poster" alt=""
+            @if (filled($mobilePoster))
+                data-src="{{ asset($poster) }}"
+                data-mobile-src="{{ asset($mobilePoster) }}"
+            @else
+                src="{{ asset($poster) }}"
+            @endif>
     @endif
     <div class="flow-tunnel-fade" :class="dim && 'is-dim'">
         <video x-ref="video" autoplay muted loop playsinline webkit-playsinline preload="auto"
             width="{{ $width }}" height="{{ $height }}"
-            @if (filled($poster)) poster="{{ asset($poster) }}" @endif
+            @if (filled($poster) && blank($mobilePoster)) poster="{{ asset($poster) }}" @endif
             disablepictureinpicture
             @timeupdate="tick()">
         </video>
@@ -106,6 +131,15 @@
             var root = video.closest('.flow-tunnel');
             var mobile = root && root.dataset.mobileSrc;
             var narrow = window.matchMedia('(max-width: 900px)').matches;
+            var poster = root.querySelector('.flow-tunnel-poster');
+            if (poster) {
+                var mobilePoster = poster.dataset.mobileSrc;
+                var posterSrc = narrow && mobilePoster ? mobilePoster : (poster.dataset.src || poster.getAttribute('src') || '');
+                if (posterSrc) {
+                    poster.src = posterSrc;
+                    video.poster = posterSrc;
+                }
+            }
             var src = narrow && mobile ? mobile : root.dataset.src;
             video.muted = true;
             video.defaultMuted = true;

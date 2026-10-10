@@ -1472,8 +1472,11 @@ html[data-theme="custom"] textarea:disabled {
     isolation: isolate;
     display: flex;
     flex-direction: column;
-    min-height: 100dvh;
-    overflow: hidden;
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
     background:
         radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--color-coollabs) 9%, transparent), transparent 34rem),
         radial-gradient(ellipse 46% 38% at 28% 46%, color-mix(in oklab, var(--color-coollabs) 28%, transparent), transparent 70%),
@@ -1645,9 +1648,16 @@ html[data-theme="custom"] textarea:disabled {
     }
 }
 
+html:has(.auth-shell),
+html:has(.auth-shell) body {
+    height: 100dvh;
+    overflow: hidden;
+}
+
 main:has(.auth-shell) {
-    height: auto;
-    min-height: 100dvh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
     background: transparent;
 }
 
@@ -1961,62 +1971,103 @@ main:has(.auth-shell) {
     height: auto;
 }
 
+.auth-shell-login {
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
 .auth-shell-login .auth-shell-content {
     flex: 1 1 auto;
+    flex-direction: column;
     width: 100%;
     min-height: 100dvh;
     margin-top: 0;
     align-items: center;
     justify-content: center;
-    padding: 6.5rem 1rem 1.5rem;
+    padding: 0 1rem;
 }
 
-.auth-brand-mark {
-    position: fixed;
-    top: 1.15rem;
-    left: 50%;
-    z-index: 3;
+.auth-shell-login .auth-shell-content::after {
+    content: "";
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+.auth-login-mark-space {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 6.5rem;
+}
+
+.auth-login-mark {
+    display: none;
+}
+
+.auth-login-mark-mobile,
+.auth-plan-mark {
+    display: block;
     width: min(4.75rem, 22vw);
     height: auto;
     pointer-events: none;
-    transform: translateX(-50%);
     transform-origin: center;
     animation: auth-breathe 4.6s ease-in-out infinite;
 }
 
+.auth-plan-mark {
+    position: relative;
+    flex: none;
+    margin: 2.75rem auto 0.75rem;
+}
+
 @keyframes auth-breathe {
-    0%, 100% { transform: translateX(-50%) scale(1); }
-    50% { transform: translateX(-50%) scale(1.08); }
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+}
+
+@keyframes auth-breathe-login {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.08); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .auth-brand-mark {
+    .auth-login-mark,
+    .auth-login-mark-mobile,
+    .auth-plan-mark {
         animation: none;
     }
 }
 
-.auth-shell-crystal:not(.auth-shell-login) .auth-shell-content {
-    margin-top: 0;
-    padding-top: 6.5rem;
-}
-
-.auth-login-mark,
-.auth-lockup-mark-mobile {
-    display: none;
-}
-
-.auth-shell-login .auth-lockup-mark-mobile {
-    display: block;
-}
-
 @media (min-width: 901px) {
     .auth-shell-login .auth-shell-content {
+        flex-direction: row;
         width: 50%;
         margin-left: auto;
         min-height: 100dvh;
         align-items: center;
         justify-content: center;
-        padding: 6.5rem 1.5rem 2rem;
+        padding: 2rem 1.5rem;
+    }
+
+    .auth-login-mark-space,
+    .auth-shell-login .auth-shell-content::after {
+        display: none;
+    }
+
+    .auth-login-mark {
+        display: block;
+        position: fixed;
+        left: 25%;
+        top: 50%;
+        z-index: 2;
+        width: min(8.5rem, 18vw);
+        height: auto;
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        transform-origin: center;
+        animation: auth-breathe-login 4.6s ease-in-out infinite;
     }
 }
 
@@ -2100,13 +2151,22 @@ html:not(.dark) .auth-shell-login .auth-locale select {
 .auth-shell-wide .auth-shell-content {
     position: relative;
     z-index: 1;
-    align-items: safe center;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
     width: min(100%, 72rem);
     margin-inline: auto;
     min-height: 100dvh;
     margin-top: 0;
-    padding: 6.5rem 1.25rem 2rem;
+    padding: 0 1.25rem 2rem;
+}
+
+.auth-shell-wide .auth-card.auth-card-wide {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: center;
 }
 
 .auth-shell-wide .auth-stage-mark-slot {
@@ -2213,7 +2273,7 @@ html:not(.dark) .auth-shell-login .auth-locale select {
 .flow-tunnel-fade video {
     display: block;
     opacity: 1;
-    background: #070b14;
+    background: transparent;
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
 }
@@ -2359,6 +2419,7 @@ html:not(.dark) .auth-shell-login .auth-locale select {
 .auth-shell *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
+    background: transparent;
 }
 
 .auth-shell::-webkit-scrollbar-track,

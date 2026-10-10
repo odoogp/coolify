@@ -19,12 +19,10 @@
         'auth-shell-login' => $tunnel === 'login',
     ])>
     @if ($tunnel === 'login')
-        <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" :poster="null" :width="3840" :height="2160" />
+        <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" poster="media/login-poster.jpg" mobile-poster="media/login-mobile-poster.jpg" :width="3840" :height="2160" />
+        <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-login-mark">
     @elseif (filled($tunnel))
         <x-flow-tunnel />
-    @endif
-    @if ($tunnel === 'login' || $tunnel === 'split' || $crystal)
-        <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-brand-mark">
     @endif
     <div class="auth-stage" aria-hidden="true">
         <span class="auth-stage-glow"></span>
@@ -65,6 +63,13 @@
         <span class="auth-stage-ridge auth-stage-ridge-b"></span>
     </div>
     <div class="auth-shell-content">
+        @if ($tunnel === 'login')
+            <div class="auth-login-mark-space">
+                <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-login-mark-mobile">
+            </div>
+        @elseif ($tunnel === 'split')
+            <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-plan-mark">
+        @endif
         <div @class(['auth-card', 'auth-card-wide' => $wide])>
             <div class="auth-card-heading">
                 <div class="flex items-start justify-between gap-3">
