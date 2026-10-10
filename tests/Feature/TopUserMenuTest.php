@@ -90,3 +90,29 @@ it('offers page width controls inside the appearance menu', function () {
         ->toContain("localStorage.setItem('pageWidth', width)")
         ->toContain("new CustomEvent('page-width-changed', { detail: width })");
 });
+
+it('adjusts font size from inside the appearance menu without showing a number', function () {
+    $menu = file_get_contents(resource_path('views/components/top-user-menu.blade.php'));
+    $styles = file_get_contents(resource_path('css/app.css'));
+    $layout = file_get_contents(resource_path('views/layouts/base.blade.php'));
+    $appearance = substr($menu, strpos($menu, 'x-show="appearanceOpen"'));
+
+    expect($appearance)
+        ->toContain("{{ __('Page width') }}")
+        ->toContain("{{ __('Font size') }}")
+        ->toContain('class="font-size-range"')
+        ->toContain('min="-2" max="4" step="1"')
+        ->toContain('setFontDelta($event.target.value)')
+        ->not->toContain('x-text="fontDelta"');
+
+    expect(strpos($appearance, "{{ __('Page width') }}"))
+        ->toBeLessThan(strpos($appearance, "{{ __('Font size') }}"));
+
+    expect($styles)
+        ->toContain('--font-delta: 0')
+        ->toContain('--type-title: calc(24px + (var(--font-delta) * 1px))')
+        ->toContain('--type-subtitle: calc(14px + (var(--font-delta) * 1px))')
+        ->toContain('--type-body: calc(13px + (var(--font-delta) * 1px))');
+
+    expect($layout)->toContain('window.applyFontDelta');
+});

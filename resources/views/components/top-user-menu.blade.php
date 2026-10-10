@@ -13,11 +13,13 @@
     appearanceOpen: false,
     theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'light'),
     pageWidth: localStorage.getItem('pageWidth') || 'full',
+    fontDelta: Number(localStorage.getItem('fontDelta') || 0),
     themeColor: localStorage.getItem('themeColor') || '#6b16ed',
     accents: {},
     avatarUrl: @js($user?->avatar_path ? route('profile.avatar', ['v' => $user->updated_at->timestamp]) : null),
     init() {
         this.accents = window.readThemeAccents();
+        window.applyFontDelta(this.fontDelta);
     },
     openPanel() {
         this.appearanceOpen = false;
@@ -47,6 +49,12 @@
         this.pageWidth = width;
         localStorage.setItem('pageWidth', width);
         window.dispatchEvent(new CustomEvent('page-width-changed', { detail: width }));
+    },
+    setFontDelta(value) {
+        var delta = Math.max(-2, Math.min(4, Math.round(Number(value) || 0)));
+        this.fontDelta = delta;
+        localStorage.setItem('fontDelta', String(delta));
+        window.applyFontDelta(delta);
     },
 }" @avatar-updated.window="avatarUrl = $event.detail.url" @keydown.escape.window="closePanel()"
     @click.outside="closePanel()">
@@ -165,6 +173,18 @@
                     </svg>
                 </button>
             @endforeach
+            <div class="px-2 pt-2 pb-1">
+                <div class="pb-1.5 text-[10px] font-medium tracking-wide text-neutral-400 uppercase dark:text-fg-faint">
+                    {{ __('Font size') }}
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] leading-none text-neutral-400 dark:text-fg-faint" aria-hidden="true">A</span>
+                    <input type="range" class="font-size-range" min="-2" max="4" step="1"
+                        x-model.number="fontDelta" @input="setFontDelta($event.target.value)"
+                        aria-label="{{ __('Font size') }}">
+                    <span class="text-[15px] leading-none text-neutral-600 dark:text-fg" aria-hidden="true">A</span>
+                </div>
+            </div>
         </div>
 
         <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>

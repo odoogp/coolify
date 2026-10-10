@@ -142,6 +142,15 @@
             var isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
             document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
         })();
+        window.applyFontDelta = function (value) {
+            var delta = Number(value);
+            if (!Number.isFinite(delta)) {
+                delta = 0;
+            }
+            delta = Math.max(-2, Math.min(4, Math.round(delta)));
+            document.documentElement.style.setProperty('--font-delta', String(delta));
+        };
+        window.applyFontDelta(localStorage.getItem('fontDelta'));
     </script>
     <script data-navigate-once>
         if ('serviceWorker' in navigator) {
