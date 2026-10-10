@@ -33,5 +33,5 @@
     aria-hidden="true">
     <img src="{{ asset('media/moon-walk.jpg') }}" alt="">
     <video x-ref="video" data-src="{{ asset('media/moon-walk.mp4') }}" poster="{{ asset('media/moon-walk.jpg') }}"
-        muted loop playsinline preload="auto" @playing="playing = true"></video>
+        width="2888" height="2160" muted loop playsinline preload="auto" @playing="playing = true"></video>
 </div>

@@ -2098,7 +2098,9 @@ main:has(.auth-shell) {
 .auth-shell-split .auth-plan-account,
 .auth-shell-tunnel:not(.auth-shell-split) .auth-card.auth-card-wide {
     position: relative;
+    overflow: visible;
     --ring-radius: 28px;
+    --card-border-width: 1px;
 }
 
 .auth-shell-split .auth-plan-package::before,
@@ -2106,10 +2108,10 @@ main:has(.auth-shell) {
 .auth-shell-tunnel:not(.auth-shell-split) .auth-card.auth-card-wide::before {
     content: "";
     position: absolute;
-    inset: 0;
+    inset: calc((var(--card-border-width, 1px) + 2px) * -1);
     box-sizing: border-box;
-    padding: 1.5px;
-    border-radius: inherit;
+    padding: 2px;
+    border-radius: calc(var(--ring-radius, 28px) + var(--card-border-width, 1px) + 2px);
     background: conic-gradient(
         from var(--card-border-angle),
         transparent 0 40%,
@@ -2151,7 +2153,7 @@ main:has(.auth-shell) {
     flex-direction: column;
     width: 100%;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
     border-radius: 28px;
     border: 1px solid rgb(255 255 255 / 0.55);
     background: linear-gradient(180deg, rgb(255 255 255 / 0.72), rgb(255 255 255 / 0.4));
@@ -2169,10 +2171,66 @@ main:has(.auth-shell) {
     min-height: 0;
 }
 
+.auth-shell-tunnel:not(.auth-shell-split) .auth-card-body {
+    overflow: hidden;
+    border-radius: 0 0 22px 22px;
+}
+
 .auth-shell-tunnel:not(.auth-shell-split) .auth-terms-body {
     max-height: none;
     flex: 1 1 auto;
     min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(40 32 64 / 0.38) transparent;
+}
+
+.auth-shell,
+.auth-shell * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(40 32 64 / 0.38) transparent;
+}
+
+.auth-shell::-webkit-scrollbar,
+.auth-shell *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.auth-shell::-webkit-scrollbar-track,
+.auth-shell *::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.auth-shell::-webkit-scrollbar-thumb,
+.auth-shell *::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgb(40 32 64 / 0.38);
+    background-clip: padding-box;
+}
+
+.scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(40 32 64 / 0.38) transparent;
+}
+
+.scrollbar::-webkit-scrollbar-track,
+.dark .scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.scrollbar::-webkit-scrollbar-thumb,
+.dark .scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: rgb(40 32 64 / 0.38);
+}
+
+.dark .scrollbar {
+    scrollbar-color: rgb(255 255 255 / 0.32) transparent;
+}
+
+.dark .scrollbar::-webkit-scrollbar-thumb {
+    background: rgb(255 255 255 / 0.32);
 }
 
 .auth-shell button[isHighlighted]:not(:disabled) {

@@ -25,6 +25,8 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('max-height: none')
         ->toContain('.auth-shell-split .auth-plan-package::before')
         ->toContain('animation: card-border-spin 4.5s linear infinite')
+        ->toContain('calc((var(--card-border-width, 1px) + 2px) * -1)')
+        ->toContain('scrollbar-color: rgb(40 32 64 / 0.38) transparent')
         ->toContain('color: #f7f9fc');
 
     $nginx = file_get_contents(base_path('docker/production/etc/nginx/site-opts.d/http.conf'));
