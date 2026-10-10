@@ -23,7 +23,7 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('align-items: center')
         ->toContain('.auth-shell-tunnel:not(.auth-shell-split) .auth-terms-body')
         ->toContain('max-height: none')
-        ->toContain('.auth-shell-split .auth-plan-package::before')
+        ->toContain('.auth-shell-split .auth-plan-package:hover::before')
         ->toContain('animation: card-border-spin 4.5s linear infinite')
         ->toContain('calc((var(--card-border-width, 1px) + 2px) * -1)')
         ->toContain('scrollbar-color: rgb(40 32 64 / 0.38) transparent')

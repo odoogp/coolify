@@ -74,18 +74,17 @@
                                     @endif
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <h3
-                                        class="break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg">
+                                    <h3 class="feature-tile-title break-words text-black dark:text-fg">
                                         {{ $project->name }}
                                     </h3>
-                                    <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    <p class="feature-tile-copy break-words text-neutral-500 dark:text-fg-faint">
                                         {{ $project->description ?: 'No description' }}
                                     </p>
                                 </div>
                             </div>
 
                             <div class="mt-auto flex items-center justify-between gap-3 pt-4">
-                                <p class="min-w-0 break-words text-[11px] text-neutral-500 dark:text-fg-dim">
+                                <p class="feature-tile-copy min-w-0 break-words text-neutral-500 dark:text-fg-dim">
                                     {{ $project->environments->count() }}
                                     {{ str('env')->plural($project->environments->count()) }}
                                     <span class="px-1 text-neutral-300 dark:text-white/15">·</span>

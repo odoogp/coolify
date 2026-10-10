@@ -39,8 +39,8 @@ it('lets summary card text wrap instead of using an ellipsis', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
 
     expect($dashboard)
-        ->toContain('break-words text-[13px]! leading-4! font-semibold! text-black dark:text-fg')
-        ->toContain('mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint')
+        ->toContain('feature-tile-title break-words text-black dark:text-fg')
+        ->toContain('feature-tile-copy break-words text-neutral-500 dark:text-fg-faint')
         ->and($styles)
         ->toContain('white-space: normal;')
         ->toContain('overflow-wrap: break-word;');
