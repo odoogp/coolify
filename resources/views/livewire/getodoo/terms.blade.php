@@ -1,4 +1,4 @@
-<x-auth.shell wide scroll :title="__('Terms and conditions')"
+<x-auth.shell wide scroll tunnel="full" :title="__('Terms and conditions')"
     :description="__('Please read these terms carefully.')">
     <div class="auth-terms">
         @if ($hasTerms)

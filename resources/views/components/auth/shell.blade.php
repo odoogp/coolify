@@ -3,13 +3,19 @@
     'description' => null,
     'wide' => false,
     'scroll' => false,
+    'tunnel' => null,
 ])
 
 <section @class([
         'auth-shell application-settings-form',
         'auth-shell-wide' => $wide,
         'auth-shell-scroll' => $scroll && ! $wide,
+        'auth-shell-tunnel' => filled($tunnel),
+        'auth-shell-split' => $tunnel === 'split',
     ])>
+    @if (filled($tunnel))
+        <x-flow-tunnel :split="$tunnel === 'split'" />
+    @endif
     <div class="auth-stage" aria-hidden="true">
         <span class="auth-stage-glow"></span>
         <span class="auth-stage-glow auth-stage-glow-green"></span>
