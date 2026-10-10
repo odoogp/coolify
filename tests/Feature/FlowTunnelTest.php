@@ -50,8 +50,10 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('.flow-tunnel-fade.is-dim')
         ->toContain('transition: opacity 2.8s linear')
         ->toContain('.auth-shell-login .auth-shell-content');
-    expect(file_exists(public_path('brand/getodoo-mark.png')))->toBeTrue();
-    expect(file_exists(public_path('brand/getodoo-wordmark.png')))->toBeTrue();
+    expect($shell)->toContain('brand/getodoo-isologo.png');
+    expect($shell)->toContain('<h1>{{ $title }}</h1>');
+    expect($shell)->not->toContain('getodoo-wordmark.png');
+    expect(file_exists(public_path('brand/getodoo-isologo.png')))->toBeTrue();
 
     expect($styles)
         ->toContain('.auth-shell-split .auth-plan-layout')

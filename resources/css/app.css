@@ -1971,6 +1971,11 @@ main:has(.auth-shell) {
     height: auto;
 }
 
+.auth-lockup-isologo {
+    width: min(16rem, 100%);
+    height: auto;
+}
+
 .auth-shell-login {
     overflow-x: hidden;
     overflow-y: auto;
@@ -2009,7 +2014,7 @@ main:has(.auth-shell) {
 .auth-login-mark-mobile,
 .auth-plan-mark {
     display: block;
-    width: min(4.75rem, 22vw);
+    width: min(18rem, 78vw);
     height: auto;
     pointer-events: none;
     transform-origin: center;
@@ -2062,7 +2067,7 @@ main:has(.auth-shell) {
         left: 25%;
         top: 50%;
         z-index: 2;
-        width: min(8.5rem, 18vw);
+        width: min(30rem, 38vw);
         height: auto;
         pointer-events: none;
         transform: translate(-50%, -50%);

@@ -20,7 +20,7 @@
     ])>
     @if ($tunnel === 'login')
         <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" poster="media/login-poster.jpg" mobile-poster="media/login-mobile-poster.jpg" :width="3840" :height="2160" />
-        <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-login-mark">
+        <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="" class="auth-login-mark">
     @elseif (filled($tunnel))
         <x-flow-tunnel />
     @endif
@@ -65,26 +65,18 @@
     <div class="auth-shell-content">
         @if ($tunnel === 'login')
             <div class="auth-login-mark-space">
-                <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-login-mark-mobile">
+                <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="" class="auth-login-mark-mobile">
             </div>
         @elseif ($tunnel === 'split')
-            <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-plan-mark">
+            <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="" class="auth-plan-mark">
         @endif
         <div @class(['auth-card', 'auth-card-wide' => $wide])>
             <div class="auth-card-heading">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        @if ($tunnel === 'login')
-                            <div class="auth-lockup">
-                                <img src="{{ asset('brand/getodoo-wordmark.png') }}" alt="{{ $title }}"
-                                    class="auth-lockup-word">
-                            </div>
-                        @elseif ($lockup)
-                            <div class="auth-lockup">
-                                <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-lockup-mark">
-                                <img src="{{ asset('brand/getodoo-wordmark.png') }}" alt="{{ $title }}"
-                                    class="auth-lockup-word">
-                            </div>
+                        @if ($lockup)
+                            <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="{{ $title }}"
+                                class="auth-lockup-isologo">
                         @else
                             <h1>{{ $title }}</h1>
                         @endif
