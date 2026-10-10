@@ -7,6 +7,7 @@ use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
 use App\Models\InstanceSettings;
+use App\Models\Server;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GetOdoo\GetOdooAreaEntitlements;
@@ -197,7 +198,10 @@ it('shows the package and the admin account on the public link', function () {
         ->assertDontSee('Can launch instances on the server where GPSH is installed')
         ->assertSee('Continue to payment')
         ->assertSee('Guatemala')
-        ->assertSee(__('Detected from your location. The price for this country applies.'));
+        ->assertSee(__('Detected from your location. The price for this country applies.'))
+        ->assertSee(__('I have read and accept the'))
+        ->assertSee(__('terms and conditions'))
+        ->assertSee(route('getodoo.terms'), false);
 });
 
 it('does not open an inactive plan', function () {
@@ -221,6 +225,7 @@ it('opens a free plan without Wompi and without using the public registration sw
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
         ->set('email', 'ana@example.com')
+        ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect(route('dashboard'));
 
@@ -252,6 +257,7 @@ it('sends a paid plan to Wompi and creates the account only after a live charge'
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
@@ -405,6 +411,7 @@ it('limits a plan to specific countries and uses promo price on signup', functio
         ->set('email', 'ana-gt@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
@@ -417,6 +424,7 @@ it('limits a plan to specific countries and uses promo price on signup', functio
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
@@ -510,6 +518,7 @@ it('locks signup to the buyer ip country and charges the quoted amount', functio
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
@@ -544,6 +553,7 @@ it('uses the standard plan price when the buyer location cannot be determined', 
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect('https://lk.wompi.sv/plan');
 
@@ -670,4 +680,43 @@ it('exposes regions in settings with list-first editing', function () {
     expect($plan)->not->toBeNull()
         ->and($plan->is_rest_of_world)->toBeFalse()
         ->and($plan->pricingAreas->pluck('id')->all())->toContain($region->id);
+});
+
+it('requires accepting terms before plan signup', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('email', 'ana-terms@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', false)
+        ->call('register')
+        ->assertHasErrors(['acceptedTerms']);
+});
+
+it('publishes sanitized terms on the branded public page and from general settings', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    Server::factory()->create(['id' => 0, 'team_id' => $this->root->id]);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(\App\Livewire\Settings\Index::class)
+        ->set('terms_and_conditions_html', '<h1>Acuerdo</h1><p>Usar <script>alert(1)</script>bien.</p>')
+        ->call('instantSave')
+        ->assertHasNoErrors();
+
+    $settings = instanceSettings()->fresh();
+    expect($settings->hasTermsAndConditions())->toBeTrue()
+        ->and($settings->sanitizedTermsAndConditionsHtml())->toContain('<h1>Acuerdo</h1>')
+        ->and($settings->sanitizedTermsAndConditionsHtml())->not->toContain('<script>');
+
+    $this->get(route('getodoo.terms'))
+        ->assertOk()
+        ->assertSee('Acuerdo')
+        ->assertSee('bien.')
+        ->assertDontSee('<script>', false);
 });

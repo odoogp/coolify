@@ -35,6 +35,8 @@ class PlanSignup extends Component
 
     public ?string $pricingAreaId = null;
 
+    public bool $acceptedTerms = false;
+
     public function mount(string $plan): void
     {
         $found = GetOdooPlan::query()->where('uuid', $plan)->where('is_active', true)->first();
@@ -66,24 +68,32 @@ class PlanSignup extends Component
 
         $lockedCountry = $this->lockedBuyerCountry($plan);
 
+        $termsRules = [
+            'acceptedTerms' => ['accepted'],
+        ];
+
         if ($lockedCountry instanceof GetOdooPricingArea) {
             $this->pricingAreaId = (string) $lockedCountry->id;
             $country = $lockedCountry;
-            $this->validate([
+            $this->validate(array_merge([
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
                 'password' => ['required', Password::defaults(), 'confirmed'],
                 'pricingAreaId' => ['required', 'integer', Rule::in([(int) $country->id])],
+            ], $termsRules), [
+                'acceptedTerms.accepted' => __('You must accept the terms and conditions.'),
             ]);
         } else {
             // Unknown location, or country not on this plan: standard plan price.
             $this->pricingAreaId = null;
             $country = null;
-            $this->validate([
+            $this->validate(array_merge([
                 'name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
                 'password' => ['required', Password::defaults(), 'confirmed'],
                 'pricingAreaId' => ['nullable'],
+            ], $termsRules), [
+                'acceptedTerms.accepted' => __('You must accept the terms and conditions.'),
             ]);
         }
 

@@ -88,6 +88,7 @@ use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
 use App\Livewire\GetOdoo\PlanReturn;
 use App\Livewire\GetOdoo\PlanSignup;
+use App\Livewire\GetOdoo\Terms as GetOdooTerms;
 use App\Livewire\Settings\GetOdooPlans as SettingsGetOdooPlans;
 use App\Livewire\Settings\GetOdooPurchases as SettingsGetOdooPurchases;
 use App\Livewire\Settings\GetOdooRegions as SettingsGetOdooRegions;
@@ -153,6 +154,7 @@ Route::post('/auth/link', [Controller::class, 'acceptLink'])->middleware('thrott
 
 Route::get('/start/{plan}/return/{signup}', PlanReturn::class)->name('getodoo.plan.return');
 Route::get('/start/{plan}', PlanSignup::class)->name('getodoo.plan.start');
+Route::get('/terms', GetOdooTerms::class)->name('getodoo.terms');
 
 Route::get('/auth/{provider}/redirect', [OauthController::class, 'redirect'])->name('auth.redirect');
 Route::get('/auth/{provider}/callback', [OauthController::class, 'callback'])->name('auth.callback');

@@ -8,7 +8,7 @@
             {{-- instance_timezone auto-saves via $wire.set + submit; exclude it so
                  the bar does not flash while the snapshot catches up. --}}
             <x-unsaved-bar action="submit"
-                targets="fqdn,instance_name,public_ipv4,public_ipv6,dev_helper_version" />
+                targets="fqdn,instance_name,public_ipv4,public_ipv6,dev_helper_version,terms_and_conditions_html" />
             <x-application.settings-section title="{{ __('General') }}">
                 <div class="grid gap-4 lg:grid-cols-2">
                     <div @class([
@@ -58,6 +58,22 @@
                         helper="{{ __('Set this when Coolify cannot detect the correct public IPv6 address.') }}"
                         placeholder="2001:db8::1" autocomplete="new-password" />
                 </div>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('Terms and conditions') }}">
+                <p class="mb-3 text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                    {{ __('Shown on the public terms page and linked from plan signup. Customers must accept them before creating an account.') }}
+                </p>
+                <x-forms.html-editor id="terms_and_conditions_html" wire:model="terms_and_conditions_html"
+                    label="{{ __('Terms content') }}"
+                    helper="{{ __('Use headings, lists, links, and text color. Scripts and unsafe HTML are removed when you save.') }}"
+                    :disabled="! auth()->user()->can('update', $settings)" />
+                <p class="mt-2 text-[12px] text-neutral-500 dark:text-fg-dim">
+                    <a href="{{ route('getodoo.terms') }}" target="_blank" rel="noopener noreferrer"
+                        class="font-medium text-coollabs underline decoration-coollabs/30 underline-offset-2 hover:decoration-coollabs dark:text-warning dark:decoration-warning/30 dark:hover:decoration-warning">
+                        {{ __('Open public terms page') }}
+                    </a>
+                </p>
             </x-application.settings-section>
 
             @if (isDev())

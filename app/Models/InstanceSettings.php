@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SanitizeTermsHtml;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Once;
@@ -40,6 +41,7 @@ class InstanceSettings extends Model
         'custom_dns_servers',
         'domain_connect_private_key',
         'instance_name',
+        'terms_and_conditions_html',
         'is_api_enabled',
         'allowed_ips',
         'auto_update_frequency',
@@ -172,6 +174,16 @@ class InstanceSettings extends Model
     public static function get()
     {
         return once(fn () => InstanceSettings::findOrFail(0));
+    }
+
+    public function hasTermsAndConditions(): bool
+    {
+        return SanitizeTermsHtml::isPresent($this->terms_and_conditions_html);
+    }
+
+    public function sanitizedTermsAndConditionsHtml(): string
+    {
+        return SanitizeTermsHtml::clean($this->terms_and_conditions_html);
     }
 
     // public function getRecipients($notification)

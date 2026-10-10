@@ -1864,6 +1864,24 @@ main:has(.auth-shell) {
     color: #b6f3d8;
 }
 
+.auth-terms {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.auth-terms-body {
+    max-height: min(60vh, 36rem);
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.html-editor-surface:empty:before {
+    content: attr(data-placeholder);
+    color: rgb(115 115 115);
+}
+
 .auth-plan-value.is-yes {
     background: rgb(16 160 110 / 0.16);
     color: #0b7a52;

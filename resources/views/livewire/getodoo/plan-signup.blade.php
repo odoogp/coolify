@@ -109,6 +109,22 @@
                         <p>{{ __('Use at least 8 characters with uppercase, lowercase, number, and symbol.') }}</p>
                     </div>
 
+                    <div>
+                        <label class="flex items-start gap-2 text-[13px] leading-5 text-neutral-700 dark:text-fg">
+                            <input type="checkbox" class="mt-0.5 rounded" wire:model="acceptedTerms">
+                            <span>
+                                {{ __('I have read and accept the') }}
+                                <a href="{{ route('getodoo.terms') }}" target="_blank" rel="noopener noreferrer"
+                                    class="font-medium text-coollabs underline decoration-coollabs/30 underline-offset-2 hover:decoration-coollabs dark:text-warning dark:decoration-warning/30 dark:hover:decoration-warning">
+                                    {{ __('terms and conditions') }}
+                                </a>.
+                            </span>
+                        </label>
+                        @error('acceptedTerms')
+                            <p class="mt-1 text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <x-forms.button class="w-full justify-center" type="submit" isHighlighted>
                         {{ $quote['amount'] <= 0 ? __('Create account') : __('Continue to payment') }}
                     </x-forms.button>

@@ -1,3 +1,4 @@
+import { initializeHtmlEditor } from './html-editor.js';
 import { initializeTerminalComponent } from './terminal.js';
 
 // Livewire 3.5.19+ re-applies `x-cloak` to morphed elements during wire:navigate
@@ -19,7 +20,10 @@ document.addEventListener('livewire:navigated', () => {
 // Register the terminal data provider before Alpine initializes the page.
 // Keeping this registration independent from the current route also makes it
 // available before Alpine processes terminal markup after wire:navigate.
-document.addEventListener('alpine:init', initializeTerminalComponent);
+document.addEventListener('alpine:init', () => {
+    initializeTerminalComponent();
+    initializeHtmlEditor();
+});
 
 /**
  * Smooth-scroll a settings section into view, then flash its border for 500ms

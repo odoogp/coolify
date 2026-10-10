@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Models\InstanceSettings;
 use App\Models\Server;
+use App\Support\SanitizeTermsHtml;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Validate;
@@ -44,6 +45,9 @@ class Index extends Component
     #[Validate(['nullable', 'string', 'max:128', 'regex:/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/'])]
     public ?string $dev_helper_version = null;
 
+    #[Validate('nullable|string|max:200000')]
+    public ?string $terms_and_conditions_html = null;
+
     public array $domainConflicts = [];
 
     public bool $showDomainConflictModal = false;
@@ -79,6 +83,7 @@ class Index extends Component
         $this->public_ipv6 = $this->settings->public_ipv6;
         $this->instance_timezone = $this->settings->instance_timezone;
         $this->dev_helper_version = $this->settings->dev_helper_version;
+        $this->terms_and_conditions_html = (string) ($this->settings->terms_and_conditions_html ?? '');
     }
 
     #[Computed]
@@ -103,6 +108,10 @@ class Index extends Component
         $this->settings->public_ipv6 = $this->public_ipv6;
         $this->settings->instance_timezone = $this->instance_timezone;
         $this->settings->dev_helper_version = $this->dev_helper_version;
+        $this->terms_and_conditions_html = SanitizeTermsHtml::clean($this->terms_and_conditions_html);
+        $this->settings->terms_and_conditions_html = $this->terms_and_conditions_html !== ''
+            ? $this->terms_and_conditions_html
+            : null;
         if ($isSave) {
             $this->settings->save();
             $this->dispatch('success', __('Settings updated!'));
