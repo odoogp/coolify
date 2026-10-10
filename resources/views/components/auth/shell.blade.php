@@ -20,7 +20,9 @@
     ])>
     @if ($tunnel === 'login')
         <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" poster="media/login-poster.jpg" mobile-poster="media/login-mobile-poster.jpg" :width="3840" :height="2160" />
-        <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="" class="auth-login-mark">
+        <div class="auth-isologo auth-login-mark">
+            <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="">
+        </div>
     @elseif (filled($tunnel))
         <x-flow-tunnel />
     @endif
@@ -65,18 +67,19 @@
     <div class="auth-shell-content">
         @if ($tunnel === 'login')
             <div class="auth-login-mark-space">
-                <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="" class="auth-login-mark-mobile">
+                <div class="auth-isologo auth-login-mark-mobile">
+                    <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="">
+                </div>
             </div>
-        @elseif ($tunnel === 'split')
-            <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="" class="auth-plan-mark">
         @endif
         <div @class(['auth-card', 'auth-card-wide' => $wide])>
             <div class="auth-card-heading">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
                         @if ($lockup)
-                            <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="{{ $title }}"
-                                class="auth-lockup-isologo">
+                            <div class="auth-isologo auth-lockup-isologo">
+                                <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="{{ $title }}">
+                            </div>
                         @else
                             <h1>{{ $title }}</h1>
                         @endif

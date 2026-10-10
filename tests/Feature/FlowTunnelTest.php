@@ -10,7 +10,8 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('media/moon-walk.jpg')
         ->toContain('media/moon-walk.mp4')
         ->toContain('webkit-playsinline')
-        ->toContain('playbackRate = 0.75')
+        ->toContain('playbackRate = 1')
+        ->toContain("addEventListener('ended'")
         ->toContain('absolute inset-0 h-full w-full -z-10 pointer-events-none');
 
     expect(file_exists(public_path('media/moon-walk.jpg')))->toBeTrue();
@@ -34,11 +35,11 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($shell)->toContain('mobile-poster="media/login-mobile-poster.jpg"');
     expect($shell)->not->toContain('moon-walk');
     expect($shell)->toContain('class="auth-login-mark"');
-    expect($shell)->toContain('class="auth-plan-mark"');
+    expect($shell)->not->toContain('auth-plan-mark');
     expect($styles)->toContain('@keyframes auth-breathe');
     expect($styles)->toContain('@keyframes auth-breathe-login');
     expect($styles)->toContain('left: 25%');
-    expect($styles)->toContain('.auth-plan-mark');
+    expect($styles)->not->toContain('.auth-plan-mark');
     expect(file_exists(public_path('media/login-poster.jpg')))->toBeTrue();
     expect(file_exists(public_path('media/login-mobile-poster.jpg')))->toBeTrue();
     expect($component)
@@ -47,9 +48,11 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('flow-tunnel-poster')
         ->toContain('playsInline = true');
     expect($styles)
-        ->toContain('.flow-tunnel-fade.is-dim')
-        ->toContain('transition: opacity 2.8s linear')
+        ->toContain('.flow-tunnel-fade {')
         ->toContain('.auth-shell-login .auth-shell-content');
+    expect($shell)->toContain('class="auth-isologo auth-login-mark"');
+    expect($styles)->toContain('.auth-isologo {');
+    expect($styles)->toContain('.auth-isologo img');
     expect($shell)->toContain('brand/getodoo-isologo.png');
     expect($shell)->toContain('<h1>{{ $title }}</h1>');
     expect($shell)->not->toContain('getodoo-wordmark.png');

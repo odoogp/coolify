@@ -11,8 +11,6 @@
     data-src="{{ asset($video) }}"
     @if (filled($mobileVideo)) data-mobile-src="{{ asset($mobileVideo) }}" @endif
     x-data="{
-        dim: false,
-        primed: false,
         init() {
             const video = this.$refs.video;
             if (! video) {
@@ -40,6 +38,19 @@
                 }
                 return posterEl.dataset.src || posterEl.getAttribute('src') || '';
             };
+            const keepPlaying = () => {
+                if (video.dataset.stop === '1') {
+                    return;
+                }
+                if (Number.isFinite(video.duration) && video.duration > 0 && (video.ended || video.currentTime >= video.duration - 0.05)) {
+                    try {
+                        video.currentTime = 0;
+                    } catch (e) {}
+                }
+                video.play().catch(() => {});
+            };
+            video.addEventListener('ended', keepPlaying);
+            video.addEventListener('pause', keepPlaying);
             const boot = (url) => {
                 const posterUrl = posterFor(query.matches);
                 if (posterEl && posterUrl) {
@@ -48,19 +59,20 @@
                 if (posterUrl) {
                     video.poster = posterUrl;
                 }
+                video.loop = true;
                 video.muted = true;
                 video.defaultMuted = true;
                 video.playsInline = true;
                 video.setAttribute('playsinline', '');
                 video.setAttribute('webkit-playsinline', '');
-                video.playbackRate = 0.75;
+                video.playbackRate = 1;
                 if (video.dataset.loaded !== url) {
                     video.src = url;
                     video.dataset.loaded = url;
                     video.load();
                 }
                 const start = () => {
-                    video.play().catch(() => {});
+                    keepPlaying();
                 };
                 if (video.readyState >= 2) {
                     start();
@@ -69,29 +81,11 @@
                 }
             };
             const onChange = () => {
-                this.dim = false;
-                this.primed = false;
                 boot(pick());
             };
             this.releaseViewport = () => query.removeEventListener('change', onChange);
             boot(pick());
             query.addEventListener('change', onChange);
-        },
-        tick() {
-            const video = this.$refs.video;
-            if (! video || ! Number.isFinite(video.duration) || video.duration < 1) {
-                return;
-            }
-            const left = video.duration - video.currentTime;
-            const lead = 2.8 * (video.playbackRate || 0.75);
-            if (! this.dim && left < lead && left > 0.08) {
-                this.dim = true;
-                this.primed = true;
-                return;
-            }
-            if (this.dim && this.primed && video.currentTime < 0.35 && left > lead) {
-                this.dim = false;
-            }
         },
         destroy() {
             this.releaseViewport?.();
@@ -99,6 +93,7 @@
             if (! video) {
                 return;
             }
+            video.dataset.stop = '1';
             video.pause();
             video.removeAttribute('src');
             video.load();
@@ -114,12 +109,11 @@
                 src="{{ asset($poster) }}"
             @endif>
     @endif
-    <div class="flow-tunnel-fade" :class="dim && 'is-dim'">
+    <div class="flow-tunnel-fade">
         <video x-ref="video" autoplay muted loop playsinline webkit-playsinline preload="auto"
             width="{{ $width }}" height="{{ $height }}"
             @if (filled($poster) && blank($mobilePoster)) poster="{{ asset($poster) }}" @endif
-            disablepictureinpicture
-            @timeupdate="tick()">
+            disablepictureinpicture>
         </video>
     </div>
     <script>
@@ -141,18 +135,32 @@
                 }
             }
             var src = narrow && mobile ? mobile : root.dataset.src;
+            video.loop = true;
             video.muted = true;
             video.defaultMuted = true;
             video.playsInline = true;
             video.setAttribute('playsinline', '');
             video.setAttribute('webkit-playsinline', '');
-            video.playbackRate = 0.75;
+            video.playbackRate = 1;
+            var keepPlaying = function () {
+                if (video.dataset.stop === '1') {
+                    return;
+                }
+                if (Number.isFinite(video.duration) && video.duration > 0 && video.ended) {
+                    try {
+                        video.currentTime = 0;
+                    } catch (e) {}
+                }
+                video.play().catch(function () {});
+            };
+            video.addEventListener('ended', keepPlaying);
+            video.addEventListener('pause', keepPlaying);
             if (src && video.getAttribute('src') !== src) {
                 video.src = src;
                 video.dataset.loaded = src;
             }
             var start = function () {
-                video.play().catch(function () {});
+                keepPlaying();
             };
             if (video.readyState >= 2) {
                 start();
