@@ -18,10 +18,19 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($terms)->toContain('tunnel="full"');
     expect($signup)->toContain('tunnel="split"');
 
+    $login = file_get_contents(resource_path('views/auth/login.blade.php'));
+    $register = file_get_contents(resource_path('views/auth/register.blade.php'));
+
+    expect($login)->toContain('tunnel="login"');
+    expect($register)->toContain('<x-auth.shell crystal');
+    expect(file_exists(public_path('media/login.mp4')))->toBeTrue();
+    expect(file_exists(public_path('brand/getodoo-mark.png')))->toBeTrue();
+    expect(file_exists(public_path('brand/getodoo-wordmark.png')))->toBeTrue();
+
     expect($styles)
         ->toContain('.auth-shell-split .auth-plan-layout')
         ->toContain('align-items: center')
-        ->toContain('.auth-shell-tunnel:not(.auth-shell-split) .auth-terms-body')
+        ->toContain('.auth-shell-terms .auth-terms-body')
         ->toContain('max-height: none')
         ->toContain('.auth-shell-split .auth-plan-package:hover::before')
         ->toContain('animation: card-border-spin 4.5s linear infinite')

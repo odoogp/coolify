@@ -4,6 +4,8 @@
     'wide' => false,
     'scroll' => false,
     'tunnel' => null,
+    'crystal' => false,
+    'lockup' => false,
 ])
 
 <section @class([
@@ -12,8 +14,13 @@
         'auth-shell-scroll' => $scroll && ! $wide,
         'auth-shell-tunnel' => filled($tunnel),
         'auth-shell-split' => $tunnel === 'split',
+        'auth-shell-terms' => $tunnel === 'full',
+        'auth-shell-crystal' => $crystal || $tunnel === 'login',
+        'auth-shell-login' => $tunnel === 'login',
     ])>
-    @if (filled($tunnel))
+    @if ($tunnel === 'login')
+        <x-flow-tunnel video="media/login.mp4" :poster="null" :width="3840" :height="2160" />
+    @elseif (filled($tunnel))
         <x-flow-tunnel />
     @endif
     <div class="auth-stage" aria-hidden="true">
@@ -59,7 +66,15 @@
             <div class="auth-card-heading">
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <h1>{{ $title }}</h1>
+                        @if ($lockup || $tunnel === 'login')
+                            <div class="auth-lockup">
+                                <img src="{{ asset('brand/getodoo-mark.png') }}" alt="" class="auth-lockup-mark">
+                                <img src="{{ asset('brand/getodoo-wordmark.png') }}" alt="{{ $title }}"
+                                    class="auth-lockup-word">
+                            </div>
+                        @else
+                            <h1>{{ $title }}</h1>
+                        @endif
                         @if ($description)
                             <p>{{ $description }}</p>
                         @endif

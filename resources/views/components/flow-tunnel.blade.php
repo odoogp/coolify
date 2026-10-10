@@ -1,3 +1,10 @@
+@props([
+    'poster' => 'media/moon-walk.jpg',
+    'video' => 'media/moon-walk.mp4',
+    'width' => 2888,
+    'height' => 2160,
+])
+
 <div class="flow-tunnel absolute inset-0 h-full w-full -z-10 pointer-events-none"
     x-data="{
         playing: false,
@@ -31,7 +38,10 @@
     }"
     :class="playing && 'is-playing'"
     aria-hidden="true">
-    <img src="{{ asset('media/moon-walk.jpg') }}" alt="">
-    <video x-ref="video" data-src="{{ asset('media/moon-walk.mp4') }}" poster="{{ asset('media/moon-walk.jpg') }}"
-        width="2888" height="2160" muted loop playsinline preload="auto" @playing="playing = true"></video>
+    @if (filled($poster))
+        <img src="{{ asset($poster) }}" alt="">
+    @endif
+    <video x-ref="video" data-src="{{ asset($video) }}" @if (filled($poster)) poster="{{ asset($poster) }}" @endif
+        width="{{ $width }}" height="{{ $height }}" muted loop playsinline preload="auto"
+        @playing="playing = true"></video>
 </div>
