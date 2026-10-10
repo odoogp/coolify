@@ -26,6 +26,11 @@
             'icon' => 'calendar',
         ];
         $settingsMenuSections['Configuration'][] = [
+            'label' => __('Regions'),
+            'route' => 'settings.getodoo-regions',
+            'icon' => 'globe',
+        ];
+        $settingsMenuSections['Configuration'][] = [
             'label' => __('Plans'),
             'route' => 'settings.getodoo-plans',
             'icon' => 'tags',

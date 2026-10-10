@@ -2,6 +2,7 @@
 
 use App\Livewire\GetOdoo\PlanSignup;
 use App\Livewire\Settings\GetOdooPlans;
+use App\Livewire\Settings\GetOdooRegions;
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
@@ -600,4 +601,73 @@ it('applies country service and project limits to the new team', function () {
         ->and($entitlements['allowed_services'])->toBe(['odoo', 'redis'])
         ->and(GetOdooAreaEntitlements::allowsService($team, 'odoo'))->toBeTrue()
         ->and(GetOdooAreaEntitlements::allowsService($team, 'n8n'))->toBeFalse();
+});
+
+it('lists plans without opening the editor until New or Edit', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Listed plan']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSet('showPlanEditor', false)
+        ->assertSee('Listed plan')
+        ->assertDontSee(__('Save plan'))
+        ->call('newPlan')
+        ->assertSet('showPlanEditor', true)
+        ->assertSee(__('Save plan'))
+        ->call('cancelPlanEditor')
+        ->assertSet('showPlanEditor', false)
+        ->call('editPlan', $plan->id)
+        ->assertSet('showPlanEditor', true)
+        ->assertSet('name', 'Listed plan');
+});
+
+it('exposes regions in settings with list-first editing', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $this->get(route('settings.getodoo-regions'))->assertOk();
+
+    expect(file_get_contents(resource_path('views/components/settings/layout.blade.php')))
+        ->toContain("'route' => 'settings.getodoo-regions'")
+        ->toContain("__('Regions')");
+
+    Livewire::test(GetOdooRegions::class)
+        ->assertSet('showRegionEditor', false)
+        ->assertDontSee(__('Save region'))
+        ->call('newRegion')
+        ->assertSet('showRegionEditor', true)
+        ->set('regionName', 'Centroamérica')
+        ->set('pendingRegionCountry', 'El Salvador')
+        ->call('addRegionCountry')
+        ->set('pendingRegionCountry', 'Guatemala')
+        ->call('addRegionCountry')
+        ->call('saveRegion')
+        ->assertHasNoErrors()
+        ->assertSet('showRegionEditor', false)
+        ->assertSee('Centroamérica');
+
+    $region = GetOdooPricingArea::query()->where('kind', GetOdooPricingArea::KIND_REGION)->where('name', 'Centroamérica')->first();
+    expect($region)->not->toBeNull()
+        ->and($region->children()->where('kind', GetOdooPricingArea::KIND_COUNTRY)->count())->toBe(2);
+
+    Livewire::test(GetOdooPlans::class)
+        ->call('newPlan')
+        ->set('name', 'CA plan')
+        ->set('price', '80')
+        ->set('planIsRestOfWorld', false)
+        ->set('pendingRegionId', (string) $region->id)
+        ->call('addPlanRegion')
+        ->call('savePlan')
+        ->assertHasNoErrors();
+
+    $plan = GetOdooPlan::query()->where('name', 'CA plan')->first();
+    expect($plan)->not->toBeNull()
+        ->and($plan->is_rest_of_world)->toBeFalse()
+        ->and($plan->pricingAreas->pluck('id')->all())->toContain($region->id);
 });

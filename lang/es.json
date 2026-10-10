@@ -4627,5 +4627,16 @@
     "Base USD price. A country or region promo on this plan can replace it on signup.": "Precio base en USD. Un promo de país o región en este plan puede reemplazarlo en el registro.",
     "The country associated with your account.": "El país asociado a tu cuenta.",
     "Optional. Empty uses your country. They can change it later in their profile.": "Opcional. Vacío usa tu país. Pueden cambiarlo después en su perfil.",
-    "Time (:timezone)": "Hora (:timezone)"
+    "Time (:timezone)": "Hora (:timezone)",
+    "A plan is the package a new customer buys. Sell it by country, by region, or as Rest of the world at the list price. Create regions under Regions first.": "Un plan es el paquete que compra un cliente nuevo. Véndelo por país, por región o como Resto del mundo al precio de lista. Crea las regiones en Regiones primero.",
+    "Group countries into a region. On Plans, attach a region so one plan covers every country in it. Country plans still win over region plans for that country.": "Agrupa países en una región. En Planes, adjunta una región para que un plan cubra todos sus países. Un plan de país sigue ganando sobre el de región en ese país.",
+    "Monthly list price": "Precio de lista mensual",
+    "Standard USD price for this plan. Rest of the world always charges this amount. A country or region promo can replace it for that coverage.": "Precio estándar en USD de este plan. Resto del mundo siempre cobra este monto. Una promo de país o región puede reemplazarlo en esa cobertura.",
+    "Choose one coverage: Rest of the world (list price everywhere no country/region plan wins), or attach specific countries and/or regions. Rest of the world cannot be combined with countries or regions.": "Elige una cobertura: Resto del mundo (precio de lista donde no gana un plan de país o región), o adjunta países y/o regiones. Resto del mundo no se combina con países ni regiones.",
+    "Rest of the world (list price)": "Resto del mundo (precio de lista)",
+    "No country is attached. Buyers outside every country and region plan pay the monthly list price above.": "No hay país adjunto. Los compradores fuera de todo plan de país o región pagan el precio de lista mensual de arriba.",
+    "No regions yet. Create them under Configuration → Regions.": "Aún no hay regiones. Créalas en Configuración → Regiones.",
+    "Promo price is optional. Empty uses the monthly list price (plus any country extras).": "El precio promo es opcional. Vacío usa el precio de lista mensual (más extras del país, si hay).",
+    "Create a plan to get the signup link for the website.": "Crea un plan para obtener el enlace de alta del sitio.",
+    "Create a region, then attach it to a plan.": "Crea una región y luego adjúntala a un plan."
 }

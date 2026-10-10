@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
+use App\Support\GetOdooCountries;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -76,6 +77,49 @@ class GetOdooPricingArea extends BaseModel
     public static function normalizeCode(string $value): string
     {
         return Str::slug(trim($value));
+    }
+
+    /**
+     * Create or refresh an active country pricing area for the given ISO code.
+     */
+    public static function ensureCountry(string $iso): self
+    {
+        $iso = strtoupper(trim($iso));
+        $name = GetOdooCountries::name($iso) ?? $iso;
+        $code = self::normalizeCode($iso);
+
+        $area = self::query()
+            ->where('kind', self::KIND_COUNTRY)
+            ->where(function ($query) use ($code, $iso) {
+                $query->where('iso_code', $iso)->orWhere('code', $code);
+            })
+            ->first();
+
+        if ($area instanceof self) {
+            $area->update([
+                'name' => $name,
+                'iso_code' => $iso,
+                'code' => $code,
+                'is_active' => true,
+            ]);
+
+            return $area->fresh();
+        }
+
+        return self::query()->create([
+            'code' => $code,
+            'name' => $name,
+            'kind' => self::KIND_COUNTRY,
+            'parent_id' => null,
+            'iso_code' => $iso,
+            'extra_fixed' => 0,
+            'extra_percent' => 0,
+            'is_active' => true,
+            'allow_multiple_projects' => true,
+            'allow_all_services' => true,
+            'allowed_services' => null,
+            'sort_order' => 0,
+        ]);
     }
 
     /**

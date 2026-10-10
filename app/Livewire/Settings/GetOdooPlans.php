@@ -3,7 +3,6 @@
 namespace App\Livewire\Settings;
 
 use App\Models\GetOdooPlan;
-use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
 use App\Support\GetOdooBackupFrequency;
 use App\Support\GetOdooCountries;
@@ -14,6 +13,8 @@ use Livewire\Component;
 
 class GetOdooPlans extends Component
 {
+    public bool $showPlanEditor = false;
+
     public ?int $planId = null;
 
     public string $name = '';
@@ -68,15 +69,6 @@ class GetOdooPlans extends Component
 
     public string $pendingRegionId = '';
 
-    public ?int $regionId = null;
-
-    public string $regionName = '';
-
-    /** @var list<string> */
-    public array $regionCountries = [];
-
-    public string $pendingRegionCountry = '';
-
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -88,6 +80,7 @@ class GetOdooPlans extends Component
     {
         abort_unless(isInstanceOwner(), 403);
 
+        $this->resetErrorBag();
         $this->reset([
             'planId',
             'name',
@@ -116,6 +109,7 @@ class GetOdooPlans extends Component
         $this->backupFrequency = GetOdooBackupFrequency::DAILY;
         $this->backupRetentionDays = '7';
         $this->planIsRestOfWorld = true;
+        $this->showPlanEditor = true;
     }
 
     public function editPlan(int $planId): void
@@ -123,6 +117,7 @@ class GetOdooPlans extends Component
         abort_unless(isInstanceOwner(), 403);
 
         $plan = GetOdooPlan::query()->with('pricingAreas')->findOrFail($planId);
+        $this->resetErrorBag();
         $this->planId = $plan->id;
         $this->name = $plan->name;
         $this->summary = (string) $plan->summary;
@@ -170,6 +165,16 @@ class GetOdooPlans extends Component
             }
         }
         $this->planRegionIds = array_values(array_unique($this->planRegionIds));
+        $this->showPlanEditor = true;
+    }
+
+    public function cancelPlanEditor(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $this->showPlanEditor = false;
+        $this->planId = null;
+        $this->resetErrorBag();
     }
 
     public function updatedPlanIsRestOfWorld(bool $value): void
@@ -253,171 +258,6 @@ class GetOdooPlans extends Component
             fn (int $row): bool => $row !== $regionId
         ));
         unset($this->planRegionPromos[(string) $regionId]);
-    }
-
-    public function newRegion(): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $this->regionId = null;
-        $this->regionName = '';
-        $this->regionCountries = [];
-        $this->pendingRegionCountry = '';
-    }
-
-    public function editRegion(int $regionId): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $region = GetOdooPricingArea::query()
-            ->whereKey($regionId)
-            ->where('kind', GetOdooPricingArea::KIND_REGION)
-            ->with('children')
-            ->firstOrFail();
-
-        $this->regionId = $region->id;
-        $this->regionName = $region->name;
-        $this->regionCountries = $region->children
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->map(function (GetOdooPricingArea $child): ?string {
-                $iso = strtoupper((string) ($child->iso_code ?: $child->code));
-
-                return GetOdooCountries::name($iso);
-            })
-            ->filter()
-            ->values()
-            ->all();
-        $this->pendingRegionCountry = '';
-    }
-
-    public function addRegionCountry(): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $name = trim($this->pendingRegionCountry);
-        if (GetOdooCountries::isoFromName($name) === null) {
-            $this->addError('pendingRegionCountry', __('Pick a country from the list.'));
-
-            return;
-        }
-        if (! in_array($name, $this->regionCountries, true)) {
-            $this->regionCountries[] = $name;
-        }
-        $this->pendingRegionCountry = '';
-        $this->resetErrorBag('pendingRegionCountry');
-    }
-
-    public function removeRegionCountry(string $name): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $name = trim($name);
-        $this->regionCountries = array_values(array_filter(
-            $this->regionCountries,
-            fn (string $row): bool => $row !== $name
-        ));
-    }
-
-    public function saveRegion(): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $this->validate([
-            'regionName' => ['required', 'string', 'max:80'],
-            'regionCountries' => ['array'],
-            'regionCountries.*' => ['string', 'max:120', Rule::in(array_values(GetOdooCountries::names()))],
-        ]);
-
-        if ($this->regionCountries === []) {
-            $this->addError('regionCountries', __('Add at least one country to this region.'));
-
-            return;
-        }
-
-        $name = trim($this->regionName);
-        $code = GetOdooPricingArea::normalizeCode($name);
-
-        if ($this->regionId) {
-            $region = GetOdooPricingArea::query()
-                ->whereKey($this->regionId)
-                ->where('kind', GetOdooPricingArea::KIND_REGION)
-                ->firstOrFail();
-            $region->update([
-                'name' => $name,
-                'code' => $code.'-'.$region->id,
-                'is_active' => true,
-            ]);
-        } else {
-            $region = GetOdooPricingArea::query()->create([
-                'code' => $code.'-'.substr(uniqid(), -6),
-                'name' => $name,
-                'kind' => GetOdooPricingArea::KIND_REGION,
-                'parent_id' => null,
-                'iso_code' => null,
-                'extra_fixed' => 0,
-                'extra_percent' => 0,
-                'is_active' => true,
-                'allow_multiple_projects' => true,
-                'allow_all_services' => true,
-                'allowed_services' => null,
-                'sort_order' => 0,
-            ]);
-            $region->update(['code' => $code.'-'.$region->id]);
-            $this->regionId = $region->id;
-        }
-
-        $keepIds = [];
-        foreach (array_values(array_unique($this->regionCountries)) as $name) {
-            $iso = GetOdooCountries::isoFromName($name);
-            if ($iso === null) {
-                continue;
-            }
-            $country = $this->ensureCountryArea($iso);
-            $country->forceFill(['parent_id' => $region->id, 'is_active' => true])->save();
-            $keepIds[] = $country->id;
-        }
-
-        GetOdooPricingArea::query()
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->where('parent_id', $region->id)
-            ->whereNotIn('id', $keepIds)
-            ->update(['parent_id' => null]);
-
-        $this->dispatch('success', __('The region was saved.'));
-    }
-
-    public function deleteRegion(int $regionId): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        $region = GetOdooPricingArea::query()
-            ->whereKey($regionId)
-            ->where('kind', GetOdooPricingArea::KIND_REGION)
-            ->firstOrFail();
-
-        if ($region->plans()->exists()) {
-            $this->dispatch('error', __('This region is used by a plan and cannot be deleted.'));
-
-            return;
-        }
-
-        GetOdooPricingArea::query()
-            ->where('parent_id', $region->id)
-            ->update(['parent_id' => null]);
-
-        $region->delete();
-
-        if ($this->regionId === $regionId) {
-            $this->newRegion();
-        }
-
-        $this->planRegionIds = array_values(array_filter(
-            $this->planRegionIds,
-            fn (int $id): bool => $id !== $regionId
-        ));
-        unset($this->planRegionPromos[(string) $regionId]);
-
-        $this->dispatch('success', __('The region was deleted.'));
     }
 
     public function savePlan(): void
@@ -531,7 +371,7 @@ class GetOdooPlans extends Component
                 if ($iso === null) {
                     continue;
                 }
-                $area = $this->ensureCountryArea($iso);
+                $area = GetOdooPricingArea::ensureCountry($iso);
                 $promo = $this->planCountryPromos[Str::slug($name)] ?? null;
                 $promo = $promo === null || trim((string) $promo) === '' ? null : round((float) $promo, 2);
                 $sync[$area->id] = ['promo_price' => $promo];
@@ -545,6 +385,7 @@ class GetOdooPlans extends Component
         }
 
         $this->price = number_format((float) $plan->price, 2, '.', '');
+        $this->showPlanEditor = false;
         $this->dispatch('success', __('The plan was saved.'));
     }
 
@@ -564,50 +405,10 @@ class GetOdooPlans extends Component
         $plan->delete();
 
         if ($this->planId === $planId) {
-            $this->newPlan();
+            $this->cancelPlanEditor();
         }
 
         $this->dispatch('success', __('The plan was deleted.'));
-    }
-
-    private function ensureCountryArea(string $iso): GetOdooPricingArea
-    {
-        $iso = strtoupper($iso);
-        $name = GetOdooCountries::name($iso) ?? $iso;
-        $code = GetOdooPricingArea::normalizeCode($iso);
-
-        $area = GetOdooPricingArea::query()
-            ->where('kind', GetOdooPricingArea::KIND_COUNTRY)
-            ->where(function ($query) use ($code, $iso) {
-                $query->where('iso_code', $iso)->orWhere('code', $code);
-            })
-            ->first();
-
-        if ($area instanceof GetOdooPricingArea) {
-            $area->update([
-                'name' => $name,
-                'iso_code' => $iso,
-                'code' => $code,
-                'is_active' => true,
-            ]);
-
-            return $area->fresh();
-        }
-
-        return GetOdooPricingArea::query()->create([
-            'code' => $code,
-            'name' => $name,
-            'kind' => GetOdooPricingArea::KIND_COUNTRY,
-            'parent_id' => null,
-            'iso_code' => $iso,
-            'extra_fixed' => 0,
-            'extra_percent' => 0,
-            'is_active' => true,
-            'allow_multiple_projects' => true,
-            'allow_all_services' => true,
-            'allowed_services' => null,
-            'sort_order' => 0,
-        ]);
     }
 
     private function blankToNull(mixed $value): mixed
@@ -636,7 +437,6 @@ class GetOdooPlans extends Component
 
         $regions = GetOdooPricingArea::query()
             ->where('kind', GetOdooPricingArea::KIND_REGION)
-            ->with(['children' => fn ($q) => $q->where('kind', GetOdooPricingArea::KIND_COUNTRY)->orderBy('name')])
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
@@ -674,31 +474,12 @@ class GetOdooPlans extends Component
             ->values()
             ->all();
 
-        $usedRegionCountries = array_flip($this->regionCountries);
-        $addRegionCountryChoices = array_values(array_filter(
-            GetOdooCountries::choices(),
-            fn (array $row): bool => ! isset($usedRegionCountries[$row['value']])
-        ));
-
-        $regionCountryRows = collect($this->regionCountries)
-            ->map(fn (string $name): array => [
-                'name' => $name,
-                'label' => $name,
-            ])
-            ->sortBy('label', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values()
-            ->all();
-
         return view('livewire.settings.getodoo-plans', [
             'plans' => GetOdooPlan::query()->with(['pricingAreas'])->withCount('signups')->orderBy('price')->orderBy('name')->get(),
-            'signups' => GetOdooPlanSignup::query()->with(['plan', 'pricingArea'])->latest('id')->limit(20)->get(),
             'planCountryRows' => $planCountryRows,
             'planRegionRows' => $planRegionRows,
             'addCountryChoices' => $addCountryChoices,
             'addRegionChoices' => $addRegionChoices,
-            'regions' => $regions,
-            'regionCountryRows' => $regionCountryRows,
-            'addRegionCountryChoices' => $addRegionCountryChoices,
             'backupFrequencyChoices' => GetOdooBackupFrequency::choices(includeNone: false),
         ]);
     }

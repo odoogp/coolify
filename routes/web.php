@@ -90,6 +90,7 @@ use App\Livewire\GetOdoo\PlanReturn;
 use App\Livewire\GetOdoo\PlanSignup;
 use App\Livewire\Settings\GetOdooPlans as SettingsGetOdooPlans;
 use App\Livewire\Settings\GetOdooPurchases as SettingsGetOdooPurchases;
+use App\Livewire\Settings\GetOdooRegions as SettingsGetOdooRegions;
 use App\Livewire\Settings\GetOdooServers as SettingsGetOdooServers;
 use App\Livewire\Settings\Github as SettingsGithub;
 use App\Livewire\Settings\Index as SettingsIndex;
@@ -204,6 +205,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
     Route::get('/settings/getodoo-purchases', SettingsGetOdooPurchases::class)->name('settings.getodoo-purchases');
     Route::get('/settings/getodoo-plans', SettingsGetOdooPlans::class)->name('settings.getodoo-plans');
+    Route::get('/settings/getodoo-regions', SettingsGetOdooRegions::class)->name('settings.getodoo-regions');
     Route::get('/settings/github', SettingsGithub::class)->name('settings.github');
     Route::get('/settings/whatsapp', SettingsWhatsapp::class)->name('settings.whatsapp');
 

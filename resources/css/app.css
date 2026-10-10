@@ -3708,6 +3708,11 @@ input[type="search"]::-webkit-search-results-decoration {
     min-width: 48rem;
 }
 
+.getodoo-regions-table-grid {
+    grid-template-columns: minmax(8rem, 0.8fr) minmax(12rem, 1.4fr) max-content;
+    min-width: 32rem;
+}
+
 .server-resources-unmanaged-table-grid {
     grid-template-columns: minmax(9rem, 1fr) minmax(12rem, 1.5fr) 7rem minmax(9rem, auto);
 }
