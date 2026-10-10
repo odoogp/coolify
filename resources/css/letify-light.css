@@ -168,17 +168,16 @@ html[data-theme="light"] .menu-subitem-active .menu-item-icon {
 }
 
 html[data-theme="light"] .data-table-row {
-    margin-block: 6px;
-    border-radius: 20px;
-    background: #ffffff;
-    box-shadow: 0 8px 24px var(--letify-glow);
-    transition: transform 220ms ease-out, box-shadow 220ms ease-out;
+    margin-block: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
 }
 
 html[data-theme="light"] .data-table-row:hover {
-    background: #ffffff;
-    transform: translateY(-2px);
-    box-shadow: 0 14px 32px var(--letify-glow);
+    background: rgb(0 0 0 / 0.02);
+    transform: none;
+    box-shadow: none;
 }
 
 html[data-theme="light"] [data-callout="success"] {

@@ -131,12 +131,9 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
 
     expect($plans)
         ->toContain('settings-section title="{{ __(\'Plans\') }}" flush')
-        ->toContain('data-table-header getodoo-plans-table-grid getodoo-plans-columns')
-        ->toContain('getodoo-plan-row getodoo-plans-table-grid')
-        ->not->toContain('data-table-row getodoo-plans-table-grid');
+        ->toContain('data-table-header getodoo-plans-table-grid')
+        ->toContain('data-table-row getodoo-plans-table-grid')
+        ->not->toContain('getodoo-plan-row');
 
-    expect($styles)
-        ->toContain('.getodoo-plan-row')
-        ->toContain('border: 1px solid var(--coollabs-fill)')
-        ->toContain('13rem');
+    expect($styles)->toContain('13rem');
 });
