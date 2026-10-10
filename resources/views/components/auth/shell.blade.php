@@ -14,7 +14,7 @@
         'auth-shell-split' => $tunnel === 'split',
     ])>
     @if (filled($tunnel))
-        <x-flow-tunnel :split="$tunnel === 'split'" />
+        <x-flow-tunnel />
     @endif
     <div class="auth-stage" aria-hidden="true">
         <span class="auth-stage-glow"></span>

@@ -1,4 +1,3 @@
-import { initializeFlowTunnel } from './flow-tunnel.js';
 import { initializeHtmlEditor } from './html-editor.js';
 import { initializeTerminalComponent } from './terminal.js';
 
@@ -24,7 +23,6 @@ document.addEventListener('livewire:navigated', () => {
 document.addEventListener('alpine:init', () => {
     initializeTerminalComponent();
     initializeHtmlEditor();
-    initializeFlowTunnel();
 });
 
 /**
