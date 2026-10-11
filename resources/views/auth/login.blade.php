@@ -95,9 +95,9 @@
             @if ($is_registration_enabled)
                 <span>{{ __('New to Coolify?') }}</span>
                 <a href="/register" class="auth-text-link">{{ __('auth.register_now') }}</a>
-            @else
-                <span>{{ __('auth.registration_disabled') }}</span>
+                <span aria-hidden="true">·</span>
             @endif
+            <a href="{{ route('getodoo.terms') }}" class="auth-text-link underline">{{ __('Terms and conditions') }}</a>
         </x-slot:footer>
     </x-auth.shell>
 </x-layout-simple>

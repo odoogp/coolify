@@ -21,6 +21,16 @@ test('login register and forgot password headers are Coolify', function () {
         ->not->toContain("title=\"{{ __('auth.forgot_password_heading') }}\"");
 });
 
+test('login links to the terms page and does not announce disabled registration', function () {
+    $login = file_get_contents(resource_path('views/auth/login.blade.php'));
+
+    expect($login)
+        ->toContain("route('getodoo.terms')")
+        ->toContain("{{ __('Terms and conditions') }}")
+        ->toContain('auth.register_now')
+        ->not->toContain('auth.registration_disabled');
+});
+
 test('page body uses the dynamic viewport height on mobile', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
 

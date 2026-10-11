@@ -2499,6 +2499,7 @@ html:not(.dark) .auth-locale select {
 
 .auth-card-footer {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
     gap: 0.375rem;
