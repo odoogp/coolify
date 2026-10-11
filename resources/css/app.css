@@ -2013,49 +2013,14 @@ main:has(.auth-shell) {
     padding: 0 1rem;
 }
 
-.auth-shell-login .auth-shell-content::after {
-    content: "";
-    flex: 1 1 auto;
-    width: 100%;
+.auth-login-heading {
+    margin: 0;
 }
 
-.auth-login-mark-space {
-    display: flex;
-    flex: 1 1 auto;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    min-height: 6.5rem;
-}
-
-.auth-login-mark {
-    display: none;
-}
-
-.auth-login-mark-mobile {
-    display: flex;
-    width: min(18rem, 78vw);
-    height: auto;
-    pointer-events: none;
-    transform-origin: center;
-    animation: auth-breathe 4.6s ease-in-out infinite;
-}
-
-@keyframes auth-breathe {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.08); }
-}
-
-@keyframes auth-breathe-login {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); }
-    50% { transform: translate(-50%, -50%) scale(1.08); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .auth-login-mark,
-    .auth-login-mark-mobile {
-        animation: none;
-    }
+.auth-login-heading-mark {
+    width: min(14.5rem, 100%);
+    padding: 0.45rem 0.65rem;
+    border-radius: 16px;
 }
 
 @media (min-width: 901px) {
@@ -2067,25 +2032,6 @@ main:has(.auth-shell) {
         align-items: center;
         justify-content: center;
         padding: 2rem 1.5rem;
-    }
-
-    .auth-login-mark-space,
-    .auth-shell-login .auth-shell-content::after {
-        display: none;
-    }
-
-    .auth-login-mark {
-        display: flex;
-        position: fixed;
-        left: 25%;
-        top: 50%;
-        z-index: 2;
-        width: min(30rem, 38vw);
-        height: auto;
-        pointer-events: none;
-        transform: translate(-50%, -50%);
-        transform-origin: center;
-        animation: auth-breathe-login 4.6s ease-in-out infinite;
     }
 }
 

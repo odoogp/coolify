@@ -34,11 +34,12 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($shell)->toContain('poster="media/login-poster.jpg"');
     expect($shell)->toContain('mobile-poster="media/login-mobile-poster.jpg"');
     expect($shell)->not->toContain('moon-walk');
-    expect($shell)->toContain('class="auth-login-mark"');
+    expect($shell)->toContain('class="auth-isologo auth-login-heading-mark"');
+    expect($shell)->not->toContain('auth-login-mark');
     expect($shell)->not->toContain('auth-plan-mark');
-    expect($styles)->toContain('@keyframes auth-breathe');
-    expect($styles)->toContain('@keyframes auth-breathe-login');
-    expect($styles)->toContain('left: 25%');
+    expect($styles)->toContain('.auth-login-heading-mark {');
+    expect($styles)->not->toContain('@keyframes auth-breathe');
+    expect($styles)->not->toContain('left: 25%');
     expect($styles)->not->toContain('.auth-plan-mark');
     expect(file_exists(public_path('media/login-poster.jpg')))->toBeTrue();
     expect(file_exists(public_path('media/login-mobile-poster.jpg')))->toBeTrue();
@@ -50,7 +51,7 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($styles)
         ->toContain('.flow-tunnel-fade {')
         ->toContain('.auth-shell-login .auth-shell-content');
-    expect($shell)->toContain('class="auth-isologo auth-login-mark"');
+    expect($shell)->toContain('auth-login-heading');
     expect($styles)->toContain('.auth-isologo {');
     expect($styles)->toContain('.auth-isologo img');
     expect($shell)->toContain('brand/getodoo-isologo.png');
