@@ -10,8 +10,11 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('media/moon-walk.jpg')
         ->toContain('media/moon-walk.mp4')
         ->toContain('webkit-playsinline')
-        ->toContain('playbackRate = 1')
+        ->toContain('data-rate="{{ $rate }}"')
+        ->toContain('isFullyBuffered')
+        ->toContain('buffered.end')
         ->toContain("addEventListener('ended'")
+        ->not->toContain("addEventListener('pause'")
         ->toContain('absolute inset-0 h-full w-full -z-10 pointer-events-none');
 
     expect(file_exists(public_path('media/moon-walk.jpg')))->toBeTrue();
@@ -30,6 +33,7 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
 
     $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
 
+    expect($shell)->toContain('rate="0.5"');
     expect($shell)->toContain('mobile-video="media/login-mobile.mp4"');
     expect($shell)->toContain('poster="media/login-poster.jpg"');
     expect($shell)->toContain('mobile-poster="media/login-mobile-poster.jpg"');

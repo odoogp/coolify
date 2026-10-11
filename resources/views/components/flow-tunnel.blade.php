@@ -5,98 +5,21 @@
     'mobileVideo' => null,
     'width' => 2888,
     'height' => 2160,
+    'rate' => 1,
 ])
 
 <div class="flow-tunnel absolute inset-0 h-full w-full -z-10 pointer-events-none"
     data-src="{{ asset($video) }}"
+    data-rate="{{ $rate }}"
     @if (filled($mobileVideo)) data-mobile-src="{{ asset($mobileVideo) }}" @endif
     x-data="{
-        init() {
-            const video = this.$refs.video;
-            if (! video) {
-                return;
-            }
-            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                return;
-            }
-            const query = window.matchMedia('(max-width: 900px)');
-            const pick = () => {
-                const mobile = this.$el.dataset.mobileSrc;
-                if (query.matches && mobile) {
-                    return mobile;
-                }
-                return this.$el.dataset.src;
-            };
-            const posterEl = this.$el.querySelector('.flow-tunnel-poster');
-            const posterFor = (narrow) => {
-                if (! posterEl) {
-                    return '';
-                }
-                const mobilePoster = posterEl.dataset.mobileSrc;
-                if (narrow && mobilePoster) {
-                    return mobilePoster;
-                }
-                return posterEl.dataset.src || posterEl.getAttribute('src') || '';
-            };
-            const keepPlaying = () => {
-                if (video.dataset.stop === '1') {
-                    return;
-                }
-                if (Number.isFinite(video.duration) && video.duration > 0 && (video.ended || video.currentTime >= video.duration - 0.05)) {
-                    try {
-                        video.currentTime = 0;
-                    } catch (e) {}
-                }
-                video.play().catch(() => {});
-            };
-            video.addEventListener('ended', keepPlaying);
-            video.addEventListener('pause', keepPlaying);
-            const boot = (url) => {
-                const posterUrl = posterFor(query.matches);
-                if (posterEl && posterUrl) {
-                    posterEl.src = posterUrl;
-                }
-                if (posterUrl) {
-                    video.poster = posterUrl;
-                }
-                video.loop = true;
-                video.muted = true;
-                video.defaultMuted = true;
-                video.playsInline = true;
-                video.setAttribute('playsinline', '');
-                video.setAttribute('webkit-playsinline', '');
-                video.playbackRate = 1;
-                if (video.dataset.loaded !== url) {
-                    video.src = url;
-                    video.dataset.loaded = url;
-                    video.load();
-                }
-                const start = () => {
-                    keepPlaying();
-                };
-                if (video.readyState >= 2) {
-                    start();
-                } else {
-                    video.addEventListener('canplay', start, { once: true });
-                }
-            };
-            const onChange = () => {
-                boot(pick());
-            };
-            this.releaseViewport = () => query.removeEventListener('change', onChange);
-            boot(pick());
-            query.addEventListener('change', onChange);
-        },
         destroy() {
-            this.releaseViewport?.();
-            const video = this.$refs.video;
-            if (! video) {
-                return;
-            }
-            video.dataset.stop = '1';
-            video.pause();
-            video.removeAttribute('src');
-            video.load();
+            this.$el.dataset.stop = '1';
+            this.$el.querySelectorAll('video').forEach((video) => {
+                video.pause();
+                video.removeAttribute('src');
+                video.load();
+            });
         },
     }"
     aria-hidden="true">
@@ -110,63 +33,211 @@
             @endif>
     @endif
     <div class="flow-tunnel-fade">
-        <video x-ref="video" autoplay muted loop playsinline webkit-playsinline preload="auto"
+        <video class="flow-tunnel-layer" muted playsinline webkit-playsinline preload="none"
             width="{{ $width }}" height="{{ $height }}"
             @if (filled($poster) && blank($mobilePoster)) poster="{{ asset($poster) }}" @endif
-            disablepictureinpicture>
-        </video>
+            disablepictureinpicture></video>
+        <video class="flow-tunnel-layer" muted playsinline webkit-playsinline preload="none"
+            width="{{ $width }}" height="{{ $height }}" disablepictureinpicture></video>
     </div>
     <script>
         (function () {
-            var video = document.currentScript.previousElementSibling.querySelector('video');
-            if (! video) {
+            var root = document.currentScript.closest('.flow-tunnel');
+            if (! root || root.dataset.booted === '1') {
                 return;
             }
-            var root = video.closest('.flow-tunnel');
-            var mobile = root && root.dataset.mobileSrc;
-            var narrow = window.matchMedia('(max-width: 900px)').matches;
-            var poster = root.querySelector('.flow-tunnel-poster');
-            if (poster) {
-                var mobilePoster = poster.dataset.mobileSrc;
-                var posterSrc = narrow && mobilePoster ? mobilePoster : (poster.dataset.src || poster.getAttribute('src') || '');
-                if (posterSrc) {
-                    poster.src = posterSrc;
-                    video.poster = posterSrc;
-                }
+            root.dataset.booted = '1';
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                return;
             }
-            var src = narrow && mobile ? mobile : root.dataset.src;
-            video.loop = true;
-            video.muted = true;
-            video.defaultMuted = true;
-            video.playsInline = true;
-            video.setAttribute('playsinline', '');
-            video.setAttribute('webkit-playsinline', '');
-            video.playbackRate = 1;
-            var keepPlaying = function () {
-                if (video.dataset.stop === '1') {
+            var videos = root.querySelectorAll('video');
+            var primary = videos[0];
+            var secondary = videos[1];
+            if (! primary || ! secondary) {
+                return;
+            }
+            var query = window.matchMedia('(max-width: 900px)');
+            var rate = Number(root.dataset.rate || 1) || 1;
+            var fadeSeconds = 2;
+            var posterEl = root.querySelector('.flow-tunnel-poster');
+            var front = primary;
+            var back = secondary;
+            var fading = false;
+            var generation = 0;
+
+            var pick = function () {
+                var mobile = root.dataset.mobileSrc;
+                if (query.matches && mobile) {
+                    return mobile;
+                }
+                return root.dataset.src;
+            };
+            var posterFor = function (narrow) {
+                if (! posterEl) {
+                    return '';
+                }
+                var mobilePoster = posterEl.dataset.mobileSrc;
+                if (narrow && mobilePoster) {
+                    return mobilePoster;
+                }
+                return posterEl.dataset.src || posterEl.getAttribute('src') || '';
+            };
+            var isFullyBuffered = function (video) {
+                var duration = video.duration;
+                if (! Number.isFinite(duration) || duration <= 0 || ! video.buffered.length) {
+                    return false;
+                }
+                try {
+                    return video.buffered.start(0) <= 0.05 && video.buffered.end(video.buffered.length - 1) >= duration - 0.25;
+                } catch (e) {
+                    return false;
+                }
+            };
+            var whenFullyLoaded = function (video, done) {
+                var check = function () {
+                    if (root.dataset.stop === '1') {
+                        return;
+                    }
+                    if (! isFullyBuffered(video)) {
+                        return;
+                    }
+                    video.removeEventListener('progress', check);
+                    video.removeEventListener('loadedmetadata', check);
+                    done();
+                };
+                video.addEventListener('progress', check);
+                video.addEventListener('loadedmetadata', check);
+                check();
+            };
+            var prepare = function (video) {
+                video.loop = false;
+                video.muted = true;
+                video.defaultMuted = true;
+                video.playsInline = true;
+                video.setAttribute('playsinline', '');
+                video.setAttribute('webkit-playsinline', '');
+                video.preload = 'auto';
+                video.playbackRate = rate;
+            };
+            var playAtRate = function (video) {
+                video.playbackRate = rate;
+                var attempt = video.play();
+                if (attempt && attempt.catch) {
+                    attempt.catch(function () {});
+                }
+            };
+            var finishFade = function () {
+                if (! fading) {
                     return;
                 }
-                if (Number.isFinite(video.duration) && video.duration > 0 && video.ended) {
-                    try {
-                        video.currentTime = 0;
-                    } catch (e) {}
+                fading = false;
+                var outgoing = front;
+                outgoing.pause();
+                try {
+                    outgoing.currentTime = 0;
+                } catch (e) {}
+                front = back;
+                back = outgoing;
+            };
+            var beginFade = function () {
+                if (fading || root.dataset.stop === '1' || ! isFullyBuffered(back)) {
+                    return;
                 }
-                video.play().catch(function () {});
+                fading = true;
+                try {
+                    back.currentTime = 0;
+                } catch (e) {}
+                back.playbackRate = rate;
+                back.classList.add('is-on');
+                playAtRate(back);
+                front.classList.remove('is-on');
+                window.setTimeout(finishFade, (fadeSeconds * 1000) + 60);
             };
-            video.addEventListener('ended', keepPlaying);
-            video.addEventListener('pause', keepPlaying);
-            if (src && video.getAttribute('src') !== src) {
-                video.src = src;
-                video.dataset.loaded = src;
-            }
-            var start = function () {
-                keepPlaying();
+            var onTime = function (event) {
+                if (event.target !== front || fading || root.dataset.stop === '1') {
+                    return;
+                }
+                var duration = front.duration;
+                var speed = front.playbackRate || rate;
+                if (! Number.isFinite(duration) || duration <= 0 || speed <= 0) {
+                    return;
+                }
+                var wallLeft = (duration - front.currentTime) / speed;
+                if (wallLeft <= fadeSeconds) {
+                    beginFade();
+                }
             };
-            if (video.readyState >= 2) {
-                start();
-            } else {
-                video.addEventListener('canplay', start, { once: true });
-            }
+            var onEnded = function (event) {
+                if (event.target !== front) {
+                    return;
+                }
+                beginFade();
+            };
+            primary.addEventListener('timeupdate', onTime);
+            secondary.addEventListener('timeupdate', onTime);
+            primary.addEventListener('ended', onEnded);
+            secondary.addEventListener('ended', onEnded);
+            primary.addEventListener('play', function () {
+                primary.playbackRate = rate;
+            });
+            secondary.addEventListener('play', function () {
+                secondary.playbackRate = rate;
+            });
+
+            var boot = function (url) {
+                if (! url || root.dataset.stop === '1') {
+                    return;
+                }
+                var ticket = ++generation;
+                var posterUrl = posterFor(query.matches);
+                if (posterEl && posterUrl) {
+                    posterEl.src = posterUrl;
+                }
+                if (posterUrl) {
+                    primary.poster = posterUrl;
+                }
+                root.classList.remove('is-ready');
+                primary.classList.remove('is-on');
+                secondary.classList.remove('is-on');
+                fading = false;
+                front = primary;
+                back = secondary;
+                prepare(primary);
+                prepare(secondary);
+                secondary.removeAttribute('src');
+                secondary.load();
+                if (primary.dataset.loaded !== url) {
+                    primary.src = url;
+                    primary.dataset.loaded = url;
+                    primary.load();
+                }
+                whenFullyLoaded(primary, function () {
+                    if (ticket !== generation || root.dataset.stop === '1') {
+                        return;
+                    }
+                    root.classList.add('is-ready');
+                    front.classList.add('is-on');
+                    playAtRate(front);
+                    if (secondary.dataset.loaded !== url) {
+                        secondary.src = url;
+                        secondary.dataset.loaded = url;
+                        secondary.load();
+                    }
+                    whenFullyLoaded(secondary, function () {
+                        if (ticket !== generation || root.dataset.stop === '1') {
+                            return;
+                        }
+                        if (front.ended) {
+                            beginFade();
+                        }
+                    });
+                });
+            };
+
+            query.addEventListener('change', function () {
+                boot(pick());
+            });
+            boot(pick());
         })();
     </script>
 </div>

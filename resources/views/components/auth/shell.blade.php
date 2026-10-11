@@ -19,7 +19,7 @@
         'auth-shell-login' => $tunnel === 'login',
     ])>
     @if ($tunnel === 'login')
-        <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" poster="media/login-poster.jpg" mobile-poster="media/login-mobile-poster.jpg" :width="3840" :height="2160" />
+        <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" poster="media/login-poster.jpg" mobile-poster="media/login-mobile-poster.jpg" :width="3840" :height="2160" rate="0.5" />
     @elseif (filled($tunnel))
         <x-flow-tunnel />
     @endif

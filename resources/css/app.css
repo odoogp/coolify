@@ -2225,16 +2225,34 @@ html:not(.dark) .auth-shell-login .auth-locale select {
     object-position: center;
 }
 
+.flow-tunnel-poster {
+    z-index: 2;
+    opacity: 1;
+    transition: opacity 1.4s ease;
+}
+
+.flow-tunnel.is-ready .flow-tunnel-poster {
+    opacity: 0;
+}
+
 .flow-tunnel-fade {
+    z-index: 1;
     opacity: 1;
 }
 
 .flow-tunnel-fade video {
     display: block;
-    opacity: 1;
+    opacity: 0;
+    z-index: 0;
     background: transparent;
+    transition: opacity 2s linear;
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
+}
+
+.flow-tunnel-fade video.is-on {
+    opacity: 1;
+    z-index: 1;
 }
 
 .auth-shell-tunnel .auth-stage {
