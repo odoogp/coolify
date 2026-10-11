@@ -249,6 +249,47 @@ it('shows the plan automatic backup frequency on the backups screen', function (
         ->assertSee(__('Set by your plan. Contact an advisor to change how often backups run.'));
 });
 
+it('shows a running backup on screen and refuses to launch another', function () {
+    Queue::fake();
+    $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+
+    $component = Livewire::test(OdooBackups::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->call('createBackup')
+        ->assertDispatched('success')
+        ->assertSee(__('Backup in progress'))
+        ->assertSee(__('In progress'))
+        ->assertDontSee(__('Create Backup'))
+        ->assertSee('wire:poll.3s', false)
+        ->call('createBackup')
+        ->assertDispatched('error', __('A backup is already in progress.'));
+
+    $backup = OdooBackup::query()->where('environment_id', $production->id)->first();
+
+    expect(OdooBackup::query()->where('environment_id', $production->id)->count())->toBe(1)
+        ->and($backup)->not->toBeNull()
+        ->and($backup->status)->toBe('pending');
+
+    Queue::assertPushed(CreateOdooBackupJob::class, function (CreateOdooBackupJob $job) use ($production, $backup): bool {
+        return $job->environmentId === $production->id && $job->backupId === $backup->id;
+    });
+    Queue::assertPushed(CreateOdooBackupJob::class, 1);
+
+    $backup->update([
+        'status' => 'complete',
+        'filename' => '/data/coolify/backups/odoo/test/odoo-production.zip',
+        'filesize' => 100,
+    ]);
+
+    $component->call('$refresh')
+        ->assertSee(__('Complete'))
+        ->assertSee(__('Download'))
+        ->assertSee(__('Create Backup'))
+        ->assertDontSee(__('Backup in progress'));
+});
+
 it('translates in-progress backup status on the branch list', function () {
     $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
     OdooBackup::query()->create([

@@ -50,7 +50,7 @@ class RecordOdooPlanBackup
             return true;
         }
 
-        CreateOdooBackupJob::dispatch(
+        CreateOdooBackupJob::enqueue(
             (int) $service->environment_id,
             bypassPlanRestriction: false,
             kind: OdooBackup::KIND_AUTOMATIC,

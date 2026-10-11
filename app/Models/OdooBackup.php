@@ -49,6 +49,19 @@ class OdooBackup extends Model
         return filled($this->filename) && $this->status === 'complete';
     }
 
+    public function isBusy(): bool
+    {
+        return in_array($this->status, ['pending', 'running'], true);
+    }
+
+    public static function environmentIsBusy(int $environmentId): bool
+    {
+        return self::query()
+            ->where('environment_id', $environmentId)
+            ->whereIn('status', ['pending', 'running'])
+            ->exists();
+    }
+
     public function syncLegs(?int $databaseExecutionId, ?int $volumeExecutionId): void
     {
         $this->database_backup_execution_id = $databaseExecutionId;

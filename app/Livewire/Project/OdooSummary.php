@@ -70,7 +70,13 @@ class OdooSummary extends Component
         }
 
         $bypass = isInstanceOwner() && ! EnsureOdooBackupSchedules::planAllowsBackups($plan);
-        CreateOdooBackupJob::dispatch($environment->id, $bypass);
+        $backup = CreateOdooBackupJob::enqueue($environment->id, $bypass);
+        if ($backup === null) {
+            $this->dispatch('error', __('A backup is already in progress.'));
+
+            return;
+        }
+
         $this->dispatch('success', __('Backup queued.'));
     }
 
@@ -97,9 +103,20 @@ class OdooSummary extends Component
     {
         $this->project->load(['odooProfile', 'environments.odooBranch', 'environments.services']);
         $user = auth()->user();
-        $rows = $this->project->odooProfile === null ? [] : $this->project->environments
-            ->filter(fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name))
-            ->map(function (Environment $environment): array {
+        $environments = $this->project->odooProfile === null
+            ? collect()
+            : $this->project->environments
+                ->filter(fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name));
+        $busyEnvironmentIds = $environments->isEmpty()
+            ? []
+            : OdooBackup::query()
+                ->whereIn('environment_id', $environments->pluck('id'))
+                ->whereIn('status', ['pending', 'running'])
+                ->pluck('environment_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+        $rows = $environments->isEmpty() ? [] : $environments
+            ->map(function (Environment $environment) use ($busyEnvironmentIds): array {
                 $applicationId = $environment->odooBranch?->addons_application_id;
                 $latest = $applicationId === null ? null : ApplicationDeploymentQueue::query()
                     ->where('application_id', $applicationId)
@@ -118,6 +135,7 @@ class OdooSummary extends Component
                     'branch' => $environment->odooBranch?->git_branch,
                     'status' => $latest?->status,
                     'staging' => OdooStaging::isStagingName($environment->name),
+                    'backupRunning' => in_array((int) $environment->id, $busyEnvironmentIds, true),
                     'href' => $service === null ? null : route('project.show', [
                         'project_uuid' => $this->project->uuid,
                     ]),
@@ -128,6 +146,7 @@ class OdooSummary extends Component
 
         return view('livewire.project.odoo-summary', [
             'rows' => $rows,
+            'backupRunning' => $busyEnvironmentIds !== [],
             'versions' => OdooVersion::SUPPORTED,
             'canUpdate' => $user !== null && OdooAbilities::allows($user, (int) $this->project->team_id, 'odoo.project.update'),
         ]);

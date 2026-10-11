@@ -1,4 +1,4 @@
-<div>
+<div @if ($backupRunning) wire:poll.3s @endif>
     @if ($rows !== [])
         <section class="mb-5 overflow-hidden rounded-lg border border-neutral-200 dark:border-white/[0.08]">
             <div class="flex flex-col lg:flex-row">
@@ -42,7 +42,9 @@
                             @if ($canUpdate)
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     <x-forms.button type="button" wire:click="deploy({{ $row['id'] }})">{{ __('Deploy') }}</x-forms.button>
-                                    <x-forms.button type="button" wire:click="backup({{ $row['id'] }})">{{ __('Backup') }}</x-forms.button>
+                                    <x-forms.button type="button" wire:click="backup({{ $row['id'] }})" :disabled="$row['backupRunning']">
+                                        {{ $row['backupRunning'] ? __('Backup in progress') : __('Backup') }}
+                                    </x-forms.button>
                                     @if ($row['staging'])
                                         <x-forms.button type="button" wire:click="syncStaging({{ $row['id'] }})">{{ __('Sync branch') }}</x-forms.button>
                                         <x-forms.button type="button" wire:click="cloneData({{ $row['id'] }})">{{ __('Clone data') }}</x-forms.button>

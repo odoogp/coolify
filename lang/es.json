@@ -4657,5 +4657,7 @@
     "Bullet list": "Lista con viñetas",
     "Numbered list": "Lista numerada",
     "Link": "Enlace",
-    "Color": "Color"
+    "Color": "Color",
+    "Backup in progress": "Respaldo en ejecución",
+    "A backup is already in progress.": "Ya hay un respaldo en ejecución."
 }

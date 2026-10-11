@@ -1246,6 +1246,7 @@ html.dark main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
 }
 
 .empty-state {
+    position: relative;
     border-style: solid;
     border-radius: 28px;
     border-color: rgb(255 255 255 / 0.72);
@@ -1254,8 +1255,25 @@ html.dark main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
         inset 0 1px 0 rgb(255 255 255 / 0.9),
         0 0 0 1px rgb(0 0 0 / 0.05),
         0 16px 40px rgb(0 0 0 / 0.05);
+}
+
+/* The blur lives on a layer behind the content. On the card itself it would
+   trap position:fixed menus, so a service list opened from this card landed
+   at the bottom of the page instead of under its field. */
+.empty-state::before {
+    content: '';
+    position: absolute;
+    z-index: 0;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
     backdrop-filter: blur(40px) saturate(1.6);
     -webkit-backdrop-filter: blur(40px) saturate(1.6);
+}
+
+.empty-state > * {
+    position: relative;
+    z-index: 1;
 }
 
 .empty-state h2 {

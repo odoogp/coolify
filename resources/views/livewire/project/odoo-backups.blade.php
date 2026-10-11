@@ -1,4 +1,4 @@
-<div @if ($hasBusy) wire:poll.5s @endif>
+<div @if ($hasBusy) wire:poll.3s @endif>
     <x-slot:title>
         {{ __('Backups') }} | {{ data_get_str($project, 'name')->limit(10) }} | {{ product_name() }}
     </x-slot>
@@ -22,9 +22,11 @@
                     helper="{{ __('Each backup is an Odoo zip (database dump and filestore). Restore overwrites :branch.', ['branch' => $environment->name]) }}">
                     @if ($canCreate)
                         <x-slot:actions>
-                            <x-forms.button type="button" wire:click="createBackup" isHighlighted wire:loading.attr="disabled">
-                                <x-reicon name="plus" class="size-3.5" />
-                                {{ __('Create Backup') }}
+                            <x-forms.button type="button" wire:click="createBackup" isHighlighted :disabled="$hasBusy" wire:loading.attr="disabled">
+                                @unless ($hasBusy)
+                                    <x-reicon name="plus" class="size-3.5" />
+                                @endunless
+                                {{ $hasBusy ? __('Backup in progress') : __('Create Backup') }}
                             </x-forms.button>
                         </x-slot:actions>
                     @endif
@@ -41,6 +43,17 @@
                             </p>
                         </div>
                     </div>
+
+                    @if ($hasBusy)
+                        <div
+                            class="mb-4 flex items-center gap-2.5 rounded-lg border border-warning/40 bg-warning/10 px-3 py-2.5"
+                            role="status">
+                            <span class="size-2 shrink-0 animate-pulse rounded-full bg-warning"></span>
+                            <p class="text-[13px] font-medium leading-5 text-neutral-800 dark:text-fg">
+                                {{ __('Backup in progress') }}
+                            </p>
+                        </div>
+                    @endif
 
                     @if ($backupsBlockedByPlan)
                         <x-empty size="sm" title="{{ __('Want automatic backups?') }}"

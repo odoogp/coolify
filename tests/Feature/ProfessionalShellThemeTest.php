@@ -9,6 +9,8 @@ test('the signed-in shell uses the professional canvas and violet accent', funct
         ->toContain('background-color: #f6f4f1;')
         ->toContain('linear-gradient(90deg, #7c5cff, #4f7dff)')
         ->toContain('backdrop-filter: blur(40px) saturate(1.6);')
+        ->toMatch('/\.empty-state::before \{[^}]*backdrop-filter: blur\(40px\) saturate\(1\.6\);/s')
+        ->not->toMatch('/\.empty-state \{[^}]*backdrop-filter:/s')
         ->toContain('color: #1d1d1f;')
         ->toContain('color: #f5f5f7;')
         ->toContain('.empty-state')

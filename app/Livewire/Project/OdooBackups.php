@@ -46,7 +46,13 @@ class OdooBackups extends Component
         }
 
         $bypass = isInstanceOwner() && ! EnsureOdooBackupSchedules::planAllowsBackups($plan);
-        CreateOdooBackupJob::dispatch($this->environment->id, $bypass);
+        $backup = CreateOdooBackupJob::enqueue($this->environment->id, $bypass);
+        if ($backup === null) {
+            $this->dispatch('error', __('A backup is already in progress.'));
+
+            return;
+        }
+
         $this->dispatch('success', __('Backup queued. Database and filestore are saved together as an Odoo zip.'));
     }
 
@@ -116,7 +122,7 @@ class OdooBackups extends Component
                         : __('Manual backup'),
                     'automatic' => $backup->kind === OdooBackup::KIND_AUTOMATIC,
                     'complete' => $backup->hasZip(),
-                    'busy' => in_array($backup->status, ['pending', 'running'], true),
+                    'busy' => $backup->isBusy(),
                     'downloadUrl' => $backup->hasZip()
                         ? route('download.odoo-backup', ['backupId' => $backup->id])
                         : null,
