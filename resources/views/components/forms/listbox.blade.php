@@ -102,6 +102,13 @@
 
             const gap = 4;
             const edge = 12;
+            if (@js((bool) $portal) && panel.parentElement !== document.body) {
+                document.body.appendChild(panel);
+            }
+
+            panel.style.position = 'fixed';
+            panel.style.zIndex = '9999';
+
             const triggerRect = trigger.getBoundingClientRect();
             panel.style.width = 'max-content';
             panel.style.minWidth = `${triggerRect.width}px`;
@@ -129,7 +136,7 @@
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
         @if ($preserveValue) wire:ignore @endif
-        @click.outside="open = false" @keydown.escape="open = false" @resize.window="open && positionPanel()">
+        @click.outside="if (!$refs.panel?.contains($event.target)) open = false" @keydown.escape="open = false" @resize.window="open && positionPanel()">
         <button x-ref="trigger" id="{{ $triggerId }}" type="button" class="listbox-trigger" @click="toggle()"
             @disabled($disabled) {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
             :aria-expanded="open" @if ($tooltip) :title="current" @endif>
@@ -140,9 +147,10 @@
             </svg>
         </button>
         @if ($portal)
-            <div id="{{ $panelId }}" class="listbox-panel"
+            <template x-teleport="body">
+            <div x-ref="panel" id="{{ $panelId }}" class="listbox-panel"
                 style="position: fixed; z-index: 9999; visibility: hidden" x-show="open"
-                x-cloak :style="{ visibility: positioned ? 'visible' : 'hidden' }"
+                x-cloak :style="{ position: 'fixed', zIndex: 9999, visibility: positioned ? 'visible' : 'hidden' }"
                 x-transition:enter="transition ease-out duration-100"
                 x-transition:enter-start="opacity-0 -translate-y-1 scale-[0.98]"
                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
@@ -167,6 +175,7 @@
                     </button>
                 </template>
             </div>
+            </template>
         @else
             <div x-ref="panel" class="listbox-panel" x-show="open" x-cloak
                 x-transition:enter="transition ease-out duration-100"

@@ -69,6 +69,18 @@ test('mobile listbox panels stay anchored to their trigger', function () {
         ->not->toContain('transform: translate(-50%, -50%) !important;');
 });
 
+test('a portaled service list is moved to the page so the card cannot push it down', function () {
+    $html = Blade::render(<<<'BLADE'
+        <x-forms.searchable-listbox id="selectedService" label="Service" portal
+            :options="[['value' => 'odoo', 'label' => 'Odoo']]" :wire="false" value="odoo" />
+    BLADE);
+
+    expect($html)
+        ->toContain('x-teleport="body"')
+        ->toContain('document.body.appendChild(panel)')
+        ->toContain("panel.style.position = 'fixed'");
+});
+
 test('portaled listboxes measure content without inheriting the viewport width', function () {
     $listbox = file_get_contents(resource_path('views/components/forms/listbox.blade.php'));
 

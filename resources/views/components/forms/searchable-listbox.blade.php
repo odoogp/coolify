@@ -84,6 +84,13 @@
                 return;
             }
 
+            if (@js((bool) $portal) && panel.parentElement !== document.body) {
+                document.body.appendChild(panel);
+            }
+
+            panel.style.position = 'fixed';
+            panel.style.zIndex = '9999';
+
             const gap = 4;
             const edge = 12;
             const triggerRect = trigger.getBoundingClientRect();
@@ -129,7 +136,8 @@
     }" x-modelable="value" :class="{ 'pointer-events-none opacity-70': saving }"
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
-        @click.outside="close()" @keydown.escape.window="open && close()">
+        @click.outside="if (!$refs.panel?.contains($event.target)) close()" @keydown.escape.window="open && close()"
+        x-effect="if (!open && $refs.panel?.parentElement === document.body) $refs.panel.style.visibility = 'hidden'">
         <button x-ref="trigger" id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
             @disabled($disabled)
             {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
@@ -140,7 +148,10 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8 9 4-4 4 4m0 6-4 4-4-4" />
             </svg>
         </button>
-        <div x-ref="panel" @if ($portal) style="position: fixed; z-index: 9999; visibility: hidden" :style="{ visibility: positioned ? 'visible' : 'hidden' }" x-effect="if (open) requestAnimationFrame(() => positionPanel($el))" @resize.window="open && positionPanel($el)" @scroll.window.capture="open && positionPanel($el)" @endif
+        @if ($portal)
+            <template x-teleport="body">
+        @endif
+        <div x-ref="panel" @if ($portal) style="position: fixed; z-index: 9999; visibility: hidden" :style="{ position: 'fixed', zIndex: 9999, visibility: positioned ? 'visible' : 'hidden' }" x-effect="if (open) requestAnimationFrame(() => positionPanel($el))" @resize.window="open && positionPanel($el)" @scroll.window.capture="open && positionPanel($el)" @endif
             class="listbox-panel searchable-listbox-panel" x-show="open" x-cloak role="listbox"
             @click.stop>
             <div class="searchable-listbox-search">
@@ -170,5 +181,8 @@
                 </p>
             </div>
         </div>
+        @if ($portal)
+            </template>
+        @endif
     </div>
 </div>
