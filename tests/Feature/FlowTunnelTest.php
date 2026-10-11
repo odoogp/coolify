@@ -35,7 +35,8 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
 
     $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
 
-    expect($shell)->toContain('rate="0.5"');
+    expect($shell)->toContain('rate="0.3"');
+    expect($shell)->toContain('mobile-rate="0.5"');
     expect($shell)->toContain('mobile-video="media/login-mobile.mp4"');
     expect($shell)->toContain('poster="media/login-poster.jpg"');
     expect($shell)->toContain('mobile-poster="media/login-mobile-poster.jpg"');

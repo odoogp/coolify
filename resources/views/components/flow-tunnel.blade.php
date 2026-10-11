@@ -6,11 +6,13 @@
     'width' => 2888,
     'height' => 2160,
     'rate' => 1,
+    'mobileRate' => null,
 ])
 
 <div class="flow-tunnel absolute inset-0 h-full w-full -z-10 pointer-events-none"
     data-src="{{ asset($video) }}"
     data-rate="{{ $rate }}"
+    @if (filled($mobileRate)) data-mobile-rate="{{ $mobileRate }}" @endif
     @if (filled($mobileVideo)) data-mobile-src="{{ asset($mobileVideo) }}" @endif
     x-data="{
         destroy() {
@@ -203,6 +205,14 @@
             var boot = function (url) {
                 if (! url || root.dataset.stop === '1') {
                     return;
+                }
+                if (query.matches && root.dataset.mobileRate) {
+                    var mobileRate = Number(root.dataset.mobileRate);
+                    if (mobileRate) {
+                        rate = mobileRate;
+                    }
+                } else {
+                    rate = Number(root.dataset.rate || 1) || 1;
                 }
                 var ticket = ++generation;
                 var posterUrl = posterFor(query.matches);
