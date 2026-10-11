@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project\Resource;
 
-use App\Actions\Service\StartService;
 use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\Environment;
@@ -310,7 +309,6 @@ class Index extends Component
             if (! $service instanceof Service) {
                 return;
             }
-            StartService::dispatch($service);
 
             return redirect()->route('project.service.configuration', [
                 'project_uuid' => $this->project->uuid,

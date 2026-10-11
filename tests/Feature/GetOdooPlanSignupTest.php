@@ -235,6 +235,8 @@ it('opens a free plan without Wompi and without using the public registration sw
     expect($customer)->not->toBeNull()
         ->and((int) $customer->id)->not->toBe(0)
         ->and($customer->country_iso)->toBe('GT')
+        ->and($customer->hasAcceptedTerms())->toBeTrue()
+        ->and($customer->terms_accepted_at)->not->toBeNull()
         ->and($customer->teams()->count())->toBe(1)
         ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
         ->and((int) $team->getodoo_pricing_area_id)->toBe($country->id)
@@ -288,6 +290,7 @@ it('sends a paid plan to Wompi and creates the account only after a live charge'
 
     expect($customer)->not->toBeNull()
         ->and(User::query()->where('email', 'ana@example.com')->count())->toBe(1)
+        ->and($customer->hasAcceptedTerms())->toBeTrue()
         ->and($team->pivot->role)->toBe('admin')
         ->and((int) $team->pivot->max_services)->toBe(2)
         ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
@@ -695,6 +698,8 @@ it('requires accepting terms before plan signup', function () {
         ->set('acceptedTerms', false)
         ->call('register')
         ->assertHasErrors(['acceptedTerms']);
+
+    expect(User::query()->where('email', 'ana-terms@example.com')->exists())->toBeFalse();
 });
 
 it('publishes sanitized terms on the branded public page and from general settings', function () {

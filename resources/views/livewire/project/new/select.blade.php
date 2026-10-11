@@ -279,7 +279,7 @@
 
                         <div class="grid grid-cols-1 justify-start gap-3 text-left md:grid-cols-2 xl:grid-cols-3">
                             <template x-for="service in filteredServices" :key="service.name">
-                                <article role="button" tabindex="0" :aria-label="'Deploy ' + service.name"
+                                <article role="button" tabindex="0" :aria-label="'Select ' + service.name"
                                     @click="setType('one-click-service-' + service.id)"
                                     @keydown.enter.self.prevent="setType('one-click-service-' + service.id)"
                                     @keydown.space.self.prevent="setType('one-click-service-' + service.id)"
@@ -326,7 +326,7 @@
                                             {{ __('Website') }}
                                         </a>
                                         <span class="button button-highlighted ml-auto">
-                                            {{ __('Deploy') }}
+                                            {{ __('Select') }}
                                             <x-reicon name="arrow-right" class="size-3.5" />
                                         </span>
                                     </div>

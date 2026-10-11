@@ -61,6 +61,7 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         'avatar_s3_storage_id',
         'locale',
         'country_iso',
+        'terms_accepted_at',
     ];
 
     protected $hidden = [
@@ -75,6 +76,7 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         'force_password_reset' => 'boolean',
         'show_boarding' => 'boolean',
         'email_change_code_expires_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
     ];
 
     /**
@@ -373,6 +375,20 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
         return $this->teams->contains(function ($team): bool {
             return (int) $team->id === 0 && $team->pivot->role === 'owner';
         });
+    }
+
+    public function hasAcceptedTerms(): bool
+    {
+        return $this->terms_accepted_at !== null;
+    }
+
+    public function acceptTerms(?Carbon $at = null): void
+    {
+        if ($this->hasAcceptedTerms()) {
+            return;
+        }
+
+        $this->forceFill(['terms_accepted_at' => $at ?? now()])->save();
     }
 
     public function isInstanceAdmin()

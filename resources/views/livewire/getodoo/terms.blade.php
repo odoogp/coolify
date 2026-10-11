@@ -1,12 +1,12 @@
 <x-auth.shell wide scroll tunnel="full" :title="__('Terms and conditions')"
     :description="__('Please read these terms carefully.')">
-    <div class="auth-terms">
+    <div class="auth-terms-panel">
         @if ($hasTerms)
-            <article class="auth-terms-body prose prose-sm max-w-none dark:prose-invert">
+            <article class="auth-terms-body">
                 {!! $html !!}
             </article>
         @else
-            <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+            <p class="auth-terms-empty">
                 {{ __('Terms and conditions are not published yet. Contact support if you need a copy.') }}
             </p>
         @endif

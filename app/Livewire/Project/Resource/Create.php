@@ -2,12 +2,13 @@
 
 namespace App\Livewire\Project\Resource;
 
-use App\Actions\Service\StartService;
 use App\Domain\Odoo\OdooVersion;
 use App\Models\EnvironmentVariable;
+use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
 use App\Models\Service;
 use App\Services\GetOdoo\GetOdooAreaEntitlements;
+use App\Support\OdooGit;
 use App\Support\ServiceTemplateCatalog;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
@@ -141,13 +142,23 @@ class Create extends Component
 
                     // Apply service-specific application prerequisites
                     applyServiceApplicationPrerequisites($service);
-                    StartService::dispatch($service);
 
-                    return redirect()->route('project.service.configuration', [
+                    $redirect = [
                         'service_uuid' => $service->uuid,
                         'environment_uuid' => $environment->uuid,
                         'project_uuid' => $project->uuid,
-                    ]);
+                    ];
+                    if ($oneClickServiceName === 'odoo') {
+                        $project->loadMissing('odooProfile');
+                        if (
+                            blank($project->odooProfile?->git_repository)
+                            && OdooGit::installedApp((int) $project->team_id, auth()->id()) instanceof GithubApp
+                        ) {
+                            $redirect['launch'] = 'choose';
+                        }
+                    }
+
+                    return redirect()->route('project.service.configuration', $redirect);
                 }
             }
             $this->type = $type->value();

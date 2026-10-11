@@ -104,7 +104,7 @@ class PlanSignup extends Component
         $amount = number_format($quote['amount'], 2, '.', '');
 
         if ($quote['amount'] <= 0) {
-            $user = $accounts->open($this->name, $this->email, $this->password, $plan, $country);
+            $user = $accounts->open($this->name, $this->email, $this->password, $plan, $country, acceptedTerms: true);
             $plan->signups()->create([
                 'pricing_area_id' => $country?->id,
                 'name' => $user->name,

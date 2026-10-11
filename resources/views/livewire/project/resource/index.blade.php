@@ -61,7 +61,9 @@
                                         label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
                                         :options="$serverChoices" />
                                 @endif
-                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal
+                                {{-- Deferred entangle: selecting a template only updates the client value.
+                                     Containers start when Launch runs — not on selection alone. --}}
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal
                                     searchPlaceholder="{{ __('Search the catalog') }}"
                                     emptyText="{{ __('No matching service') }}"
                                     :options="$serviceOptions" />

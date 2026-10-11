@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project;
 
-use App\Actions\Service\StartService;
 use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\EnvironmentVariable;
@@ -195,8 +194,6 @@ class AddEmpty extends Component
             }
 
             if ($created instanceof Service) {
-                StartService::dispatch($created);
-
                 return redirect()->route('project.service.configuration', [
                     'project_uuid' => $project->uuid,
                     'environment_uuid' => $productionEnvironment->uuid,

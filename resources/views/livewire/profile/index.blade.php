@@ -144,6 +144,22 @@
                         emptyText="{{ __('No matching country') }}"
                         :options="$countryChoices"
                         helper="{{ __('The country associated with your account.') }}" />
+                    <div>
+                        <p class="mb-1.5 text-sm font-medium leading-4">{{ __('Terms and conditions') }}</p>
+                        @if (auth()->user()->hasAcceptedTerms())
+                            <p
+                                class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-[13px] text-neutral-800 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-fg">
+                                {{ __('Accepted on :date', ['date' => auth()->user()->terms_accepted_at->timezone(config('app.timezone'))->format('Y-m-d H:i')]) }}
+                            </p>
+                        @else
+                            <p
+                                class="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-900 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+                                {{ __('Not accepted yet.') }}
+                                <a href="{{ route('getodoo.terms') }}" target="_blank" rel="noopener noreferrer"
+                                    class="font-medium underline underline-offset-2">{{ __('Read terms') }}</a>
+                            </p>
+                        @endif
+                    </div>
                 </div>
             </section>
         </form>

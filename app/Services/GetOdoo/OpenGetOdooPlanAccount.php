@@ -11,8 +11,14 @@ use RuntimeException;
 
 class OpenGetOdooPlanAccount
 {
-    public function open(string $name, string $email, string $password, GetOdooPlan $plan, ?GetOdooPricingArea $pricingArea = null): User
-    {
+    public function open(
+        string $name,
+        string $email,
+        string $password,
+        GetOdooPlan $plan,
+        ?GetOdooPricingArea $pricingArea = null,
+        bool $acceptedTerms = false,
+    ): User {
         if (User::query()->count() === 0) {
             throw new RuntimeException('The root account does not exist yet.');
         }
@@ -21,17 +27,21 @@ class OpenGetOdooPlanAccount
         $existing = User::query()->where('email', $email)->first();
 
         if ($existing instanceof User) {
+            if ($acceptedTerms) {
+                $existing->acceptTerms();
+            }
             $this->attachPlan($existing, $plan, $pricingArea);
 
             return $existing;
         }
 
-        $user = User::withoutPersonalTeam(function () use ($name, $email, $password, $pricingArea) {
+        $user = User::withoutPersonalTeam(function () use ($name, $email, $password, $pricingArea, $acceptedTerms) {
             return User::query()->create([
                 'name' => $name,
                 'email' => $email,
                 'password' => Hash::make($password),
                 'country_iso' => self::isoFromArea($pricingArea),
+                'terms_accepted_at' => $acceptedTerms ? now() : null,
             ]);
         });
 
