@@ -188,7 +188,13 @@ class Show extends Component
 
     public function selectEnvironment(string $uuid): void
     {
-        $this->selectedEnvironmentUuid = $uuid;
+        $this->selectedEnvironmentUuid = $this->selectedEnvironmentUuid === $uuid ? null : $uuid;
+        $this->showCloneWizard = false;
+    }
+
+    public function clearEnvironmentSelection(): void
+    {
+        $this->selectedEnvironmentUuid = null;
         $this->showCloneWizard = false;
     }
 

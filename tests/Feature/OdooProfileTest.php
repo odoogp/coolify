@@ -372,6 +372,25 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
         ->toContain("redirect()->route('project.service.configuration'");
 });
 
+it('clears a selected environment from the project', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->assertSet('selectedEnvironmentUuid', $production->uuid)
+        ->assertSee('Clear selection')
+        ->call('openCloneWizard')
+        ->assertSet('showCloneWizard', true)
+        ->call('clearEnvironmentSelection')
+        ->assertSet('selectedEnvironmentUuid', null)
+        ->assertSet('showCloneWizard', false)
+        ->assertDontSee('Open environment')
+        ->call('selectEnvironment', $production->uuid)
+        ->call('selectEnvironment', $production->uuid)
+        ->assertSet('selectedEnvironmentUuid', null);
+});
+
 it('lists environments once and clones production into one staging', function () {
     $this->project->enableOdoo('20');
     $production = $this->project->environments()->where('name', 'production')->first();

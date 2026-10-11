@@ -3753,7 +3753,7 @@
     "Connect a GitHub account before associating a repository.": "Conecta una cuenta de GitHub antes de asociar un repositorio.",
     "Repository associated. This environment uses :branch.": "Repositorio asociado. Este entorno usa :branch.",
     "The new repository is named :name. This environment becomes a branch with the same name.": "El repositorio nuevo se llama :name. Este entorno pasa a ser una rama con el mismo nombre.",
-    "Clone": "Clonar",
+    "Clone": "Duplicar",
     "Clone to staging": "Clonar a staging",
     "Change account": "Cambiar cuenta",
     "This GitHub account is not the one linked to the repository. Associate a new repository, or choose an existing repository and a branch.": "Esta cuenta de GitHub no es la del repositorio. Asocia un repositorio nuevo, o elige uno existente y una rama.",
@@ -3881,7 +3881,7 @@
     "The staging could not be created.": "No se pudo crear el staging.",
     "Create staging": "Crear staging",
     "Creating the staging…": "Creando el staging…",
-    "Click a row to select it. The only clone action creates a staging environment from production.": "Haz clic en una fila para seleccionarla. La única acción de clonar crea un staging desde producción.",
+    "Click a row to select it. Click it again to clear the selection. The only clone action creates a staging environment from production.": "Haz clic en una fila para seleccionarla. Haz clic otra vez para quitar la selección. La única acción de duplicar crea un staging desde producción.",
     "This Odoo service has no public URL yet.": "Este servicio de Odoo todavía no tiene una URL pública.",
     "Let's Encrypt already issued the certificate for :url.": "Let's Encrypt ya emitió el certificado para :url.",
     "Could not connect to :url on port 443. The certificate cannot be confirmed yet.": "No se pudo conectar a :url por el puerto 443. El certificado todavía no se puede confirmar.",
@@ -4666,5 +4666,8 @@
     "Link": "Enlace",
     "Color": "Color",
     "Backup in progress": "Respaldo en ejecución",
-    "A backup is already in progress.": "Ya hay un respaldo en ejecución."
+    "A backup is already in progress.": "Ya hay un respaldo en ejecución.",
+    "Clear selection": "Quitar selección",
+    "This will delete the selected project": "Esto eliminará el proyecto seleccionado",
+    "All Environments inside the project will be deleted as well.": "También se eliminarán todos los entornos del proyecto."
 }

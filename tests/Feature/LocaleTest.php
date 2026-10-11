@@ -7,6 +7,19 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+test('the environment clone action is labeled duplicar in spanish', function () {
+    app()->setLocale('es');
+
+    expect(__('Clone'))->toBe('Duplicar');
+});
+
+test('project deletion actions are shown in spanish', function () {
+    app()->setLocale('es');
+
+    expect(__('This will delete the selected project'))->toBe('Esto eliminará el proyecto seleccionado')
+        ->and(__('All Environments inside the project will be deleted as well.'))->toBe('También se eliminarán todos los entornos del proyecto.');
+});
+
 test('spanish catalog covers every english translation key', function () {
     $english = json_decode(file_get_contents(lang_path('en.json')), true, flags: JSON_THROW_ON_ERROR);
     $spanish = json_decode(file_get_contents(lang_path('es.json')), true, flags: JSON_THROW_ON_ERROR);

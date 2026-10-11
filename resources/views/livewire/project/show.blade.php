@@ -170,7 +170,12 @@
             @if ($selectedEnvironment)
                 <div
                     class="mb-3 flex flex-col gap-3 rounded-xl border border-neutral-200 bg-white p-3 dark:border-white/[0.08] dark:bg-white/[0.025] sm:flex-row sm:items-center sm:justify-between">
-                    <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
+                    <div class="flex min-w-0 items-center gap-2">
+                        <p class="truncate text-[13px] font-semibold">{{ __('Selected: :name', ['name' => $selectedEnvironment->name]) }}</p>
+                        <button type="button" class="button shrink-0" wire:click="clearEnvironmentSelection">
+                            {{ __('Clear selection') }}
+                        </button>
+                    </div>
                     <div class="compact-actions flex flex-wrap items-center gap-2">
                         @php
                             $selectedOdoo = $project->odooProfile
@@ -321,7 +326,7 @@
 
             @if ($project->odooProfile)
                 <p class="mb-2 text-[13px] text-neutral-500 dark:text-fg-dim">
-                    {{ __('Click a row to select it. The only clone action creates a staging environment from production.') }}
+                    {{ __('Click a row to select it. Click it again to clear the selection. The only clone action creates a staging environment from production.') }}
                 </p>
             @endif
             <div x-show="viewMode === 'table'"
