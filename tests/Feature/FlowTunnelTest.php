@@ -11,8 +11,10 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
         ->toContain('media/moon-walk.mp4')
         ->toContain('webkit-playsinline')
         ->toContain('data-rate="{{ $rate }}"')
-        ->toContain('isFullyBuffered')
-        ->toContain('buffered.end')
+        ->toContain('response.blob()')
+        ->toContain('createObjectURL')
+        ->toContain('readyState >= 2')
+        ->toContain('data-mobile-src')
         ->toContain("addEventListener('ended'")
         ->not->toContain("addEventListener('pause'")
         ->toContain('absolute inset-0 h-full w-full -z-10 pointer-events-none');

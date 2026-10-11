@@ -15,6 +15,10 @@
     x-data="{
         destroy() {
             this.$el.dataset.stop = '1';
+            if (this.$el._flowObjectUrl) {
+                URL.revokeObjectURL(this.$el._flowObjectUrl);
+                this.$el._flowObjectUrl = '';
+            }
             this.$el.querySelectorAll('video').forEach((video) => {
                 video.pause();
                 video.removeAttribute('src');
@@ -33,11 +37,11 @@
             @endif>
     @endif
     <div class="flow-tunnel-fade">
-        <video class="flow-tunnel-layer" muted playsinline webkit-playsinline preload="none"
+        <video class="flow-tunnel-layer" autoplay muted playsinline webkit-playsinline preload="none"
             width="{{ $width }}" height="{{ $height }}"
             @if (filled($poster) && blank($mobilePoster)) poster="{{ asset($poster) }}" @endif
             disablepictureinpicture></video>
-        <video class="flow-tunnel-layer" muted playsinline webkit-playsinline preload="none"
+        <video class="flow-tunnel-layer" autoplay muted playsinline webkit-playsinline preload="none"
             width="{{ $width }}" height="{{ $height }}" disablepictureinpicture></video>
     </div>
     <script>
@@ -64,6 +68,8 @@
             var back = secondary;
             var fading = false;
             var generation = 0;
+            var download = null;
+            var objectUrl = '';
 
             var pick = function () {
                 var mobile = root.dataset.mobileSrc;
@@ -82,32 +88,24 @@
                 }
                 return posterEl.dataset.src || posterEl.getAttribute('src') || '';
             };
-            var isFullyBuffered = function (video) {
-                var duration = video.duration;
-                if (! Number.isFinite(duration) || duration <= 0 || ! video.buffered.length) {
-                    return false;
-                }
-                try {
-                    return video.buffered.start(0) <= 0.05 && video.buffered.end(video.buffered.length - 1) >= duration - 0.25;
-                } catch (e) {
-                    return false;
-                }
-            };
-            var whenFullyLoaded = function (video, done) {
+            var whenReady = function (video, done) {
                 var check = function () {
                     if (root.dataset.stop === '1') {
                         return;
                     }
-                    if (! isFullyBuffered(video)) {
+                    if (video.readyState < 2) {
                         return;
                     }
-                    video.removeEventListener('progress', check);
-                    video.removeEventListener('loadedmetadata', check);
+                    video.removeEventListener('loadeddata', check);
+                    video.removeEventListener('canplay', check);
                     done();
                 };
-                video.addEventListener('progress', check);
-                video.addEventListener('loadedmetadata', check);
-                check();
+                if (video.readyState >= 2) {
+                    done();
+                    return;
+                }
+                video.addEventListener('loadeddata', check);
+                video.addEventListener('canplay', check);
             };
             var prepare = function (video) {
                 video.loop = false;
@@ -119,12 +117,30 @@
                 video.preload = 'auto';
                 video.playbackRate = rate;
             };
+            var waitingForGesture = false;
             var playAtRate = function (video) {
+                video.muted = true;
+                video.setAttribute('muted', '');
+                video.playsInline = true;
                 video.playbackRate = rate;
                 var attempt = video.play();
-                if (attempt && attempt.catch) {
-                    attempt.catch(function () {});
+                if (! attempt || ! attempt.catch || waitingForGesture) {
+                    return;
                 }
+                attempt.catch(function () {
+                    if (waitingForGesture) {
+                        return;
+                    }
+                    waitingForGesture = true;
+                    var go = function () {
+                        waitingForGesture = false;
+                        document.removeEventListener('pointerdown', go);
+                        document.removeEventListener('touchend', go);
+                        playAtRate(video);
+                    };
+                    document.addEventListener('pointerdown', go);
+                    document.addEventListener('touchend', go);
+                });
             };
             var finishFade = function () {
                 if (! fading) {
@@ -140,7 +156,7 @@
                 back = outgoing;
             };
             var beginFade = function () {
-                if (fading || root.dataset.stop === '1' || ! isFullyBuffered(back)) {
+                if (fading || root.dataset.stop === '1' || back.readyState < 2) {
                     return;
                 }
                 fading = true;
@@ -204,34 +220,58 @@
                 back = secondary;
                 prepare(primary);
                 prepare(secondary);
-                secondary.removeAttribute('src');
-                secondary.load();
-                if (primary.dataset.loaded !== url) {
-                    primary.src = url;
-                    primary.dataset.loaded = url;
-                    primary.load();
+                if (download) {
+                    download.abort();
                 }
-                whenFullyLoaded(primary, function () {
-                    if (ticket !== generation || root.dataset.stop === '1') {
-                        return;
-                    }
-                    root.classList.add('is-ready');
-                    front.classList.add('is-on');
-                    playAtRate(front);
-                    if (secondary.dataset.loaded !== url) {
-                        secondary.src = url;
-                        secondary.dataset.loaded = url;
-                        secondary.load();
-                    }
-                    whenFullyLoaded(secondary, function () {
+                download = new AbortController();
+                if (objectUrl) {
+                    URL.revokeObjectURL(objectUrl);
+                    objectUrl = '';
+                    root._flowObjectUrl = '';
+                }
+                primary.removeAttribute('src');
+                secondary.removeAttribute('src');
+                primary.load();
+                secondary.load();
+                fetch(url, { signal: download.signal, credentials: 'same-origin' })
+                    .then(function (response) {
+                        if (! response.ok) {
+                            throw new Error('video');
+                        }
+                        return response.blob();
+                    })
+                    .then(function (blob) {
                         if (ticket !== generation || root.dataset.stop === '1') {
                             return;
                         }
-                        if (front.ended) {
-                            beginFade();
-                        }
-                    });
-                });
+                        var type = blob.type && blob.type.indexOf('video/') === 0 ? blob.type : 'video/mp4';
+                        var file = blob.type === type ? blob : new Blob([blob], { type: type });
+                        objectUrl = URL.createObjectURL(file);
+                        root._flowObjectUrl = objectUrl;
+                        primary.dataset.loaded = url;
+                        primary.src = objectUrl;
+                        primary.load();
+                        whenReady(primary, function () {
+                            if (ticket !== generation || root.dataset.stop === '1') {
+                                return;
+                            }
+                            root.classList.add('is-ready');
+                            front.classList.add('is-on');
+                            playAtRate(front);
+                            secondary.dataset.loaded = url;
+                            secondary.src = objectUrl;
+                            secondary.load();
+                            whenReady(secondary, function () {
+                                if (ticket !== generation || root.dataset.stop === '1') {
+                                    return;
+                                }
+                                if (front.ended) {
+                                    beginFade();
+                                }
+                            });
+                        });
+                    })
+                    .catch(function () {});
             };
 
             query.addEventListener('change', function () {
