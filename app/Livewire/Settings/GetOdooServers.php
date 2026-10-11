@@ -21,6 +21,9 @@ class GetOdooServers extends Component
     /** @var array<int, bool> */
     public array $followsGlobal = [];
 
+    /** @var array<int, string> */
+    public array $summaries = [];
+
     public string $eurUsd = '1.1';
 
     public string $taxPercent = '19';
@@ -180,6 +183,8 @@ class GetOdooServers extends Component
             'marginPercent' => 'required|numeric|min:0|max:500',
             'lineMargins' => 'array',
             'lineMargins.*' => 'nullable|numeric|min:0|max:500',
+            'summaries' => 'array',
+            'summaries.*' => 'nullable|string|max:280',
         ]);
 
         instanceSettings()->update([
@@ -192,6 +197,7 @@ class GetOdooServers extends Component
             $nowAvailable = $offer->in_stock && (bool) ($this->available[$offer->id] ?? false);
             $typed = round((float) ($this->lineMargins[$offer->id] ?? $this->marginPercent), 2);
             $follows = (bool) ($this->followsGlobal[$offer->id] ?? false);
+            $summary = trim((string) ($this->summaries[$offer->id] ?? ''));
 
             if ($nowAvailable) {
                 $stored = $offer->margin_percent === null ? null : round((float) $offer->margin_percent, 2);
@@ -202,12 +208,14 @@ class GetOdooServers extends Component
                     'available_since' => ($offer->available_for_admins && ! $marginChanged && $offer->available_since !== null)
                         ? $offer->available_since
                         : now(),
+                    'customer_summary' => $summary === '' ? null : $summary,
                 ]);
             } else {
                 $offer->update([
                     'available_for_admins' => false,
                     'margin_percent' => $follows ? null : $typed,
                     'available_since' => null,
+                    'customer_summary' => $summary === '' ? null : $summary,
                 ]);
             }
         }
@@ -297,9 +305,11 @@ class GetOdooServers extends Component
         $this->available = [];
         $this->lineMargins = [];
         $this->followsGlobal = [];
+        $this->summaries = [];
 
         foreach (GetOdooServerOffer::query()->get() as $offer) {
             $this->available[$offer->id] = $offer->available_for_admins && $offer->in_stock;
+            $this->summaries[$offer->id] = (string) ($offer->customer_summary ?? '');
 
             if ($offer->margin_percent !== null) {
                 $this->lineMargins[$offer->id] = (string) $offer->margin_percent;

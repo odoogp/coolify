@@ -27,3 +27,16 @@ it('suggests a dollar price from tax, the euro ipv4, the conversion factor, and 
 
     expect($offer->sellPrice('fsn1', $price))->toBe($custom->suggestedUsd(4.99));
 });
+
+it('explains a published server in words the customer can read', function () {
+    expect((new GetOdooServerOffer(['name' => 'cx23']))->customerSummary())
+        ->toBe('Shared processor for a site or an application.')
+        ->and((new GetOdooServerOffer(['name' => 'cax21', 'architecture' => 'arm']))->customerSummary())
+        ->toBe('ARM processor. It does the same work and uses less.')
+        ->and((new GetOdooServerOffer(['name' => 'cpx31']))->customerSummary())
+        ->toBe('Shared AMD processor, with more room for the application.')
+        ->and((new GetOdooServerOffer(['name' => 'ccx23']))->customerSummary())
+        ->toBe('Dedicated processor. Its power is not shared.')
+        ->and((new GetOdooServerOffer(['name' => 'cx23', 'customer_summary' => ' Para un Odoo pequeño. ']))->customerSummary())
+        ->toBe('Para un Odoo pequeño.');
+});

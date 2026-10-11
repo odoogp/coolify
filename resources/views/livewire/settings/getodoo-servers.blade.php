@@ -183,6 +183,14 @@
                                                         · {{ __('Out of stock') }}
                                                     @endunless
                                                 </div>
+                                                <label class="mt-2 flex flex-col gap-1 text-[11px] font-normal text-neutral-500 dark:text-fg-faint">
+                                                    <span>{{ __('Description') }}</span>
+                                                    <textarea id="summary-{{ $offer->id }}" rows="2" maxlength="280"
+                                                        wire:model="summaries.{{ $offer->id }}"
+                                                        placeholder="{{ $offer->defaultCustomerSummary() }}"
+                                                        class="w-full min-w-48 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-black dark:border-white/15 dark:bg-transparent dark:text-fg"></textarea>
+                                                    <span>{{ __('Leave the description empty and the customer sees the suggested sentence.') }}</span>
+                                                </label>
                                             </td>
                                             <td class="px-2 py-3">{{ number_format((float) $offer->monthly_price, 2) }} EUR</td>
                                             <td class="px-2 py-3">{{ number_format($pricing->costEur((float) $offer->monthly_price), 2) }} EUR</td>

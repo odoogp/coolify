@@ -18,17 +18,43 @@
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     @foreach ($offers as $offer)
                         <label wire:key="getodoo-choice-{{ $offer->id }}"
-                            class="getodoo-choice flex cursor-pointer flex-col gap-2 rounded-xl border p-3 {{ (int) $offerId === (int) $offer->id ? 'is-selected' : '' }}">
-                            <span class="flex items-center justify-between gap-3">
-                                <span class="flex items-center gap-2">
-                                    <img src="{{ asset('gpsh-logo.svg') }}" alt="GetOdoo" class="size-8">
-                                    <span class="text-sm font-semibold">{{ $offer->description ?: $offer->name }}</span>
+                            class="getodoo-choice flex cursor-pointer flex-col gap-3 rounded-xl border p-3 {{ (int) $offerId === (int) $offer->id ? 'is-selected' : '' }}">
+                            <span class="flex items-start justify-between gap-3">
+                                <span class="flex min-w-0 items-start gap-2">
+                                    <img src="{{ asset('gpsh-logo.svg') }}" alt="GetOdoo" class="size-8 shrink-0">
+                                    <span class="min-w-0">
+                                        <span class="block text-sm font-semibold">{{ $offer->description ?: $offer->name }}</span>
+                                        <span class="mt-0.5 block text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">{{ $offer->customerSummary() }}</span>
+                                    </span>
                                 </span>
                                 <input type="radio" class="sr-only" wire:model.live="offerId" value="{{ $offer->id }}">
-                                <span class="text-sm font-semibold">{{ number_format($offer->sellPrice((int) $offerId === (int) $offer->id ? $location : $offer->location), 2) }} USD</span>
+                                <span class="shrink-0 text-right">
+                                    <span class="block text-sm font-semibold">{{ number_format($offer->sellPrice((int) $offerId === (int) $offer->id ? $location : $offer->location), 2) }} USD</span>
+                                    <span class="mt-0.5 block text-[11px] text-neutral-500 dark:text-fg-faint">{{ __('per month') }}</span>
+                                </span>
                             </span>
-                            <span class="text-[11px] text-neutral-500 dark:text-fg-faint">
-                                {{ $offer->cores }} vCPU · {{ (float) $offer->memory }} GB · {{ $offer->disk }} GB · {{ __('per month') }}
+                            <span class="flex gap-2">
+                                <span class="flex min-w-0 flex-1 items-center gap-2">
+                                    <x-reicon name="cpu" class="size-4 shrink-0 text-neutral-500 dark:text-fg-faint" />
+                                    <span class="min-w-0">
+                                        <span class="block text-[11px] text-neutral-500 dark:text-fg-faint">{{ __('CPU') }}</span>
+                                        <span class="block text-sm font-semibold">{{ $offer->cores }} vCPU</span>
+                                    </span>
+                                </span>
+                                <span class="flex min-w-0 flex-1 items-center gap-2">
+                                    <x-reicon name="memory" class="size-4 shrink-0 text-neutral-500 dark:text-fg-faint" />
+                                    <span class="min-w-0">
+                                        <span class="block text-[11px] text-neutral-500 dark:text-fg-faint">{{ __('Memory') }}</span>
+                                        <span class="block text-sm font-semibold">{{ (float) $offer->memory }} GB</span>
+                                    </span>
+                                </span>
+                                <span class="flex min-w-0 flex-1 items-center gap-2">
+                                    <x-reicon name="disk" class="size-4 shrink-0 text-neutral-500 dark:text-fg-faint" />
+                                    <span class="min-w-0">
+                                        <span class="block text-[11px] text-neutral-500 dark:text-fg-faint">{{ __('Disk') }}</span>
+                                        <span class="block text-sm font-semibold">{{ $offer->disk }} GB</span>
+                                    </span>
+                                </span>
                             </span>
                         </label>
                     @endforeach

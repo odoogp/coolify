@@ -25,6 +25,7 @@ class GetOdooServerOffer extends BaseModel
         'margin_percent',
         'available_for_admins',
         'available_since',
+        'customer_summary',
         'in_stock',
         'synced_at',
     ];
@@ -69,5 +70,29 @@ class GetOdooServerOffer extends BaseModel
         }
 
         return $price->suggestedUsd($this->monthlyFor($location));
+    }
+
+    public function customerSummary(): string
+    {
+        $written = trim((string) $this->customer_summary);
+
+        if ($written !== '') {
+            return $written;
+        }
+
+        return $this->defaultCustomerSummary();
+    }
+
+    public function defaultCustomerSummary(): string
+    {
+        $code = strtolower((string) preg_replace('/[^a-z0-9]/', '', (string) $this->name));
+
+        return match (true) {
+            str_starts_with($code, 'cax') || $this->architecture === 'arm' => __('ARM processor. It does the same work and uses less.'),
+            str_starts_with($code, 'ccx') => __('Dedicated processor. Its power is not shared.'),
+            str_starts_with($code, 'cpx') => __('Shared AMD processor, with more room for the application.'),
+            str_starts_with($code, 'cx') => __('Shared processor for a site or an application.'),
+            default => __('A server for your application.'),
+        };
     }
 }

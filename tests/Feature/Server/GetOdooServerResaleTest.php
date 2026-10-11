@@ -285,6 +285,44 @@ it('lets the instance owner publish a server with a markup', function () {
         ->and($offer->sellPrice('fsn1'))->toBe((new GetOdooPrice(1.2, 19, 25))->suggestedUsd((float) $offer->monthlyFor('fsn1')));
 });
 
+it('lets the owner write the sentence the customer reads', function () {
+    getOdooHetznerFake();
+
+    $token = CloudProviderToken::create([
+        'team_id' => 0,
+        'provider' => 'hetzner',
+        'token' => 'owner-hetzner-token',
+        'name' => 'Instance Hetzner',
+    ]);
+    instanceSettings()->update(['getodoo_hetzner_token_id' => $token->id]);
+
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    app(GetOdooServerCatalog::class)->sync();
+    $offer = GetOdooServerOffer::query()->where('name', 'cx22')->first();
+
+    Livewire::test(GetOdooServers::class)
+        ->set('summaries.'.$offer->id, 'Para un Odoo pequeño.')
+        ->call('saveOffers');
+
+    expect($offer->refresh()->customer_summary)->toBe('Para un Odoo pequeño.')
+        ->and($offer->customerSummary())->toBe('Para un Odoo pequeño.');
+
+    app(GetOdooServerCatalog::class)->sync();
+
+    expect($offer->refresh()->customer_summary)->toBe('Para un Odoo pequeño.');
+
+    Livewire::test(GetOdooServers::class)
+        ->set('summaries.'.$offer->id, '   ')
+        ->call('saveOffers');
+
+    expect($offer->refresh()->customer_summary)->toBeNull()
+        ->and($offer->customerSummary())->toBe('Shared processor for a site or an application.');
+});
+
 it('keeps a published line margin when the global margin changes', function () {
     getOdooHetznerFake();
 
