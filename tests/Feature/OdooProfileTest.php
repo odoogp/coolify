@@ -351,10 +351,10 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
-        ->assertDontSee('Open environment')
+        ->assertDontSee('Go to backups')
         ->assertDontSee('>Clone<')
         ->call('selectEnvironment', $production->uuid)
-        ->assertSee('Open environment')
+        ->assertSee('Go to backups')
         ->assertDontSee('Clone')
         ->assertSee('Open Odoo')
         ->assertSee('production')
@@ -385,7 +385,7 @@ it('clears a selected environment from the project', function () {
         ->call('clearEnvironmentSelection')
         ->assertSet('selectedEnvironmentUuid', null)
         ->assertSet('showCloneWizard', false)
-        ->assertDontSee('Open environment')
+        ->assertDontSee('Go to backups')
         ->call('selectEnvironment', $production->uuid)
         ->call('selectEnvironment', $production->uuid)
         ->assertSet('selectedEnvironmentUuid', null);

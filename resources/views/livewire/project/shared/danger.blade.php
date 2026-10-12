@@ -1,11 +1,25 @@
 <div>
     @php
-        $resourceLabel = match ($resource?->type()) {
-            'application' => 'application',
-            'service' => 'service',
-            'service-application' => 'service application',
-            'service-database' => 'service database',
-            default => 'resource',
+        $deleteLabel = match ($resource?->type()) {
+            'application' => __('Delete application'),
+            'service' => __('Delete service'),
+            'service-application' => __('Delete service application'),
+            'service-database' => __('Delete service database'),
+            default => __('Delete resource'),
+        };
+        $deleteQuestion = match ($resource?->type()) {
+            'application' => __('Delete application?'),
+            'service' => __('Delete service?'),
+            'service-application' => __('Delete service application?'),
+            'service-database' => __('Delete service database?'),
+            default => __('Delete resource?'),
+        };
+        $restoreWarning = match ($resource?->type()) {
+            'application' => __('This application cannot be restored after deletion.'),
+            'service' => __('This service cannot be restored after deletion.'),
+            'service-application' => __('This service application cannot be restored after deletion.'),
+            'service-database' => __('This service database cannot be restored after deletion.'),
+            default => __('This resource cannot be restored after deletion.'),
         };
     @endphp
     <x-application.settings-section id="danger-zone-section" title="{{ __('Danger zone') }}"
@@ -15,33 +29,33 @@
             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
-                        <h4 class="text-sm font-semibold text-red-700 dark:text-error">Delete {{ $resourceLabel }}</h4>
+                        <h4 class="text-sm font-semibold text-red-700 dark:text-error">{{ $deleteLabel }}</h4>
                         <x-status-badge status="Permanent" type="error" />
                     </div>
                     <p class="mt-2 max-w-2xl text-[13px] leading-5 text-neutral-600 dark:text-fg-dim">
-                        {{ __('Permanently delete') }}
-                        <strong class="font-semibold text-black dark:text-fg">{{ $resourceName }}</strong>,
-                        stop its containers, and remove the selected Docker resources and configuration.
+                        {!! __('Permanently delete :name, stop its containers, and remove the selected Docker resources and configuration.', [
+                            'name' => '<strong class="font-semibold text-black dark:text-fg">'.e($resourceName).'</strong>',
+                        ]) !!}
                     </p>
                     <ul class="mt-3 space-y-1 text-xs text-neutral-500 dark:text-fg-dim">
-                        <li>• Active deployments will be stopped.</li>
-                        <li>• Selected volumes and stored data may be permanently removed.</li>
-                        <li>• This {{ $resourceLabel }} cannot be restored from Coolify after deletion.</li>
+                        <li>• {{ __('Active deployments will be stopped.') }}</li>
+                        <li>• {{ __('Selected volumes and stored data may be permanently removed.') }}</li>
+                        <li>• {{ $restoreWarning }}</li>
                     </ul>
                 </div>
 
                 <div class="shrink-0">
                     @if ($canDelete)
-                        <x-modal-confirmation title="Delete {{ $resourceLabel }}?"
-                            buttonTitle="Delete {{ $resourceLabel }}"
+                        <x-modal-confirmation :title="$deleteQuestion"
+                            :buttonTitle="$deleteLabel"
                             isErrorButton submitAction="delete" :checkboxes="$checkboxes"
-                            :actions="['Permanently delete this resource and its selected Docker resources.']"
+                            :actions="[__('Permanently delete this resource and its selected Docker resources.')]"
                             confirmationText="{{ $resourceName }}"
                             confirmationLabel="{{ __('Enter the resource name to confirm permanent deletion') }}"
                             shortConfirmationLabel="{{ __('Resource name') }}" />
                     @else
-                        <x-forms.button disabled tooltip="Contact an advisor if you need this change.">
-                            Delete {{ $resourceLabel }}
+                        <x-forms.button disabled tooltip="{{ __('Contact an advisor if you need this change.') }}">
+                            {{ $deleteLabel }}
                         </x-forms.button>
                     @endif
                 </div>

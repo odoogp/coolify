@@ -145,6 +145,18 @@ it('hides the HTTP redirect control for HTTP-only service applications', functio
         ->assertDontSee('Redirect HTTP to HTTPS');
 });
 
+it('gives the www direction control enough room for its label', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('.domains-table-grid {
+    grid-template-columns: minmax(0, 1.8fr) 8.5rem 10rem 15.5rem 6.5rem;
+}')
+        ->toContain('.domains-table-grid-compose {
+    grid-template-columns: minmax(0, 1.6fr) minmax(6rem, 0.8fr) 8.5rem 10rem 15.5rem 6.5rem;
+}');
+});
+
 it('shows one redirect control for each www and non-www pair', function () {
     $this->apiApp->update([
         'fqdn' => 'https://api.example.com,https://www.api.example.com,https://admin.example.com,https://www.admin.example.com',

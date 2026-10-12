@@ -7,6 +7,15 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+test('service deletion copy is shown in spanish', function () {
+    app()->setLocale('es');
+
+    expect(__('Delete service'))->toBe('Eliminar servicio')
+        ->and(__('Go to backups'))->toBe('Ir a respaldo')
+        ->and(__('Active deployments will be stopped.'))->toBe('Se detendrán los despliegues activos.')
+        ->and(__('This service cannot be restored after deletion.'))->toBe('Este servicio no se puede restaurar después de eliminarlo.');
+});
+
 test('the environment clone action is labeled duplicar in spanish', function () {
     app()->setLocale('es');
 

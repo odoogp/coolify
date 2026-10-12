@@ -198,14 +198,10 @@
                                 href="{{ $selectedOdoo
                                     ? route('project.odoo.backups', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid])
                                     : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid]) }}">
-                                {{ __('Open environment') }}
+                                {{ $selectedOdoo ? __('Go to backups') : __('Go to configuration') }}
                             </a>
                         @endif
                         @endunless
-                        @can('delete', $selectedEnvironment)
-                            <livewire:project.delete-environment :environment_id="$selectedEnvironment->id"
-                                :key="'delete-environment-'.$selectedEnvironment->id" />
-                        @endcan
                         @if ($openOdooUrl !== '')
                             <livewire:project.odoo-connect :project-uuid="$project->uuid" :environment-uuid="$selectedEnvironment->uuid"
                                 :service-uuid="$selectedOdoo->uuid" :key="'odoo-connect-'.$selectedOdoo->uuid" />
