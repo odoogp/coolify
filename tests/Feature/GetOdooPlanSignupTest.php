@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Boarding\Index as BoardingIndex;
 use App\Livewire\GetOdoo\PlanSignup;
 use App\Livewire\Settings\GetOdooPlans;
 use App\Livewire\Settings\GetOdooRegions;
@@ -668,6 +669,31 @@ it('applies country service and project limits to the new team', function () {
         ->and($entitlements['allowed_services'])->toBe(['odoo', 'redis'])
         ->and(GetOdooAreaEntitlements::allowsService($team, 'odoo'))->toBeTrue()
         ->and(GetOdooAreaEntitlements::allowsService($team, 'n8n'))->toBeFalse();
+});
+
+it('finishes the getodoo tour before opening the server create assistant', function () {
+    $plan = getOdooPlan(['can_add_servers' => true]);
+    $customer = User::factory()->create();
+    $team = Team::factory()->create([
+        'name' => 'Tour Org',
+        'personal_team' => false,
+        'show_boarding' => true,
+        'getodoo_plan_id' => $plan->id,
+    ]);
+    $customer->teams()->attach($team->id, [
+        'role' => 'owner',
+        'can_add_servers' => true,
+        'can_launch_on_instance_server' => false,
+    ]);
+    $this->actingAs($customer);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(BoardingIndex::class)
+        ->set('currentState', 'getodoo-servers')
+        ->call('goToCreateServerFromGetOdooTour')
+        ->assertRedirect(route('server.create'));
+
+    expect($team->fresh()->show_boarding)->toBeFalse();
 });
 
 it('lists plans without opening the editor until New or Edit', function () {

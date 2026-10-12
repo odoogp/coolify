@@ -212,12 +212,24 @@ class Index extends Component
         return $this->skipBoarding();
     }
 
+    /**
+     * Leave the GetOdoo tour and open the server create assistant.
+     * Must clear show_boarding first or DecideWhatToDoWithUser sends the user back to onboarding.
+     */
+    public function goToCreateServerFromGetOdooTour(): mixed
+    {
+        abort_unless($this->isGetOdooPlanBoarding(), 403);
+        abort_unless((bool) auth()->user()?->canAddServers(), 403);
+
+        return $this->skipBoarding(routeName: 'server.create');
+    }
+
     public function restartBoarding()
     {
         return redirect()->route('onboarding');
     }
 
-    public function skipBoarding()
+    public function skipBoarding(string $routeName = 'dashboard')
     {
         if (auth()->user()?->isMember()) {
             return redirect()->route('dashboard');
@@ -227,7 +239,7 @@ class Index extends Component
         ]);
         refreshSession();
 
-        return redirect()->route('dashboard');
+        return redirect()->route($routeName);
     }
 
     public function isGetOdooPlanBoarding(): bool
@@ -571,10 +583,18 @@ class Index extends Component
 
     public function render()
     {
+        $getOdooBoarding = $this->isGetOdooPlanBoarding();
+
         return view('livewire.boarding.index', [
-            'getOdooBoarding' => $this->isGetOdooPlanBoarding(),
+            'getOdooBoarding' => $getOdooBoarding,
             'canAddServers' => (bool) auth()->user()?->canAddServers(),
             'canLaunchOnInstanceServer' => (bool) auth()->user()?->canLaunchOnInstanceServer(),
-        ])->layout('layouts.boarding');
+            'getOdooShellDescription' => match ($this->currentState) {
+                'getodoo-welcome' => __('Your organization team is ready. Here is what you can do next.'),
+                'getodoo-tour' => __('One organization team, projects with production and staging, and Odoo behind HTTPS.'),
+                'getodoo-servers' => __('Your plan controls where you can run instances.'),
+                default => __('Getting started'),
+            },
+        ])->layout($getOdooBoarding ? 'layouts.simple' : 'layouts.boarding');
     }
 }

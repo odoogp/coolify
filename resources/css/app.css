@@ -2653,6 +2653,55 @@ html:not(.dark) .auth-locale select {
     line-height: 1rem;
 }
 
+/* GetOdoo post-signup tour steps (same shell as plan signup). */
+.auth-boarding-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.auth-boarding-step {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid rgb(255 255 255 / 0.35);
+    background: rgb(255 255 255 / 0.12);
+    color: rgb(247 249 252 / 0.72);
+    font-size: var(--type-ui);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 8px rgb(0 0 0 / 0.35);
+}
+
+.auth-boarding-step.is-current {
+    border-color: rgb(255 255 255 / 0.7);
+    background: rgb(255 255 255 / 0.28);
+    color: #ffffff;
+}
+
+.auth-boarding-step.is-done {
+    border-color: rgb(125 232 188 / 0.45);
+    background: rgb(18 163 106 / 0.28);
+    color: #d8ffe9;
+}
+
+.auth-shell-split .auth-plan-account .auth-plan-feature {
+    align-items: flex-start;
+}
+
+.auth-shell-split .auth-plan-account .auth-plan-check {
+    margin-top: 0.15rem;
+}
+
+.auth-shell-split .auth-plan-account .auth-text-link {
+    color: #3f3a4a;
+}
+
+.auth-shell-split .auth-plan-account .auth-text-link:hover {
+    color: var(--color-accent, #7c5cff);
+}
+
 /* Public error surfaces (401/404/500/…). Match auth shell canvas + accent. */
 .error-page-body {
     width: 100vw;

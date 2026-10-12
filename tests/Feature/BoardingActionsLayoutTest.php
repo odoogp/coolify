@@ -8,7 +8,13 @@ test('boarding utility actions are centered', function () {
         ->toContain("{{ __('Onboarding') }} | {{ product_name() }}")
         ->toContain('getodoo-welcome')
         ->toContain('continueGetOdooTour')
+        ->toContain('goToCreateServerFromGetOdooTour')
+        ->toContain('x-auth.shell')
+        ->toContain('tunnel="split"')
+        ->toContain('auth-plan-account')
+        ->toContain('auth-boarding-steps')
         ->toContain("{{ __('Welcome to :product', ['product' => product_name()]) }}")
+        ->not->toContain('route(\'server.create\')')
         ->not->toContain('Welcome to Coolify')
         ->not->toContain('Onboarding | Coolify');
 });

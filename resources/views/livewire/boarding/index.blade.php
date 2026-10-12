@@ -1,78 +1,95 @@
 @php use App\Enums\ProxyTypes; @endphp
 <x-slot:title>
     {{ __('Onboarding') }} | {{ product_name() }}
-    </x-slot>
-    <section class="application-settings-form w-full py-6">
-        <div class="flex w-full flex-col items-center space-y-6">
+</x-slot>
+
+@if ($getOdooBoarding)
+    <x-auth.shell wide scroll tunnel="split" :title="product_name()" :description="$getOdooShellDescription">
+        <div class="mx-auto w-full max-w-xl">
+            @php
+                $tourStep = match ($currentState) {
+                    'getodoo-welcome' => 1,
+                    'getodoo-tour' => 2,
+                    'getodoo-servers' => 3,
+                    default => 1,
+                };
+                $tourLabels = [__('Welcome'), __('Product'), __('Servers')];
+            @endphp
+            <div class="auth-boarding-steps mb-4 flex gap-2" aria-hidden="true">
+                @foreach ($tourLabels as $index => $label)
+                    <span @class([
+                        'auth-boarding-step',
+                        'is-current' => $tourStep === $index + 1,
+                        'is-done' => $tourStep > $index + 1,
+                    ])>{{ $label }}</span>
+                @endforeach
+            </div>
+
             @if ($currentState === 'getodoo-welcome')
-                <div class="w-full max-w-3xl">
-                    <div class="mb-6 text-center">
-                        <h1 class="text-2xl! font-semibold!">{{ __('Welcome to :product', ['product' => product_name()]) }}</h1>
-                        <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Getting started') }}</p>
+                        <h2 class="auth-plan-name">{{ __('Welcome to :product', ['product' => product_name()]) }}</h2>
+                        <p class="auth-plan-copy mt-2">
                             {{ __('Your organization team is ready. Here is what you can do next.') }}
                         </p>
                     </div>
 
-                    <x-application.settings-section title="{{ __('What you can do') }}" flush>
-                        <div class="divide-y divide-neutral-200 dark:divide-white/[0.07]">
-                            @foreach ([
-                                ['icon' => 'projects', 'title' => __('Projects and Odoo'), 'description' => __('Create a project, launch Odoo, and open production or staging.')],
-                                ['icon' => 'servers', 'title' => __('Where it runs'), 'description' => __('Use a server you add, or the instance server when your plan allows it.')],
-                                ['icon' => 'teams', 'title' => __('Your team'), 'description' => __('Invite members under the limits of your plan.')],
-                            ] as $onboardingItem)
-                                <div class="flex min-h-14 items-center gap-3 px-4 py-3">
-                                    <span
-                                        class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-fg-dim">
-                                        <x-reicon :name="$onboardingItem['icon']" class="size-4" />
-                                    </span>
-                                    <span class="min-w-0">
-                                        <span class="block text-[13px] font-semibold">{{ $onboardingItem['title'] }}</span>
-                                        <span class="mt-0.5 block text-[11px] text-neutral-500 dark:text-fg-faint">{{ $onboardingItem['description'] }}</span>
-                                    </span>
-                                </div>
-                            @endforeach
-                        </div>
-                    </x-application.settings-section>
-
-                    <div class="mt-5 flex flex-col items-center gap-4">
-                        <x-forms.button class="w-full justify-center sm:w-auto sm:min-w-36" wire:click="continueGetOdooTour"
-                            isHighlighted>
-                            {{ __('Continue') }}
-                        </x-forms.button>
-                        <button type="button" wire:click="finishGetOdooBoarding"
-                            class="text-[12px] font-medium text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-fg">
-                            {{ __('Skip setup') }}
-                        </button>
+                    <div class="auth-plan-includes">
+                        <p class="auth-plan-kicker">{{ __('What you can do') }}</p>
+                        @foreach ([
+                            ['title' => __('Projects and Odoo'), 'description' => __('Create a project, launch Odoo, and open production or staging.')],
+                            ['title' => __('Where it runs'), 'description' => __('Use a server you add, or the instance server when your plan allows it.')],
+                            ['title' => __('Your team'), 'description' => __('Invite members under the limits of your plan.')],
+                        ] as $onboardingItem)
+                            <div class="auth-plan-feature">
+                                <x-reicon name="check-circle" class="auth-plan-check" />
+                                <span>
+                                    <span class="block font-medium">{{ $onboardingItem['title'] }}</span>
+                                    <span class="mt-0.5 block text-[12px] leading-4 opacity-80">{{ $onboardingItem['description'] }}</span>
+                                </span>
+                            </div>
+                        @endforeach
                     </div>
+
+                    <x-forms.button class="w-full justify-center" wire:click="continueGetOdooTour" isHighlighted>
+                        {{ __('Continue') }}
+                    </x-forms.button>
+                    <button type="button" wire:click="finishGetOdooBoarding"
+                        class="auth-text-link self-center text-center text-[13px]">
+                        {{ __('Skip setup') }}
+                    </button>
                 </div>
             @elseif ($currentState === 'getodoo-tour')
-                <div class="w-full max-w-3xl">
-                    <x-boarding-progress :currentStep="0" />
-                    <x-boarding-step title="{{ __('How :product works', ['product' => product_name()]) }}">
-                        <x-slot:question>
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Product') }}</p>
+                        <h2 class="auth-plan-name">{{ __('How :product works', ['product' => product_name()]) }}</h2>
+                        <p class="auth-plan-copy mt-2">
                             {{ __('One organization team, projects with production and staging, and Odoo behind HTTPS.') }}
-                        </x-slot:question>
-                        <x-slot:explanation>
-                            <p>{{ __('Launch from the empty environment picker. Odoo stays the recommended path; other catalog services open configuration first so you deploy when you are ready.') }}</p>
-                            <p>{{ __('GitHub is optional. You can connect a repository later from the service assistant.') }}</p>
-                            <p>{{ __('Automatic backups and migration follow what your plan includes.') }}</p>
-                        </x-slot:explanation>
-                        <x-slot:actions>
-                            <x-forms.button class="w-full justify-center lg:w-auto" wire:click="continueGetOdooTour"
-                                isHighlighted>
-                                {{ __('Continue') }}
-                            </x-forms.button>
-                        </x-slot:actions>
-                    </x-boarding-step>
+                        </p>
+                    </div>
+                    <div class="flex flex-col gap-3 text-[13px] leading-5 text-neutral-700 dark:text-fg">
+                        <p>{{ __('Launch from the empty environment picker. Odoo stays the recommended path; other catalog services open configuration first so you deploy when you are ready.') }}</p>
+                        <p>{{ __('GitHub is optional. You can connect a repository later from the service assistant.') }}</p>
+                        <p>{{ __('Automatic backups and migration follow what your plan includes.') }}</p>
+                    </div>
+                    <x-forms.button class="w-full justify-center" wire:click="continueGetOdooTour" isHighlighted>
+                        {{ __('Continue') }}
+                    </x-forms.button>
                 </div>
-            @elseif ($currentState === 'getodoo-servers')
-                <div class="w-full max-w-3xl">
-                    <x-boarding-progress :currentStep="1" />
-                    <x-boarding-step title="{{ __('Servers on your plan') }}">
-                        <x-slot:question>
+            @else
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Servers') }}</p>
+                        <h2 class="auth-plan-name">{{ __('Servers on your plan') }}</h2>
+                        <p class="auth-plan-copy mt-2">
                             {{ __('Your plan controls where you can run instances.') }}
-                        </x-slot:question>
-                        <x-slot:explanation>
+                        </p>
+                    </div>
+                    <div class="auth-guidance">
+                        <x-reicon name="info-circle" class="mt-0.5 size-4 shrink-0" />
+                        <div class="flex flex-col gap-2">
                             @if ($canAddServers)
                                 <p>{{ __('You can add new servers from the Servers menu.') }}</p>
                             @else
@@ -83,23 +100,27 @@
                             @else
                                 <p>{{ __('Launching on the instance server is not included in this plan.') }}</p>
                             @endif
-                        </x-slot:explanation>
-                        <x-slot:actions>
-                            <div class="flex w-full flex-col gap-3 sm:flex-row sm:justify-end">
-                                @if ($canAddServers)
-                                    <a href="{{ route('server.create') }}" class="button button-highlighted text-center" {{ wireNavigate() }}>
-                                        {{ __('Create a new server') }}
-                                    </a>
-                                @endif
-                                <x-forms.button class="w-full justify-center sm:w-auto" wire:click="finishGetOdooBoarding"
-                                    isHighlighted>
-                                    {{ __('Go to the dashboard') }}
-                                </x-forms.button>
-                            </div>
-                        </x-slot:actions>
-                    </x-boarding-step>
+                        </div>
+                    </div>
+                    <div class="flex w-full flex-col gap-3">
+                        @if ($canAddServers)
+                            <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
+                                isHighlighted>
+                                {{ __('Create a new server') }}
+                            </x-forms.button>
+                        @endif
+                        <x-forms.button class="w-full justify-center" wire:click="finishGetOdooBoarding">
+                            {{ __('Go to the dashboard') }}
+                        </x-forms.button>
+                    </div>
                 </div>
-            @elseif ($currentState === 'welcome')
+            @endif
+        </div>
+    </x-auth.shell>
+@else
+    <section class="application-settings-form w-full py-6">
+        <div class="flex w-full flex-col items-center space-y-6">
+            @if ($currentState === 'welcome')
                 <div class="w-full max-w-3xl">
                     <div class="mb-6 text-center">
                         <h1 class="text-2xl! font-semibold!">{{ __('Welcome to :product', ['product' => product_name()]) }}</h1>
@@ -740,3 +761,4 @@
             </div>
         @endif
     </section>
+@endif
