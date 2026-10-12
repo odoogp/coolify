@@ -295,7 +295,7 @@
                                     <div class="min-w-0">
                                         <input class="input w-full font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
                                     </div>
-                                    <div class="flex flex-wrap justify-end gap-2">
+                                    <div class="flex shrink-0 flex-nowrap items-center justify-end gap-2">
                                         <button type="button" class="button" wire:click="editPlan({{ $plan->id }})">{{ __('Edit') }}</button>
                                         @if ($showArchived)
                                             <button type="button" class="button" wire:click="restorePlan({{ $plan->id }})"

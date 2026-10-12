@@ -146,7 +146,7 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->not->toContain('getodoo-plan-row');
 
     expect($styles)
-        ->toContain('13rem')
+        ->toContain('max-content')
         ->toContain("'name price'")
         ->toContain("'scope members'")
         ->toContain('.data-table-header.getodoo-plans-table-grid');
