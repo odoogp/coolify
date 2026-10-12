@@ -1,13 +1,108 @@
 @php use App\Enums\ProxyTypes; @endphp
 <x-slot:title>
-    {{ __('Onboarding | Coolify') }}
+    {{ __('Onboarding') }} | {{ product_name() }}
     </x-slot>
     <section class="application-settings-form w-full py-6">
         <div class="flex w-full flex-col items-center space-y-6">
-            @if ($currentState === 'welcome')
+            @if ($currentState === 'getodoo-welcome')
                 <div class="w-full max-w-3xl">
                     <div class="mb-6 text-center">
-                        <h1 class="text-2xl! font-semibold!">{{ __('Welcome to Coolify') }}</h1>
+                        <h1 class="text-2xl! font-semibold!">{{ __('Welcome to :product', ['product' => product_name()]) }}</h1>
+                        <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Your organization team is ready. Here is what you can do next.') }}
+                        </p>
+                    </div>
+
+                    <x-application.settings-section title="{{ __('What you can do') }}" flush>
+                        <div class="divide-y divide-neutral-200 dark:divide-white/[0.07]">
+                            @foreach ([
+                                ['icon' => 'projects', 'title' => __('Projects and Odoo'), 'description' => __('Create a project, launch Odoo, and open production or staging.')],
+                                ['icon' => 'servers', 'title' => __('Where it runs'), 'description' => __('Use a server you add, or the instance server when your plan allows it.')],
+                                ['icon' => 'teams', 'title' => __('Your team'), 'description' => __('Invite members under the limits of your plan.')],
+                            ] as $onboardingItem)
+                                <div class="flex min-h-14 items-center gap-3 px-4 py-3">
+                                    <span
+                                        class="flex size-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.035] dark:text-fg-dim">
+                                        <x-reicon :name="$onboardingItem['icon']" class="size-4" />
+                                    </span>
+                                    <span class="min-w-0">
+                                        <span class="block text-[13px] font-semibold">{{ $onboardingItem['title'] }}</span>
+                                        <span class="mt-0.5 block text-[11px] text-neutral-500 dark:text-fg-faint">{{ $onboardingItem['description'] }}</span>
+                                    </span>
+                                </div>
+                            @endforeach
+                        </div>
+                    </x-application.settings-section>
+
+                    <div class="mt-5 flex flex-col items-center gap-4">
+                        <x-forms.button class="w-full justify-center sm:w-auto sm:min-w-36" wire:click="continueGetOdooTour"
+                            isHighlighted>
+                            {{ __('Continue') }}
+                        </x-forms.button>
+                        <button type="button" wire:click="finishGetOdooBoarding"
+                            class="text-[12px] font-medium text-neutral-500 hover:text-black dark:text-fg-dim dark:hover:text-fg">
+                            {{ __('Skip setup') }}
+                        </button>
+                    </div>
+                </div>
+            @elseif ($currentState === 'getodoo-tour')
+                <div class="w-full max-w-3xl">
+                    <x-boarding-progress :currentStep="0" />
+                    <x-boarding-step title="{{ __('How :product works', ['product' => product_name()]) }}">
+                        <x-slot:question>
+                            {{ __('One organization team, projects with production and staging, and Odoo behind HTTPS.') }}
+                        </x-slot:question>
+                        <x-slot:explanation>
+                            <p>{{ __('Launch from the empty environment picker. Odoo stays the recommended path; other catalog services open configuration first so you deploy when you are ready.') }}</p>
+                            <p>{{ __('GitHub is optional. You can connect a repository later from the service assistant.') }}</p>
+                            <p>{{ __('Automatic backups and migration follow what your plan includes.') }}</p>
+                        </x-slot:explanation>
+                        <x-slot:actions>
+                            <x-forms.button class="w-full justify-center lg:w-auto" wire:click="continueGetOdooTour"
+                                isHighlighted>
+                                {{ __('Continue') }}
+                            </x-forms.button>
+                        </x-slot:actions>
+                    </x-boarding-step>
+                </div>
+            @elseif ($currentState === 'getodoo-servers')
+                <div class="w-full max-w-3xl">
+                    <x-boarding-progress :currentStep="1" />
+                    <x-boarding-step title="{{ __('Servers on your plan') }}">
+                        <x-slot:question>
+                            {{ __('Your plan controls where you can run instances.') }}
+                        </x-slot:question>
+                        <x-slot:explanation>
+                            @if ($canAddServers)
+                                <p>{{ __('You can add new servers from the Servers menu.') }}</p>
+                            @else
+                                <p>{{ __('Adding new servers is not included in this plan. Contact an advisor if you need that.') }}</p>
+                            @endif
+                            @if ($canLaunchOnInstanceServer)
+                                <p>{{ __('You can also launch on the server where :product is installed.', ['product' => product_name()]) }}</p>
+                            @else
+                                <p>{{ __('Launching on the instance server is not included in this plan.') }}</p>
+                            @endif
+                        </x-slot:explanation>
+                        <x-slot:actions>
+                            <div class="flex w-full flex-col gap-3 sm:flex-row sm:justify-end">
+                                @if ($canAddServers)
+                                    <a href="{{ route('server.create') }}" class="button button-highlighted text-center" {{ wireNavigate() }}>
+                                        {{ __('Create a new server') }}
+                                    </a>
+                                @endif
+                                <x-forms.button class="w-full justify-center sm:w-auto" wire:click="finishGetOdooBoarding"
+                                    isHighlighted>
+                                    {{ __('Go to the dashboard') }}
+                                </x-forms.button>
+                            </div>
+                        </x-slot:actions>
+                    </x-boarding-step>
+                </div>
+            @elseif ($currentState === 'welcome')
+                <div class="w-full max-w-3xl">
+                    <div class="mb-6 text-center">
+                        <h1 class="text-2xl! font-semibold!">{{ __('Welcome to :product', ['product' => product_name()]) }}</h1>
                         <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
                             {{ __('Connect your first server and start deploying in minutes.') }}
                         </p>
@@ -63,22 +158,20 @@
                 <x-boarding-progress :currentStep="0" />
                 <x-boarding-step title="{{ __('Platform Overview') }}">
                     <x-slot:question>
-                        {{ __('Coolify automates deployment and infrastructure management on your own servers. Deploy applications') }}
-                        from Git, manage databases, and monitor everything without vendor lock-in.
+                        {{ __(':product automates deployment and infrastructure on your own servers.', ['product' => product_name()]) }}
                     </x-slot:question>
                     <x-slot:explanation>
                         <p>
-                            <x-highlighted text="Automation:" /> Coolify handles server configuration, Docker management,
-                            and
-                            deployments automatically.
+                            <x-highlighted text="{{ __('Automation:') }}" />
+                            {{ __('Server configuration, Docker, and deployments stay on your infrastructure.') }}
                         </p>
                         <p>
-                            <x-highlighted text="Self-hosted:" /> All data and configurations live on your infrastructure.
+                            <x-highlighted text="{{ __('Self-hosted:') }}" />
                             {{ __('Works offline except for external integrations.') }}
                         </p>
                         <p>
-                            <x-highlighted text="Monitoring & Alerts:" /> Get real-time notifications via Discord, Telegram,
-                            {{ __('Email, and other platforms.') }}
+                            <x-highlighted text="{{ __('Monitoring & Alerts:') }}" />
+                            {{ __('Get real-time notifications via Discord, Telegram, Email, and other platforms.') }}
                         </p>
                     </x-slot:explanation>
                     <x-slot:actions>

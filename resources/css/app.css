@@ -4214,7 +4214,7 @@ input[type="search"]::-webkit-search-results-decoration {
 }
 
 .admin-users-table-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) 5rem;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.1fr) 5rem;
 }
 
 .api-tokens-table-grid {
@@ -4515,7 +4515,8 @@ html[data-accent="on"] .odoo-backups-table-grid .odoo-backup-action.button:not(:
         grid-template-columns: minmax(0, 1fr) 5rem;
     }
 
-    .admin-users-table-grid > :nth-child(2) {
+    .admin-users-table-grid > :nth-child(2),
+    .admin-users-table-grid > :nth-child(3) {
         display: none;
     }
 

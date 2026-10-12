@@ -36,6 +36,7 @@ class SettleGetOdooPlanSignup
                 $signup->plan,
                 $signup->pricingArea,
                 acceptedTerms: true,
+                organization: $signup->organization,
             );
 
             $signup->update([

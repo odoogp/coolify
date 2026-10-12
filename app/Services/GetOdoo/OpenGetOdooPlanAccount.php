@@ -6,6 +6,7 @@ use App\Models\GetOdooPlan;
 use App\Models\GetOdooPricingArea;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use RuntimeException;
 
@@ -18,63 +19,77 @@ class OpenGetOdooPlanAccount
         GetOdooPlan $plan,
         ?GetOdooPricingArea $pricingArea = null,
         bool $acceptedTerms = false,
+        ?string $organization = null,
     ): User {
         if (User::query()->count() === 0) {
             throw new RuntimeException('The root account does not exist yet.');
         }
 
         $email = strtolower($email);
-        $existing = User::query()->where('email', $email)->first();
+        $organization = trim((string) $organization);
+        if ($organization === '') {
+            $organization = trim($name);
+        }
 
-        if ($existing instanceof User) {
-            if ($acceptedTerms) {
-                $existing->acceptTerms();
+        return DB::transaction(function () use ($name, $email, $password, $plan, $pricingArea, $acceptedTerms, $organization) {
+            $existing = User::query()->where('email', $email)->first();
+
+            if ($existing instanceof User) {
+                if ($acceptedTerms) {
+                    $existing->acceptTerms();
+                }
+                $this->attachPlan($existing, $plan, $pricingArea, $organization);
+
+                return $existing;
             }
-            $this->attachPlan($existing, $plan, $pricingArea);
 
-            return $existing;
-        }
+            $user = User::withoutPersonalTeam(function () use ($name, $email, $password, $pricingArea, $acceptedTerms) {
+                return User::query()->create([
+                    'name' => $name,
+                    'email' => $email,
+                    'password' => Hash::make($password),
+                    'country_iso' => self::isoFromArea($pricingArea),
+                    'terms_accepted_at' => $acceptedTerms ? now() : null,
+                ]);
+            });
 
-        $user = User::withoutPersonalTeam(function () use ($name, $email, $password, $pricingArea, $acceptedTerms) {
-            return User::query()->create([
-                'name' => $name,
-                'email' => $email,
-                'password' => Hash::make($password),
-                'country_iso' => self::isoFromArea($pricingArea),
-                'terms_accepted_at' => $acceptedTerms ? now() : null,
-            ]);
+            if (isCloud()) {
+                $user->sendVerificationEmail();
+            } else {
+                $user->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            $this->attachPlan($user, $plan, $pricingArea, $organization);
+
+            return $user;
         });
-
-        if (isCloud()) {
-            $user->sendVerificationEmail();
-        } else {
-            $user->forceFill(['email_verified_at' => now()])->save();
-        }
-
-        $this->attachPlan($user, $plan, $pricingArea);
-
-        return $user;
     }
 
-    private function attachPlan(User $user, GetOdooPlan $plan, ?GetOdooPricingArea $pricingArea = null): void
-    {
+    private function attachPlan(
+        User $user,
+        GetOdooPlan $plan,
+        ?GetOdooPricingArea $pricingArea = null,
+        ?string $organization = null,
+    ): void {
         $iso = self::isoFromArea($pricingArea);
         if ($iso !== null && blank($user->country_iso)) {
             $user->forceFill(['country_iso' => $iso])->save();
         }
 
         $team = $user->teams()->where('getodoo_plan_id', $plan->id)->first();
+        $teamName = filled($organization) ? trim($organization) : $user->name;
 
         if (! $team instanceof Team) {
             $team = new Team;
             $team->forceFill([
-                'name' => $user->name,
-                'personal_team' => true,
+                'name' => $teamName,
+                'personal_team' => false,
                 'show_boarding' => true,
                 'getodoo_plan_id' => $plan->id,
                 'getodoo_pricing_area_id' => $pricingArea?->id,
             ]);
             $team->save();
+            // Owner of their organization; server flags still come from the plan pivot.
             $user->teams()->attach($team->id, $this->membership($plan, $pricingArea));
 
             return;
@@ -85,6 +100,8 @@ class OpenGetOdooPlanAccount
         }
 
         $team->forceFill([
+            'name' => filled($organization) ? $teamName : $team->name,
+            'personal_team' => false,
             'getodoo_pricing_area_id' => $pricingArea?->id ?? $team->getodoo_pricing_area_id,
         ])->save();
 
@@ -110,7 +127,7 @@ class OpenGetOdooPlanAccount
         $entitlements = GetOdooAreaEntitlements::resolve($pricingArea);
 
         return [
-            'role' => 'admin',
+            'role' => 'owner',
             'max_projects' => GetOdooAreaEntitlements::capMaxProjects(
                 $plan->max_projects !== null ? (int) $plan->max_projects : null,
                 $entitlements,
@@ -120,8 +137,8 @@ class OpenGetOdooPlanAccount
             'max_production_branches' => $plan->max_production_branches,
             'max_staging_branches' => $plan->max_staging_branches,
             'max_services' => $plan->max_services,
-            'can_add_servers' => $plan->can_add_servers,
-            'can_launch_on_instance_server' => $plan->can_launch_on_instance_server,
+            'can_add_servers' => (bool) $plan->can_add_servers,
+            'can_launch_on_instance_server' => (bool) $plan->can_launch_on_instance_server,
         ];
     }
 }

@@ -1,10 +1,32 @@
 <div>
     <x-slot:title>
-        {{ __('Team Admin | Coolify') }}
+        {{ __('Users') }} | {{ product_name() }}
     </x-slot>
 
     <x-team.settings-layout>
-    <div class="application-settings-form">
+    <div class="application-settings-form flex flex-col gap-6">
+        <x-application.settings-section title="{{ __('Generate signup links') }}"
+            description="{{ __('Share a plan link so a customer creates their own organization team. Same links as Configuration → Plans.') }}">
+            @if ($signupPlans->isEmpty())
+                <x-empty size="sm" title="{{ __('No active plans') }}"
+                    description="{{ __('Create and activate a plan first to get a signup link.') }}" icon-name="tags" />
+            @else
+                <div class="data-table">
+                    <div class="data-table-header grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3">
+                        <span>{{ __('Plan name') }}</span>
+                        <span>{{ __('Signup link') }}</span>
+                    </div>
+                    @foreach ($signupPlans as $plan)
+                        <div class="data-table-row grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] gap-3 border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
+                            wire:key="signup-plan-{{ $plan->id }}">
+                            <div class="truncate text-[13px] font-medium">{{ $plan->name }}</div>
+                            <input class="input w-full font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </x-application.settings-section>
+
         <x-application.settings-section title="{{ __('Instance users') }}" flush>
             <form wire:submit.prevent="submitSearch"
                 class="flex flex-col gap-2 border-b border-neutral-200 p-3 sm:flex-row sm:items-center sm:justify-between dark:border-white/[0.08]">
@@ -47,6 +69,7 @@
                     <div class="data-table-header admin-users-table-grid">
                         <span>{{ __('Name') }}</span>
                         <span>{{ __('Email') }}</span>
+                        <span>{{ __('Teams') }}</span>
                         <span class="text-right">{{ __('Actions') }}</span>
                     </div>
                     @foreach ($users as $user)
@@ -64,10 +87,13 @@
                             <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">
                                 {{ $user->email }}
                             </div>
+                            <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">
+                                {{ $user->teams->pluck('name')->filter()->join(', ') ?: __('No team') }}
+                            </div>
                             <div class="flex justify-end">
                                 <x-modal-confirmation title="{{ __('Confirm User Deletion?') }}"
                                     submitAction="delete({{ $user->id }})" :actions="[
-                                        'The selected user and their default team resources will be permanently deleted.',
+                                        'The selected user and their organization team resources will be permanently deleted. The email can be used again for plan signup.',
                                     ]"
                                     confirmationText="{{ $user->name }}"
                                     confirmationLabel="{{ __('Enter the user name to confirm deletion') }}"

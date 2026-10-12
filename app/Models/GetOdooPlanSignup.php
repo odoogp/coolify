@@ -10,6 +10,7 @@ class GetOdooPlanSignup extends BaseModel
         'plan_id',
         'pricing_area_id',
         'name',
+        'organization',
         'email',
         'password',
         'amount',

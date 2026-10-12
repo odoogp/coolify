@@ -167,6 +167,12 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
             \DB::transaction(function () use ($user) {
                 RevokeUserTeamTokens::forUser($user);
 
+                // Free the email for plan signup and invites after this user is gone.
+                TeamInvitation::whereEmail($user->email)->delete();
+                if (\Illuminate\Support\Facades\Schema::hasTable('get_odoo_plan_signups')) {
+                    \App\Models\GetOdooPlanSignup::query()->where('email', strtolower((string) $user->email))->delete();
+                }
+
                 $teams = $user->teams;
                 foreach ($teams as $team) {
                     $user_alone_in_team = $team->members->count() === 1;
@@ -484,6 +490,15 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 
     public function canAddServers(): bool
     {
+        if ($this->isInstanceOwner()) {
+            return true;
+        }
+
+        // GetOdoo plan teams: owner/admin follow the plan flags on team_user.
+        if ($this->currentTeam()?->getodoo_plan_id) {
+            return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_add_servers');
+        }
+
         if ($this->isOwner()) {
             return true;
         }
@@ -496,6 +511,14 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
      */
     public function canLaunchOnInstanceServer(): bool
     {
+        if ($this->isInstanceOwner()) {
+            return true;
+        }
+
+        if ($this->currentTeam()?->getodoo_plan_id) {
+            return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_launch_on_instance_server');
+        }
+
         if ($this->isOwner()) {
             return true;
         }

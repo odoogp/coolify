@@ -82,6 +82,9 @@
                 <form class="flex flex-col gap-4" wire:submit="register">
                     <x-forms.input id="name" required type="text" autocomplete="name" autofocus
                         label="{{ __('input.name') }}" />
+                    <x-forms.input id="organization" required type="text" autocomplete="organization"
+                        label="{{ __('Organization') }}"
+                        helper="{{ __('This becomes the name of your team. You are the owner of that team under this plan.') }}" />
                     <x-forms.input id="email" required type="email" autocomplete="email"
                         label="{{ __('input.email') }}" />
                     @if ($locationLocked)

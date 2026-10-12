@@ -222,6 +222,7 @@ it('opens a free plan without Wompi and without using the public registration sw
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
         ->set('email', 'ana@example.com')
@@ -240,7 +241,9 @@ it('opens a free plan without Wompi and without using the public registration sw
         ->and($customer->teams()->count())->toBe(1)
         ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
         ->and((int) $team->getodoo_pricing_area_id)->toBe($country->id)
-        ->and($team->pivot->role)->toBe('admin')
+        ->and($team->pivot->role)->toBe('owner')
+        ->and($team->name)->toBe('Acme Org')
+        ->and($team->personal_team)->toBeFalse()
         ->and((int) $team->pivot->max_projects)->toBe(1)
         ->and((int) $team->pivot->max_environments)->toBe(2)
         ->and((bool) $team->pivot->can_add_servers)->toBeTrue()
@@ -256,6 +259,7 @@ it('sends a paid plan to Wompi and creates the account only after a live charge'
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
@@ -291,7 +295,9 @@ it('sends a paid plan to Wompi and creates the account only after a live charge'
     expect($customer)->not->toBeNull()
         ->and(User::query()->where('email', 'ana@example.com')->count())->toBe(1)
         ->and($customer->hasAcceptedTerms())->toBeTrue()
-        ->and($team->pivot->role)->toBe('admin')
+        ->and($team->pivot->role)->toBe('owner')
+        ->and($team->name)->toBe('Acme Org')
+        ->and($team->personal_team)->toBeFalse()
         ->and((int) $team->pivot->max_services)->toBe(2)
         ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
         ->and($signup->fresh()->status)->toBe('paid')
@@ -411,6 +417,7 @@ it('limits a plan to specific countries and uses promo price on signup', functio
         ->assertSee('$100.00')
         ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('email', 'ana-gt@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
@@ -424,6 +431,7 @@ it('limits a plan to specific countries and uses promo price on signup', functio
     config(['constants.getodoo.force_country_iso' => 'SV']);
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
@@ -518,6 +526,7 @@ it('locks signup to the buyer ip country and charges the quoted amount', functio
         ->assertSee('Guatemala')
         ->assertDontSee(__('Search countries'))
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
@@ -553,6 +562,7 @@ it('uses the standard plan price when the buyer location cannot be determined', 
         ->assertDontSee(__('Search countries'))
         ->assertDontSee(__('Detected from your location. The price for this country applies.'))
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('email', 'ana@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')
@@ -583,6 +593,50 @@ it('reads the buyer country from cloudflare headers and public ip lookup', funct
         ->and(DetectRequestCountry::clientIp(Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '127.0.0.1'])))->toBeNull();
 });
 
+it('frees the email for plan signup after the customer user is deleted', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'ana@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect(route('dashboard'));
+
+    $customer = User::query()->where('email', 'ana@example.com')->firstOrFail();
+    auth()->logout();
+    session()->flush();
+    $customer->delete();
+
+    expect(User::query()->where('email', 'ana@example.com')->exists())->toBeFalse()
+        ->and(GetOdooPlanSignup::query()->where('email', 'ana@example.com')->exists())->toBeFalse();
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org Again')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'ana@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('dashboard'));
+
+    $again = User::query()->where('email', 'ana@example.com')->first();
+    expect($again)->not->toBeNull()
+        ->and($again->teams()->first()?->name)->toBe('Acme Org Again');
+
+    $this->actingAs($again);
+    session(['currentTeam' => $again->teams()->first()]);
+    expect($again->fresh()->canAddServers())->toBeTrue()
+        ->and($again->fresh()->canLaunchOnInstanceServer())->toBeFalse();
+});
+
 it('applies country service and project limits to the new team', function () {
     User::factory()->create();
     $plan = getOdooPlan([
@@ -602,7 +656,7 @@ it('applies country service and project limits to the new team', function () {
         'sort_order' => 1,
     ]);
 
-    $user = app(OpenGetOdooPlanAccount::class)->open('Ana', 'ana@example.com', 'password1', $plan, $country);
+    $user = app(OpenGetOdooPlanAccount::class)->open('Ana', 'ana@example.com', 'password1', $plan, $country, organization: 'Acme Org');
     $team = $user->teams()->first();
     $entitlements = GetOdooAreaEntitlements::forTeam($team);
 
@@ -692,6 +746,7 @@ it('requires accepting terms before plan signup', function () {
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
         ->set('email', 'ana-terms@example.com')
         ->set('password', 'password1')
         ->set('password_confirmation', 'password1')

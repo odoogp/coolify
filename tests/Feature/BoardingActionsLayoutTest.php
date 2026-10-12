@@ -3,7 +3,14 @@
 test('boarding utility actions are centered', function () {
     $view = file_get_contents(resource_path('views/livewire/boarding/index.blade.php'));
 
-    expect($view)->toContain('class="mx-auto mt-6 flex w-full max-w-3xl flex-col items-center gap-3"');
+    expect($view)
+        ->toContain('class="mx-auto mt-6 flex w-full max-w-3xl flex-col items-center gap-3"')
+        ->toContain("{{ __('Onboarding') }} | {{ product_name() }}")
+        ->toContain('getodoo-welcome')
+        ->toContain('continueGetOdooTour')
+        ->toContain("{{ __('Welcome to :product', ['product' => product_name()]) }}")
+        ->not->toContain('Welcome to Coolify')
+        ->not->toContain('Onboarding | Coolify');
 });
 
 test('server validation opens in the centered process dialog', function () {

@@ -46,9 +46,17 @@
                                 <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
                                 <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
                             </div>
-                            <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
-                            <x-forms.checkbox id="canLaunchOnInstanceServer"
-                                label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
+                            <div class="flex flex-col gap-3 rounded-lg border border-neutral-200 p-3 dark:border-white/[0.08]">
+                                <p class="text-sm font-medium">{{ __('Server access for the plan owner') }}</p>
+                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('These flags are written on the buyer’s team membership when they sign up. Without them, the dashboard will not offer adding servers or launching on the instance host.') }}
+                                </p>
+                                <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}"
+                                    helper="{{ __('Allows the organization owner to create and manage their own servers.') }}" />
+                                <x-forms.checkbox id="canLaunchOnInstanceServer"
+                                    label="{{ __('Can launch on the server where :product is installed', ['product' => product_name()]) }}"
+                                    helper="{{ __('Allows launching on the local instance server (id 0), even when that server belongs to the root team.') }}" />
+                            </div>
                             <x-forms.checkbox id="includesMigration"
                                 label="{{ __('Includes migration help (GitHub, repository, dump + filestore)') }}"
                                 helper="{{ __('When on, signup shows migration help as included. Anyone who can update an Odoo project can open Migrate.') }}" />

@@ -94,6 +94,11 @@ class Index extends Component
             return redirect()->route('dashboard');
         }
 
+        // Paid GetOdoo plans get a product tour, not the Coolify server wizard.
+        if ($this->isGetOdooPlanBoarding() && $this->currentState === 'welcome') {
+            $this->currentState = 'getodoo-welcome';
+        }
+
         $this->minDockerVersion = str(config('constants.docker.minimum_required_version'))->before('.');
         $this->privateKeyName = generate_random_name();
         $this->remoteServerName = generate_random_name();
@@ -164,10 +169,47 @@ class Index extends Component
 
     public function explanation()
     {
+        if ($this->isGetOdooPlanBoarding()) {
+            $this->currentState = 'getodoo-tour';
+
+            return;
+        }
+
         if (isCloud()) {
             return $this->setServerType('remote');
         }
         $this->currentState = 'select-server-type';
+    }
+
+    public function continueGetOdooTour(): mixed
+    {
+        if ($this->currentState === 'getodoo-welcome') {
+            $this->currentState = 'getodoo-tour';
+
+            return null;
+        }
+
+        if ($this->currentState === 'getodoo-tour') {
+            $user = auth()->user();
+            if ($user?->canAddServers()) {
+                $this->currentState = 'getodoo-servers';
+
+                return null;
+            }
+
+            return $this->finishGetOdooBoarding();
+        }
+
+        if ($this->currentState === 'getodoo-servers') {
+            return $this->finishGetOdooBoarding();
+        }
+
+        return $this->finishGetOdooBoarding();
+    }
+
+    public function finishGetOdooBoarding(): mixed
+    {
+        return $this->skipBoarding();
     }
 
     public function restartBoarding()
@@ -186,6 +228,11 @@ class Index extends Component
         refreshSession();
 
         return redirect()->route('dashboard');
+    }
+
+    public function isGetOdooPlanBoarding(): bool
+    {
+        return filled(currentTeam()?->getodoo_plan_id);
     }
 
     public function setServerType(string $type)
@@ -524,6 +571,10 @@ class Index extends Component
 
     public function render()
     {
-        return view('livewire.boarding.index')->layout('layouts.boarding');
+        return view('livewire.boarding.index', [
+            'getOdooBoarding' => $this->isGetOdooPlanBoarding(),
+            'canAddServers' => (bool) auth()->user()?->canAddServers(),
+            'canLaunchOnInstanceServer' => (bool) auth()->user()?->canLaunchOnInstanceServer(),
+        ])->layout('layouts.boarding');
     }
 }

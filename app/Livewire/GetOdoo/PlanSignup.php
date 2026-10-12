@@ -27,6 +27,8 @@ class PlanSignup extends Component
 
     public string $name = '';
 
+    public string $organization = '';
+
     public string $email = '';
 
     public string $password = '';
@@ -72,28 +74,31 @@ class PlanSignup extends Component
             'acceptedTerms' => ['accepted'],
         ];
 
+        $accountRules = [
+            'name' => ['required', 'string', 'max:255'],
+            'organization' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
+            'password' => ['required', Password::defaults(), 'confirmed'],
+        ];
+
         if ($lockedCountry instanceof GetOdooPricingArea) {
             $this->pricingAreaId = (string) $lockedCountry->id;
             $country = $lockedCountry;
-            $this->validate(array_merge([
-                'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
-                'password' => ['required', Password::defaults(), 'confirmed'],
+            $this->validate(array_merge($accountRules, [
                 'pricingAreaId' => ['required', 'integer', Rule::in([(int) $country->id])],
             ], $termsRules), [
                 'acceptedTerms.accepted' => __('You must accept the terms and conditions.'),
+                'email.unique' => __('This email is already registered. If you deleted that account, ask an advisor to remove it completely, or use another email.'),
             ]);
         } else {
             // Unknown location, or country not on this plan: standard plan price.
             $this->pricingAreaId = null;
             $country = null;
-            $this->validate(array_merge([
-                'name' => ['required', 'string', 'max:255'],
-                'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
-                'password' => ['required', Password::defaults(), 'confirmed'],
+            $this->validate(array_merge($accountRules, [
                 'pricingAreaId' => ['nullable'],
             ], $termsRules), [
                 'acceptedTerms.accepted' => __('You must accept the terms and conditions.'),
+                'email.unique' => __('This email is already registered. If you deleted that account, ask an advisor to remove it completely, or use another email.'),
             ]);
         }
 
@@ -104,10 +109,19 @@ class PlanSignup extends Component
         $amount = number_format($quote['amount'], 2, '.', '');
 
         if ($quote['amount'] <= 0) {
-            $user = $accounts->open($this->name, $this->email, $this->password, $plan, $country, acceptedTerms: true);
+            $user = $accounts->open(
+                $this->name,
+                $this->email,
+                $this->password,
+                $plan,
+                $country,
+                acceptedTerms: true,
+                organization: $this->organization,
+            );
             $plan->signups()->create([
                 'pricing_area_id' => $country?->id,
                 'name' => $user->name,
+                'organization' => trim($this->organization),
                 'email' => $user->email,
                 'amount' => 0,
                 'payment_gateway' => null,
@@ -143,6 +157,7 @@ class PlanSignup extends Component
             $signup = $plan->signups()->create([
                 'pricing_area_id' => $country?->id,
                 'name' => trim($this->name),
+                'organization' => trim($this->organization),
                 'email' => strtolower($this->email),
                 'password' => $this->password,
                 'amount' => $amount,
@@ -153,6 +168,7 @@ class PlanSignup extends Component
             $signup->fill([
                 'pricing_area_id' => $country?->id,
                 'name' => trim($this->name),
+                'organization' => trim($this->organization),
                 'password' => $this->password,
             ]);
 
