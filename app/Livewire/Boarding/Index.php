@@ -183,8 +183,6 @@ class Index extends Component
 
     public function continueGetOdooTour(): mixed
     {
-        abort_unless($this->isGetOdooPlanBoarding(), 403);
-
         if ($this->currentState === 'getodoo-welcome') {
             $this->currentState = 'getodoo-tour';
 
@@ -209,33 +207,13 @@ class Index extends Component
         return $this->finishGetOdooBoarding();
     }
 
-    public function startGetOdooTour(): void
-    {
-        abort_unless($this->isGetOdooPlanBoarding(), 403);
-
-        $this->currentState = 'getodoo-tour';
-    }
-
-    public function backGetOdooTour(): void
-    {
-        abort_unless($this->isGetOdooPlanBoarding(), 403);
-
-        $this->currentState = match ($this->currentState) {
-            'getodoo-tour' => 'getodoo-welcome',
-            'getodoo-servers' => 'getodoo-tour',
-            default => 'getodoo-welcome',
-        };
-    }
-
     public function finishGetOdooBoarding(): mixed
     {
-        abort_unless($this->isGetOdooPlanBoarding(), 403);
-
         return $this->skipBoarding();
     }
 
     /**
-     * Leave boarding and open the server create assistant (welcome or servers).
+     * Leave the GetOdoo tour and open the server create assistant.
      * Must clear show_boarding first or DecideWhatToDoWithUser sends the user back to onboarding.
      */
     public function goToCreateServerFromGetOdooTour(): mixed
@@ -612,7 +590,7 @@ class Index extends Component
             'canAddServers' => (bool) auth()->user()?->canAddServers(),
             'canLaunchOnInstanceServer' => (bool) auth()->user()?->canLaunchOnInstanceServer(),
             'getOdooShellDescription' => match ($this->currentState) {
-                'getodoo-welcome' => __('Your organization is ready. Start with a server when you need one, or take an optional short tour.'),
+                'getodoo-welcome' => __('Your organization team is ready. Here is what you can do next.'),
                 'getodoo-tour' => __('One organization team, projects with production and staging, and Odoo behind HTTPS.'),
                 'getodoo-servers' => __('Your plan controls where you can run instances.'),
                 default => __('Getting started'),

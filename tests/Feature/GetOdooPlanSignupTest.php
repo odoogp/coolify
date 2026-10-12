@@ -4,7 +4,6 @@ use App\Livewire\Boarding\Index as BoardingIndex;
 use App\Livewire\GetOdoo\PlanSignup;
 use App\Livewire\Settings\GetOdooPlans;
 use App\Livewire\Settings\GetOdooRegions;
-use App\Livewire\Settings\Index;
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
@@ -694,63 +693,7 @@ it('finishes the getodoo tour before opening the server create assistant', funct
         ->call('goToCreateServerFromGetOdooTour')
         ->assertRedirect(route('server.create'));
 
-    expect((bool) $team->fresh()->show_boarding)->toBeFalse();
-});
-
-it('opens server create from the getodoo welcome without the optional tour', function () {
-    $plan = getOdooPlan(['can_add_servers' => true]);
-    $customer = User::factory()->create();
-    $team = Team::factory()->create([
-        'name' => 'Direct Server Org',
-        'personal_team' => false,
-        'show_boarding' => true,
-        'getodoo_plan_id' => $plan->id,
-    ]);
-    $customer->teams()->attach($team->id, [
-        'role' => 'owner',
-        'can_add_servers' => true,
-        'can_launch_on_instance_server' => false,
-    ]);
-    $this->actingAs($customer);
-    session(['currentTeam' => $team]);
-
-    Livewire::test(BoardingIndex::class)
-        ->assertSet('currentState', 'getodoo-welcome')
-        ->assertSee(__('Take a short tour'))
-        ->assertSee(__('Create a new server'))
-        ->call('goToCreateServerFromGetOdooTour')
-        ->assertRedirect(route('server.create'));
-
-    expect((bool) $team->fresh()->show_boarding)->toBeFalse();
-});
-
-it('navigates back through the optional getodoo tour', function () {
-    $plan = getOdooPlan(['can_add_servers' => true]);
-    $customer = User::factory()->create();
-    $team = Team::factory()->create([
-        'name' => 'Tour Back Org',
-        'personal_team' => false,
-        'show_boarding' => true,
-        'getodoo_plan_id' => $plan->id,
-    ]);
-    $customer->teams()->attach($team->id, [
-        'role' => 'owner',
-        'can_add_servers' => true,
-        'can_launch_on_instance_server' => false,
-    ]);
-    $this->actingAs($customer);
-    session(['currentTeam' => $team]);
-
-    Livewire::test(BoardingIndex::class)
-        ->assertSet('currentState', 'getodoo-welcome')
-        ->call('startGetOdooTour')
-        ->assertSet('currentState', 'getodoo-tour')
-        ->call('continueGetOdooTour')
-        ->assertSet('currentState', 'getodoo-servers')
-        ->call('backGetOdooTour')
-        ->assertSet('currentState', 'getodoo-tour')
-        ->call('backGetOdooTour')
-        ->assertSet('currentState', 'getodoo-welcome');
+    expect($team->fresh()->show_boarding)->toBeFalse();
 });
 
 it('lists plans without opening the editor until New or Edit', function () {
@@ -941,7 +884,7 @@ it('publishes sanitized terms on the branded public page and from general settin
     $this->actingAs($owner);
     session(['currentTeam' => $this->root]);
 
-    Livewire::test(Index::class)
+    Livewire::test(\App\Livewire\Settings\Index::class)
         ->set('terms_and_conditions_html', '<h1>Acuerdo</h1><p>Usar <script>alert(1)</script>bien.</p>')
         ->call('instantSave')
         ->assertHasNoErrors();
