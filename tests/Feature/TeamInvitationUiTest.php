@@ -38,6 +38,29 @@ it('shows generate link with loading state targeting viaLink', function () {
         ->assertSeeHtml('wire:loading.class="is-loading"');
 });
 
+it('does not offer owner invites on a getodoo plan organization team', function () {
+    $plan = \App\Models\GetOdooPlan::query()->create([
+        'name' => 'Plan org',
+        'price' => 0,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+    ]);
+    $this->team->forceFill(['getodoo_plan_id' => $plan->id])->save();
+    session(['currentTeam' => $this->team->fresh()]);
+
+    $view = file_get_contents(resource_path('views/livewire/team/invite-link.blade.php'));
+    expect($view)->toContain('isGetOdooPlanTeam()');
+
+    Livewire::test(InviteLink::class)
+        ->set('email', 'invitee@example.com')
+        ->set('role', 'owner')
+        ->call('viaLink')
+        ->assertDispatched('error');
+
+    expect(TeamInvitation::query()->where('email', 'invitee@example.com')->exists())->toBeFalse();
+});
+
 it('renders a real copy button for pending invitation links', function () {
     $invitation = TeamInvitation::create([
         'team_id' => $this->team->id,

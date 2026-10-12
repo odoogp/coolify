@@ -66,9 +66,9 @@ test('helper triggers do not create stacking contexts above open tooltips', func
     $helper = file_get_contents(resource_path('views/components/helper.blade.php'));
 
     expect($helper)
-        ->toContain("'class' => 'relative inline-block align-middle'")
+        ->toContain("'class' => 'relative inline-flex align-middle'")
         ->toContain("'info-helper relative inline-flex")
-        ->not->toContain("'class' => 'relative z-10 inline-block align-middle'")
+        ->not->toContain("'class' => 'relative z-10 inline-flex align-middle'")
         ->not->toContain("'info-helper relative z-10 inline-flex");
 });
 
@@ -76,9 +76,20 @@ test('helper popup prefers a position below its trigger and falls back above', f
     $helper = file_get_contents(resource_path('views/components/helper.blade.php'));
 
     expect($helper)
-        ->toContain('let top = triggerRect.bottom + padding;')
-        ->toContain('let left = triggerRect.right - popupRect.width;')
-        ->toContain('top = triggerRect.top - popupRect.height - padding;');
+        ->toContain('let top = triggerRect.bottom + padding - origin.top;')
+        ->toContain('let left = triggerRect.right - popupRect.width - origin.left;')
+        ->toContain('top = triggerRect.top - popupRect.height - padding - origin.top;');
+});
+
+test('helper popup compensates for fixed containing blocks from backdrop-filter', function () {
+    $helper = file_get_contents(resource_path('views/components/helper.blade.php'));
+
+    expect($helper)
+        ->toContain("probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'")
+        ->toContain('const origin = probe.getBoundingClientRect();')
+        ->toContain('popup.parentElement.appendChild(probe)')
+        ->toContain('- origin.top')
+        ->toContain('- origin.left');
 });
 
 test('helper popup stays within the visual viewport on mobile', function () {

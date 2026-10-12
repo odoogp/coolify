@@ -165,6 +165,10 @@ class Member extends Component
         try {
             $this->authorize('manageMembers', currentTeam());
 
+            if (currentTeam()?->isGetOdooPlanTeam()) {
+                throw new \Exception(__('This organization keeps one principal: the account that bought the plan. Invitees can be admins, not principals.'));
+            }
+
             if (Role::from(auth()->user()->role())->lt(Role::OWNER)
                 || Role::from($this->getMemberRole())->gt(auth()->user()->role())) {
                 throw new \Exception('You are not authorized to perform this action.');
@@ -208,6 +212,9 @@ class Member extends Component
             if (Role::from(auth()->user()->role())->lt(Role::ADMIN)
                 || Role::from($this->getMemberRole())->gt(auth()->user()->role())) {
                 throw new \Exception('You are not authorized to perform this action.');
+            }
+            if (currentTeam()?->isGetOdooPlanTeam() && $this->getMemberRole() === Role::OWNER->value) {
+                throw new \Exception(__('Cannot remove the principal from the organization. Delete that account from Users to remove the organization and its projects.'));
             }
             $teamId = currentTeam()->id;
             DB::transaction(function () use ($teamId): void {

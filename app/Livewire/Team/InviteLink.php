@@ -97,6 +97,10 @@ class InviteLink extends Component
 
             // Prevent privilege escalation: users cannot invite someone with higher privileges
             $userRole = auth()->user()->role();
+            $team = currentTeam();
+            if ($team?->isGetOdooPlanTeam() && $this->role === 'owner') {
+                throw new \Exception(__('The plan principal cannot be invited. Invite an admin or a member instead.'));
+            }
             if (is_null($userRole) || ($userRole === 'member' && in_array($this->role, ['admin', 'owner']))) {
                 throw new \Exception('Members cannot invite admins or owners.');
             }
@@ -145,7 +149,6 @@ class InviteLink extends Component
                 }
             }
 
-            $team = currentTeam();
             $invitation = app(AdminCreationQuota::class)->createInvitation(auth()->user(), [
                 'team_id' => $team->id,
                 'uuid' => $uuid,

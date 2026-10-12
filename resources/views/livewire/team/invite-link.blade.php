@@ -29,7 +29,9 @@
                     <x-forms.input id="email" type="email" label="{{ __('Email address') }}"
                         placeholder="{{ __('teammate@example.com') }}" required />
                     <x-forms.listbox id="role" label="{{ __('Role') }}" live :options="array_values(array_filter([
-                        auth()->user()->role() === 'owner' ? ['value' => 'owner', 'label' => __('Owner')] : null,
+                        auth()->user()->role() === 'owner' && ! currentTeam()?->isGetOdooPlanTeam()
+                            ? ['value' => 'owner', 'label' => __('Owner')]
+                            : null,
                         ['value' => 'admin', 'label' => __('Admin')],
                         ['value' => 'member', 'label' => __('Member')],
                     ]))" />

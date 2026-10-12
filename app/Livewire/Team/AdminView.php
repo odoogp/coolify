@@ -24,6 +24,11 @@ class AdminView extends Component
         if (! isInstanceAdmin()) {
             return redirect()->route('dashboard');
         }
+
+        $search = trim((string) request()->query('search', ''));
+        if ($search !== '') {
+            $this->search = $search;
+        }
     }
 
     public function updatedSearch(): void

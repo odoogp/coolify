@@ -4,9 +4,12 @@ namespace App\Livewire\Settings;
 
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPricingArea;
+use App\Models\User;
 use App\Support\GetOdooBackupFrequency;
 use App\Support\GetOdooCountries;
 use Illuminate\Contracts\View\View;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Component;
@@ -16,6 +19,10 @@ class GetOdooPlans extends Component
     public bool $showPlanEditor = false;
 
     public ?int $planId = null;
+
+    public ?int $membersPlanId = null;
+
+    public bool $showArchived = false;
 
     public string $name = '';
 
@@ -80,6 +87,8 @@ class GetOdooPlans extends Component
     {
         abort_unless(isInstanceOwner(), 403);
 
+        $this->membersPlanId = null;
+        $this->showArchived = false;
         $this->resetErrorBag();
         $this->reset([
             'planId',
@@ -117,6 +126,7 @@ class GetOdooPlans extends Component
         abort_unless(isInstanceOwner(), 403);
 
         $plan = GetOdooPlan::query()->with('pricingAreas')->findOrFail($planId);
+        $this->membersPlanId = null;
         $this->resetErrorBag();
         $this->planId = $plan->id;
         $this->name = $plan->name;
@@ -389,23 +399,87 @@ class GetOdooPlans extends Component
         $this->dispatch('success', __('The plan was saved.'));
     }
 
+    public function showPlanMembers(int $planId): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $this->membersPlanId = $planId;
+        $this->showPlanEditor = false;
+    }
+
+    public function closePlanMembers(): void
+    {
+        $this->membersPlanId = null;
+    }
+
+    public function showArchivedPlans(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $this->showArchived = true;
+        $this->showPlanEditor = false;
+        $this->membersPlanId = null;
+    }
+
+    public function showActivePlans(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $this->showArchived = false;
+        $this->showPlanEditor = false;
+        $this->membersPlanId = null;
+    }
+
+    public function archivePlan(int $planId): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $plan = GetOdooPlan::query()->findOrFail($planId);
+        $plan->forceFill(['is_active' => false])->save();
+
+        if ($this->planId === $planId) {
+            $this->cancelPlanEditor();
+        }
+        if ($this->membersPlanId === $planId) {
+            $this->membersPlanId = null;
+        }
+
+        $this->dispatch('success', __('The plan was archived. It is no longer offered for signup.'));
+    }
+
+    public function restorePlan(int $planId): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $plan = GetOdooPlan::query()->findOrFail($planId);
+        $plan->forceFill(['is_active' => true])->save();
+
+        $this->dispatch('success', __('The plan was restored and is active again.'));
+    }
+
     public function deletePlan(int $planId): void
     {
         abort_unless(isInstanceOwner(), 403);
 
-        $plan = GetOdooPlan::query()->withCount('signups')->findOrFail($planId);
+        $plan = GetOdooPlan::query()->withCount('teams')->findOrFail($planId);
 
-        if ($plan->signups_count > 0) {
-            $this->dispatch('error', __('This plan has signups and cannot be deleted.'));
+        if ($plan->teams_count > 0) {
+            $this->dispatch('error', __('This plan still has organization teams. Archive it instead, or move or delete those customers before deleting the plan.'));
 
             return;
         }
 
-        $plan->pricingAreas()->detach();
-        $plan->delete();
+        DB::transaction(function () use ($plan): void {
+            $plan->signups()->delete();
+            $plan->pricingAreas()->detach();
+            $plan->delete();
+        });
 
         if ($this->planId === $planId) {
             $this->cancelPlanEditor();
+        }
+        if ($this->membersPlanId === $planId) {
+            $this->membersPlanId = null;
         }
 
         $this->dispatch('success', __('The plan was deleted.'));
@@ -474,13 +548,70 @@ class GetOdooPlans extends Component
             ->values()
             ->all();
 
+        $plansQuery = GetOdooPlan::query()
+            ->select('get_odoo_plans.*')
+            ->with(['pricingAreas'])
+            ->withCount(['signups', 'teams'])
+            ->addSelect([
+                'members_count' => DB::table('team_user')
+                    ->join('teams', 'teams.id', '=', 'team_user.team_id')
+                    ->whereColumn('teams.getodoo_plan_id', 'get_odoo_plans.id')
+                    ->selectRaw('count(distinct team_user.user_id)'),
+            ])
+            ->where('is_active', ! $this->showArchived)
+            ->orderBy('price')
+            ->orderBy('name');
+
+        $plans = $plansQuery->get();
+        $archivedCount = GetOdooPlan::query()->where('is_active', false)->count();
+
+        $planMembers = collect();
+        $membersPlan = null;
+        if ($this->membersPlanId !== null) {
+            $membersPlan = $plans->firstWhere('id', $this->membersPlanId)
+                ?? GetOdooPlan::query()->find($this->membersPlanId);
+            if ($membersPlan instanceof GetOdooPlan) {
+                $planMembers = $this->membersForPlan((int) $membersPlan->id);
+            } else {
+                $this->membersPlanId = null;
+            }
+        }
+
         return view('livewire.settings.getodoo-plans', [
-            'plans' => GetOdooPlan::query()->with(['pricingAreas'])->withCount('signups')->orderBy('price')->orderBy('name')->get(),
+            'plans' => $plans,
+            'archivedCount' => $archivedCount,
+            'membersPlan' => $membersPlan,
+            'planMembers' => $planMembers,
             'planCountryRows' => $planCountryRows,
             'planRegionRows' => $planRegionRows,
             'addCountryChoices' => $addCountryChoices,
             'addRegionChoices' => $addRegionChoices,
             'backupFrequencyChoices' => GetOdooBackupFrequency::choices(includeNone: false),
         ]);
+    }
+
+    /**
+     * @return Collection<int, object{user: User, team_name: string, role: string, is_principal: bool}>
+     */
+    private function membersForPlan(int $planId): Collection
+    {
+        return User::query()
+            ->whereHas('teams', fn ($query) => $query->where('teams.getodoo_plan_id', $planId))
+            ->with(['teams' => fn ($query) => $query->where('teams.getodoo_plan_id', $planId)])
+            ->orderBy('name')
+            ->get()
+            ->flatMap(function (User $user) {
+                return $user->teams->map(function ($team) use ($user) {
+                    $role = (string) data_get($team, 'pivot.role', 'member');
+
+                    return (object) [
+                        'user' => $user,
+                        'team_name' => (string) $team->name,
+                        'role' => $role,
+                        'is_principal' => $role === 'owner',
+                    ];
+                });
+            })
+            ->values();
     }
 }

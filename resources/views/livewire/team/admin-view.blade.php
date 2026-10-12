@@ -91,10 +91,21 @@
                                 {{ $user->teams->pluck('name')->filter()->join(', ') ?: __('No team') }}
                             </div>
                             <div class="flex justify-end">
+                                @php
+                                    $isPlanPrincipal = $user->teams->contains(
+                                        fn ($team) => filled($team->getodoo_plan_id) && data_get($team, 'pivot.role') === 'owner'
+                                    );
+                                    $deleteActions = $isPlanPrincipal
+                                        ? [
+                                            __('This user is the principal of a plan organization. Deleting them removes that organization, its projects, and invited members’ access to it.'),
+                                            __('The email can be used again for plan signup.'),
+                                        ]
+                                        : [
+                                            __('The selected user and their organization team resources will be permanently deleted. The email can be used again for plan signup.'),
+                                        ];
+                                @endphp
                                 <x-modal-confirmation title="{{ __('Confirm User Deletion?') }}"
-                                    submitAction="delete({{ $user->id }})" :actions="[
-                                        'The selected user and their organization team resources will be permanently deleted. The email can be used again for plan signup.',
-                                    ]"
+                                    submitAction="delete({{ $user->id }})" :actions="$deleteActions"
                                     confirmationText="{{ $user->name }}"
                                     confirmationLabel="{{ __('Enter the user name to confirm deletion') }}"
                                     shortConfirmationLabel="{{ __('User name') }}">

@@ -291,6 +291,14 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
         return $this->belongsTo(GetOdooPlan::class, 'getodoo_plan_id');
     }
 
+    /**
+     * Organization team created from a GetOdoo plan signup (buyer is the principal owner).
+     */
+    public function isGetOdooPlanTeam(): bool
+    {
+        return filled($this->getodoo_plan_id);
+    }
+
     public function getodooPricingArea()
     {
         return $this->belongsTo(GetOdooPricingArea::class, 'getodoo_pricing_area_id');

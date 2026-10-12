@@ -692,6 +692,100 @@ it('lists plans without opening the editor until New or Edit', function () {
         ->assertSet('name', 'Listed plan');
 });
 
+it('deletes a plan with leftover signups when no organization teams remain', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Propietario', 'price' => 0, 'payment_gateway' => null]);
+    GetOdooPlanSignup::query()->create([
+        'plan_id' => $plan->id,
+        'name' => 'Pending',
+        'organization' => 'Pending Org',
+        'email' => 'pending@example.com',
+        'password' => 'password1',
+        'amount' => 0,
+        'status' => 'awaiting_payment',
+    ]);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSee('Propietario')
+        ->assertSee(__('Delete'))
+        ->call('deletePlan', $plan->id)
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
+    expect(GetOdooPlan::query()->whereKey($plan->id)->exists())->toBeFalse()
+        ->and(GetOdooPlanSignup::query()->where('plan_id', $plan->id)->exists())->toBeFalse();
+});
+
+it('blocks deleting a plan that still has organization teams', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Busy plan']);
+    Team::factory()->create(['getodoo_plan_id' => $plan->id, 'name' => 'Customer Org']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->call('deletePlan', $plan->id)
+        ->assertDispatched('error');
+
+    expect(GetOdooPlan::query()->whereKey($plan->id)->exists())->toBeTrue();
+});
+
+it('archives a plan with organizations into the archived list and can restore it', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Archivable plan']);
+    Team::factory()->create(['getodoo_plan_id' => $plan->id, 'name' => 'Customer Org']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSee('Archivable plan')
+        ->assertSee(__('Archive'))
+        ->call('archivePlan', $plan->id)
+        ->assertDispatched('success')
+        ->assertDontSee('Archivable plan')
+        ->call('showArchivedPlans')
+        ->assertSet('showArchived', true)
+        ->assertSee('Archivable plan')
+        ->assertSee(__('Restore'))
+        ->call('restorePlan', $plan->id)
+        ->assertDispatched('success')
+        ->call('showActivePlans')
+        ->assertSee('Archivable plan');
+
+    expect($plan->fresh()->is_active)->toBeTrue();
+});
+
+it('lists plan members and links to user administration', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Member plan']);
+    $customer = User::factory()->create(['name' => 'Ana Principal', 'email' => 'ana-principal@example.com']);
+    $invitee = User::factory()->create(['name' => 'Bob Invitee', 'email' => 'bob-invitee@example.com']);
+    $team = Team::factory()->create(['getodoo_plan_id' => $plan->id, 'name' => 'Acme Org']);
+    $team->members()->attach($customer->id, ['role' => 'owner']);
+    $team->members()->attach($invitee->id, ['role' => 'admin']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSee('Member plan')
+        ->call('showPlanMembers', $plan->id)
+        ->assertSet('membersPlanId', $plan->id)
+        ->assertSee('Ana Principal')
+        ->assertSee('Bob Invitee')
+        ->assertSee(__('Principal'))
+        ->assertSee(route('team.admin-view', ['search' => 'ana-principal@example.com']), false);
+});
+
 it('exposes regions in settings with list-first editing', function () {
     $owner = User::factory()->create();
     $this->root->members()->attach($owner->id, ['role' => 'owner']);

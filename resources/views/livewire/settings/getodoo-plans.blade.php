@@ -12,10 +12,24 @@
                         {{ __('A plan is the package a new customer buys. Sell it by country, by region, or as Rest of the world at the list price. Create regions under Regions first.') }}
                     </p>
                 </div>
-                @unless ($showPlanEditor)
-                    <x-forms.button type="button" wire:click="newPlan" isHighlighted>
-                        {{ __('New') }}
-                    </x-forms.button>
+                @unless ($showPlanEditor || $membersPlan)
+                    <div class="flex flex-wrap items-center gap-2">
+                        @if ($showArchived)
+                            <x-forms.button type="button" wire:click="showActivePlans">
+                                {{ __('Back to plans') }}
+                            </x-forms.button>
+                        @else
+                            <x-forms.button type="button" wire:click="showArchivedPlans">
+                                {{ __('Archived') }}
+                                @if ($archivedCount > 0)
+                                    <span class="ml-1 text-[11px] opacity-70">({{ $archivedCount }})</span>
+                                @endif
+                            </x-forms.button>
+                            <x-forms.button type="button" wire:click="newPlan" isHighlighted>
+                                {{ __('New') }}
+                            </x-forms.button>
+                        @endif
+                    </div>
                 @endunless
             </div>
 
@@ -183,17 +197,75 @@
                         </div>
                     </form>
                 </x-application.settings-section>
+            @elseif ($membersPlan)
+                <x-application.settings-section
+                    title="{{ __('Members on :plan', ['plan' => $membersPlan->name]) }}">
+                    <x-slot:actions>
+                        <button type="button" class="button" wire:click="closePlanMembers">{{ __('Back to plans') }}</button>
+                    </x-slot:actions>
+                    <p class="mb-4 text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                        {{ __('Users on organization teams that bought this plan. The principal is the account that signed up; invitees are admins or members of that team.') }}
+                    </p>
+                    @if ($planMembers->isEmpty())
+                        <x-empty size="sm" title="{{ __('No members yet.') }}"
+                            description="{{ __('Nobody has signed up for this plan yet.') }}" icon-name="teams" />
+                    @else
+                        <div class="data-table">
+                            <div class="data-table-header grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1fr)_7rem_max-content] gap-3">
+                                <span>{{ __('Name') }}</span>
+                                <span>{{ __('Email') }}</span>
+                                <span>{{ __('Organization') }}</span>
+                                <span>{{ __('Role') }}</span>
+                                <span></span>
+                            </div>
+                            @foreach ($planMembers as $row)
+                                <div class="data-table-row grid grid-cols-[minmax(0,1.1fr)_minmax(0,1.2fr)_minmax(0,1fr)_7rem_max-content] gap-3 border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
+                                    wire:key="plan-member-{{ $row->user->id }}-{{ $row->team_name }}">
+                                    <div class="truncate text-[13px] font-medium">{{ $row->user->name }}</div>
+                                    <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">{{ $row->user->email }}</div>
+                                    <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">{{ $row->team_name }}</div>
+                                    <div>
+                                        @if ($row->is_principal)
+                                            <span
+                                                class="inline-flex rounded-full bg-coollabs/10 px-2 py-0.5 text-[10px] font-medium text-coollabs dark:bg-warning/15 dark:text-warning">
+                                                {{ __('Principal') }}
+                                            </span>
+                                        @else
+                                            <span
+                                                class="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium capitalize text-neutral-600 dark:bg-white/[0.06] dark:text-fg-dim">
+                                                {{ $row->role }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="flex justify-end">
+                                        <a class="button" href="{{ route('team.admin-view', ['search' => $row->user->email]) }}">
+                                            {{ __('Manage') }}
+                                        </a>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </x-application.settings-section>
             @else
-                <x-application.settings-section title="{{ __('Plans') }}" flush>
+                <x-application.settings-section
+                    title="{{ $showArchived ? __('Archived plans') : __('Plans') }}" flush>
                     @if ($plans->isEmpty())
-                        <x-empty size="sm" title="{{ __('No plans yet.') }}"
-                            description="{{ __('Create a plan to get the signup link for the website.') }}" icon-name="tags" />
+                        @if ($showArchived)
+                            <x-empty size="sm" title="{{ __('No archived plans.') }}"
+                                description="{{ __('Archive a plan to hide it from signup without deleting its organizations.') }}"
+                                icon-name="tags" />
+                        @else
+                            <x-empty size="sm" title="{{ __('No plans yet.') }}"
+                                description="{{ __('Create a plan to get the signup link for the website.') }}" icon-name="tags" />
+                        @endif
                     @else
                         <div class="data-table">
                             <div class="data-table-header getodoo-plans-table-grid">
                                 <span>{{ __('Plan name') }}</span>
                                 <span>{{ __('Monthly price') }}</span>
                                 <span>{{ __('Scope') }}</span>
+                                <span>{{ __('Members') }}</span>
                                 <span>{{ __('Signup link') }}</span>
                                 <span></span>
                             </div>
@@ -202,9 +274,6 @@
                                     wire:key="getodoo-plan-{{ $plan->id }}">
                                     <div class="min-w-0">
                                         <div class="truncate text-[13px] font-medium">{{ $plan->name }}</div>
-                                        @if (! $plan->is_active)
-                                            <div class="text-[11px] text-neutral-500">{{ __('Inactive') }}</div>
-                                        @endif
                                     </div>
                                     <div class="text-[13px]">
                                         {{ $plan->isFree() ? __('Free') : '$'.number_format((float) $plan->price, 2) }}
@@ -212,14 +281,44 @@
                                     <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
                                         {{ $plan->scopeLabel() }}
                                     </div>
+                                    <div>
+                                        <button type="button"
+                                            class="text-[13px] font-medium text-coollabs underline-offset-2 hover:underline dark:text-warning"
+                                            wire:click="showPlanMembers({{ $plan->id }})"
+                                            title="{{ __('Open members on this plan') }}">
+                                            {{ (int) ($plan->members_count ?? 0) }}
+                                        </button>
+                                        <div class="text-[11px] text-neutral-500 dark:text-fg-dim">
+                                            {{ trans_choice(':count organization|:count organizations', (int) $plan->teams_count, ['count' => (int) $plan->teams_count]) }}
+                                        </div>
+                                    </div>
                                     <div class="min-w-0">
                                         <input class="input w-full font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
                                     </div>
-                                    <div class="flex justify-end gap-2">
+                                    <div class="flex flex-wrap justify-end gap-2">
                                         <button type="button" class="button" wire:click="editPlan({{ $plan->id }})">{{ __('Edit') }}</button>
-                                        @if ($plan->signups_count === 0)
-                                            <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
-                                                wire:confirm="{{ __('Delete this plan?') }}">{{ __('Delete') }}</button>
+                                        @if ($showArchived)
+                                            <button type="button" class="button" wire:click="restorePlan({{ $plan->id }})"
+                                                wire:confirm="{{ __('Restore this plan and offer it for signup again?') }}">
+                                                {{ __('Restore') }}
+                                            </button>
+                                            @if ((int) $plan->teams_count === 0)
+                                                <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
+                                                    wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}">
+                                                    {{ __('Delete') }}
+                                                </button>
+                                            @endif
+                                        @else
+                                            <button type="button" class="button" wire:click="archivePlan({{ $plan->id }})"
+                                                wire:confirm="{{ __('Archive this plan? It will stop appearing for new signups. Existing organizations keep their access.') }}">
+                                                {{ __('Archive') }}
+                                            </button>
+                                            @if ((int) $plan->teams_count === 0)
+                                                <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
+                                                    wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}">
+                                                    {{ __('Delete') }}
+                                                </button>
+                                            @endif
                                         @endif
                                     </div>
                                 </div>

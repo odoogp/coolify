@@ -55,6 +55,11 @@ class GetOdooPlan extends BaseModel
         return $this->hasMany(GetOdooPlanSignup::class, 'plan_id');
     }
 
+    public function teams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'getodoo_plan_id');
+    }
+
     /**
      * Country and/or region pricing areas. Empty when the plan is Rest of the world.
      */

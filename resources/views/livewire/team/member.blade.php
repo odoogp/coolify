@@ -22,11 +22,18 @@
         </div>
     </div>
     <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">{{ $member->email }}</div>
-    <div>
-        <span
-            class="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium capitalize text-neutral-600 dark:bg-white/[0.06] dark:text-fg-dim">
-            {{ data_get($member, 'pivot.role') }}
-        </span>
+    <div class="flex flex-wrap items-center gap-1">
+        @if (currentTeam()?->isGetOdooPlanTeam() && data_get($member, 'pivot.role') === 'owner')
+            <span
+                class="inline-flex rounded-full bg-coollabs/10 px-2 py-0.5 text-[10px] font-medium text-coollabs dark:bg-warning/15 dark:text-warning">
+                {{ __('Principal') }}
+            </span>
+        @else
+            <span
+                class="inline-flex rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium capitalize text-neutral-600 dark:bg-white/[0.06] dark:text-fg-dim">
+                {{ data_get($member, 'pivot.role') }}
+            </span>
+        @endif
     </div>
     @can('manageMembers', currentTeam())
         <div class="flex items-center">
@@ -45,19 +52,19 @@
                     <div x-show="open" x-cloak role="menu"
                         class="listbox-panel top-full! right-0! left-auto! mt-1! w-36! min-w-0!">
                         @if (Auth::user()->isOwner())
-                            @if (data_get($member, 'pivot.role') !== 'owner')
+                            @if (data_get($member, 'pivot.role') !== 'owner' && ! currentTeam()?->isGetOdooPlanTeam())
                                 <button type="button" class="listbox-option justify-start!" wire:click="makeOwner"
                                     @click="open = false">
                                     {{ __('Make owner') }}
                                 </button>
                             @endif
-                            @if (data_get($member, 'pivot.role') !== 'admin')
+                            @if (data_get($member, 'pivot.role') !== 'admin' && data_get($member, 'pivot.role') !== 'owner')
                                 <button type="button" class="listbox-option justify-start!" wire:click="makeAdmin"
                                     @click="open = false">
                                     {{ __('Make admin') }}
                                 </button>
                             @endif
-                            @if (data_get($member, 'pivot.role') !== 'member')
+                            @if (data_get($member, 'pivot.role') !== 'member' && data_get($member, 'pivot.role') !== 'owner')
                                 <button type="button" class="listbox-option justify-start!"
                                     wire:click="makeReadonly" @click="open = false">
                                     {{ __('Make member') }}
@@ -76,11 +83,13 @@
                                 </button>
                             @endif
                         @endif
-                        <div class="my-1 border-t border-neutral-200 dark:border-white/[0.08]"></div>
-                        <button type="button" class="listbox-option justify-start! text-error! hover:text-error!"
-                            wire:click="remove" @click="open = false">
-                            {{ __('Remove member') }}
-                        </button>
+                        @if (! (currentTeam()?->isGetOdooPlanTeam() && data_get($member, 'pivot.role') === 'owner'))
+                            <div class="my-1 border-t border-neutral-200 dark:border-white/[0.08]"></div>
+                            <button type="button" class="listbox-option justify-start! text-error! hover:text-error!"
+                                wire:click="remove" @click="open = false">
+                                {{ __('Remove member') }}
+                            </button>
+                        @endif
                     </div>
                 </div>
             @endif

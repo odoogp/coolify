@@ -78,17 +78,32 @@
 
         this.style = `max-width: ${popupWidth}px; max-height: ${availableHeight}px; overflow-y: auto;`;
 
+        // backdrop-filter / transform / filter on an ancestor (e.g. auth glass cards)
+        // make position:fixed resolve against that box, not the viewport. Probe the
+        // fixed origin so top/left stay next to the trigger instead of jumping away.
+        const probe = document.createElement('div');
+        probe.setAttribute('aria-hidden', 'true');
+        probe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;';
+        popup.parentElement.appendChild(probe);
+        const origin = probe.getBoundingClientRect();
+        probe.remove();
+
         const triggerRect = trigger.getBoundingClientRect();
         const popupRect = popup.getBoundingClientRect();
-        let top = triggerRect.bottom + padding;
-        let left = triggerRect.right - popupRect.width;
+        let top = triggerRect.bottom + padding - origin.top;
+        let left = triggerRect.right - popupRect.width - origin.left;
 
-        if (top + popupRect.height > viewportBottom - padding) {
-            top = triggerRect.top - popupRect.height - padding;
+        if (triggerRect.bottom + padding + popupRect.height > viewportBottom - padding) {
+            top = triggerRect.top - popupRect.height - padding - origin.top;
         }
 
-        left = Math.min(Math.max(viewportLeft + padding, left), viewportRight - popupRect.width - padding);
-        top = Math.min(Math.max(viewportTop + padding, top), viewportBottom - popupRect.height - padding);
+        const minLeft = viewportLeft + padding - origin.left;
+        const maxLeft = viewportRight - popupRect.width - padding - origin.left;
+        const minTop = viewportTop + padding - origin.top;
+        const maxTop = viewportBottom - popupRect.height - padding - origin.top;
+
+        left = Math.min(Math.max(minLeft, left), maxLeft);
+        top = Math.min(Math.max(minTop, top), maxTop);
 
         this.style += ` top: ${top}px; left: ${left}px;`;
     }
