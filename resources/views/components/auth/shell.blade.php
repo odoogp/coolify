@@ -61,6 +61,10 @@
         <span class="auth-stage-ridge auth-stage-ridge-a"></span>
         <span class="auth-stage-ridge auth-stage-ridge-b"></span>
     </div>
+    @isset($overlay)
+        {{ $overlay }}
+    @endisset
+
     <div class="auth-shell-content">
         <div @class(['auth-card', 'auth-card-wide' => $wide])>
             <div class="auth-card-heading">

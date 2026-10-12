@@ -4757,5 +4757,18 @@
     "Archive plan": "Archivar",
     "Getting started": "Primeros pasos",
     "Product": "Producto",
-    "Welcome": "Bienvenida"
+    "Welcome": "Bienvenida",
+    "Continue to create your first project": "Continuar a crear tu primer proyecto",
+    "Continue to invite your team": "Continuar a invitar equipo",
+    "Continue to create a server": "Continuar a crear un servidor",
+    "Your account is ready.": "Tu cuenta ya está lista.",
+    "Project name": "Nombre del proyecto",
+    "Name the project. A production environment is created with it.": "Ponle nombre al proyecto. Con él se crea el entorno de producción.",
+    "Invite your team": "Invita a tu equipo",
+    "Invite someone to the team as an admin or a guest.": "Invita a alguien al equipo como admin o invitado.",
+    "Guest": "Invitado",
+    "This finishes the assistant.": "Con esto el asistente ha concluido.",
+    "Thank you for being part of the :product team.": "Gracias por ser parte del equipo de :product.",
+    "This person is already on the team.": "Esta persona ya está en el equipo.",
+    "A pending invitation already exists for this email.": "Ya hay una invitación pendiente para este correo."
 }

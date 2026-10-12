@@ -1702,6 +1702,57 @@ main:has(.auth-shell) {
     background: transparent;
 }
 
+.getodoo-fireworks {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.getodoo-firework {
+    position: absolute;
+    left: var(--x);
+    top: var(--y);
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--c, #ffe08a);
+    box-shadow:
+        0 -26px 0 var(--c),
+        18px -18px 0 #fff7d6,
+        26px 0 0 #fff,
+        18px 18px 0 var(--c),
+        0 26px 0 #fff,
+        -18px 18px 0 #d7c6ff,
+        -26px 0 0 #fff,
+        -18px -18px 0 var(--c);
+    opacity: 0;
+    animation: getodoo-firework 1.15s ease-out var(--d, 0s) both;
+}
+
+@keyframes getodoo-firework {
+    0% {
+        transform: translateY(16px) scale(0.2);
+        opacity: 0;
+    }
+
+    18% {
+        opacity: 0.9;
+    }
+
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .getodoo-fireworks {
+        display: none;
+    }
+}
+
 @media (min-width: 901px) {
     .auth-stage {
         position: absolute;

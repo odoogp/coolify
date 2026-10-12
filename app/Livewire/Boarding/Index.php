@@ -3,15 +3,25 @@
 namespace App\Livewire\Boarding;
 
 use App\Enums\ProxyTypes;
+use App\Exceptions\AdminCreationQuotaExceeded;
 use App\Models\PrivateKey;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Team;
+use App\Models\TeamInvitation;
+use App\Models\User;
 use App\Services\AdminCreationQuota;
 use App\Services\ConfigurationRepository;
+use App\Support\OdooGit;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 
@@ -88,15 +98,25 @@ class Index extends Component
 
     public int $maxPrerequisiteInstallAttempts = 3;
 
+    public string $projectName = '';
+
+    public ?int $getOdooProjectId = null;
+
+    public string $inviteName = '';
+
+    public string $inviteEmail = '';
+
+    public string $inviteRole = 'admin';
+
     public function mount()
     {
         if (auth()->user()?->isMember() && auth()->user()->currentTeam()->show_boarding === true) {
             return redirect()->route('dashboard');
         }
 
-        // Paid GetOdoo plans get a product tour, not the Coolify server wizard.
-        if ($this->isGetOdooPlanBoarding() && $this->currentState === 'welcome') {
-            $this->currentState = 'getodoo-welcome';
+        // Paid GetOdoo plans get the welcome assistant, not the Coolify server wizard.
+        if ($this->isGetOdooPlanBoarding() && in_array($this->currentState, ['welcome', 'getodoo-tour'], true)) {
+            $this->currentState = $this->currentState === 'getodoo-tour' ? 'getodoo-project' : 'getodoo-welcome';
         }
 
         $this->minDockerVersion = str(config('constants.docker.minimum_required_version'))->before('.');
@@ -170,7 +190,7 @@ class Index extends Component
     public function explanation()
     {
         if ($this->isGetOdooPlanBoarding()) {
-            $this->currentState = 'getodoo-tour';
+            $this->currentState = 'getodoo-project';
 
             return;
         }
@@ -181,30 +201,88 @@ class Index extends Component
         $this->currentState = 'select-server-type';
     }
 
-    public function continueGetOdooTour(): mixed
+    public function startGetOdooProject(): void
     {
-        if ($this->currentState === 'getodoo-welcome') {
-            $this->currentState = 'getodoo-tour';
+        abort_unless($this->isGetOdooPlanBoarding(), 403);
+        $this->currentState = 'getodoo-project';
+    }
 
-            return null;
+    public function createGetOdooProject(): void
+    {
+        abort_unless($this->isGetOdooPlanBoarding(), 403);
+        $this->authorize('create', Project::class);
+        $this->validate([
+            'projectName' => ValidationPatterns::nameRules(),
+        ]);
+
+        if ($this->getOdooProjectId === null) {
+            $existing = Project::ownedByCurrentTeam()
+                ->where('name', $this->projectName)
+                ->where('created_by', auth()->id())
+                ->first();
+
+            if ($existing) {
+                $this->getOdooProjectId = $existing->id;
+            } else {
+                try {
+                    $project = app(AdminCreationQuota::class)->createProject(auth()->user(), [
+                        'name' => $this->projectName,
+                        'team_id' => currentTeam()->id,
+                        'uuid' => new_public_id(),
+                    ]);
+                    $this->getOdooProjectId = $project->id;
+                } catch (AdminCreationQuotaExceeded $exception) {
+                    $this->addError('projectName', $exception->getMessage());
+
+                    return;
+                }
+            }
         }
 
-        if ($this->currentState === 'getodoo-tour') {
-            $user = auth()->user();
-            if ($user?->canAddServers()) {
-                $this->currentState = 'getodoo-servers';
+        $this->currentState = 'getodoo-invite';
+    }
 
-                return null;
-            }
+    public function inviteGetOdooTeammate(): void
+    {
+        abort_unless($this->isGetOdooPlanBoarding(), 403);
+        $team = currentTeam();
+        $this->authorize('manageInvitations', $team);
+        $this->validate([
+            'inviteName' => ValidationPatterns::nameRules(),
+            'inviteEmail' => ['required', 'email'],
+            'inviteRole' => ['required', Rule::in(['admin', 'member'])],
+        ]);
 
-            return $this->finishGetOdooBoarding();
+        try {
+            $this->sendGetOdooInvitation($team);
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (AdminCreationQuotaExceeded $exception) {
+            $this->addError('inviteEmail', $exception->getMessage());
+
+            return;
+        } catch (\Throwable $exception) {
+            $this->addError('inviteEmail', $exception->getMessage());
+
+            return;
+        }
+
+        $this->currentState = 'getodoo-servers';
+    }
+
+    public function continueGetOdooTour(): mixed
+    {
+        if (in_array($this->currentState, ['getodoo-welcome', 'getodoo-tour'], true)) {
+            $this->currentState = 'getodoo-project';
+
+            return null;
         }
 
         if ($this->currentState === 'getodoo-servers') {
             return $this->finishGetOdooBoarding();
         }
 
-        return $this->finishGetOdooBoarding();
+        return null;
     }
 
     public function finishGetOdooBoarding(): mixed
@@ -568,6 +646,88 @@ class Index extends Component
         $this->validateServer();
     }
 
+    private function sendGetOdooInvitation(Team $team): void
+    {
+        $email = strtolower($this->inviteEmail);
+        $this->inviteEmail = $email;
+
+        if ($team->members()->where('users.email', $email)->exists()) {
+            throw new \Exception(__('This person is already on the team.'));
+        }
+
+        $uuid = new_public_id(32);
+        $link = $this->getOdooInvitationUrl('team.invitation.show', ['uuid' => $uuid]);
+        $user = User::whereEmail($email)->first();
+
+        if ($user === null) {
+            $password = Str::password();
+            $user = User::withoutPersonalTeam(fn () => User::create([
+                'name' => $this->inviteName,
+                'email' => $email,
+                'password' => Hash::make($password),
+                'force_password_reset' => true,
+            ]));
+            $token = Crypt::encryptString("{$user->email}@@@{$uuid}@@@{$password}");
+            $link = $this->getOdooInvitationUrl('auth.link', ['token' => $token]);
+        }
+
+        $invitation = TeamInvitation::whereEmail($email)->first();
+        if ($invitation !== null) {
+            if ($invitation->isValid()) {
+                throw new \Exception(__('A pending invitation already exists for this email.'));
+            }
+
+            $invitation->delete();
+        }
+
+        app(AdminCreationQuota::class)->createInvitation(auth()->user(), [
+            'team_id' => $team->id,
+            'uuid' => $uuid,
+            'email' => $email,
+            'role' => $this->inviteRole,
+            'link' => $link,
+            'via' => 'email',
+        ]);
+
+        if (! $user->teams()->where('teams.id', $team->id)->exists()) {
+            $user->teams()->attach($team->id, [
+                'role' => $this->inviteRole,
+                'added_by' => auth()->id(),
+                'can_add_servers' => false,
+                'can_launch_on_instance_server' => false,
+            ]);
+        }
+
+        try {
+            OdooGit::inviteEmailToRepositories((int) $team->id, $email);
+            $mail = new MailMessage;
+            $mail->view('emails.invitation-link', [
+                'team' => $team->name,
+                'invitation_link' => $link,
+            ]);
+            $mail->subject('You have been invited to '.$team->name.' on '.product_name().'.');
+            send_user_an_email($mail, $email);
+        } catch (\Throwable) {
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $parameters
+     */
+    private function getOdooInvitationUrl(string $route, array $parameters = []): string
+    {
+        $url = route($route, $parameters);
+        $fqdn = instanceSettings()?->fqdn;
+        if (blank($fqdn)) {
+            return $url;
+        }
+
+        $path = parse_url($url, PHP_URL_PATH) ?: '';
+        $query = parse_url($url, PHP_URL_QUERY);
+
+        return rtrim((string) $fqdn, '/').'/'.ltrim($path, '/').($query ? '?'.$query : '');
+    }
+
     private function createNewPrivateKey()
     {
         $this->privateKeyName = generate_random_name();
@@ -590,9 +750,10 @@ class Index extends Component
             'canAddServers' => (bool) auth()->user()?->canAddServers(),
             'canLaunchOnInstanceServer' => (bool) auth()->user()?->canLaunchOnInstanceServer(),
             'getOdooShellDescription' => match ($this->currentState) {
-                'getodoo-welcome' => __('Your organization team is ready. Here is what you can do next.'),
-                'getodoo-tour' => __('One organization team, projects with production and staging, and Odoo behind HTTPS.'),
-                'getodoo-servers' => __('Your plan controls where you can run instances.'),
+                'getodoo-welcome' => __('Your account is ready.'),
+                'getodoo-project' => __('Name the project. A production environment is created with it.'),
+                'getodoo-invite' => __('Invite someone to the team as an admin or a guest.'),
+                'getodoo-servers' => __('Thank you for being part of the :product team.', ['product' => product_name()]),
                 default => __('Getting started'),
             },
         ])->layout($getOdooBoarding ? 'layouts.simple' : 'layouts.boarding');
