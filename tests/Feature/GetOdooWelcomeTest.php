@@ -71,7 +71,8 @@ it('walks a new account from welcome to a project, an invite, and the server ste
         ->assertSet('currentState', 'getodoo-servers')
         ->assertSee('This finishes the assistant.')
         ->assertSee('Thank you for being part of the getodoo.sh team.')
-        ->assertSee('Create a new server');
+        ->assertSee('Create a new server')
+        ->assertDontSee('animate-spin');
 
     $project = Project::query()->where('team_id', $this->team->id)->where('name', 'Acme')->first();
 

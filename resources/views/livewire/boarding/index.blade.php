@@ -201,8 +201,16 @@
                     </div>
                     <div class="flex w-full flex-col gap-3">
                         @if ($canAddServers)
-                            <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
-                                isHighlighted>
+                            <x-forms.button class="w-full justify-center gap-2" wire:click="goToCreateServerFromGetOdooTour"
+                                isHighlighted :showLoadingIndicator="false">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                                    aria-hidden="true">
+                                    <rect width="20" height="8" x="2" y="2" rx="2" />
+                                    <rect width="20" height="8" x="2" y="14" rx="2" />
+                                    <path d="M6 6h.01" />
+                                    <path d="M6 18h.01" />
+                                </svg>
                                 {{ __('Create a new server') }}
                             </x-forms.button>
                             <button type="button" wire:click="finishGetOdooBoarding"

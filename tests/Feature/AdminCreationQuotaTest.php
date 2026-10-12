@@ -322,6 +322,9 @@ test('the owner can set an admin quota and an admin cannot', function () {
     session(['currentTeam' => $this->team]);
 
     Livewire::test(TeamMember::class, ['member' => $this->admin])
+        ->assertDontSee('Save limits')
+        ->assertSee('Edit')
+        ->call('editLimits')
         ->assertSee('Save limits')
         ->set('maxProjects', 2)
         ->set('maxEnvironments', '')
@@ -611,4 +614,41 @@ test('a client admin and a member can open the odoo shell of their team', functi
         ->and($this->member->can('canAccessTerminal'))->toBeTrue()
         ->and($this->admin->canOpenTerminal($service))->toBeTrue()
         ->and($this->admin->canOpenTerminal($project))->toBeFalse();
+});
+
+test('an invited admin on a plan team follows the principal limits', function () {
+    $plan = \App\Models\GetOdooPlan::query()->create([
+        'name' => 'Principal plan',
+        'price' => 0,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'max_projects' => 1,
+    ]);
+    $this->team->forceFill(['getodoo_plan_id' => $plan->id])->save();
+    $this->owner->teams()->updateExistingPivot($this->team->id, ['max_projects' => 1]);
+
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    app(AdminCreationQuota::class)->createProject($this->admin, [
+        'name' => 'Within the principal',
+        'team_id' => $this->team->id,
+    ]);
+
+    expect(fn () => app(AdminCreationQuota::class)->createProject($this->admin, [
+        'name' => 'Above the principal',
+        'team_id' => $this->team->id,
+    ]))->toThrow(AdminCreationQuotaExceeded::class);
+
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(TeamMember::class, ['member' => $this->admin])
+        ->call('editLimits')
+        ->set('maxProjects', 4)
+        ->call('saveCreationLimits')
+        ->assertHasErrors(['maxProjects']);
+
+    expect(DB::table('team_user')->where('user_id', $this->admin->id)->where('team_id', $this->team->id)->value('max_projects'))->toBeNull();
 });

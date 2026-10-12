@@ -19,6 +19,12 @@ class AdminCreationQuota
 {
     private static int $suspensionDepth = 0;
 
+    /** @var array<int, bool> */
+    private array $planTeamIds = [];
+
+    /** @var array<int, object|null> */
+    private array $principalMemberships = [];
+
     /**
      * @param  array<string, mixed>  $attributes
      * @param  list<array<string, mixed>>  $additionalEnvironments
@@ -363,27 +369,27 @@ class AdminCreationQuota
         return [
             'projects' => [
                 'used' => $usage['projects'],
-                'limit' => $this->effectiveProjectLimit($this->limitValue($membership, 'max_projects'), (int) $team->id),
+                'limit' => $this->effectiveProjectLimit($this->appliedLimit($membership, 'max_projects', (int) $team->id), (int) $team->id),
             ],
             'environments' => [
                 'used' => $usage['environments'],
-                'limit' => $this->limitValue($membership, 'max_environments'),
+                'limit' => $this->appliedLimit($membership, 'max_environments', (int) $team->id),
             ],
             'members' => [
                 'used' => $usage['members'],
-                'limit' => $this->limitValue($membership, 'max_members'),
+                'limit' => $this->appliedLimit($membership, 'max_members', (int) $team->id),
             ],
             'production_branches' => [
                 'used' => $usage['production_branches'],
-                'limit' => $this->limitValue($membership, 'max_production_branches'),
+                'limit' => $this->appliedLimit($membership, 'max_production_branches', (int) $team->id),
             ],
             'staging_branches' => [
                 'used' => $usage['staging_branches'],
-                'limit' => $this->limitValue($membership, 'max_staging_branches'),
+                'limit' => $this->appliedLimit($membership, 'max_staging_branches', (int) $team->id),
             ],
             'services' => [
                 'used' => $usage['services'],
-                'limit' => $this->limitValue($membership, 'max_services'),
+                'limit' => $this->appliedLimit($membership, 'max_services', (int) $team->id),
             ],
         ];
     }
@@ -431,7 +437,7 @@ class AdminCreationQuota
 
         if ($projects > 0) {
             $this->assertLimit(
-                $this->effectiveProjectLimit($membership->max_projects, $teamId),
+                $this->effectiveProjectLimit($this->appliedLimit($membership, 'max_projects', $teamId), $teamId),
                 $this->projectUsage($userId, $teamId),
                 $projects,
                 'proyectos',
@@ -440,7 +446,7 @@ class AdminCreationQuota
 
         if ($environments > 0) {
             $this->assertLimit(
-                $membership->max_environments,
+                $this->appliedLimit($membership, 'max_environments', $teamId),
                 $this->environmentUsage($userId, $teamId),
                 $environments,
                 'entornos',
@@ -449,7 +455,7 @@ class AdminCreationQuota
 
         if ($members > 0) {
             $this->assertLimit(
-                $membership->max_members,
+                $this->appliedLimit($membership, 'max_members', $teamId),
                 $this->memberUsage($userId, $teamId),
                 $members,
                 'miembros',
@@ -458,7 +464,7 @@ class AdminCreationQuota
 
         if ($productionBranches > 0) {
             $this->assertLimit(
-                $membership->max_production_branches,
+                $this->appliedLimit($membership, 'max_production_branches', $teamId),
                 $this->branchUsage($userId, $teamId, 'production'),
                 $productionBranches,
                 'ramas de producción',
@@ -467,7 +473,7 @@ class AdminCreationQuota
 
         if ($stagingBranches > 0) {
             $this->assertLimit(
-                $membership->max_staging_branches,
+                $this->appliedLimit($membership, 'max_staging_branches', $teamId),
                 $this->branchUsage($userId, $teamId, 'staging'),
                 $stagingBranches,
                 'ramas de staging',
@@ -476,7 +482,7 @@ class AdminCreationQuota
 
         if ($services > 0) {
             $this->assertLimit(
-                $membership->max_services,
+                $this->appliedLimit($membership, 'max_services', $teamId),
                 $this->serviceUsage($userId, $teamId),
                 $services,
                 'servicios',
@@ -615,11 +621,12 @@ class AdminCreationQuota
             return true;
         }
 
-        if ($membership->max_staging_branches === null) {
+        $stagingLimit = $this->appliedLimit($membership, 'max_staging_branches', $teamId);
+        if ($stagingLimit === null) {
             return true;
         }
 
-        return $this->stagingLaunchUsage($user->id, $teamId) < (int) $membership->max_staging_branches;
+        return $this->stagingLaunchUsage($user->id, $teamId) < $stagingLimit;
     }
 
     private function projectHasStaging(Project $project): bool
@@ -640,12 +647,71 @@ class AdminCreationQuota
             ->count();
     }
 
-    private function limitValue(?object $membership, string $column): ?int
+    /**
+     * On a plan team, an invitee with an empty limit uses the principal's number.
+     * A tighter number still applies. It cannot rise above the principal.
+     *
+     * @return array<string, int|null>
+     */
+    public function principalLimits(int $teamId): array
     {
-        if ($membership === null || $membership->{$column} === null) {
+        $row = $this->principalMembership($teamId);
+        $limits = [];
+
+        foreach ([
+            'max_projects',
+            'max_environments',
+            'max_members',
+            'max_production_branches',
+            'max_staging_branches',
+            'max_services',
+        ] as $column) {
+            $limits[$column] = $row === null || $row->{$column} === null ? null : (int) $row->{$column};
+        }
+
+        return $limits;
+    }
+
+    private function appliedLimit(?object $membership, string $column, int $teamId): ?int
+    {
+        if ($membership === null) {
             return null;
         }
 
-        return (int) $membership->{$column};
+        $own = $membership->{$column} === null ? null : (int) $membership->{$column};
+        if ($membership->role === Role::OWNER->value || ! $this->isPlanTeam($teamId)) {
+            return $own;
+        }
+
+        $ceiling = $this->principalLimits($teamId)[$column] ?? null;
+        if ($own === null) {
+            return $ceiling;
+        }
+        if ($ceiling === null) {
+            return $own;
+        }
+
+        return min($own, $ceiling);
+    }
+
+    private function isPlanTeam(int $teamId): bool
+    {
+        if (! array_key_exists($teamId, $this->planTeamIds)) {
+            $this->planTeamIds[$teamId] = filled(Team::query()->whereKey($teamId)->value('getodoo_plan_id'));
+        }
+
+        return $this->planTeamIds[$teamId];
+    }
+
+    private function principalMembership(int $teamId): ?object
+    {
+        if (! array_key_exists($teamId, $this->principalMemberships)) {
+            $this->principalMemberships[$teamId] = DB::table('team_user')
+                ->where('team_id', $teamId)
+                ->where('role', Role::OWNER->value)
+                ->first();
+        }
+
+        return $this->principalMemberships[$teamId];
     }
 }

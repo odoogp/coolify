@@ -41,6 +41,8 @@ class Member extends Component
     /** @var list<string> */
     public array $odooAbilities = [];
 
+    public bool $editingLimits = false;
+
     public function mount(): void
     {
         $team = currentTeam();
@@ -61,6 +63,13 @@ class Member extends Component
         $raw = data_get($pivot, 'odoo_abilities');
         $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
         $this->odooAbilities = is_array($decoded) ? OdooAbilities::onlyGrantable(array_map('strval', $decoded)) : [];
+    }
+
+    public function editLimits(): void
+    {
+        $team = currentTeam();
+        abort_unless($team !== null && auth()->user()?->can('updateCreationLimits', $team), 403);
+        $this->editingLimits = ! $this->editingLimits;
     }
 
     public function saveCreationLimits(): void
@@ -96,6 +105,28 @@ class Member extends Component
                 throw ValidationException::withMessages([
                     'githubAppId' => __('Select a connected GitHub account.'),
                 ]);
+            }
+
+            if ($team->isGetOdooPlanTeam()) {
+                $ceiling = app(AdminCreationQuota::class)->principalLimits($teamId);
+                $fields = [
+                    'maxProjects' => 'max_projects',
+                    'maxEnvironments' => 'max_environments',
+                    'maxMembers' => 'max_members',
+                    'maxProductionBranches' => 'max_production_branches',
+                    'maxStagingBranches' => 'max_staging_branches',
+                    'maxServices' => 'max_services',
+                ];
+                $above = [];
+                foreach ($fields as $field => $column) {
+                    $limit = $ceiling[$column] ?? null;
+                    if ($this->{$field} !== null && $limit !== null && (int) $this->{$field} > $limit) {
+                        $above[$field] = __('This cannot be higher than the principal limit (:limit).', ['limit' => $limit]);
+                    }
+                }
+                if ($above !== []) {
+                    throw ValidationException::withMessages($above);
+                }
             }
 
             $this->member->teams()->updateExistingPivot($teamId, [
@@ -236,9 +267,14 @@ class Member extends Component
         $canEditLimits = $team !== null
             && auth()->user()?->can('updateCreationLimits', $team)
             && $this->getMemberRole() === Role::ADMIN->value;
+        $followsPrincipal = $canEditLimits && $team->isGetOdooPlanTeam();
 
         return view('livewire.team.member', [
             'canEditLimits' => $canEditLimits,
+            'followsPrincipal' => $followsPrincipal,
+            'principalLimits' => $followsPrincipal
+                ? app(AdminCreationQuota::class)->principalLimits($team->id)
+                : [],
             'usage' => $canEditLimits
                 ? app(AdminCreationQuota::class)->usage($this->member, $team->id)
                 : null,
