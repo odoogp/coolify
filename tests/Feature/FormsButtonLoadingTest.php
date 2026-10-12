@@ -30,6 +30,17 @@ it('uses an explicit wire target for submit buttons without wire click', functio
         ->toContain('Validate and add');
 });
 
+it('prefers an explicit wire target over the wire click action for loading', function () {
+    $html = Blade::render(
+        '<x-forms.button wire:click="finishGetOdooBoarding" wire:target="finishGetOdooBoarding">Dashboard</x-forms.button>'
+    );
+
+    expect($html)
+        ->toContain('wire:target="finishGetOdooBoarding"')
+        ->toContain('wire:loading.attr="disabled"')
+        ->toContain('wire:loading.class="is-loading"');
+});
+
 it('targets the S3 connection validation submit action', function () {
     $view = file_get_contents(resource_path('views/livewire/storage/create.blade.php'));
 

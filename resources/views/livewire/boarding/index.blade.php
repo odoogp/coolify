@@ -28,10 +28,10 @@
             @if ($currentState === 'getodoo-welcome')
                 <div class="auth-plan-account flex flex-col gap-5">
                     <div>
-                        <p class="auth-plan-kicker">{{ __('Getting started') }}</p>
+                        <p class="auth-plan-kicker">{{ __('Welcome') }}</p>
                         <h2 class="auth-plan-name">{{ __('Welcome to :product', ['product' => product_name()]) }}</h2>
                         <p class="auth-plan-copy mt-2">
-                            {{ __('Your organization team is ready. Here is what you can do next.') }}
+                            {{ __('Your organization is ready. Start with a server when you need one, or take an optional short tour.') }}
                         </p>
                     </div>
 
@@ -52,13 +52,22 @@
                         @endforeach
                     </div>
 
-                    <x-forms.button class="w-full justify-center" wire:click="continueGetOdooTour" isHighlighted>
-                        {{ __('Continue') }}
-                    </x-forms.button>
-                    <button type="button" wire:click="finishGetOdooBoarding"
-                        class="auth-text-link self-center text-center text-[13px]">
-                        {{ __('Skip setup') }}
-                    </button>
+                    <div class="auth-boarding-actions flex w-full flex-col gap-3">
+                        @if ($canAddServers)
+                            <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
+                                wire:target="goToCreateServerFromGetOdooTour" isHighlighted>
+                                {{ __('Create a new server') }}
+                            </x-forms.button>
+                        @endif
+                        <x-forms.button class="w-full justify-center" wire:click="startGetOdooTour"
+                            wire:target="startGetOdooTour" :isHighlighted="! $canAddServers">
+                            {{ __('Take a short tour') }}
+                        </x-forms.button>
+                        <button type="button" wire:click="finishGetOdooBoarding"
+                            class="auth-text-link self-center text-center text-[13px]">
+                            {{ __('Skip setup') }}
+                        </button>
+                    </div>
                 </div>
             @elseif ($currentState === 'getodoo-tour')
                 <div class="auth-plan-account flex flex-col gap-5">
@@ -74,9 +83,20 @@
                         <p>{{ __('GitHub is optional. You can connect a repository later from the service assistant.') }}</p>
                         <p>{{ __('Automatic backups and migration follow what your plan includes.') }}</p>
                     </div>
-                    <x-forms.button class="w-full justify-center" wire:click="continueGetOdooTour" isHighlighted>
-                        {{ __('Continue') }}
-                    </x-forms.button>
+                    <div class="auth-boarding-actions flex w-full flex-col gap-3 sm:flex-row sm:items-stretch">
+                        <x-forms.button class="w-full justify-center sm:w-auto sm:min-w-28" wire:click="backGetOdooTour"
+                            wire:target="backGetOdooTour">
+                            {{ __('Back') }}
+                        </x-forms.button>
+                        <x-forms.button class="w-full flex-1 justify-center" wire:click="continueGetOdooTour"
+                            wire:target="continueGetOdooTour" isHighlighted>
+                            {{ __('Continue') }}
+                        </x-forms.button>
+                    </div>
+                    <button type="button" wire:click="finishGetOdooBoarding"
+                        class="auth-text-link self-center text-center text-[13px]">
+                        {{ __('Skip the tour') }}
+                    </button>
                 </div>
             @else
                 <div class="auth-plan-account flex flex-col gap-5">
@@ -102,16 +122,32 @@
                             @endif
                         </div>
                     </div>
-                    <div class="flex w-full flex-col gap-3">
+                    <div class="auth-boarding-actions flex w-full flex-col gap-3">
+                        <div class="flex w-full flex-col gap-3 sm:flex-row sm:items-stretch">
+                            <x-forms.button class="w-full justify-center sm:w-auto sm:min-w-28" wire:click="backGetOdooTour"
+                                wire:target="backGetOdooTour">
+                                {{ __('Back') }}
+                            </x-forms.button>
+                            @if ($canAddServers)
+                                <x-forms.button class="w-full flex-1 justify-center"
+                                    wire:click="goToCreateServerFromGetOdooTour"
+                                    wire:target="goToCreateServerFromGetOdooTour" isHighlighted>
+                                    {{ __('Create a new server') }}
+                                </x-forms.button>
+                            @else
+                                <x-forms.button class="w-full flex-1 justify-center"
+                                    wire:click="finishGetOdooBoarding" wire:target="finishGetOdooBoarding"
+                                    isHighlighted>
+                                    {{ __('Go to the dashboard') }}
+                                </x-forms.button>
+                            @endif
+                        </div>
                         @if ($canAddServers)
-                            <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
-                                isHighlighted>
-                                {{ __('Create a new server') }}
+                            <x-forms.button class="w-full justify-center" wire:click="finishGetOdooBoarding"
+                                wire:target="finishGetOdooBoarding">
+                                {{ __('Go to the dashboard') }}
                             </x-forms.button>
                         @endif
-                        <x-forms.button class="w-full justify-center" wire:click="finishGetOdooBoarding">
-                            {{ __('Go to the dashboard') }}
-                        </x-forms.button>
                     </div>
                 </div>
             @endif

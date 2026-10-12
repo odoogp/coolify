@@ -8,10 +8,12 @@
 
     $loadingTarget = null;
     if ($showLoadingIndicator) {
-        if (filled($wireClickValue)) {
-            $loadingTarget = trim((string) $wireClickValue);
-        } elseif ($hasExplicitWireTarget) {
+        // Prefer an explicit wire:target so sibling buttons that share a method
+        // (or rely on auto-detected wire:click) do not all show loading at once.
+        if ($hasExplicitWireTarget) {
             $loadingTarget = trim((string) $wireTargetValue);
+        } elseif (filled($wireClickValue)) {
+            $loadingTarget = trim((string) $wireClickValue);
         }
     }
 
@@ -19,9 +21,7 @@
     if (filled($loadingTarget)) {
         $loadingAttributes['wire:loading.attr'] = 'disabled';
         $loadingAttributes['wire:loading.class'] = 'is-loading';
-        if (! $hasExplicitWireTarget) {
-            $loadingAttributes['wire:target'] = $loadingTarget;
-        }
+        $loadingAttributes['wire:target'] = $loadingTarget;
     }
 @endphp
 @if ($authDisabled || filled($tooltip))
