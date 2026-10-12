@@ -4750,5 +4750,6 @@
     "Restore this plan and offer it for signup again?": "¿Restaurar este plan y volver a ofrecerlo para el registro?",
     "The plan was archived. It is no longer offered for signup.": "El plan se archivó. Ya no se ofrece para el registro.",
     "The plan was restored and is active again.": "El plan se restauró y vuelve a estar activo.",
-    "This plan still has organization teams. Archive it instead, or move or delete those customers before deleting the plan.": "Este plan todavía tiene equipos de organización. Archívalo, o mueve o elimina esos clientes antes de borrar el plan."
+    "This plan still has organization teams. Archive it instead, or move or delete those customers before deleting the plan.": "Este plan todavía tiene equipos de organización. Archívalo, o mueve o elimina esos clientes antes de borrar el plan.",
+    "Archive plan": "Archivar"
 }

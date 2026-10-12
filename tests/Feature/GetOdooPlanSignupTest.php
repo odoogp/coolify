@@ -747,7 +747,7 @@ it('archives a plan with organizations into the archived list and can restore it
 
     Livewire::test(GetOdooPlans::class)
         ->assertSee('Archivable plan')
-        ->assertSee(__('Archive'))
+        ->assertSee(__('Archive plan'))
         ->call('archivePlan', $plan->id)
         ->assertDispatched('success')
         ->assertDontSee('Archivable plan')

@@ -311,7 +311,7 @@
                                         @else
                                             <button type="button" class="button" wire:click="archivePlan({{ $plan->id }})"
                                                 wire:confirm="{{ __('Archive this plan? It will stop appearing for new signups. Existing organizations keep their access.') }}">
-                                                {{ __('Archive') }}
+                                                {{ __('Archive plan') }}
                                             </button>
                                             @if ((int) $plan->teams_count === 0)
                                                 <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
