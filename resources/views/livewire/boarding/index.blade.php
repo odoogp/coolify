@@ -26,13 +26,20 @@
                         });
                     }
                 }">
+                    <span class="getodoo-firework-glow"></span>
                     @foreach ([
-                        ['x' => '12%', 'y' => '26%', 'c' => '#ffe08a', 'd' => '0s'],
-                        ['x' => '84%', 'y' => '22%', 'c' => '#ffffff', 'd' => '0.4s'],
-                        ['x' => '18%', 'y' => '74%', 'c' => '#d7c6ff', 'd' => '0.85s'],
-                        ['x' => '78%', 'y' => '70%', 'c' => '#ffe08a', 'd' => '1.35s'],
-                        ['x' => '8%', 'y' => '48%', 'c' => '#ffffff', 'd' => '1.9s'],
-                        ['x' => '90%', 'y' => '44%', 'c' => '#ffe08a', 'd' => '2.45s'],
+                        ['x' => '8%', 'y' => '16%', 'c' => '#ff4fd8', 'd' => '0s'],
+                        ['x' => '90%', 'y' => '14%', 'c' => '#7af0ff', 'd' => '0.18s'],
+                        ['x' => '22%', 'y' => '10%', 'c' => '#ffe14a', 'd' => '0.4s'],
+                        ['x' => '74%', 'y' => '12%', 'c' => '#ff7a3c', 'd' => '0.62s'],
+                        ['x' => '4%', 'y' => '46%', 'c' => '#c084fc', 'd' => '0.88s'],
+                        ['x' => '96%', 'y' => '50%', 'c' => '#7dffb3', 'd' => '1.12s'],
+                        ['x' => '16%', 'y' => '84%', 'c' => '#ff5a7a', 'd' => '1.38s'],
+                        ['x' => '84%', 'y' => '82%', 'c' => '#ffe14a', 'd' => '1.62s'],
+                        ['x' => '36%', 'y' => '6%', 'c' => '#7af0ff', 'd' => '1.9s'],
+                        ['x' => '64%', 'y' => '90%', 'c' => '#ff4fd8', 'd' => '2.15s'],
+                        ['x' => '12%', 'y' => '64%', 'c' => '#ffffff', 'd' => '2.4s'],
+                        ['x' => '88%', 'y' => '32%', 'c' => '#ffd166', 'd' => '2.65s'],
                     ] as $burst)
                         <span class="getodoo-firework"
                             style="--x: {{ $burst['x'] }}; --y: {{ $burst['y'] }}; --c: {{ $burst['c'] }}; --d: {{ $burst['d'] }};"></span>
@@ -51,14 +58,20 @@
                 };
                 $tourLabels = [__('Welcome'), __('Project'), __('Team'), __('Server')];
             @endphp
-            <div class="auth-boarding-steps mb-4 flex gap-2" aria-hidden="true">
-                @foreach ($tourLabels as $index => $label)
-                    <span @class([
-                        'auth-boarding-step',
-                        'is-current' => $tourStep === $index + 1,
-                        'is-done' => $tourStep > $index + 1,
-                    ])>{{ $label }}</span>
-                @endforeach
+            <div class="auth-boarding-path">
+                <p class="auth-boarding-kicker">{{ __('Step :current of :total', ['current' => $tourStep, 'total' => count($tourLabels)]) }}</p>
+                <ol class="auth-boarding-steps">
+                    @foreach ($tourLabels as $index => $label)
+                        <li @class([
+                            'auth-boarding-step',
+                            'is-current' => $tourStep === $index + 1,
+                            'is-done' => $tourStep > $index + 1,
+                        ])>
+                            <span class="auth-boarding-num">{{ $index + 1 }}</span>
+                            <span class="auth-boarding-label">{{ $label }}</span>
+                        </li>
+                    @endforeach
+                </ol>
             </div>
 
             @if ($currentState === 'getodoo-welcome')
@@ -103,7 +116,16 @@
                         </p>
                     </div>
                     <x-forms.input id="projectName" label="{{ __('Project name') }}" required />
-                    <x-forms.button class="w-full justify-center" wire:click="createGetOdooProject" isHighlighted>
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="createGetOdooProject" isHighlighted
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
                         {{ __('Continue to invite your team') }}
                     </x-forms.button>
                 </div>
@@ -113,7 +135,7 @@
                         <p class="auth-plan-kicker">{{ __('Team') }}</p>
                         <h2 class="auth-plan-name">{{ __('Invite your team') }}</h2>
                         <p class="auth-plan-copy mt-2">
-                            {{ __('Invite someone to the team as an admin or a guest.') }}
+                            {{ __('Add each person. The list shows who is already invited.') }}
                         </p>
                     </div>
                     <x-forms.input id="inviteName" label="{{ __('Name') }}" required />
@@ -122,7 +144,49 @@
                         ['value' => 'admin', 'label' => __('Admin')],
                         ['value' => 'member', 'label' => __('Guest')],
                     ]" />
-                    <x-forms.button class="w-full justify-center" wire:click="inviteGetOdooTeammate" isHighlighted>
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="inviteGetOdooTeammate"
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <line x1="19" x2="19" y1="8" y2="14" />
+                            <line x1="22" x2="16" y1="11" y2="11" />
+                        </svg>
+                        {{ __('Add person') }}
+                    </x-forms.button>
+                    <div class="flex flex-col gap-2">
+                        <p class="text-[13px] font-semibold">{{ __('People already invited') }}</p>
+                        @if (count($invitedTeammates) === 0)
+                            <p class="text-[13px] leading-5 text-neutral-600">{{ __('No one invited yet.') }}</p>
+                        @else
+                            <ul class="flex flex-col gap-2">
+                                @foreach ($invitedTeammates as $person)
+                                    <li wire:key="invited-{{ $person['email'] }}"
+                                        class="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white/70 px-3 py-2 text-[13px]">
+                                        <span class="min-w-0">
+                                            <span class="block truncate font-semibold">{{ $person['name'] }}</span>
+                                            <span class="block truncate text-neutral-600">{{ $person['email'] }}</span>
+                                        </span>
+                                        <span class="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[12px] font-semibold">
+                                            {{ $person['role'] === 'admin' ? __('Admin') : __('Guest') }}
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="continueToGetOdooServer" isHighlighted
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <rect width="20" height="8" x="2" y="2" rx="2" />
+                            <rect width="20" height="8" x="2" y="14" rx="2" />
+                            <path d="M6 6h.01" />
+                            <path d="M6 18h.01" />
+                        </svg>
                         {{ __('Continue to create a server') }}
                     </x-forms.button>
                 </div>

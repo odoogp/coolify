@@ -52,11 +52,22 @@ it('walks a new account from welcome to a project, an invite, and the server ste
         ->call('createGetOdooProject')
         ->assertSet('currentState', 'getodoo-invite')
         ->assertHasNoErrors()
+        ->assertDontSee('animate-spin')
+        ->assertSee('Step 3 of 4')
         ->call('createGetOdooProject')
         ->set('inviteName', 'Ana Lopez')
         ->set('inviteEmail', 'Ana@Example.com')
         ->set('inviteRole', 'admin')
         ->call('inviteGetOdooTeammate')
+        ->assertSet('currentState', 'getodoo-invite')
+        ->assertSee('Ana Lopez')
+        ->set('inviteName', 'Luis Perez')
+        ->set('inviteEmail', 'luis@example.com')
+        ->set('inviteRole', 'member')
+        ->call('inviteGetOdooTeammate')
+        ->assertSee('Luis Perez')
+        ->assertSee('Ana Lopez')
+        ->call('continueToGetOdooServer')
         ->assertSet('currentState', 'getodoo-servers')
         ->assertSee('This finishes the assistant.')
         ->assertSee('Thank you for being part of the getodoo.sh team.')
@@ -74,20 +85,18 @@ it('walks a new account from welcome to a project, an invite, and the server ste
         ->and($invitee->name)->toBe('Ana Lopez')
         ->and($invitee->teams()->where('teams.id', $this->team->id)->first()->pivot->role)->toBe('admin')
         ->and((bool) $invitee->teams()->where('teams.id', $this->team->id)->first()->pivot->can_add_servers)->toBeFalse()
-        ->and(TeamInvitation::query()->where('email', 'ana@example.com')->value('role'))->toBe('admin');
+        ->and(TeamInvitation::query()->where('email', 'ana@example.com')->value('role'))->toBe('admin')
+        ->and(User::whereEmail('luis@example.com')->first()->teams()->where('teams.id', $this->team->id)->first()->pivot->role)->toBe('member');
 });
 
-it('invites a guest as a member', function () {
+it('stays on the invite step when the person is incomplete', function () {
     Livewire::test(Index::class)
         ->set('currentState', 'getodoo-invite')
-        ->set('inviteName', 'Luis Perez')
-        ->set('inviteEmail', 'luis@example.com')
-        ->set('inviteRole', 'member')
-        ->call('inviteGetOdooTeammate')
-        ->assertSet('currentState', 'getodoo-servers');
-
-    expect(User::whereEmail('luis@example.com')->first()->teams()->where('teams.id', $this->team->id)->first()->pivot->role)
-        ->toBe('member');
+        ->set('inviteName', 'Ana')
+        ->set('inviteEmail', '')
+        ->call('continueToGetOdooServer')
+        ->assertSet('currentState', 'getodoo-invite')
+        ->assertHasErrors(['inviteEmail']);
 });
 
 it('skips the removed product explanation when that step is in the url', function () {

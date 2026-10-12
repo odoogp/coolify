@@ -108,6 +108,11 @@ class Index extends Component
 
     public string $inviteRole = 'admin';
 
+    /**
+     * @var array<int, array{name: string, email: string, role: string}>
+     */
+    public array $invitedTeammates = [];
+
     public function mount()
     {
         if (auth()->user()?->isMember() && auth()->user()->currentTeam()->show_boarding === true) {
@@ -265,6 +270,26 @@ class Index extends Component
             $this->addError('inviteEmail', $exception->getMessage());
 
             return;
+        }
+
+        $this->invitedTeammates[] = [
+            'name' => $this->inviteName,
+            'email' => strtolower($this->inviteEmail),
+            'role' => $this->inviteRole,
+        ];
+        $this->inviteName = '';
+        $this->inviteEmail = '';
+    }
+
+    public function continueToGetOdooServer(): void
+    {
+        abort_unless($this->isGetOdooPlanBoarding(), 403);
+
+        if (filled(trim($this->inviteName)) || filled(trim($this->inviteEmail))) {
+            $this->inviteGetOdooTeammate();
+            if ($this->getErrorBag()->isNotEmpty()) {
+                return;
+            }
         }
 
         $this->currentState = 'getodoo-servers';
@@ -752,7 +777,7 @@ class Index extends Component
             'getOdooShellDescription' => match ($this->currentState) {
                 'getodoo-welcome' => __('Your account is ready.'),
                 'getodoo-project' => __('Name the project. A production environment is created with it.'),
-                'getodoo-invite' => __('Invite someone to the team as an admin or a guest.'),
+                'getodoo-invite' => __('Add each person. The list shows who is already invited.'),
                 'getodoo-servers' => __('Thank you for being part of the :product team.', ['product' => product_name()]),
                 default => __('Getting started'),
             },

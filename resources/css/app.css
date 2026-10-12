@@ -1710,40 +1710,80 @@ main:has(.auth-shell) {
     pointer-events: none;
 }
 
+.getodoo-firework-glow {
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 12% 22%, rgb(255 79 216 / 0.72), transparent 24%),
+        radial-gradient(circle at 88% 18%, rgb(122 240 255 / 0.7), transparent 22%),
+        radial-gradient(circle at 8% 72%, rgb(255 225 74 / 0.75), transparent 26%),
+        radial-gradient(circle at 90% 76%, rgb(192 132 252 / 0.7), transparent 24%),
+        radial-gradient(circle at 50% 8%, rgb(255 122 60 / 0.55), transparent 20%),
+        radial-gradient(circle at 48% 92%, rgb(125 255 179 / 0.5), transparent 22%);
+    animation: getodoo-firework-glow 4s ease-out both;
+}
+
 .getodoo-firework {
     position: absolute;
     left: var(--x);
     top: var(--y);
-    width: 5px;
-    height: 5px;
+    width: 9px;
+    height: 9px;
     border-radius: 999px;
-    background: var(--c, #ffe08a);
+    background: #fff;
     box-shadow:
-        0 -26px 0 var(--c),
-        18px -18px 0 #fff7d6,
-        26px 0 0 #fff,
-        18px 18px 0 var(--c),
-        0 26px 0 #fff,
-        -18px 18px 0 #d7c6ff,
-        -26px 0 0 #fff,
-        -18px -18px 0 var(--c);
+        0 0 0 4px var(--c, #ffe14a),
+        0 -78px 0 3px #ffe14a,
+        55px -55px 0 2px #ff4fd8,
+        78px 0 0 3px #7af0ff,
+        55px 55px 0 2px #ff7a3c,
+        0 78px 0 3px #c084fc,
+        -55px 55px 0 2px #7dffb3,
+        -78px 0 0 3px #fff,
+        -55px -55px 0 2px #ff5a7a,
+        28px -72px 0 1px #7af0ff,
+        72px -28px 0 1px #ffe14a,
+        72px 28px 0 1px #ff4fd8,
+        28px 72px 0 1px #fff,
+        -28px 72px 0 1px #ff7a3c,
+        -72px 28px 0 1px #c084fc,
+        -72px -28px 0 1px #7dffb3,
+        -28px -72px 0 1px #ffe14a;
     opacity: 0;
-    animation: getodoo-firework 1.15s ease-out var(--d, 0s) both;
+    filter: drop-shadow(0 0 10px var(--c, #ffe14a));
+    animation: getodoo-firework 1.25s cubic-bezier(0.16, 0.84, 0.32, 1) var(--d, 0s) both;
 }
 
 @keyframes getodoo-firework {
     0% {
-        transform: translateY(16px) scale(0.2);
+        transform: translateY(36px) scale(0.08);
         opacity: 0;
     }
 
-    18% {
-        opacity: 0.9;
+    12% {
+        opacity: 1;
+    }
+
+    38% {
+        transform: translateY(0) scale(1.2);
+        opacity: 1;
     }
 
     100% {
-        transform: translateY(0) scale(1);
+        transform: translateY(-12px) scale(1.45);
         opacity: 0;
+    }
+}
+
+@keyframes getodoo-firework-glow {
+    0%,
+    100% {
+        opacity: 0;
+    }
+
+    18%,
+    55% {
+        opacity: 1;
     }
 }
 
@@ -2705,36 +2745,91 @@ html:not(.dark) .auth-locale select {
 }
 
 /* GetOdoo post-signup tour steps (same shell as plan signup). */
+.auth-boarding-path {
+    margin-bottom: 0.85rem;
+    padding: 0.7rem 0.75rem 0.55rem;
+    border-radius: 18px;
+    background: rgb(255 255 255 / 0.94);
+    box-shadow: 0 14px 36px rgb(8 10 30 / 0.28);
+    color: #241838;
+}
+
+.auth-boarding-kicker {
+    margin: 0 0 0.45rem;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b16ed;
+}
+
 .auth-boarding-steps {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.25rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }
 
 .auth-boarding-step {
-    display: inline-flex;
+    display: flex;
+    min-width: 0;
     align-items: center;
+    gap: 0.4rem;
+    border-radius: 12px;
+    padding: 0.35rem 0.4rem;
+    background: transparent;
+    color: #6d657c;
+    font-size: 13px;
+    font-weight: 650;
+    letter-spacing: 0;
+    text-shadow: none;
+}
+
+.auth-boarding-num {
+    display: inline-flex;
+    width: 1.7rem;
+    height: 1.7rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
     border-radius: 999px;
-    padding: 0.3rem 0.75rem;
-    border: 1px solid rgb(255 255 255 / 0.35);
-    background: rgb(255 255 255 / 0.12);
-    color: rgb(247 249 252 / 0.72);
-    font-size: var(--type-ui);
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    text-shadow: 0 1px 8px rgb(0 0 0 / 0.35);
+    background: #ece7f6;
+    color: #3d3558;
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.auth-boarding-label {
+    min-width: 0;
+    line-height: 1.15;
 }
 
 .auth-boarding-step.is-current {
-    border-color: rgb(255 255 255 / 0.7);
-    background: rgb(255 255 255 / 0.28);
-    color: #ffffff;
+    background: rgb(107 22 237 / 0.1);
+    color: #241838;
+}
+
+.auth-boarding-step.is-current .auth-boarding-num {
+    background: #6b16ed;
+    color: #fff;
 }
 
 .auth-boarding-step.is-done {
-    border-color: rgb(125 232 188 / 0.45);
-    background: rgb(18 163 106 / 0.28);
-    color: #d8ffe9;
+    color: #146b45;
+}
+
+.auth-boarding-step.is-done .auth-boarding-num {
+    background: #12a36a;
+    color: #fff;
+}
+
+@media (max-width: 640px) {
+    .auth-boarding-steps {
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 .auth-shell-split .auth-plan-account .auth-plan-feature {
