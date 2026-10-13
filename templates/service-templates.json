@@ -4378,6 +4378,22 @@
         "template_last_updated_at": "2025-08-17T18:23:57+02:00",
         "port": "6333"
     },
+    "qrding": {
+        "documentation": "https://github.com/rishikanthc/qrding?utm_source=coolify.io",
+        "slogan": "Self-hosted QR code generator for Wi-Fi, contacts, links, and text.",
+        "compose": "c2VydmljZXM6CiAgcXJkaW5nOgogICAgaW1hZ2U6ICdnaGNyLmlvL3Jpc2hpa2FudGhjL3FyZGluZzpsYXRlc3QnCiAgICBlbnZpcm9ubWVudDoKICAgICAgLSBTRVJWSUNFX0ZRRE5fUVJESU5HXzMwMDAKICAgICAgLSBIT1NUPTAuMC4wLjAKICAgICAgLSBQT1JUPTMwMDAKICAgICAgLSAnT1JJR0lOPSR7U0VSVklDRV9GUUROX1FSRElOR30nCiAgICAgIC0gJ0RBVEFCQVNFX1VSTD1maWxlOi9kYXRhL2xvY2FsLmRiJwogICAgdm9sdW1lczoKICAgICAgLSAncXJkaW5nLWRhdGE6L2RhdGEnCiAgICBoZWFsdGhjaGVjazoKICAgICAgdGVzdDogWyJDTUQtU0hFTEwiLCAid2dldCAtcU8tIGh0dHA6Ly8xMjcuMC4wLjE6MzAwMC8gPi9kZXYvbnVsbCB8fCBleGl0IDEiXQogICAgICBpbnRlcnZhbDogNXMKICAgICAgdGltZW91dDogMjBzCiAgICAgIHJldHJpZXM6IDEwCg==",
+        "tags": [
+            "qr",
+            "qrcode",
+            "wifi",
+            "contacts"
+        ],
+        "category": "productivity",
+        "logo": "svgs/qrding.svg",
+        "minversion": "0.0.0",
+        "template_last_updated_at": null,
+        "port": "3000"
+    },
     "rabbitmq": {
         "documentation": "https://www.rabbitmq.com/documentation.html?utm_source=coolify.io",
         "slogan": "With tens of thousands of users, RabbitMQ is one of the most popular open source message brokers.",

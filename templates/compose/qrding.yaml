@@ -1,0 +1,23 @@
+# documentation: https://github.com/rishikanthc/qrding
+# slogan: Self-hosted QR code generator for Wi-Fi, contacts, links, and text.
+# category: productivity
+# tags: qr, qrcode, wifi, contacts
+# logo: svgs/qrding.svg
+# port: 3000
+
+services:
+  qrding:
+    image: 'ghcr.io/rishikanthc/qrding:latest'
+    environment:
+      - SERVICE_URL_QRDING_3000
+      - HOST=0.0.0.0
+      - PORT=3000
+      - 'ORIGIN=${SERVICE_URL_QRDING}'
+      - 'DATABASE_URL=file:/data/local.db'
+    volumes:
+      - 'qrding-data:/data'
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 20s
+      retries: 10
