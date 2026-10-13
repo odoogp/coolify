@@ -4,7 +4,6 @@ namespace App\Livewire\Project;
 
 use App\Enums\ProcessStatus;
 use App\Models\Environment;
-use App\Domain\Odoo\OdooStaging;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Attributes\Locked;
@@ -40,9 +39,9 @@ class DeleteEnvironment extends Component
             $project = $environment->project;
             $projectUuid = $project?->uuid;
             $deleteVolumes = in_array('delete_volumes', $selectedActions, true);
-            if ($project !== null && strcasecmp((string) $environment->name, 'production') === 0) {
+            if ($project !== null && $environment->isProduction()) {
                 foreach ($project->environments as $staging) {
-                    if ($staging->id === $environment->id || ! OdooStaging::isStagingName((string) $staging->name)) {
+                    if ($staging->id === $environment->id || ! $staging->isStaging()) {
                         continue;
                     }
                     $this->releaseWork($staging);
@@ -73,9 +72,9 @@ class DeleteEnvironment extends Component
             : [__('Delete the resources in this environment: :resources', [
                 'resources' => $resources->map(fn ($resource) => (string) $resource->name)->filter()->implode(', '),
             ])];
-        if (strcasecmp((string) $environment->name, 'production') === 0) {
+        if ($environment->isProduction()) {
             $staging = $environment->project?->environments
-                ->filter(fn (Environment $other): bool => OdooStaging::isStagingName((string) $other->name))
+                ->filter(fn (Environment $other): bool => $other->isStaging())
                 ->pluck('name')
                 ->implode(', ');
             if ($staging !== '') {

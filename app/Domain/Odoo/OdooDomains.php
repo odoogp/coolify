@@ -19,7 +19,7 @@ class OdooDomains
             : '';
     }
 
-    public static function projectHost(string $subdomain, string $baseDomain, ?string $environment = null, int $environmentId = 0): string
+    public static function projectHost(string $subdomain, string $baseDomain, ?string $environment = null, int $environmentId = 0, ?bool $isProduction = null): string
     {
         $base = self::normalizedBaseDomain($baseDomain);
         $label = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($subdomain)), '-');
@@ -27,8 +27,9 @@ class OdooDomains
             return '';
         }
         $suffix = '';
-        if ($environment !== null && strcasecmp($environment, 'production') !== 0) {
-            $branch = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($environment)), '-');
+        $treatAsProduction = $isProduction ?? ($environment === null || strcasecmp((string) $environment, 'production') === 0);
+        if (! $treatAsProduction) {
+            $branch = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $environment)), '-');
             $suffix = '-'.($branch !== '' ? $branch : 'staging').'-'.$environmentId;
         }
         $label = trim(substr($label, 0, max(1, 63 - strlen($suffix))), '-').$suffix;

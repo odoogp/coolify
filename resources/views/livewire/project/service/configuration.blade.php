@@ -158,33 +158,69 @@
                                             $githubBranch,
                                         );
                                     @endphp
-                                    <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
-                                    <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
-                                    @if ($githubBranch !== '')
-                                        <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
-                                    @endif
-                                    @if ($odooGithubUrl !== '')
-                                        <a class="button w-fit" href="{{ $odooGithubUrl }}" target="_blank" rel="noopener noreferrer">
-                                            {{ __('Open on GitHub') }}
-                                        </a>
-                                    @endif
-                                    @if ($odooGithubConnected && ! $odooAccountChanged)
-                                        @if ($odooGithubBranches === [])
-                                            <x-forms.button type="button" wire:click="loadLinkedOdooBranches" canGate="update" :canResource="$service">
-                                                {{ __('Change branch') }}
-                                            </x-forms.button>
-                                        @else
-                                            <div class="max-w-sm space-y-2">
-                                                <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
-                                                    searchPlaceholder="{{ __('Search branches') }}"
-                                                    emptyText="{{ __('No matching branch') }}"
-                                                    :options="collect($odooGithubBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
-                                                <x-forms.button type="button" wire:click="saveLinkedOdooBranch" canGate="update" :canResource="$service">
-                                                    {{ __('Save GitHub branch') }}
-                                                </x-forms.button>
-                                            </div>
+                                    <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                                        <div>
+                                            <p class="auth-plan-kicker mb-1">{{ __('Repository') }}</p>
+                                            <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
+                                        </div>
+                                        <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
+                                        @if ($githubBranch !== '')
+                                            <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
                                         @endif
-                                    @endif
+                                        @if ($odooGithubUrl !== '')
+                                            <a class="button w-fit" href="{{ $odooGithubUrl }}" target="_blank" rel="noopener noreferrer">
+                                                {{ __('Open on GitHub') }}
+                                            </a>
+                                        @endif
+                                        @if ($odooGithubConnected && ! $odooAccountChanged)
+                                            @if ($odooGithubBranches === [])
+                                                <x-forms.button type="button" wire:click="loadLinkedOdooBranches" canGate="update" :canResource="$service">
+                                                    {{ __('Change branch') }}
+                                                </x-forms.button>
+                                            @else
+                                                <div class="max-w-sm space-y-2">
+                                                    <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
+                                                        searchPlaceholder="{{ __('Search branches') }}"
+                                                        emptyText="{{ __('No matching branch') }}"
+                                                        :options="collect($odooGithubBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
+                                                    <x-forms.button type="button" wire:click="saveLinkedOdooBranch" canGate="update" :canResource="$service">
+                                                        {{ __('Save GitHub branch') }}
+                                                    </x-forms.button>
+                                                </div>
+                                            @endif
+                                        @endif
+                                    </div>
+                                    <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                                        <div>
+                                            <p class="auth-plan-kicker mb-1">{{ __('Collaborators') }}</p>
+                                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                                {{ __('Invite a GitHub username to this repository. Removing someone asks for confirmation.') }}
+                                            </p>
+                                        </div>
+                                        <form wire:submit="inviteGithubUser" class="flex max-w-xl flex-col gap-3 sm:flex-row sm:items-end">
+                                            <div class="min-w-0 flex-1">
+                                                <x-forms.input canGate="update" :canResource="$service" id="githubLogin" label="{{ __('GitHub username') }}"
+                                                    placeholder="ronaldleongg" />
+                                            </div>
+                                            <x-forms.button type="submit" canGate="update" :canResource="$service" isHighlighted>
+                                                {{ __('Invite') }}
+                                            </x-forms.button>
+                                        </form>
+                                        <ul class="max-w-xl divide-y divide-neutral-200 dark:divide-white/10">
+                                            @forelse ($odooCollaborators as $collaborator)
+                                                <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="github-collaborator-{{ $collaborator['login'] }}">
+                                                    <span class="font-mono">{{ $collaborator['login'] }}</span>
+                                                    <button type="button" class="text-red-500"
+                                                        wire:click="removeGithubUser('{{ $collaborator['login'] }}')"
+                                                        wire:confirm="{{ __('Remove :login from this GitHub repository?', ['login' => $collaborator['login']]) }}">
+                                                        {{ __('Remove') }}
+                                                    </button>
+                                                </li>
+                                            @empty
+                                                <li class="py-2 text-sm text-neutral-500 dark:text-fg-dim">{{ __('No collaborators yet.') }}</li>
+                                            @endforelse
+                                        </ul>
+                                    </div>
                                 @endif
                                 @if (! $odooGithubConnected)
                                     <div>
@@ -234,7 +270,7 @@
                                     @endunless
                                     @if ($odooRepoMode === 'new' || $associatingWithoutGithub)
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            @if (strcasecmp($environment->name, 'production') === 0)
+                                            @if ($environment->isProduction())
                                                 {{ __('The new repository is named :name. This environment tracks its default branch.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
                                             @else
                                                 {{ __('The new repository is named :name. This environment gets the branch :branch.', ['name' => \App\Support\OdooGit::repositoryName($project), 'branch' => $environment->name]) }}

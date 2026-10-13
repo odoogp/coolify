@@ -59,6 +59,20 @@
                 return label.includes(query) || value.includes(query);
             });
         },
+        portalHost() {
+            if (! @js((bool) $portal)) {
+                return null;
+            }
+
+            const trigger = this.$refs.trigger;
+            if (! trigger) {
+                return document.body;
+            }
+
+            // Prefer the nearest focus trap / modal shell so x-trap.inert does not
+            // mark the search input as inert (body teleports sit outside the trap).
+            return trigger.closest('[x-trap], [data-listbox-portal-root]') ?? document.body;
+        },
         toggle() {
             if (@js((bool) $disabled)) {
                 return;
@@ -68,10 +82,10 @@
             this.positioned = false;
             if (this.open) {
                 this.$nextTick(() => {
-                    @if ($portal)
-                        requestAnimationFrame(() => this.positionPanel());
-                    @endif
-                    this.$refs.search?.focus();
+                    requestAnimationFrame(() => {
+                        this.positionPanel();
+                        this.$refs.search?.focus({ preventScroll: true });
+                    });
                 });
             } else {
                 this.query = '';
@@ -84,34 +98,42 @@
                 return;
             }
 
-            if (@js((bool) $portal) && panel.parentElement !== document.body) {
-                document.body.appendChild(panel);
+            const host = this.portalHost();
+            if (host && panel.parentElement !== host) {
+                host.appendChild(panel);
             }
 
-            panel.style.position = 'fixed';
-            panel.style.zIndex = '9999';
+            if (@js((bool) $portal)) {
+                panel.style.position = 'fixed';
+                panel.style.zIndex = '9999';
 
-            const gap = 4;
-            const edge = 12;
-            const triggerRect = trigger.getBoundingClientRect();
-            const panelHeight = Math.min(panel.scrollHeight, 288);
-            const fitsBelow = window.innerHeight - triggerRect.bottom - gap >= panelHeight;
-            const top = fitsBelow
-                ? triggerRect.bottom + gap
-                : Math.max(edge, triggerRect.top - gap - panelHeight);
-            const left = Math.min(
-                Math.max(edge, triggerRect.left),
-                window.innerWidth - triggerRect.width - edge,
-            );
+                const gap = 4;
+                const edge = 12;
+                const triggerRect = trigger.getBoundingClientRect();
+                const panelHeight = Math.min(panel.scrollHeight, 288);
+                const fitsBelow = window.innerHeight - triggerRect.bottom - gap >= panelHeight;
+                const top = fitsBelow
+                    ? triggerRect.bottom + gap
+                    : Math.max(edge, triggerRect.top - gap - panelHeight);
+                const left = Math.min(
+                    Math.max(edge, triggerRect.left),
+                    window.innerWidth - triggerRect.width - edge,
+                );
 
-            panel.style.top = `${top}px`;
-            panel.style.left = `${left}px`;
-            panel.style.width = `${triggerRect.width}px`;
+                panel.style.top = `${top}px`;
+                panel.style.left = `${left}px`;
+                panel.style.width = `${triggerRect.width}px`;
+            }
+
             this.positioned = true;
         },
         close() {
             this.open = false;
             this.query = '';
+            this.positioned = false;
+        },
+        isInsidePanel(target) {
+            return Boolean(target?.closest?.('[data-searchable-listbox-panel]'));
         },
         async choose(option) {
             if (this.saving || option.disabled) {
@@ -136,8 +158,9 @@
     }" x-modelable="value" :class="{ 'pointer-events-none opacity-70': saving }"
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
-        @click.outside="if (!$refs.panel?.contains($event.target)) close()" @keydown.escape.window="open && close()"
-        x-effect="if (!open && $refs.panel?.parentElement === document.body) $refs.panel.style.visibility = 'hidden'">
+        @mousedown.outside="if (!isInsidePanel($event.target)) close()"
+        @keydown.escape.window="open && close()"
+        x-effect="if (!open && $refs.panel && @js((bool) $portal)) $refs.panel.style.visibility = 'hidden'">
         <button x-ref="trigger" id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
             @disabled($disabled)
             {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
@@ -148,12 +171,16 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8 9 4-4 4 4m0 6-4 4-4-4" />
             </svg>
         </button>
-        @if ($portal)
-            <template x-teleport="body">
-        @endif
-        <div x-ref="panel" @if ($portal) style="position: fixed; z-index: 9999; visibility: hidden" :style="{ position: 'fixed', zIndex: 9999, visibility: positioned ? 'visible' : 'hidden' }" x-effect="if (open) requestAnimationFrame(() => positionPanel($el))" @resize.window="open && positionPanel($el)" @scroll.window.capture="open && positionPanel($el)" @endif
+        <div x-ref="panel" data-searchable-listbox-panel
+            @if ($portal)
+                style="position: fixed; z-index: 9999; visibility: hidden"
+                :style="{ position: 'fixed', zIndex: 9999, visibility: open && positioned ? 'visible' : 'hidden' }"
+                x-effect="if (open) requestAnimationFrame(() => positionPanel($el))"
+                @resize.window="open && positionPanel($el)"
+                @scroll.window.capture="open && positionPanel($el)"
+            @endif
             class="listbox-panel searchable-listbox-panel" x-show="open" x-cloak role="listbox"
-            @click.stop>
+            @mousedown.stop @click.stop>
             <div class="searchable-listbox-search">
                 <x-reicon name="search"
                     class="pointer-events-none absolute top-1/2 left-3 size-3 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
@@ -181,8 +208,5 @@
                 </p>
             </div>
         </div>
-        @if ($portal)
-            </template>
-        @endif
     </div>
 </div>

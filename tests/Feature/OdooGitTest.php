@@ -105,7 +105,7 @@ it('shows a client team in the owner jupyter even when its server is not the ins
         ->and($row['project'])->toBe($project->name)
         ->and((string) $row['server_id'])->toBe((string) $server->id)
         ->and(OdooJupyter::prepareOwnerInstances([$row], [])[0]['custom_bind'])
-        ->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/'.\Illuminate\Support\Str::slug($project->name).'/production/custom');
+        ->toBe('/data/coolify/gpsh-owner-jupyter/clients/cliente-1/'.Str::slug($project->name).'/production/custom');
 });
 
 it('stores each github branch without renaming production or staging', function () {
@@ -188,34 +188,18 @@ it('does not let a member save github branches', function () {
         ->set('odooGithubAppId', $this->githubApp->id)
         ->set('odooRepositoryId', 99)
         ->call('saveOdooGit')
-        ->assertDispatched('error')
-        ->call('connectOdooGithub')
         ->assertDispatched('error');
 
     expect(OdooEnvironmentBranch::query()->count())->toBe(0)
         ->and(Application::query()->count())->toBe(0);
 });
 
-it('starts the github app install when the account is not connected', function () {
-    $component = Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
-        ->assertSet('odooGithubConnected', false)
-        ->assertSee('Connect your GitHub account')
-        ->assertSee('Connect GitHub')
-        ->assertSee('Launch environment')
-        ->assertSee('JupyterLab')
-        ->call('connectOdooGithub');
-
-    $created = GithubApp::query()->where('team_id', $this->team->id)->latest('id')->first();
-
-    $component->assertRedirect(route('source.github.show', ['github_app_uuid' => $created->uuid]));
-
-    expect($created->id)->not->toBe($this->githubApp->id)
-        ->and($created->installation_id)->toBeNull()
-        ->and($created->private_key_id)->toBeNull()
-        ->and(session('from.back'))->toBe('project.edit')
-        ->and(session('from.source_id'))->toBe($created->id)
-        ->and(session('from.parameters.project_uuid'))->toBe($this->project->uuid)
-        ->and(Application::query()->count())->toBe(0);
+it('points project settings github management to the odoo service panel', function () {
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee(__('Connect the account, choose a repository, and invite collaborators from the Odoo service → GitHub panel. GitHub applies only to Odoo, not to other catalog services.'))
+        ->assertSee(__('Launch environment'))
+        ->assertSee(__('JupyterLab'))
+        ->assertDontSee(__('Connect GitHub'));
 });
 
 it('reuses the github account that already has a key and a webhook', function () {
@@ -1203,9 +1187,9 @@ it('starts a new odoo project in stages and reuses an installed github app', fun
     expect(OdooGit::configuredAppName())->toBe('gpsh1')
         ->and(OdooGit::installedApp($this->team->id, $this->user->id)?->is($this->githubApp))->toBeTrue()
         ->and(file_get_contents(app_path('Jobs/LaunchOdooProjectJob.php')))->toContain('StartService::run')
-        ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Starting the containers')
         ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('serverId')
-        ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Search services')
+        ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain('Search the catalog')
+        ->and(file_get_contents(resource_path('views/livewire/project/add-empty.blade.php')))->toContain("service === 'odoo'")
         ->and(file_get_contents(resource_path('views/livewire/settings/github.blade.php')))->toContain('github_app_icon');
 });
 
@@ -1393,7 +1377,7 @@ it('clones the production branch onto a different branch and asks github for one
 
     $posted = Http::recorded(
         fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
-    );
+    )->values();
     $tokens = Http::recorded(
         fn ($request) => str_contains($request->url(), '/access_tokens')
     );
@@ -1406,6 +1390,87 @@ it('clones the production branch onto a different branch and asks github for one
 it('rejects a staging branch that is already used', function () {
     expect(fn () => OdooGit::prepareStagingBranch($this->githubApp, 'acme/odoo', 'production', 'main', ['main']))
         ->toThrow(InvalidArgumentException::class, 'That branch is already used by this repository.');
+});
+
+it('refuses to create a staging branch that already exists on github', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = PrivateKey::create([
+        'name' => 'odoo-create-branch-key',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+
+    Http::fake(function ($request) {
+        $url = $request->url();
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($url, '/zen')) {
+            return Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/staging-1')) {
+            return Http::response(['object' => ['sha' => 'already']], 200, $date);
+        }
+
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    expect(fn () => OdooGit::createStagingBranch($this->githubApp, 'acme/odoo', 'main', 'staging-1', ['main']))
+        ->toThrow(InvalidArgumentException::class, 'That branch already exists on GitHub');
+});
+
+it('creates a new staging branch from production', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = PrivateKey::create([
+        'name' => 'odoo-create-from-prod-key',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+
+    Http::fake(function ($request) {
+        $url = $request->url();
+        $method = strtoupper($request->method());
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($url, '/zen')) {
+            return Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($url, '/access_tokens')) {
+            return Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/staging-2')) {
+            return Http::response(['message' => 'Not Found'], 404, $date);
+        }
+        if (str_contains($url, '/git/ref/heads/main')) {
+            return Http::response(['object' => ['sha' => 'prodsha']], 200, $date);
+        }
+        if ($method === 'POST' && str_contains($url, '/git/refs')) {
+            return Http::response(['ref' => 'refs/heads/staging-2'], 201, $date);
+        }
+
+        return Http::response(['message' => 'unexpected '.$url], 500, $date);
+    });
+
+    OdooGit::createStagingBranch($this->githubApp, 'acme/odoo', 'main', 'staging-2', ['main']);
+
+    $posted = Http::recorded(
+        fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
+    )->values();
+    expect($posted)->toHaveCount(1)
+        ->and($posted[0][0]->data()['ref'])->toBe('refs/heads/staging-2')
+        ->and($posted[0][0]->data()['sha'])->toBe('prodsha');
 });
 
 it('starts a new staging branch from the repository default when production is missing', function () {
@@ -1452,7 +1517,7 @@ it('starts a new staging branch from the repository default when production is m
 
     $posted = Http::recorded(
         fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/git/refs')
-    );
+    )->values();
     expect($posted)->toHaveCount(1)
         ->and($posted[0][0]->data()['ref'])->toBe('refs/heads/staging-1')
         ->and($posted[0][0]->data()['sha'])->toBe('defaultsha');

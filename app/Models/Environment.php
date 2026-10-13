@@ -19,6 +19,7 @@ use OpenApi\Attributes as OA;
     properties: [
         'id' => ['type' => 'integer'],
         'name' => ['type' => 'string'],
+        'role' => ['type' => 'string', 'description' => 'System role: production or staging. Independent of display name.'],
         'project_id' => ['type' => 'integer'],
         'created_at' => ['type' => 'string'],
         'updated_at' => ['type' => 'string'],
@@ -31,12 +32,21 @@ class Environment extends BaseModel
     use HasFactory;
     use HasSafeStringAttribute;
 
+    public const ROLE_PRODUCTION = 'production';
+
+    public const ROLE_STAGING = 'staging';
+
     protected $fillable = [
         'name',
+        'role',
         'description',
         'project_id',
         'uuid',
         'created_by',
+    ];
+
+    protected $attributes = [
+        'role' => self::ROLE_STAGING,
     ];
 
     /**
@@ -47,6 +57,22 @@ class Environment extends BaseModel
     protected static function booted()
     {
         static::creating(function (Environment $environment): void {
+            $role = (string) ($environment->role ?: self::ROLE_STAGING);
+            if (! in_array($role, [self::ROLE_PRODUCTION, self::ROLE_STAGING], true)) {
+                $role = self::ROLE_STAGING;
+            }
+            $environment->role = $role;
+
+            if ($environment->isProduction() && $environment->project_id !== null) {
+                $exists = static::query()
+                    ->where('project_id', $environment->project_id)
+                    ->where('role', self::ROLE_PRODUCTION)
+                    ->exists();
+                if ($exists) {
+                    throw new \RuntimeException('This project already has a production environment.');
+                }
+            }
+
             app(AdminCreationQuota::class)->guardEnvironment($environment);
         });
         static::deleting(function (Environment $environment) {
@@ -61,6 +87,16 @@ class Environment extends BaseModel
                 $sharedVariable->delete();
             }
         });
+    }
+
+    public function isProduction(): bool
+    {
+        return (string) $this->role === self::ROLE_PRODUCTION;
+    }
+
+    public function isStaging(): bool
+    {
+        return (string) $this->role === self::ROLE_STAGING;
     }
 
     public static function ownedByCurrentTeam()

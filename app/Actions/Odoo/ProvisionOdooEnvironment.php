@@ -2,15 +2,14 @@
 
 namespace App\Actions\Odoo;
 
+use App\Domain\Odoo\OdooDomains;
+use App\Domain\Odoo\OdooVersion;
 use App\Models\Application;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\StandaloneDocker;
-use App\Domain\Odoo\OdooDomains;
-use App\Domain\Odoo\OdooStaging;
-use App\Domain\Odoo\OdooVersion;
 use RuntimeException;
 
 class ProvisionOdooEnvironment
@@ -26,7 +25,7 @@ class ProvisionOdooEnvironment
             throw new RuntimeException('Odoo is not configured for this environment.');
         }
 
-        if (! OdooStaging::isStagingName($environment->name) && strcasecmp($environment->name, 'production') !== 0) {
+        if (! $environment->isProduction() && ! $environment->isStaging()) {
             throw new RuntimeException('Odoo services belong on production or staging.');
         }
 

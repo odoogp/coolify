@@ -27,12 +27,37 @@
                     </a>
                 @endcan
                 @can('createAnyResource')
-                    <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
-                        {{ wireNavigate() }}
-                        class="button whitespace-nowrap button-highlighted">
-                        <x-reicon name="plus" class="size-3.5" />
-                        {{ __('New resource') }}
-                    </a>
+                    <x-modal-input title="{{ __('New') }}" :wireIgnore="false" data-listbox-portal-root>
+                        <x-slot:content>
+                            <button type="button" class="button whitespace-nowrap button-highlighted">
+                                <x-reicon name="plus" class="size-3.5" />
+                                {{ __('New') }}
+                            </button>
+                        </x-slot:content>
+                        <div class="flex flex-col gap-4">
+                            @if ($projectServerLocked && filled($projectServerName))
+                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Runs on :server, the server already used by this project.', ['server' => $projectServerName]) }}
+                                </p>
+                            @elseif ($serverChoices !== [])
+                                <x-forms.listbox id="serverId" portal
+                                    label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
+                                    :options="$serverChoices" />
+                            @endif
+                            <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal
+                                searchPlaceholder="{{ __('Search the catalog') }}"
+                                emptyText="{{ __('No matching service') }}"
+                                :options="$serviceOptions" />
+                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('Odoo asks for version and GitHub only when it is the service you launch. Other catalog services open configuration on this project’s server.') }}
+                            </p>
+                            <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                                <x-forms.button type="button" wire:click="launchService" wire:target="launchService" isHighlighted>
+                                    {{ __('Launch') }}
+                                </x-forms.button>
+                            </footer>
+                        </div>
+                    </x-modal-input>
                 @endcan
             </div>
         </header>
@@ -55,8 +80,12 @@
                                 </p>
                             @endif
                         @else
-                            <div class="mb-3 flex w-full max-w-md flex-col gap-3 text-left">
-                                @if ($serverChoices !== [])
+                            <div class="mb-3 flex w-full max-w-md flex-col gap-3 text-left" data-listbox-portal-root>
+                                @if ($projectServerLocked && filled($projectServerName))
+                                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Runs on :server, the server already used by this project.', ['server' => $projectServerName]) }}
+                                    </p>
+                                @elseif ($serverChoices !== [])
                                     <x-forms.listbox id="serverId" portal
                                         label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
                                         :options="$serverChoices" />
@@ -71,10 +100,6 @@
                             <button type="button" class="button button-highlighted" wire:click="launchService">
                                 {{ __('Launch') }}
                             </button>
-                            <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
-                                {{ wireNavigate() }} class="button mt-2">
-                                {{ __('Browse full catalog') }}
-                            </a>
                         @endif
                     </x-slot:contents>
                 </x-empty>

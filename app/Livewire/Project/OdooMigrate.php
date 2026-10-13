@@ -46,9 +46,7 @@ class OdooMigrate extends Component
         abort_unless($profile !== null, 404);
         $this->gitRepository = (string) ($profile->git_repository ?? '');
 
-        $production = $this->project->environments()
-            ->whereRaw('LOWER(name) = ?', ['production'])
-            ->first();
+        $production = $this->project->productionEnvironment();
         $this->environmentId = $production ? (string) $production->id : self::NEW_ENVIRONMENT;
 
         $latest = OdooMigration::query()
@@ -213,10 +211,9 @@ class OdooMigrate extends Component
     private function environmentChoices(): array
     {
         $choices = $this->project->environments
-            ->filter(fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-                || OdooStaging::isStagingName($environment->name))
+            ->filter(fn (Environment $environment): bool => $environment->isProduction() || $environment->isStaging())
             ->sortBy(fn (Environment $environment): array => [
-                strcasecmp($environment->name, 'production') === 0 ? 0 : 1,
+                $environment->isProduction() ? 0 : 1,
                 $environment->name,
             ])
             ->values()

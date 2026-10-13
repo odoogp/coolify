@@ -37,6 +37,7 @@ class CloneOdooStagingJob implements ShouldQueue
         public string $productionUuid,
         public string $branch,
         public string $cloneAddons,
+        public bool $createBranch,
         public string $cacheKey,
         public int $userId,
     ) {
@@ -63,7 +64,7 @@ class CloneOdooStagingJob implements ShouldQueue
         try {
             $project = Project::query()->with('odooProfile.githubApp', 'environments.odooBranch')->find($this->projectId);
             $production = $project?->environments->firstWhere('uuid', $this->productionUuid);
-            if (! $project instanceof Project || ! $production instanceof Environment) {
+            if (! $project instanceof Project || ! $production instanceof Environment || ! $production->isProduction()) {
                 $this->progress(1, error: 'Clone starts from the production environment.');
 
                 return;
@@ -89,12 +90,25 @@ class CloneOdooStagingJob implements ShouldQueue
 
             $this->progress(3);
             if (filled($repository) && $app instanceof GithubApp) {
-                $source = $this->cloneAddons === 'copy'
-                    ? (string) ($production->odooBranch?->git_branch ?: $production->name)
-                    : '';
-                OdooGit::prepareStagingBranch($app, (string) $repository, $source, $this->branch, $used);
+                $productionBranch = (string) ($production->odooBranch?->git_branch ?: '');
+                if ($this->createBranch) {
+                    // New branch must not already exist: fork from production (copy) or the repo default (empty).
+                    $source = $this->cloneAddons === 'copy' && $productionBranch !== ''
+                        ? $productionBranch
+                        : '';
+                    OdooGit::createStagingBranch($app, (string) $repository, $source, $this->branch, $used);
+                } else {
+                    // Reuse an unused existing tip — do not recreate it from production.
+                    OdooGit::prepareStagingBranch($app, (string) $repository, '', $this->branch, $used);
+                }
             }
-            if ($copied instanceof Service && filled($repository) && $this->cloneAddons === 'copy') {
+            // Existing branch always syncs its tip into the volume. Create+copy does the same after the fork.
+            // Create+empty leaves the volume empty (no modules) while the GitHub branch still exists for later pushes.
+            if (
+                $copied instanceof Service
+                && filled($repository)
+                && ($this->cloneAddons === 'copy' || ! $this->createBranch)
+            ) {
                 OdooGit::cloneIntoService($copied);
             }
 

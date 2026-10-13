@@ -31,7 +31,11 @@ beforeEach(function () {
     $this->environment = $this->project->environments()->where('name', 'production')->first();
 
     $this->server = Server::factory()->create(['team_id' => $this->team->id]);
-    $this->destination = StandaloneDocker::factory()->create(['server_id' => $this->server->id]);
+    $this->destination = $this->server->standaloneDockers()->first()
+        ?? StandaloneDocker::factory()->create([
+            'server_id' => $this->server->id,
+            'network' => 'coolify-test-'.uniqid(),
+        ]);
 
     $this->composeDirectory = sys_get_temp_dir().'/coolify-service-catalog-launch-'.uniqid();
     mkdir($this->composeDirectory);
@@ -120,7 +124,60 @@ it('keeps the empty-environment service picker deferred until Launch', function 
 
     expect($blade)->toContain('id="selectedService"')
         ->and($blade)->toContain('wire:click="launchService"')
+        ->and($blade)->toContain("{{ __('New') }}")
+        ->and($blade)->toContain('projectServerLocked')
         ->and($blade)->not->toMatch('/id="selectedService"[^>]*\blive\b/');
+});
+
+it('reuses the project server when launching another catalog service', function () {
+    Bus::fake();
+
+    $existing = Service::factory()->create([
+        'name' => 'odoo-seed',
+        'environment_id' => $this->environment->id,
+        'service_type' => 'odoo',
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:18\n",
+    ]);
+
+    Livewire::test(Index::class, [
+        'project' => $this->project->fresh(),
+        'environment' => $this->environment->fresh(),
+        'allProjects' => collect([$this->project]),
+        'allEnvironments' => collect([$this->environment]),
+    ])
+        ->assertSet('serverId', (string) $this->server->id)
+        ->set('selectedService', 'demo-worker')
+        ->call('launchService')
+        ->assertRedirect();
+
+    $created = Service::query()
+        ->where('environment_id', $this->environment->id)
+        ->where('service_type', 'demo-worker')
+        ->first();
+
+    expect($created)->not->toBeNull()
+        ->and((int) $created->server_id)->toBe((int) $this->server->id)
+        ->and((int) $created->destination_id)->toBe((int) $this->destination->id)
+        ->and($existing->fresh())->not->toBeNull();
+
+    Bus::assertNotDispatched(StartService::class);
+});
+
+it('asks for confirmation before removing a github collaborator on the service panel', function () {
+    $blade = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
+
+    expect($blade)
+        ->toContain('wire:click="removeGithubUser(')
+        ->toContain('wire:confirm=')
+        ->toContain('inviteGithubUser')
+        ->toContain("{{ __('Collaborators') }}");
+
+    expect(file_get_contents(resource_path('views/livewire/project/edit.blade.php')))
+        ->toContain('Open GitHub on the service')
+        ->not->toContain('wire:click="removeGithubUser(');
 });
 
 it('creates a non-odoo service from the new-project form without starting containers', function () {

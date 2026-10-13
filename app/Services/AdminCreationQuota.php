@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Domain\Odoo\OdooStaging;
 use App\Enums\Role;
 use App\Exceptions\AdminCreationQuotaExceeded;
 use App\Models\Application;
@@ -64,12 +63,12 @@ class AdminCreationQuota
     public function createEnvironment(User $actor, Project $project, array $attributes): Environment
     {
         return DB::transaction(function () use ($actor, $project, $attributes): Environment {
-            $name = (string) ($attributes['name'] ?? '');
+            $attributes['role'] = $this->roleFromAttributes($attributes);
             $this->assertWithinLimits(
                 $this->lockedMembership($actor->id, $project->team_id),
                 $actor->id,
                 $project->team_id,
-                environments: $this->environmentConsumesQuota($project->id, $name) ? 1 : 0,
+                environments: $this->environmentConsumesQuota($project->id, $attributes['role']) ? 1 : 0,
             );
 
             return $project->environments()->create([
@@ -158,7 +157,7 @@ class AdminCreationQuota
             return;
         }
 
-        if (! $this->environmentConsumesQuota((int) $environment->project_id, (string) $environment->name)) {
+        if (! $this->environmentConsumesQuota((int) $environment->project_id, (string) ($environment->role ?: Environment::ROLE_STAGING))) {
             return;
         }
 
@@ -251,13 +250,13 @@ class AdminCreationQuota
         $stagingIncluded = false;
         $extra = 0;
         foreach ($additionalEnvironments as $environmentAttributes) {
-            $name = (string) ($environmentAttributes['name'] ?? '');
-            if (! $stagingIncluded && OdooStaging::isStagingName($name)) {
-                $stagingIncluded = true;
-
+            $role = $this->roleFromAttributes($environmentAttributes);
+            if ($role === Environment::ROLE_PRODUCTION) {
                 continue;
             }
-            if (strcasecmp($name, 'production') === 0) {
+            if (! $stagingIncluded && $role === Environment::ROLE_STAGING) {
+                $stagingIncluded = true;
+
                 continue;
             }
             $extra++;
@@ -266,22 +265,37 @@ class AdminCreationQuota
         return $extra;
     }
 
-    private function environmentConsumesQuota(int $projectId, string $name): bool
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function roleFromAttributes(array $attributes): string
     {
+        $role = (string) ($attributes['role'] ?? '');
+        if (in_array($role, [Environment::ROLE_PRODUCTION, Environment::ROLE_STAGING], true)) {
+            return $role;
+        }
+        $name = (string) ($attributes['name'] ?? '');
         if (strcasecmp($name, 'production') === 0) {
+            return Environment::ROLE_PRODUCTION;
+        }
+
+        return Environment::ROLE_STAGING;
+    }
+
+    private function environmentConsumesQuota(int $projectId, string $role): bool
+    {
+        if ($role === Environment::ROLE_PRODUCTION) {
             return false;
         }
 
-        if (! OdooStaging::isStagingName($name)) {
+        if ($role !== Environment::ROLE_STAGING) {
             return true;
         }
 
-        $already = Environment::query()
+        return Environment::query()
             ->where('project_id', $projectId)
-            ->get(['name'])
-            ->contains(fn (Environment $environment): bool => OdooStaging::isStagingName((string) $environment->name));
-
-        return $already;
+            ->where('role', Environment::ROLE_STAGING)
+            ->exists();
     }
 
     private function includedOdooService(Service $service): bool
@@ -632,18 +646,16 @@ class AdminCreationQuota
     private function projectHasStaging(Project $project): bool
     {
         return $project->environments()
-            ->get(['name'])
-            ->contains(fn (Environment $environment): bool => OdooStaging::isStagingName((string) $environment->name));
+            ->where('role', Environment::ROLE_STAGING)
+            ->exists();
     }
 
     public function stagingLaunchUsage(int $userId, int $teamId): int
     {
         return Environment::query()
             ->where('created_by', $userId)
+            ->where('role', Environment::ROLE_STAGING)
             ->whereHas('project', fn ($query) => $query->where('team_id', $teamId))
-            ->get(['id', 'name'])
-            ->filter(fn (Environment $environment): bool => OdooStaging::isStagingName($environment->name)
-                || in_array(mb_strtolower(trim((string) $environment->name)), ['stage', 'stg'], true))
             ->count();
     }
 

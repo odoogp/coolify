@@ -4,6 +4,7 @@ namespace App\Livewire\Project;
 
 use App\Domain\Odoo\OdooStaging;
 use App\Domain\Odoo\OdooVersion;
+use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
@@ -53,10 +54,7 @@ class Edit extends Component
 
     public int $odooWorkers = 0;
 
-    public string $githubLogin = '';
-
-    /** @var list<array{login: string}> */
-    public array $odooCollaborators = [];
+    public ?string $odooGithubHref = null;
 
     /** @var list<array{value: int, label: string}> */
     public array $odooGithubApps = [];
@@ -220,6 +218,7 @@ class Edit extends Component
             ->map(fn ($environment): array => [
                 'id' => $environment->id,
                 'name' => $environment->name,
+                'role' => (string) $environment->role,
                 'status' => (string) ($branchRows->get($environment->id)?->status ?? 'idle'),
             ])
             ->values()
@@ -229,12 +228,19 @@ class Edit extends Component
             ->all();
         $this->odooSubdomain = (string) ($profile?->subdomain ?? '');
         $this->odooWorkers = (int) ($profile?->workers ?? 0);
-        $this->odooCollaborators = [];
-        if ($profile !== null && filled($profile->git_repository)) {
-            try {
-                $this->odooCollaborators = OdooGit::repositoryCollaborators($profile);
-            } catch (\Throwable) {
-                $this->odooCollaborators = [];
+        $this->odooGithubHref = null;
+        if ($profile !== null) {
+            foreach ($this->project->environments()->with('services')->orderBy('id')->get() as $environment) {
+                $odooService = $environment->services->first(fn ($service): bool => $service->supportsOdooJupyter());
+                if ($odooService !== null) {
+                    $this->odooGithubHref = route('project.service.configuration', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $odooService->uuid,
+                        'odooPanel' => 'github',
+                    ]);
+                    break;
+                }
             }
         }
     }
@@ -279,57 +285,6 @@ class Edit extends Component
             $this->dispatch('success', $addressChanged
                 ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
                 : __('Project runtime saved. The next start applies the workers and the address.'));
-        } catch (\Throwable $e) {
-            handleError($e, $this);
-        }
-    }
-
-    public function inviteGithubUser(): void
-    {
-        try {
-            $this->authorize('update', $this->project);
-            $profile = $this->project->odooProfile;
-            if ($profile === null) {
-                return;
-            }
-            OdooGit::inviteGithubLogin($profile, $this->githubLogin);
-            $this->githubLogin = '';
-            $this->odooCollaborators = OdooGit::repositoryCollaborators($profile->fresh());
-            $this->dispatch('success', __('Invitation sent.'));
-        } catch (InvalidArgumentException $exception) {
-            $this->dispatch('error', __($exception->getMessage()));
-        } catch (\Throwable $e) {
-            handleError($e, $this);
-        }
-    }
-
-    public function removeGithubUser(string $login): void
-    {
-        try {
-            $this->authorize('update', $this->project);
-            $profile = $this->project->odooProfile;
-            if ($profile === null) {
-                return;
-            }
-            OdooGit::removeGithubLogin($profile, $login);
-            $this->odooCollaborators = OdooGit::repositoryCollaborators($profile->fresh());
-            $this->dispatch('success', __('Collaborator removed.'));
-        } catch (\Throwable $e) {
-            handleError($e, $this);
-        }
-    }
-
-    public function connectOdooGithub(): void
-    {
-        try {
-            $this->authorize('update', $this->project);
-            $githubApp = OdooGit::beginConnect($this->project);
-            if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
-                $this->syncOdooState();
-
-                return;
-            }
-            redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -410,7 +365,7 @@ class Edit extends Component
             $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
             foreach ($this->odooTrackedEnvironments as $environment) {
                 $current = $this->odooEnvironmentBranches[$environment['id']] ?? null;
-                if (filled($current) || strcasecmp($environment['name'], 'production') !== 0) {
+                if (filled($current) || ($environment['role'] ?? '') !== Environment::ROLE_PRODUCTION) {
                     continue;
                 }
                 if (in_array($repository['default_branch'], $this->odooGithubBranches, true)) {

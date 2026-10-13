@@ -243,6 +243,9 @@ class Index extends Component
             'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
             'needsServer' => ! auth()->user()?->canLaunchOnInstanceServer() && OdooGit::allowedLaunchServers()->isEmpty(),
             'canAddServer' => (bool) auth()->user()?->canAddServers(),
+            'projectServerLocked' => $this->assignedProjectDestination() !== null,
+            'projectServerName' => $this->assignedProjectDestination()?->server?->name,
+            'hasOdooService' => $this->existingOdooService() instanceof Service,
         ]);
     }
 
@@ -385,6 +388,13 @@ class Index extends Component
             return;
         }
 
+        $existing = $this->assignedProjectDestination();
+        if ($existing instanceof StandaloneDocker || $existing instanceof SwarmDocker) {
+            $this->serverId = (string) $existing->server_id;
+
+            return;
+        }
+
         $server = OdooGit::allowedLaunchServers()->first();
         if ($server instanceof Server) {
             $this->serverId = (string) $server->id;
@@ -393,6 +403,11 @@ class Index extends Component
 
     private function chosenDestination(): StandaloneDocker|SwarmDocker
     {
+        $assigned = $this->assignedProjectDestination();
+        if ($assigned instanceof StandaloneDocker || $assigned instanceof SwarmDocker) {
+            return $assigned;
+        }
+
         if ($this->serverId === null || $this->serverId === '') {
             throw new \RuntimeException(__('Choose a server.'));
         }
@@ -408,6 +423,29 @@ class Index extends Component
         }
 
         return $destination;
+    }
+
+    private function assignedProjectDestination(): StandaloneDocker|SwarmDocker|null
+    {
+        $fromEnvironment = $this->environment->services()
+            ->whereNotNull('destination_id')
+            ->orderBy('id')
+            ->first();
+        if ($fromEnvironment?->destination instanceof StandaloneDocker || $fromEnvironment?->destination instanceof SwarmDocker) {
+            return $fromEnvironment->destination;
+        }
+
+        foreach ($this->project->environments()->orderBy('id')->get() as $environment) {
+            $service = $environment->services()
+                ->whereNotNull('destination_id')
+                ->orderBy('id')
+                ->first();
+            if ($service?->destination instanceof StandaloneDocker || $service?->destination instanceof SwarmDocker) {
+                return $service->destination;
+            }
+        }
+
+        return null;
     }
 
     private function createOdooService(bool $start, StandaloneDocker|SwarmDocker|null $destination = null): ?Service

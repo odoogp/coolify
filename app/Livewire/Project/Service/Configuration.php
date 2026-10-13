@@ -95,6 +95,11 @@ class Configuration extends Component
 
     public array $odooDatabases = [];
 
+    public string $githubLogin = '';
+
+    /** @var list<array{login: string}> */
+    public array $odooCollaborators = [];
+
     public function render()
     {
         return view('livewire.project.service.configuration');
@@ -138,7 +143,12 @@ class Configuration extends Component
                 && blank($project->odooProfile?->git_repository)
                 && $this->odooGithubConnected
                 && $this->odooIsOdoo;
-            if ($this->odooAccountChanged || $this->awaitingRepositoryChoice || $this->associatingWithoutGithub) {
+            if (
+                $this->odooAccountChanged
+                || $this->awaitingRepositoryChoice
+                || $this->associatingWithoutGithub
+                || request()->query('odooPanel') === 'github'
+            ) {
                 $this->odooPanel = 'github';
             }
             if ($this->associatingWithoutGithub) {
@@ -262,6 +272,41 @@ class Configuration extends Component
                 return;
             }
             redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function inviteGithubUser(): void
+    {
+        try {
+            $this->authorize('update', $this->service);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                return;
+            }
+            OdooGit::inviteGithubLogin($profile, $this->githubLogin);
+            $this->githubLogin = '';
+            $this->odooCollaborators = OdooGit::repositoryCollaborators($profile->fresh());
+            $this->dispatch('success', __('Invitation sent.'));
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function removeGithubUser(string $login): void
+    {
+        try {
+            $this->authorize('update', $this->service);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                return;
+            }
+            OdooGit::removeGithubLogin($profile, $login);
+            $this->odooCollaborators = OdooGit::repositoryCollaborators($profile->fresh());
+            $this->dispatch('success', __('Collaborator removed.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -589,6 +634,14 @@ class Configuration extends Component
         if (filled($profile?->git_repository)) {
             $this->odooRepoMode = 'existing';
             $this->odooRepositoryId = $profile->repository_id;
+        }
+        $this->odooCollaborators = [];
+        if ($profile !== null && filled($profile->git_repository)) {
+            try {
+                $this->odooCollaborators = OdooGit::repositoryCollaborators($profile);
+            } catch (\Throwable) {
+                $this->odooCollaborators = [];
+            }
         }
     }
 

@@ -241,7 +241,7 @@ class OdooGit
 
     public static function tracksBranch(Environment $environment): bool
     {
-        return strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name);
+        return $environment->isProduction() || $environment->isStaging();
     }
 
     public static function repositoryName(Project $project): string
@@ -328,16 +328,14 @@ class OdooGit
 
         $createStaging = false;
         if ($classification === 'production') {
-            $environment = $project->environments()->get()->first(
-                fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-            );
+            $environment = $project->productionEnvironment();
             if (! $environment instanceof Environment) {
                 throw new RuntimeException('This project has no production environment.');
             }
             $branch = $environment->name;
         } else {
             $environment = $project->environments()->with('odooBranch')->orderBy('id')->get()->first(
-                fn (Environment $environment): bool => OdooStaging::isStagingName($environment->name) && blank($environment->odooBranch?->git_branch)
+                fn (Environment $environment): bool => $environment->isStaging() && blank($environment->odooBranch?->git_branch)
             );
             if ($environment instanceof Environment) {
                 $branch = $environment->name;
@@ -667,10 +665,10 @@ BASH;
     {
         $source->loadMissing('environment');
         $target->loadMissing('environment');
-        if (strcasecmp((string) $source->environment?->name, 'production') !== 0) {
+        if (! $source->environment?->isProduction()) {
             throw new RuntimeException('The database copy starts from production.');
         }
-        if (! OdooStaging::isStagingName((string) $target->environment?->name)) {
+        if (! $target->environment?->isStaging()) {
             throw new RuntimeException('Only a staging database is neutralized.');
         }
         if ((string) $source->uuid === (string) $target->uuid) {
@@ -1001,9 +999,9 @@ BASH;
         return OdooDomains::normalizedBaseDomain($domain);
     }
 
-    public static function projectHost(string $subdomain, string $baseDomain, ?string $environment = null, int $environmentId = 0): string
+    public static function projectHost(string $subdomain, string $baseDomain, ?string $environment = null, int $environmentId = 0, ?bool $isProduction = null): string
     {
-        return OdooDomains::projectHost($subdomain, $baseDomain, $environment, $environmentId);
+        return OdooDomains::projectHost($subdomain, $baseDomain, $environment, $environmentId, $isProduction);
     }
 
     public static function hostFor(Project $project, ?Environment $environment = null): string
@@ -1013,6 +1011,7 @@ BASH;
             self::normalizedBaseDomain((string) (instanceSettings()->odoo_base_domain ?? '')),
             $environment?->name,
             (int) ($environment->id ?? 0),
+            $environment instanceof Environment ? $environment->isProduction() : true,
         );
     }
 
@@ -1771,6 +1770,56 @@ BASH;
         ]);
     }
 
+    /**
+     * Create a brand-new staging branch. Fails if the name already exists on GitHub or is used by this project.
+     * Source is production's branch when provided; otherwise the repository default branch.
+     *
+     * @param  list<string>  $used
+     */
+    public static function createStagingBranch(GithubApp $githubApp, string $fullName, string $source, string $target, array $used): void
+    {
+        $target = trim($target);
+        $used = array_values(array_unique(array_map(strval(...), $used)));
+        if (in_array($target, $used, true)) {
+            throw new InvalidArgumentException('That branch is already used by this repository.');
+        }
+        $check = Validator::make(['branch' => $target], ['branch' => ['required', 'string', new ValidGitBranch]]);
+        if ($check->fails()) {
+            throw new InvalidArgumentException('The GitHub branch name is invalid.');
+        }
+
+        [$owner, $name] = self::splitRepository($fullName);
+        $repo = rawurlencode($owner).'/'.rawurlencode($name);
+        $existing = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($target), 'get', null, false);
+        if (filled(data_get($existing, 'data.object.sha'))) {
+            throw new InvalidArgumentException('That branch already exists on GitHub. Create a new name, or choose Use an existing branch.');
+        }
+
+        $source = trim($source);
+        $sha = '';
+        if ($source !== '' && $source !== $target) {
+            $head = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($source), 'get', null, false);
+            $sha = (string) data_get($head, 'data.object.sha');
+        }
+        if ($sha === '') {
+            $details = githubApi($githubApp, "/repos/{$repo}");
+            $default = (string) data_get($details, 'data.default_branch', '');
+            if ($default === '' || $default === $target) {
+                throw new RuntimeException('The source branch does not exist on GitHub.');
+            }
+            $head = githubApi($githubApp, "/repos/{$repo}/git/ref/heads/".rawurlencode($default), 'get', null, false);
+            $sha = (string) data_get($head, 'data.object.sha');
+        }
+        if ($sha === '') {
+            throw new RuntimeException('The source branch does not exist on GitHub.');
+        }
+
+        githubApi($githubApp, "/repos/{$repo}/git/refs", 'post', [
+            'ref' => 'refs/heads/'.$target,
+            'sha' => $sha,
+        ]);
+    }
+
     public static function cloneBranch(GithubApp $githubApp, string $fullName, string $fromBranch, string $toBranch): void
     {
         if ($fromBranch === $toBranch) {
@@ -1853,7 +1902,7 @@ BASH;
             throw new InvalidArgumentException('This project already has a GitHub repository.');
         }
 
-        $classification = OdooStaging::isStagingName((string) $service->environment?->name) ? 'staging' : 'production';
+        $classification = $service->environment?->isStaging() ? 'staging' : 'production';
         self::launchEnvironment($project, $githubApp, $classification);
         $userId = auth()->id();
         if ($userId !== null) {

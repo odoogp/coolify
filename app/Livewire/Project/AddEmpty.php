@@ -118,7 +118,7 @@ class AddEmpty extends Component
                     'uuid' => new_public_id(),
                 ]);
 
-                $productionEnvironment = $project->environments()->where('name', 'production')->first();
+                $productionEnvironment = $project->productionEnvironment();
                 if ($this->service === 'odoo') {
                     $project->enableOdoo($this->odooVersion);
                     $project->refresh();

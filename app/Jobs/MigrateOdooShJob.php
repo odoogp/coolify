@@ -51,7 +51,7 @@ class MigrateOdooShJob implements ShouldQueue
 
             $target = $migration->environment_id
                 ? $migration->project->environments->firstWhere('id', $migration->environment_id)
-                : $migration->project->environments->first(fn ($environment): bool => strcasecmp($environment->name, 'production') === 0);
+                : $migration->project->productionEnvironment();
             if ($target === null) {
                 throw new RuntimeException(__('Choose an environment before migrating.'));
             }
@@ -152,9 +152,7 @@ class MigrateOdooShJob implements ShouldQueue
             return $existing;
         }
 
-        $production = $project->environments->first(
-            fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-        );
+        $production = $project->productionEnvironment();
         $original = $production?->services->first(fn ($row): bool => $row->supportsOdooJupyter());
         if ($original instanceof Service) {
             $original->loadMissing('environment_variables');

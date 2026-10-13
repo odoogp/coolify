@@ -15,7 +15,7 @@
         @endif
     </div>
 @else
-<form class="space-y-4" wire:submit="submit">
+<form class="space-y-4" wire:submit="submit" data-listbox-portal-root>
     <div class="grid gap-4 md:grid-cols-2">
         <x-forms.input placeholder="{{ __('Your project name') }}" id="name" label="{{ __('Name') }}" required />
         <x-forms.input placeholder="{{ __('A short project description') }}" id="description" label="{{ __('Description') }}" />

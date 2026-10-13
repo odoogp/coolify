@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use App\Services\AdminCreationQuota;
 use App\Domain\Odoo\OdooStaging;
 use App\Domain\Odoo\OdooVersion;
+use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,8 +12,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
-use RuntimeException;
 use OpenApi\Attributes as OA;
+use RuntimeException;
 
 #[OA\Schema(
     description: 'Project model',
@@ -69,6 +69,7 @@ class Project extends BaseModel
             ]);
             Environment::create([
                 'name' => 'production',
+                'role' => Environment::ROLE_PRODUCTION,
                 'project_id' => $project->id,
                 'uuid' => new_public_id(),
                 'created_by' => $project->created_by,
@@ -136,45 +137,53 @@ class Project extends BaseModel
 
     public function canCreateStagingEnvironment(): bool
     {
-        $this->loadMissing('odooProfile');
-
         return OdooStaging::canCreateStagingEnvironment($this);
+    }
+
+    public function productionEnvironment(): ?Environment
+    {
+        $this->loadMissing('environments');
+
+        return $this->environments->first(
+            fn (Environment $environment): bool => $environment->isProduction()
+        );
+    }
+
+    /**
+     * @return Collection<int, Environment>
+     */
+    public function stagingEnvironments(): Collection
+    {
+        $this->loadMissing('environments');
+
+        return $this->environments
+            ->filter(fn (Environment $environment): bool => $environment->isStaging())
+            ->values();
     }
 
     public function createNextStagingEnvironment(): Environment
     {
-        $this->loadMissing('odooProfile');
         if (! OdooStaging::canCreateStagingEnvironment($this)) {
             throw new RuntimeException('Staging environment limit reached.');
         }
 
         $name = OdooStaging::nextName($this);
-        if (strcasecmp($name, 'production') === 0) {
-            throw new RuntimeException('A clone cannot create another production environment.');
-        }
 
         return Environment::create([
             'name' => $name,
+            'role' => Environment::ROLE_STAGING,
             'project_id' => $this->id,
             'created_by' => auth()->id() ?? $this->created_by,
         ]);
     }
 
     /**
-     * One new staging environment from the existing production category.
+     * One new staging environment from the project's production environment.
      * Does not create a second production, services, or a deployment.
      */
     public function cloneProductionAsStaging(): Environment
     {
-        $this->loadMissing('odooProfile');
-        if ($this->odooProfile === null) {
-            throw new RuntimeException('Odoo is not enabled for this project.');
-        }
-
-        $productions = $this->environments()->get()->filter(
-            fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-        );
-        if ($productions->count() !== 1) {
+        if (! $this->productionEnvironment() instanceof Environment) {
             throw new RuntimeException('This project must have one production environment.');
         }
 

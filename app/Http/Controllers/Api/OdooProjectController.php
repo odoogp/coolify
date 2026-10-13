@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Odoo\ProvisionOdooEnvironment;
 use App\Domain\Odoo\OdooAbilities;
-use App\Domain\Odoo\OdooStaging;
 use App\Http\Controllers\Controller;
 use App\Jobs\CloneProductionDataJob;
 use App\Jobs\CreateOdooBackupJob;
@@ -49,7 +48,7 @@ class OdooProjectController extends Controller
     {
         $project = $this->project($uuid);
         $env = $this->environment($project, $environment);
-        $ability = OdooStaging::isStagingName($env->name) ? 'odoo.staging.deploy' : 'odoo.production.deploy';
+        $ability = $env->isStaging() ? 'odoo.staging.deploy' : 'odoo.production.deploy';
         if (! OdooAbilities::allows($request->user(), (int) $project->team_id, $ability)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }
@@ -72,7 +71,7 @@ class OdooProjectController extends Controller
     {
         $project = $this->project($uuid);
         $env = $this->environment($project, $environment);
-        $ability = OdooStaging::isStagingName($env->name) ? 'odoo.staging.deploy' : 'odoo.production.deploy';
+        $ability = $env->isStaging() ? 'odoo.staging.deploy' : 'odoo.production.deploy';
         if (! OdooAbilities::allows($request->user(), (int) $project->team_id, $ability)) {
             return response()->json(['message' => 'Forbidden.'], 403);
         }

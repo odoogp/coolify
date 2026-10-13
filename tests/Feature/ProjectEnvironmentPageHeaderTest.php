@@ -44,11 +44,15 @@ it('keeps the environment clone action in the page header', function () {
 
 it('does not repeat the resources action outside the resources page', function () {
     foreach (['views/livewire/project/environment-edit.blade.php', 'views/livewire/project/clone-me.blade.php'] as $page) {
-        expect(file_get_contents(resource_path($page)))->not->toContain('New resource');
+        expect(file_get_contents(resource_path($page)))
+            ->not->toContain('New resource')
+            ->not->toContain("{{ __('New') }}");
     }
 
     expect(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
-        ->toContain('New resource');
+        ->toContain("{{ __('New') }}")
+        ->toContain('wire:click="launchService"')
+        ->toContain('projectServerLocked');
 });
 
 it('uses a stable class for the environment resource count on mobile', function () {

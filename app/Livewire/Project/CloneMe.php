@@ -111,9 +111,10 @@ class CloneMe extends Component
                     throw new \Exception('Project with the same name already exists.');
                 }
                 $additionalEnvironments = [];
-                if (strcasecmp((string) $this->environment?->name, 'production') !== 0) {
+                if ($this->environment instanceof Environment && ! $this->environment->isProduction()) {
                     $additionalEnvironments[] = [
                         'name' => $this->environment->name,
+                        'role' => Environment::ROLE_STAGING,
                         'uuid' => new_public_id(),
                     ];
                 }
@@ -126,10 +127,11 @@ class CloneMe extends Component
                 $environment = $project->environments->where('name', $this->environment->name)->first();
             } else {
                 $project = $this->project;
-                if ($project->odooProfile && strcasecmp((string) $this->environment?->name, 'production') === 0) {
+                if ($this->environment instanceof Environment && $this->environment->isProduction()) {
                     $environment = $project->cloneProductionAsStaging();
                 } else {
-                    if (strcasecmp($this->newName, 'production') === 0 && $project->environments()->whereRaw('LOWER(name) = ?', ['production'])->exists()) {
+                    if ($project->productionEnvironment() instanceof Environment
+                        && strcasecmp($this->newName, 'production') === 0) {
                         throw new \Exception('This project already has a production environment.');
                     }
                     $foundEnv = $project->environments()->where('name', $this->newName)->first();
@@ -138,6 +140,7 @@ class CloneMe extends Component
                     }
                     $environment = app(AdminCreationQuota::class)->createEnvironment(auth()->user(), $project, [
                         'name' => $this->newName,
+                        'role' => Environment::ROLE_STAGING,
                         'uuid' => new_public_id(),
                     ]);
                 }

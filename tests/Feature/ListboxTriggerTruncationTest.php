@@ -76,8 +76,9 @@ test('a portaled service list is moved to the page so the card cannot push it do
     BLADE);
 
     expect($html)
-        ->toContain('x-teleport="body"')
-        ->toContain('document.body.appendChild(panel)')
+        ->toContain('data-searchable-listbox-panel')
+        ->toContain('portalHost()')
+        ->toContain("trigger.closest('[x-trap], [data-listbox-portal-root]')")
         ->toContain("panel.style.position = 'fixed'");
 });
 
@@ -100,7 +101,7 @@ test('searchable listbox component uses shared trigger label truncation', functi
         ->toContain('class="w-full min-w-0"')
         ->toContain('relative min-w-0')
         ->toContain('listbox-trigger-label')
-        ->toContain(':title="{{ __(\'current\') }}"');
+        ->toContain(':title="current"');
 });
 
 test('listbox shows an empty state when it has no options', function () {

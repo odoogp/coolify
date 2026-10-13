@@ -186,21 +186,21 @@
                                 : '';
                         @endphp
                         @unless (($activities[$selectedEnvironment->uuid] ?? null) || $cloneRunning)
-                        @if ($project->odooProfile)
                             @can('update', $project)
-                                @if ($selectedOdoo && strcasecmp($selectedEnvironment->name, 'production') === 0)
+                                @if ($selectedEnvironment->isProduction() && ($selectedOdoo || $selectedEnvironment->services->isNotEmpty()))
                                     <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
                                         {{ __('Clone') }}
                                     </button>
                                 @endif
                             @endcan
+                            @if ($project->odooProfile)
                             <a class="button button-highlighted" {{ wireNavigate() }}
                                 href="{{ $selectedOdoo
                                     ? route('project.odoo.backups', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid])
                                     : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid]) }}">
                                 {{ $selectedOdoo ? __('Go to backups') : __('Go to configuration') }}
                             </a>
-                        @endif
+                            @endif
                         @endunless
                         @if ($openOdooUrl !== '')
                             <livewire:project.odoo-connect :project-uuid="$project->uuid" :environment-uuid="$selectedEnvironment->uuid"
@@ -215,33 +215,86 @@
                         class="w-full max-w-lg space-y-3 rounded-xl border border-neutral-200 bg-white p-6 dark:border-white/[0.08] dark:bg-white/[0.025]">
                         <h2 class="text-base font-semibold">{{ __('Clone') }}</h2>
                         <p class="text-[13px] font-medium">
-                            {{ __('This creates staging :name from production and starts Odoo. It copies the database and files, then neutralizes that copy. It does not create another production.', ['name' => \App\Domain\Odoo\OdooStaging::nextName($project)]) }}
+                            @if ($project->odooProfile)
+                                {{ __('This creates staging :name from production and starts Odoo. It copies the database and files, then neutralizes that copy. It does not create another production.', ['name' => \App\Domain\Odoo\OdooStaging::nextName($project)]) }}
+                            @else
+                                {{ __('This creates staging :name from production and copies its services. It does not create another production.', ['name' => \App\Domain\Odoo\OdooStaging::nextName($project)]) }}
+                            @endif
                         </p>
-                        <label class="flex items-center gap-2 text-[13px]">
-                            <input type="radio" wire:model="cloneAddons" value="copy" class="rounded-full">
-                            {{ __('Copy addons') }}
-                        </label>
-                        <label class="flex items-center gap-2 text-[13px]">
-                            <input type="radio" wire:model="cloneAddons" value="empty" class="rounded-full">
-                            {{ __('New, without modules') }}
-                        </label>
                         @if (filled($project->odooProfile?->git_repository) && $project->odooProfile?->githubApp)
-                            <div class="max-w-sm">
-                                <x-forms.searchable-listbox id="stagingBranch" label="{{ __('Branch') }}"
-                                    searchPlaceholder="{{ __('Search branches') }}"
-                                    emptyText="{{ __('No matching branch') }}"
-                                    :options="collect($cloneBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
+                            <div class="space-y-2 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                                <p class="text-sm font-medium">{{ __('GitHub branch') }}</p>
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Same repository (:repository). Each environment tracks its own branch — staging cannot reuse production’s branch.', ['repository' => $project->odooProfile->git_repository]) }}
+                                </p>
+                                <div class="flex flex-col gap-2 text-[13px]">
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" wire:model.live="cloneBranchMode" value="create" class="rounded-full">
+                                        {{ __('Create a new branch') }}
+                                    </label>
+                                    <label class="inline-flex items-center gap-2">
+                                        <input type="radio" wire:model.live="cloneBranchMode" value="existing" class="rounded-full"
+                                            @disabled($cloneBranches === [])>
+                                        {{ __('Use an existing branch') }}
+                                    </label>
+                                </div>
+                                @if ($cloneBranchMode === 'existing')
+                                    <div class="max-w-sm">
+                                        <x-forms.searchable-listbox id="stagingBranch" label="{{ __('Branch') }}"
+                                            searchPlaceholder="{{ __('Search branches') }}"
+                                            emptyText="{{ __('No matching branch') }}"
+                                            :options="collect($cloneBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
+                                    </div>
+                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Staging will use the addons from that branch as they are. Production data is still copied and neutralized.') }}
+                                    </p>
+                                @else
+                                    <div class="max-w-sm">
+                                        <x-forms.input id="stagingBranch" label="{{ __('New branch name') }}"
+                                            placeholder="{{ \App\Domain\Odoo\OdooStaging::nextName($project) }}" />
+                                    </div>
+                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        @if (filled($productionGitBranch))
+                                            {{ __('Created from production’s branch :branch.', ['branch' => $productionGitBranch]) }}
+                                        @else
+                                            {{ __('Created from the repository default branch.') }}
+                                        @endif
+                                    </p>
+                                @endif
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Already used: :branches.', ['branches' => $usedBranches === [] ? '—' : implode(', ', $usedBranches)]) }}
+                                </p>
                             </div>
+                            @if ($cloneBranchMode === 'create')
+                                <label class="flex items-center gap-2 text-[13px]">
+                                    <input type="radio" wire:model.live="cloneAddons" value="copy" class="rounded-full">
+                                    {{ __('Copy addons') }}
+                                </label>
+                                <label class="flex items-center gap-2 text-[13px]">
+                                    <input type="radio" wire:model.live="cloneAddons" value="empty" class="rounded-full">
+                                    {{ __('New, without modules') }}
+                                </label>
+                                @if ($cloneAddons === 'empty')
+                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('The GitHub branch is created, but the staging addons folder starts empty until you push or sync.') }}
+                                    </p>
+                                @endif
+                            @endif
+                        @elseif ($project->odooProfile)
+                            <label class="flex items-center gap-2 text-[13px]">
+                                <input type="radio" wire:model="cloneAddons" value="copy" class="rounded-full">
+                                {{ __('Copy addons') }}
+                            </label>
+                            <label class="flex items-center gap-2 text-[13px]">
+                                <input type="radio" wire:model="cloneAddons" value="empty" class="rounded-full">
+                                {{ __('New, without modules') }}
+                            </label>
                             <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('The staging branch cannot be one already used by this repository.') }}
-                                {{ __('Already used: :branches.', ['branches' => $usedBranches === [] ? '—' : implode(', ', $usedBranches)]) }}
-                            </p>
-                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('GitHub is connected, so the new staging is another branch of :repository. It does not reuse the production branch.', ['repository' => $project->odooProfile->git_repository]) }}
+                                {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
                             </p>
                         @else
                             <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('Without a repository, the new staging is empty. Addons stay in the production Jupyter folder until that staging has its own service.') }}
+                                {{ __('Every service on production is copied into the new staging environment and started when the server is ready.') }}
                             </p>
                         @endif
                         <div class="flex justify-end gap-2">
@@ -269,14 +322,21 @@
                                     <x-reicon name="layers" class="size-4" />
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <a x-show="!environment.activity"
-                                        :href="environment.odoo ? environment.environmentHref : environment.href"
-                                        {{ wireNavigate() }}
-                                        class="relative z-10 block truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
-                                        x-text="environment.name"></a>
-                                    <span x-show="environment.activity"
-                                        class="block truncate text-[13px] font-semibold text-black opacity-70 dark:text-fg"
-                                        x-text="environment.name"></span>
+                                    <div class="flex min-w-0 items-center gap-1.5">
+                                        <a x-show="!environment.activity"
+                                            :href="environment.odoo ? environment.environmentHref : environment.href"
+                                            {{ wireNavigate() }}
+                                            class="relative z-10 block truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
+                                            x-text="environment.name"></a>
+                                        <span x-show="environment.activity"
+                                            class="block truncate text-[13px] font-semibold text-black opacity-70 dark:text-fg"
+                                            x-text="environment.name"></span>
+                                        <span class="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide"
+                                            :class="environment.role === 'production'
+                                                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                : 'bg-neutral-500/10 text-neutral-600 dark:text-fg-dim'"
+                                            x-text="environment.role_label"></span>
+                                    </div>
                                     <p class="mt-0.5 break-words text-[11px] text-neutral-500 dark:text-fg-faint"
                                         x-text="environment.branch || environment.description || @js(__('Environment'))"></p>
                                 </div>
@@ -349,14 +409,21 @@
                                 <x-reicon name="layers" class="size-4" />
                             </div>
                             <div class="min-w-0 flex-1">
-                                <a x-show="!environment.activity"
-                                    :href="environment.odoo ? environment.environmentHref : environment.href"
-                                    {{ wireNavigate() }}
-                                    class="relative block truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
-                                    x-text="environment.name"></a>
-                                <span x-show="environment.activity"
-                                    class="block truncate text-[13px] font-semibold text-black opacity-70 dark:text-fg"
-                                    x-text="environment.name"></span>
+                                <div class="flex min-w-0 items-center gap-1.5">
+                                    <a x-show="!environment.activity"
+                                        :href="environment.odoo ? environment.environmentHref : environment.href"
+                                        {{ wireNavigate() }}
+                                        class="relative block truncate text-[13px] font-semibold text-black hover:underline dark:text-fg"
+                                        x-text="environment.name"></a>
+                                    <span x-show="environment.activity"
+                                        class="block truncate text-[13px] font-semibold text-black opacity-70 dark:text-fg"
+                                        x-text="environment.name"></span>
+                                    <span class="shrink-0 rounded px-1 py-0.5 text-[10px] font-medium uppercase tracking-wide"
+                                        :class="environment.role === 'production'
+                                            ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                            : 'bg-neutral-500/10 text-neutral-600 dark:text-fg-dim'"
+                                        x-text="environment.role_label"></span>
+                                </div>
                                 <p class="environment-mobile-meta mt-0.5 truncate text-[11px] text-neutral-500 dark:text-fg-dim"
                                     x-text="environment.odoo
                                         ? [environment.branch, environment.domain].filter(Boolean).join(' · ') || environment.statusLabel || '-'

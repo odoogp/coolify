@@ -9,11 +9,11 @@ use App\Services\AdminCreationQuota;
 use Illuminate\Support\Collection;
 
 /**
- * Staging identity for an Odoo project.
+ * Default staging names and launch quota for any project.
  *
- * A staging environment is a normal Coolify Environment whose name is
- * "staging" or "staging-N". Production is never counted. How many a person
- * can launch is that user's quota, set by the team owner.
+ * Identity is {@see Environment::$role} (production|staging). Display names
+ * stay free (`main`, `staging-2`, …). `nextName` only suggests unused
+ * `staging-N` labels when creating a new staging environment.
  */
 class OdooStaging
 {
@@ -27,15 +27,12 @@ class OdooStaging
      */
     public static function stagingEnvironments(Project $project): Collection
     {
-        return $project->environments()
-            ->get()
-            ->filter(fn (Environment $environment): bool => self::isStagingName($environment->name))
-            ->values();
+        return $project->stagingEnvironments();
     }
 
     public static function canCreateStagingEnvironment(Project $project): bool
     {
-        if ($project->odooProfile === null || $project->team_id === null) {
+        if ($project->team_id === null) {
             return false;
         }
 
@@ -50,11 +47,11 @@ class OdooStaging
     public static function nextName(Project $project): string
     {
         $used = [];
-        foreach (self::stagingEnvironments($project) as $environment) {
-            if (strcasecmp($environment->name, 'staging') === 0) {
+        foreach ($project->environments()->get(['name']) as $environment) {
+            if (strcasecmp((string) $environment->name, 'staging') === 0) {
                 $used[1] = true;
             }
-            if (preg_match('/^staging-(\d+)$/i', $environment->name, $matches) === 1) {
+            if (preg_match('/^staging-(\d+)$/i', (string) $environment->name, $matches) === 1) {
                 $used[(int) $matches[1]] = true;
             }
         }

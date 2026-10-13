@@ -3,6 +3,7 @@
 namespace App\Livewire\Project;
 
 use App\Domain\Odoo\OdooStaging;
+use App\Jobs\CloneEnvironmentStagingJob;
 use App\Jobs\CloneOdooStagingJob;
 use App\Models\Environment;
 use App\Models\GithubApp;
@@ -37,7 +38,12 @@ class Show extends Component
 
     public string $cloneAddons = 'copy';
 
+    /** create = new GitHub branch from production (or default); existing = unused branch on the same repo */
+    public string $cloneBranchMode = 'create';
+
     public string $stagingBranch = '';
+
+    public string $productionGitBranch = '';
 
     /** @var list<string> */
     public array $cloneBranches = [];
@@ -135,14 +141,16 @@ class Show extends Component
 
     public function openCloneWizard(): void
     {
-        $production = $this->project->environments->first(
-            fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-        );
+        $production = $this->project->productionEnvironment();
         if ($production instanceof Environment) {
             $this->selectedEnvironmentUuid = $production->uuid;
+            $production->loadMissing('odooBranch');
+            $this->productionGitBranch = (string) ($production->odooBranch?->git_branch ?: '');
         }
-        $this->stagingBranch = '';
+        $this->cloneAddons = 'copy';
+        $this->cloneBranchMode = 'create';
         $this->cloneBranches = [];
+        $this->stagingBranch = OdooStaging::nextName($this->project);
         $profile = $this->project->odooProfile;
         $app = $profile?->githubApp;
         if (filled($profile?->git_repository) && $app instanceof GithubApp) {
@@ -156,12 +164,31 @@ class Show extends Component
                     OdooGit::branchNames($app, $parts[0], $parts[1]),
                     fn (string $branch): bool => ! in_array($branch, $used, true),
                 ));
-                $this->stagingBranch = (string) ($this->cloneBranches[0] ?? '');
             } catch (InvalidArgumentException|RuntimeException $exception) {
                 $this->dispatch('error', __($exception->getMessage()));
             }
         }
         $this->showCloneWizard = true;
+    }
+
+    public function updatedCloneAddons(string $value): void
+    {
+        if ($value === 'empty') {
+            $this->cloneBranchMode = 'create';
+            if (trim($this->stagingBranch) === '' || in_array($this->stagingBranch, $this->cloneBranches, true)) {
+                $this->stagingBranch = OdooStaging::nextName($this->project);
+            }
+        }
+    }
+
+    public function updatedCloneBranchMode(string $value): void
+    {
+        if ($value === 'existing') {
+            $this->cloneAddons = 'copy';
+            $this->stagingBranch = (string) ($this->cloneBranches[0] ?? '');
+        } elseif (trim($this->stagingBranch) === '' || in_array($this->stagingBranch, $this->cloneBranches, true)) {
+            $this->stagingBranch = OdooStaging::nextName($this->project);
+        }
     }
 
     public function closeCloneWizard(): void
@@ -204,18 +231,15 @@ class Show extends Component
             $this->authorize('update', $this->project);
             $this->project->load('odooProfile.githubApp', 'environments.odooBranch');
             $selected = $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid);
-            if (! $selected instanceof Environment || strcasecmp($selected->name, 'production') !== 0) {
+            if (! $selected instanceof Environment || ! $selected->isProduction()) {
                 throw new RuntimeException('Clone starts from the production environment.');
             }
 
             $profile = $this->project->odooProfile;
-            if (filled($profile?->git_repository) && $profile->githubApp instanceof GithubApp) {
-                $branch = trim($this->stagingBranch);
-                if ($branch === '' || ! in_array($branch, $this->cloneBranches, true)) {
-                    throw new InvalidArgumentException('Choose a GitHub branch that is not already used.');
-                }
-            } else {
-                $branch = OdooStaging::nextName($this->project);
+            $isOdoo = $profile !== null;
+
+            if (! $isOdoo && $selected->services()->count() === 0) {
+                throw new RuntimeException('Clone starts from production after at least one service is launched.');
             }
 
             $this->cloneError = null;
@@ -228,14 +252,46 @@ class Show extends Component
                 'error' => null,
                 'url' => null,
             ], now()->addMinutes(30));
-            CloneOdooStagingJob::dispatch(
-                $this->project->id,
-                $selected->uuid,
-                $branch,
-                $this->cloneAddons,
-                $this->cloneCacheKey(),
-                (int) auth()->id(),
-            );
+
+            if ($isOdoo) {
+                $createBranch = true;
+                if (filled($profile?->git_repository) && $profile->githubApp instanceof GithubApp) {
+                    $branch = trim($this->stagingBranch);
+                    $used = $this->usedOdooBranches();
+                    if ($branch === '' || in_array($branch, $used, true)) {
+                        throw new InvalidArgumentException('Choose a GitHub branch that is not already used.');
+                    }
+                    if ($this->cloneBranchMode === 'existing') {
+                        if (! in_array($branch, $this->cloneBranches, true)) {
+                            throw new InvalidArgumentException('Choose an existing GitHub branch that is not already used.');
+                        }
+                        $createBranch = false;
+                        $this->cloneAddons = 'copy';
+                    } else {
+                        $this->cloneBranchMode = 'create';
+                        $createBranch = true;
+                    }
+                } else {
+                    $branch = OdooStaging::nextName($this->project);
+                }
+
+                CloneOdooStagingJob::dispatch(
+                    $this->project->id,
+                    $selected->uuid,
+                    $branch,
+                    $this->cloneAddons,
+                    $createBranch,
+                    $this->cloneCacheKey(),
+                    (int) auth()->id(),
+                );
+            } else {
+                CloneEnvironmentStagingJob::dispatch(
+                    $this->project->id,
+                    $selected->uuid,
+                    $this->cloneCacheKey(),
+                    (int) auth()->id(),
+                );
+            }
 
             $this->workRunning = true;
 
@@ -609,9 +665,7 @@ class Show extends Component
         if ($this->project->odooProfile === null) {
             return null;
         }
-        $production = $this->project->environments()
-            ->whereRaw('lower(name) = ?', ['production'])
-            ->first();
+        $production = $this->project->productionEnvironment();
         if ($production instanceof Environment) {
             return $production;
         }
@@ -622,6 +676,7 @@ class Show extends Component
 
         return app(AdminCreationQuota::class)->createEnvironment($user, $this->project, [
             'name' => 'production',
+            'role' => Environment::ROLE_PRODUCTION,
             'uuid' => new_public_id(),
         ]);
     }
@@ -663,9 +718,7 @@ class Show extends Component
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),
             'activities' => $activities,
             'odooGithubReady' => $this->repositoryChoiceIsOpen(),
-            'hasProduction' => $this->project->environments->contains(
-                fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0
-            ),
+            'hasProduction' => $this->project->productionEnvironment() instanceof Environment,
         ]);
     }
 
@@ -749,6 +802,8 @@ class Show extends Component
             return [
                 'uuid' => $environment->uuid,
                 'name' => $environment->name,
+                'role' => (string) $environment->role,
+                'role_label' => $environment->isProduction() ? (string) __('Production') : (string) __('Staging'),
                 'description' => $environment->description,
                 'branch' => $environment->odooBranch?->git_branch,
                 'domain' => $domain !== '' ? $domain : null,

@@ -44,8 +44,9 @@ beforeEach(function () {
 
 it('does not create an odoo profile or staging when a normal project is created', function () {
     expect(OdooProfile::query()->count())->toBe(0);
-    expect(OdooStaging::canCreateStagingEnvironment($this->project))->toBeFalse();
-    expect($this->project->environments()->pluck('name')->all())->toBe(['production']);
+    expect(OdooStaging::canCreateStagingEnvironment($this->project))->toBeTrue();
+    expect($this->project->environments()->pluck('name')->all())->toBe(['production'])
+        ->and($this->project->productionEnvironment()?->isProduction())->toBeTrue();
 });
 
 it('starts an odoo project without a github account', function () {
@@ -282,8 +283,8 @@ it('lets only the owner attach a github account and a staging limit to a user', 
         ->call('saveCreationLimits')
         ->assertDispatched('error');
 
-    expect((int) DB::table('team_user')->where('user_id', $admin->id)->value('max_staging_branches'))->toBe(1)
-        ->and((int) DB::table('team_user')->where('user_id', $admin->id)->value('github_app_id'))->toBe($githubApp->id);
+    expect((int) DB::table('team_user')->where('user_id', $admin->id)->where('team_id', $this->team->id)->value('max_staging_branches'))->toBe(1)
+        ->and((int) DB::table('team_user')->where('user_id', $admin->id)->where('team_id', $this->team->id)->value('github_app_id'))->toBe($githubApp->id);
 
     $this->project->enableOdoo('18');
 
@@ -401,6 +402,9 @@ it('lists environments once and clones production into one staging', function ()
         ->not->toContain('Clone to staging')
         ->toContain('cloneToStaging')
         ->toContain('stagingBranch')
+        ->toContain('cloneBranchMode')
+        ->toContain('Create a new branch')
+        ->toContain('Use an existing branch')
         ->toContain('Search branches')
         ->toContain('neutralizes that copy')
         ->toContain('refreshCloneProgress')
@@ -472,12 +476,34 @@ it('does not create a staging environment when the branch is already used', func
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->call('selectEnvironment', $production->uuid)
+        ->set('cloneBranchMode', 'create')
         ->set('cloneBranches', ['develop'])
         ->set('stagingBranch', 'main')
         ->call('cloneToStaging')
         ->assertDispatched('error');
 
     expect($this->project->environments()->pluck('name')->all())->toBe(['production']);
+});
+
+it('defaults the clone wizard to creating a new branch from production', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    OdooEnvironmentBranch::query()->create([
+        'environment_id' => $production->id,
+        'git_branch' => 'main',
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->call('openCloneWizard')
+        ->assertSet('cloneBranchMode', 'create')
+        ->assertSet('cloneAddons', 'copy')
+        ->assertSet('stagingBranch', 'staging-1')
+        ->assertSet('productionGitBranch', 'main')
+        ->set('cloneBranchMode', 'existing')
+        ->assertSet('cloneAddons', 'copy')
+        ->set('cloneAddons', 'empty')
+        ->assertSet('cloneBranchMode', 'create');
 });
 
 it('opens an odoo environment directly on its service', function () {
@@ -496,17 +522,26 @@ it('opens an odoo environment directly on its service', function () {
 });
 
 it('lets the root owner clone staging when the queue has no session', function () {
-    $rootTeam = Team::factory()->make(['name' => 'Root']);
-    $rootTeam->id = 0;
-    $rootTeam->save();
+    $rootTeam = Team::find(0);
+    if (! $rootTeam instanceof Team) {
+        $rootTeam = Team::factory()->make(['name' => 'Root']);
+        $rootTeam->id = 0;
+        $rootTeam->save();
+    }
 
-    $root = User::factory()->make([
-        'name' => 'Root',
-        'email' => 'root-owner@example.test',
-    ]);
-    $root->id = 0;
-    $root->save();
-    $root->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $root = User::find(0);
+    if (! $root instanceof User) {
+        $root = User::factory()->make([
+            'name' => 'Root',
+            'email' => 'root-owner@example.test',
+        ]);
+        $root->id = 0;
+        $root->save();
+    }
+
+    if (! $root->teams()->where('teams.id', $rootTeam->id)->exists()) {
+        $root->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    }
 
     $project = Project::factory()->create(['team_id' => $rootTeam->id, 'created_by' => $root->id]);
     $project->enableOdoo('20');
@@ -519,6 +554,7 @@ it('lets the root owner clone staging when the queue has no session', function (
         $production->uuid,
         'staging-1',
         'empty',
+        true,
         'odoo-clone-root',
         0,
     ))->handle();

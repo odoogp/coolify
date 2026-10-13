@@ -11,7 +11,6 @@ use App\Models\User;
 use App\Support\EnsureOdooBackupSchedules;
 use App\Support\GpshNotices;
 use App\Support\OdooGit;
-use App\Domain\Odoo\OdooStaging;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -154,7 +153,7 @@ class LaunchOdooProjectJob implements ShouldQueue
             throw new RuntimeException('Connect a GitHub account before associating a repository.');
         }
 
-        $classification = OdooStaging::isStagingName((string) $service->environment?->name) ? 'staging' : 'production';
+        $classification = $service->environment?->isStaging() ? 'staging' : 'production';
         OdooGit::launchEnvironment($project, $app, $classification);
     }
 

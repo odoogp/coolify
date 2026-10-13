@@ -40,13 +40,7 @@
             <x-two-factor-badge :enabled="filled($member->two_factor_confirmed_at)" />
         </div>
     @endcan
-    <div class="flex justify-end gap-2">
-        @if ($canEditLimits || $canGrantOdoo)
-            <button type="button" class="button h-7! px-2.5! text-[11px]!" wire:click="editLimits"
-                aria-expanded="{{ $editingLimits ? 'true' : 'false' }}">
-                {{ $editingLimits ? __('Close') : __('Edit') }}
-            </button>
-        @endif
+    <div class="flex justify-end">
         @can('manageMembers', currentTeam())
             @if ($member->id !== Auth::id())
                 <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false"
@@ -102,76 +96,36 @@
         @endcan
     </div>
 </div>
-@if ($canEditLimits && $editingLimits)
+@if ($canEditLimits)
     <form wire:submit="saveCreationLimits"
         class="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 last:border-b-0 dark:border-white/[0.07]">
         <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-            @if ($followsPrincipal)
-                {{ __('These limits follow the principal. Leave a field empty to use the principal limit. A lower number is allowed. A member never receives servers or S3.') }}
-            @else
-                {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
-            @endif
+            {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
         </p>
         <div class="grid gap-3 sm:grid-cols-3">
             <div>
                 <x-forms.input id="maxProjects" type="number" min="0" label="{{ __('Projects') }}" />
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    @if ($followsPrincipal)
-                        {{ __('In use: :count. Principal limit: :limit.', ['count' => $usage['projects'], 'limit' => $principalLimits['max_projects'] ?? __('No cap')]) }}
-                    @else
-                        {{ __('In use: :count. How many projects this admin can create.', ['count' => $usage['projects']]) }}
-                    @endif
-                </p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. How many projects this admin can create.', ['count' => $usage['projects']]) }}</p>
             </div>
             <div>
                 <x-forms.input id="maxEnvironments" type="number" min="0" label="{{ __('Environments') }}" />
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    @if ($followsPrincipal)
-                        {{ __('In use: :count. Principal limit: :limit.', ['count' => $usage['environments'], 'limit' => $principalLimits['max_environments'] ?? __('No cap')]) }}
-                    @else
-                        {{ __('In use: :count. Production and staging together.', ['count' => $usage['environments']]) }}
-                    @endif
-                </p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. Production and staging together.', ['count' => $usage['environments']]) }}</p>
             </div>
             <div>
                 <x-forms.input id="maxMembers" type="number" min="0" label="{{ __('Members') }}" />
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    @if ($followsPrincipal)
-                        {{ __('In use: :count. Principal limit: :limit.', ['count' => $usage['members'], 'limit' => $principalLimits['max_members'] ?? __('No cap')]) }}
-                    @else
-                        {{ __('In use: :count. People this admin can invite.', ['count' => $usage['members']]) }}
-                    @endif
-                </p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. People this admin can invite.', ['count' => $usage['members']]) }}</p>
             </div>
             <div>
                 <x-forms.input id="maxProductionBranches" type="number" min="0" label="{{ __('Production branches') }}" />
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    @if ($followsPrincipal)
-                        {{ __('In use: :count. Principal limit: :limit.', ['count' => $usage['production_branches'], 'limit' => $principalLimits['max_production_branches'] ?? __('No cap')]) }}
-                    @else
-                        {{ __('In use: :count. One production Odoo per project.', ['count' => $usage['production_branches']]) }}
-                    @endif
-                </p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. One production Odoo per project.', ['count' => $usage['production_branches']]) }}</p>
             </div>
             <div>
                 <x-forms.input id="maxStagingBranches" type="number" min="0" label="{{ __('Staging branches') }}" />
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    @if ($followsPrincipal)
-                        {{ __('In use: :count. Principal limit: :limit.', ['count' => $usage['staging_branches'], 'limit' => $principalLimits['max_staging_branches'] ?? __('No cap')]) }}
-                    @else
-                        {{ __('In use: :count. Staging uses the same Odoo version as production.', ['count' => $usage['staging_branches']]) }}
-                    @endif
-                </p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. Staging uses the same Odoo version as production.', ['count' => $usage['staging_branches']]) }}</p>
             </div>
             <div>
                 <x-forms.input id="maxServices" type="number" min="0" label="{{ __('Services') }}" />
-                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                    @if ($followsPrincipal)
-                        {{ __('In use: :count. Principal limit: :limit.', ['count' => $usage['services'], 'limit' => $principalLimits['max_services'] ?? __('No cap')]) }}
-                    @else
-                        {{ __('In use: :count. Services this admin can create.', ['count' => $usage['services']]) }}
-                    @endif
-                </p>
+                <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('In use: :count. Services this admin can create.', ['count' => $usage['services']]) }}</p>
             </div>
             <div>
                 <x-forms.listbox id="githubAppId" label="{{ __('GitHub account') }}" :options="$githubApps" />
@@ -191,7 +145,7 @@
         </div>
     </form>
 @endif
-@if ($canGrantOdoo && $editingLimits)
+@if ($canGrantOdoo)
     <form wire:submit="saveOdooAbilities" class="flex flex-col gap-2 px-4 py-3">
         <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('What this member can do in Odoo. Servers and S3 stay with the owner.') }}</p>
         @foreach ($grantableOdooAbilities as $ability)

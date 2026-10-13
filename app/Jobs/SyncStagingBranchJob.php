@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Models\Environment;
 use App\Models\OdooAuditLog;
-use App\Domain\Odoo\OdooStaging;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -37,10 +36,10 @@ class SyncStagingBranchJob implements ShouldQueue
     public function handle(): void
     {
         $staging = Environment::query()->with('project.odooProfile', 'odooBranch')->find($this->stagingEnvironmentId);
-        $production = $staging?->project?->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+        $production = $staging?->project?->productionEnvironment();
         $production?->load('odooBranch');
 
-        if ($staging === null || ! OdooStaging::isStagingName($staging->name) || $production?->odooBranch === null || $staging->odooBranch === null) {
+        if ($staging === null || ! $staging->isStaging() || $production?->odooBranch === null || $staging->odooBranch === null) {
             throw new RuntimeException('Staging sync only moves a staging branch.');
         }
 

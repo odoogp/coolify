@@ -6,7 +6,6 @@ use App\Models\Environment;
 use App\Models\OdooAuditLog;
 use App\Models\OdooBackup;
 use App\Support\OdooAddons;
-use App\Domain\Odoo\OdooStaging;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -31,7 +30,7 @@ class CloneProductionDataJob implements ShouldQueue
         $staging = Environment::query()->with('project', 'services')->findOrFail($this->stagingEnvironmentId);
         $backup = OdooBackup::query()->findOrFail($this->backupId);
 
-        if (! OdooStaging::isStagingName($staging->name)) {
+        if (! $staging->isStaging()) {
             throw new RuntimeException('Data clone only writes a staging environment.');
         }
 
@@ -39,7 +38,7 @@ class CloneProductionDataJob implements ShouldQueue
             throw new RuntimeException('Data clone requires a complete backup of staging first.');
         }
 
-        $production = $staging->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
+        $production = $staging->project->productionEnvironment();
         $source = $production?->services()->first();
         $target = $staging->services->first();
         if ($source === null || $target === null) {

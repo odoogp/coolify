@@ -65,3 +65,15 @@ test('searchable listbox serializes change handlers', function () {
         ->toContain("'pointer-events-none opacity-70': saving")
         ->toContain('@elseif ($live && ! $onChange) @entangle($id).live');
 });
+
+test('portaled searchable listbox stays inside focus traps so search stays editable', function () {
+    $listbox = file_get_contents(resource_path('views/components/forms/searchable-listbox.blade.php'));
+
+    expect($listbox)
+        ->toContain('portalHost()')
+        ->toContain('[x-trap], [data-listbox-portal-root]')
+        ->toContain('@mousedown.outside')
+        ->toContain('isInsidePanel')
+        ->toContain('data-searchable-listbox-panel')
+        ->not->toContain('x-teleport="body"');
+});

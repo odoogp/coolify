@@ -3,7 +3,6 @@
 namespace App\Livewire\Project;
 
 use App\Domain\Odoo\OdooAbilities;
-use App\Domain\Odoo\OdooStaging;
 use App\Domain\Odoo\OdooVersion;
 use App\Jobs\CloneProductionDataJob;
 use App\Jobs\CreateOdooBackupJob;
@@ -32,7 +31,7 @@ class OdooSummary extends Component
     public function deploy(int $environmentId): void
     {
         $environment = $this->environment($environmentId);
-        $ability = OdooStaging::isStagingName($environment->name) ? 'odoo.staging.deploy' : 'odoo.production.deploy';
+        $ability = $environment->isStaging() ? 'odoo.staging.deploy' : 'odoo.production.deploy';
         $this->guard($ability);
         $application = Application::query()->find($environment->odooBranch?->addons_application_id);
         if ($application === null) {
@@ -106,7 +105,7 @@ class OdooSummary extends Component
         $environments = $this->project->odooProfile === null
             ? collect()
             : $this->project->environments
-                ->filter(fn (Environment $environment): bool => strcasecmp($environment->name, 'production') === 0 || OdooStaging::isStagingName($environment->name));
+                ->filter(fn (Environment $environment): bool => $environment->isProduction() || $environment->isStaging());
         $busyEnvironmentIds = $environments->isEmpty()
             ? []
             : OdooBackup::query()
@@ -134,7 +133,7 @@ class OdooSummary extends Component
                     'addons_path' => $environment->odooBranch?->addons_path,
                     'branch' => $environment->odooBranch?->git_branch,
                     'status' => $latest?->status,
-                    'staging' => OdooStaging::isStagingName($environment->name),
+                    'staging' => $environment->isStaging(),
                     'backupRunning' => in_array((int) $environment->id, $busyEnvironmentIds, true),
                     'href' => $service === null ? null : route('project.show', [
                         'project_uuid' => $this->project->uuid,
