@@ -32,7 +32,56 @@
                         <x-reicon name="settings" class="size-3.5" />
                         {{ __('Settings') }}
                     </a>
-
+            @endcan
+            @can('createAnyResource')
+                @if ($hasProduction || ! $project->odooProfile)
+                    <x-modal-input title="{{ __('New') }}" :wireIgnore="false" data-listbox-portal-root>
+                        <x-slot:content>
+                            <button type="button" class="button whitespace-nowrap button-highlighted">
+                                <x-reicon name="plus" class="size-3.5" />
+                                {{ __('New') }}
+                            </button>
+                        </x-slot:content>
+                        <div class="flex flex-col gap-4">
+                            @if ($needsServer)
+                                <p class="text-[13px]">{{ __('Do you want to create a server?') }}</p>
+                                @if ($canAddServer)
+                                    <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
+                                        {{ __('Create a new server') }}
+                                    </a>
+                                @else
+                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
+                                    </p>
+                                @endif
+                            @else
+                                @if ($projectServerLocked && filled($projectServerName))
+                                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Runs on :server, the server already used by this project.', ['server' => $projectServerName]) }}
+                                    </p>
+                                @elseif ($serverChoices !== [])
+                                    <x-forms.listbox id="serverId" portal
+                                        label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
+                                        :options="$serverChoices" />
+                                @endif
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal
+                                    searchPlaceholder="{{ __('Search the catalog') }}"
+                                    emptyText="{{ __('No matching service') }}"
+                                    :options="$serviceOptions" />
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Creates a new environment for this service. Odoo asks for version and GitHub only when it is the service you launch. Other catalog services open configuration on this project’s server.') }}
+                                </p>
+                                <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                                    <x-forms.button type="button" wire:click="launchService" wire:target="launchService" isHighlighted>
+                                        {{ __('Launch') }}
+                                    </x-forms.button>
+                                </footer>
+                            @endif
+                        </div>
+                    </x-modal-input>
+                @endif
+            @endcan
+            @can('update', $project)
                     @if ($project->odooProfile && ! $hasProduction)
                     <button type="button" class="button button-highlighted" wire:click="continueOdoo">
                         {{ __('Launch without GitHub') }}
@@ -194,7 +243,7 @@
                                 @endif
                             @endcan
                             @if ($project->odooProfile)
-                            <a class="button button-highlighted" {{ wireNavigate() }}
+                            <a class="button" {{ wireNavigate() }}
                                 href="{{ $selectedOdoo
                                     ? route('project.odoo.backups', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid])
                                     : route('project.resource.index', ['project_uuid' => $project->uuid, 'environment_uuid' => $selectedEnvironment->uuid]) }}">

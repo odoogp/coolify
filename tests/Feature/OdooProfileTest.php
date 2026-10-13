@@ -576,3 +576,33 @@ it('sends an odoo project away from the generic resource catalog', function () {
         'environment_uuid' => $production->uuid,
     ]))->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
 });
+
+it('lets an odoo project open New for other catalog services from the environment list', function () {
+    $this->project->enableOdoo('20');
+    $production = $this->project->environments()->where('name', 'production')->first();
+    Service::factory()->create([
+        'environment_id' => $production->id,
+        'name' => 'odoo-production',
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    $resources = route('project.resource.index', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ], false);
+
+    $html = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->call('selectEnvironment', $production->uuid)
+        ->html();
+
+    expect($html)
+        ->toContain(__('New'))
+        ->toContain($resources);
+
+    expect(file_get_contents(app_path('Livewire/Project/Show.php')))
+        ->toContain("auth()->user()->can('createAnyResource')")
+        ->not->toContain("can('createAnyResource') && ! \$odooOnly")
+        ->and(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
+        ->toContain("{{ __('New') }}")
+        ->toContain('wire:click="launchService"');
+});

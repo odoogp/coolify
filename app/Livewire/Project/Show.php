@@ -5,9 +5,11 @@ namespace App\Livewire\Project;
 use App\Domain\Odoo\OdooStaging;
 use App\Jobs\CloneEnvironmentStagingJob;
 use App\Jobs\CloneOdooStagingJob;
+use App\Livewire\Project\Concerns\LaunchesCatalogService;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\Project;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\AdminCreationQuota;
@@ -25,6 +27,7 @@ use RuntimeException;
 class Show extends Component
 {
     use AuthorizesRequests;
+    use LaunchesCatalogService;
 
     public Project $project;
 
@@ -111,6 +114,10 @@ class Show extends Component
             $this->absorbWork(redirectOnDone: false);
             $this->markWorkRunning();
             $this->project->loadMissing('odooProfile', 'environments.odooBranch', 'environments.services');
+            $production = $this->project->productionEnvironment();
+            if ($production instanceof Environment) {
+                $this->defaultCatalogServerId($this->project, $production);
+            }
             $this->environmentPayload = $this->environmentRows(
                 auth()->user()->can('update', $this->project),
                 $this->project->odooProfile()->exists(),
@@ -118,6 +125,36 @@ class Show extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    protected function catalogLaunchProject(): Project
+    {
+        return $this->project;
+    }
+
+    protected function catalogLaunchEnvironment(): Environment
+    {
+        $user = auth()->user();
+        if (! $user instanceof User) {
+            abort(403);
+        }
+
+        $production = $this->project->productionEnvironment();
+        if (! $production instanceof Environment) {
+            return app(AdminCreationQuota::class)->createEnvironment($user, $this->project, [
+                'name' => 'production',
+                'role' => Environment::ROLE_PRODUCTION,
+                'uuid' => new_public_id(),
+            ]);
+        }
+
+        // First catalog launch may fill an empty production shell from project create.
+        // Every later New gets a brand-new staging environment — never stacks into an occupied one.
+        if ($production->isEmpty()) {
+            return $production;
+        }
+
+        return $this->project->createNextStagingEnvironment();
     }
 
     public function submit()
@@ -712,13 +749,25 @@ class Show extends Component
         $this->project->loadMissing('environments.odooBranch', 'environments.services');
         $activities = $this->activityMap();
 
+        $production = $this->project->productionEnvironment();
+
         return view('livewire.project.show', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'usedBranches' => $this->usedOdooBranches(),
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),
             'activities' => $activities,
             'odooGithubReady' => $this->repositoryChoiceIsOpen(),
-            'hasProduction' => $this->project->productionEnvironment() instanceof Environment,
+            'hasProduction' => $production instanceof Environment,
+            'serviceOptions' => $this->catalogServiceOptions(),
+            'serverChoices' => OdooGit::launchChoices(),
+            'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
+            'needsServer' => ! auth()->user()?->canLaunchOnInstanceServer() && OdooGit::allowedLaunchServers()->isEmpty(),
+            'canAddServer' => (bool) auth()->user()?->canAddServers(),
+            'projectServerLocked' => $production instanceof Environment
+                && $this->assignedProjectDestination($this->project, $production) !== null,
+            'projectServerName' => $production instanceof Environment
+                ? $this->assignedProjectDestination($this->project, $production)?->server?->name
+                : null,
         ]);
     }
 
@@ -727,7 +776,8 @@ class Show extends Component
      */
     private function environmentRows(bool $canUpdateProject, bool $odooOnly): array
     {
-        $canCreateResource = auth()->user()->can('createAnyResource') && ! $odooOnly;
+        // Odoo-first UI; catalog New lives in the project header (production), not per-row selection.
+        $canCreateResource = auth()->user()->can('createAnyResource');
         $activities = $this->activityMap();
 
         return $this->withPendingClone($this->project->environments->map(function (Environment $environment) use ($canCreateResource, $canUpdateProject, $odooOnly, $activities): array {
@@ -839,10 +889,15 @@ class Show extends Component
                     ])
                     : null,
                 'addResourceHref' => $canCreateResource
-                    ? route('project.resource.create', [
-                        'project_uuid' => $this->project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                    ])
+                    ? ($odooOnly
+                        ? route('project.resource.index', [
+                            'project_uuid' => $this->project->uuid,
+                            'environment_uuid' => $environment->uuid,
+                        ])
+                        : route('project.resource.create', [
+                            'project_uuid' => $this->project->uuid,
+                            'environment_uuid' => $environment->uuid,
+                        ]))
                     : null,
                 'activity' => $activities[$environment->uuid] ?? null,
             ];

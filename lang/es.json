@@ -4778,6 +4778,7 @@
     "A pending invitation already exists for this email.": "Ya hay una invitación pendiente para este correo.",
     "Runs on :server, the server already used by this project.": "Corre en :server, el servidor que ya usa este proyecto.",
     "Odoo asks for version and GitHub only when it is the service you launch. Other catalog services open configuration on this project’s server.": "Odoo pide versión y GitHub solo cuando ese es el servicio que lanzas. Los demás servicios del catálogo abren la configuración en el servidor de este proyecto.",
+    "Creates a new environment for this service. Odoo asks for version and GitHub only when it is the service you launch. Other catalog services open configuration on this project’s server.": "Crea un entorno nuevo para este servicio. Odoo pide versión y GitHub solo cuando ese es el servicio que lanzas. Los demás servicios del catálogo abren la configuración en el servidor de este proyecto.",
     "Connect the account, choose a repository, and invite collaborators from the Odoo service → GitHub panel. GitHub applies only to Odoo, not to other catalog services.": "Conecta la cuenta, elige un repositorio e invita colaboradores desde el panel GitHub del servicio Odoo. GitHub aplica solo a Odoo, no a otros servicios del catálogo.",
     "Open GitHub on the service": "Abrir GitHub en el servicio",
     "Invite a GitHub username to this repository. Removing someone asks for confirmation.": "Invita un usuario de GitHub a este repositorio. Al quitar a alguien se pide confirmación.",

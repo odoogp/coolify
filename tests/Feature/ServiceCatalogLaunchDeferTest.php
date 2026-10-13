@@ -4,6 +4,7 @@ use App\Actions\Service\StartService;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\Resource\Index;
+use App\Livewire\Project\Show;
 use App\Models\InstanceSettings;
 use App\Models\Project;
 use App\Models\Server;
@@ -196,6 +197,63 @@ it('creates a non-odoo service from the new-project form without starting contai
     $service = $project->environments()->where('name', 'production')->first()?->services()->first();
     expect($service)->not->toBeNull()
         ->and($service->service_type)->toBe('demo-worker');
+
+    Bus::assertNotDispatched(StartService::class);
+    Bus::assertNotDispatched(LaunchOdooProjectJob::class);
+});
+
+it('fills empty production on the first project New launch', function () {
+    Bus::fake();
+
+    expect($this->environment->isEmpty())->toBeTrue();
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->set('selectedService', 'demo-worker')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertRedirect(route('project.service.configuration', [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $this->environment->uuid,
+            'service_uuid' => Service::query()->where('environment_id', $this->environment->id)->value('uuid'),
+        ]));
+
+    expect(Service::query()->where('environment_id', $this->environment->id)->where('service_type', 'demo-worker')->exists())->toBeTrue()
+        ->and($this->project->fresh()->environments()->count())->toBe(1);
+
+    Bus::assertNotDispatched(StartService::class);
+    Bus::assertNotDispatched(LaunchOdooProjectJob::class);
+});
+
+it('creates a new staging environment when New launches another catalog service', function () {
+    Bus::fake();
+
+    Service::factory()->create([
+        'name' => 'seed-service',
+        'environment_id' => $this->environment->id,
+        'service_type' => 'odoo',
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:18\n",
+    ]);
+
+    $before = $this->project->environments()->count();
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->set('selectedService', 'demo-worker')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertRedirect();
+
+    $created = Service::query()->where('service_type', 'demo-worker')->first();
+    $newEnvironment = $created?->environment;
+
+    expect($created)->not->toBeNull()
+        ->and($this->project->fresh()->environments()->count())->toBe($before + 1)
+        ->and($newEnvironment)->not->toBeNull()
+        ->and($newEnvironment->isStaging())->toBeTrue()
+        ->and((int) $newEnvironment->id)->not->toBe((int) $this->environment->id)
+        ->and(Service::query()->where('environment_id', $this->environment->id)->where('service_type', 'demo-worker')->exists())->toBeFalse();
 
     Bus::assertNotDispatched(StartService::class);
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);

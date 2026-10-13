@@ -55,12 +55,28 @@ it('does not repeat the resources action outside the resources page', function (
         ->toContain('projectServerLocked');
 });
 
+it('puts the catalog New assistant beside Settings on the project page', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
+    $header = str($view)->before('@if ($selectedEnvironment)')->toString();
+    $selectionBar = str($view)->after('@if ($selectedEnvironment)')->before('@if ($showCloneWizard)')->toString();
+
+    expect($header)
+        ->toContain("{{ __('Settings') }}")
+        ->toContain("{{ __('New') }}")
+        ->toContain('wire:click="launchService"')
+        ->toContain('Creates a new environment for this service.');
+
+    expect($selectionBar)
+        ->not->toContain("{{ __('New') }}")
+        ->not->toContain('wire:click="launchService"');
+});
+
 it('uses a stable class for the environment resource count on mobile', function () {
     $view = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
     $css = file_get_contents(resource_path('css/app.css'));
 
     expect($view)
-        ->toContain('class="environment-resource-count">Resources</div>')
+        ->toContain('class="environment-resource-count">{{ $project->odooProfile ? __(\'Status\') : __(\'Resources\') }}</div>')
         ->toContain('class="environment-resource-count text-[12px]');
 
     expect($css)
