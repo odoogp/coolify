@@ -1411,7 +1411,44 @@ function get_service_templates(bool $force = false): Collection
     return ServiceTemplateCatalog::apply(service_templates_from_catalog($force));
 }
 
+/**
+ * Templates shipped with this fork. The CDN sync replaces service-templates-latest.json,
+ * so these entries are merged back in when the downloaded catalog does not include them.
+ */
+function service_templates_extra_path(): string
+{
+    return base_path('templates/service-templates-extra.json');
+}
+
+function merge_extra_service_templates(Collection $templates): Collection
+{
+    $path = service_templates_extra_path();
+    if (! File::exists($path)) {
+        return $templates;
+    }
+
+    $decoded = json_decode(File::get($path));
+    if (! $decoded instanceof stdClass) {
+        return $templates;
+    }
+
+    foreach (get_object_vars($decoded) as $name => $template) {
+        if (! is_string($name) || $name === '' || $templates->has($name)) {
+            continue;
+        }
+
+        $templates->put($name, $template);
+    }
+
+    return $templates->sortKeys();
+}
+
 function service_templates_from_catalog(bool $force = false): Collection
+{
+    return merge_extra_service_templates(service_templates_from_downloaded_catalog($force));
+}
+
+function service_templates_from_downloaded_catalog(bool $force = false): Collection
 {
     if ($force) {
         try {
@@ -1426,7 +1463,7 @@ function service_templates_from_catalog(bool $force = false): Collection
 
             return collect(json_decode($response->body()))->sortKeys();
         } catch (Throwable) {
-            return service_templates_from_catalog();
+            return service_templates_from_downloaded_catalog();
         }
     }
 

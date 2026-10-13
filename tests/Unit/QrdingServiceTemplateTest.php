@@ -12,7 +12,7 @@ it('includes a QRding one-click service template', function () {
         ->toContain('DATABASE_URL=file:/data/local.db')
         ->toContain('qrding-data:/data');
 
-    foreach (['service-templates.json', 'service-templates-latest.json'] as $templateFile) {
+    foreach (['service-templates.json', 'service-templates-latest.json', 'service-templates-extra.json'] as $templateFile) {
         $templates = json_decode(
             file_get_contents(__DIR__."/../../templates/{$templateFile}"),
             associative: true,

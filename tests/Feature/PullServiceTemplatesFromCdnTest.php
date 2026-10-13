@@ -101,6 +101,25 @@ it('serves templates from shared cache when the local file is stale', function (
     }
 });
 
+it('adds fork templates missing from the downloaded catalog', function () {
+    Cache::forever(service_templates_cache_key(), [
+        'fetched_at' => now()->toIso8601String(),
+        'json' => json_encode([
+            'buzz' => ['category' => 'messaging', 'compose' => '', 'slogan' => 'Buzz'],
+        ], JSON_THROW_ON_ERROR),
+    ]);
+
+    try {
+        $templates = get_service_templates();
+
+        expect($templates->has('buzz'))->toBeTrue()
+            ->and($templates->has('qrding'))->toBeTrue()
+            ->and(data_get($templates, 'qrding.port'))->toBe('3000');
+    } finally {
+        Cache::forget(service_templates_cache_key());
+    }
+});
+
 it('falls back to the local file when shared cache is empty', function () {
     Cache::forget(service_templates_cache_key());
 
