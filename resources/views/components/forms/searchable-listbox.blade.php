@@ -71,7 +71,22 @@
 
             // Prefer the nearest focus trap / modal shell so x-trap.inert does not
             // mark the search input as inert (body teleports sit outside the trap).
-            return trigger.closest('[x-trap], [data-listbox-portal-root]') ?? document.body;
+            // Alpine traps use modifiers (x-trap.inert.noscroll), so a bare [x-trap]
+            // selector never matches — walk attributes instead.
+            const explicit = trigger.closest('[data-listbox-portal-root]');
+            if (explicit) {
+                return explicit;
+            }
+
+            let node = trigger.parentElement;
+            while (node && node !== document.documentElement) {
+                if ([...node.attributes].some((attr) => attr.name === 'x-trap' || attr.name.startsWith('x-trap.'))) {
+                    return node;
+                }
+                node = node.parentElement;
+            }
+
+            return document.body;
         },
         toggle() {
             if (@js((bool) $disabled)) {

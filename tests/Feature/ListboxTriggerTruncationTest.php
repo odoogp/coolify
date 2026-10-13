@@ -78,7 +78,8 @@ test('a portaled service list is moved to the page so the card cannot push it do
     expect($html)
         ->toContain('data-searchable-listbox-panel')
         ->toContain('portalHost()')
-        ->toContain("trigger.closest('[x-trap], [data-listbox-portal-root]')")
+        ->toContain("trigger.closest('[data-listbox-portal-root]')")
+        ->toContain("attr.name.startsWith('x-trap.')")
         ->toContain("panel.style.position = 'fixed'");
 });
 

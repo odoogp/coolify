@@ -68,12 +68,18 @@ test('searchable listbox serializes change handlers', function () {
 
 test('portaled searchable listbox stays inside focus traps so search stays editable', function () {
     $listbox = file_get_contents(resource_path('views/components/forms/searchable-listbox.blade.php'));
+    $modal = file_get_contents(resource_path('views/components/modal-input.blade.php'));
 
     expect($listbox)
         ->toContain('portalHost()')
-        ->toContain('[x-trap], [data-listbox-portal-root]')
+        ->toContain('[data-listbox-portal-root]')
+        ->toContain("attr.name.startsWith('x-trap.')")
         ->toContain('@mousedown.outside')
         ->toContain('isInsidePanel')
         ->toContain('data-searchable-listbox-panel')
         ->not->toContain('x-teleport="body"');
+
+    // data-listbox-portal-root must live on the teleported trap shell, not the trigger wrapper.
+    expect($modal)
+        ->toContain('data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"');
 });
