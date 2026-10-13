@@ -51,11 +51,11 @@
             <div @if ($closeOutside) @click.self="modalOpen=false" @endif class="relative flex min-h-full items-start justify-center p-4 sm:items-center">
                 <div id="{{ $modalId }}" data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"
                     x-transition:enter="ease-out duration-100"
-                    x-transition:enter-start="opacity-0 -translate-y-2 sm:scale-95"
-                    x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                    x-transition:enter-start="opacity-0 -translate-y-2"
+                    x-transition:enter-end="opacity-100 translate-y-0"
                     x-transition:leave="ease-in duration-100"
-                    x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-                    x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
+                    x-transition:leave-start="opacity-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 -translate-y-2"
                     @class([
                         'application-settings-form application-settings-section relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden',
                         'lg:w-[95vw]! lg:max-w-7xl!' => $isLarge,
@@ -78,6 +78,8 @@
                         style="-webkit-overflow-scrolling: touch;">
                         {{ $slot }}
                     </div>
+                    {{-- Listbox panels mount here (inside x-trap) without joining the flex column or inheriting min-width:100%. --}}
+                    <div data-listbox-portal-surface class="pointer-events-none absolute inset-0 z-50 overflow-visible"></div>
                 </div>
             </div>
         </div>

@@ -72,14 +72,28 @@ test('portaled searchable listbox stays inside focus traps so search stays edita
 
     expect($listbox)
         ->toContain('portalHost()')
+        ->toContain('portalSurface(host)')
         ->toContain('[data-listbox-portal-root]')
+        ->toContain('[data-listbox-portal-surface]')
         ->toContain("attr.name.startsWith('x-trap.')")
+        ->toContain("setProperty('min-width', width, 'important')")
         ->toContain('@mousedown.outside')
         ->toContain('isInsidePanel')
         ->toContain('data-searchable-listbox-panel')
         ->not->toContain('x-teleport="body"');
 
-    // data-listbox-portal-root must live on the teleported trap shell, not the trigger wrapper.
+    // Trap shell keeps the root; panels mount on a non-flex surface so they stay clickable.
     expect($modal)
-        ->toContain('data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"');
+        ->toContain('data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"')
+        ->toContain('data-listbox-portal-surface')
+        ->not->toContain('sm:scale-95');
+});
+
+test('project New modal only launches when Launch is clicked', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
+
+    expect($view)
+        ->toContain('id="selectedService"')
+        ->toContain('wire:click="launchService"')
+        ->not->toMatch('/id="selectedService"[^>]*\blive\b/');
 });

@@ -106,6 +106,13 @@
                 this.query = '';
             }
         },
+        portalSurface(host) {
+            if (! host || host === document.body) {
+                return host;
+            }
+
+            return host.querySelector('[data-listbox-portal-surface]') ?? host;
+        },
         positionPanel(panel = null) {
             const trigger = this.$refs.trigger;
             panel ??= this.$refs.panel;
@@ -114,30 +121,53 @@
             }
 
             const host = this.portalHost();
-            if (host && panel.parentElement !== host) {
-                host.appendChild(panel);
+            const surface = this.portalSurface(host);
+            if (surface && panel.parentElement !== surface) {
+                surface.appendChild(panel);
             }
 
             if (@js((bool) $portal)) {
-                panel.style.position = 'fixed';
-                panel.style.zIndex = '9999';
-
                 const gap = 4;
                 const edge = 12;
                 const triggerRect = trigger.getBoundingClientRect();
                 const panelHeight = Math.min(panel.scrollHeight, 288);
-                const fitsBelow = window.innerHeight - triggerRect.bottom - gap >= panelHeight;
-                const top = fitsBelow
-                    ? triggerRect.bottom + gap
-                    : Math.max(edge, triggerRect.top - gap - panelHeight);
-                const left = Math.min(
-                    Math.max(edge, triggerRect.left),
-                    window.innerWidth - triggerRect.width - edge,
-                );
+                const width = `${Math.round(triggerRect.width)}px`;
+                // Override .listbox-panel { min-width: max(100%, …) } which stretches
+                // to the modal width when the panel is reparented into the trap shell.
+                panel.style.setProperty('min-width', width, 'important');
+                panel.style.setProperty('width', width, 'important');
+                panel.style.setProperty('max-width', width, 'important');
+                panel.style.right = 'auto';
+                panel.style.flex = 'none';
+                panel.style.pointerEvents = 'auto';
+                panel.style.zIndex = '9999';
 
-                panel.style.top = `${top}px`;
-                panel.style.left = `${left}px`;
-                panel.style.width = `${triggerRect.width}px`;
+                if (surface && surface !== document.body) {
+                    panel.style.position = 'absolute';
+                    const surfaceRect = surface.getBoundingClientRect();
+                    const fitsBelow = surfaceRect.bottom - triggerRect.bottom - gap >= Math.min(panelHeight, 160)
+                        || window.innerHeight - triggerRect.bottom - gap >= panelHeight;
+                    const top = fitsBelow
+                        ? triggerRect.bottom - surfaceRect.top + gap
+                        : Math.max(0, triggerRect.top - surfaceRect.top - gap - panelHeight);
+                    const left = triggerRect.left - surfaceRect.left;
+
+                    panel.style.top = `${top}px`;
+                    panel.style.left = `${left}px`;
+                } else {
+                    panel.style.position = 'fixed';
+                    const fitsBelow = window.innerHeight - triggerRect.bottom - gap >= panelHeight;
+                    const top = fitsBelow
+                        ? triggerRect.bottom + gap
+                        : Math.max(edge, triggerRect.top - gap - panelHeight);
+                    const left = Math.min(
+                        Math.max(edge, triggerRect.left),
+                        window.innerWidth - triggerRect.width - edge,
+                    );
+
+                    panel.style.top = `${top}px`;
+                    panel.style.left = `${left}px`;
+                }
             }
 
             this.positioned = true;
