@@ -87,6 +87,7 @@ it('updates a local checkout without pulling the official image', function () {
         ->toContain('keeping pulled nginx/s6-overlay from origin')
         ->toContain('git merge-base --is-ancestor HEAD "origin/${BRANCH}"')
         ->toContain('docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT"')
+        ->toContain('export DOCKER_BUILDKIT=1')
         ->toContain('coolify-custom:local')
         ->toContain('COOLIFY_PULL_POLICY="never"')
         ->toContain('up -d --no-deps --force-recreate --wait --wait-timeout 180 coolify')

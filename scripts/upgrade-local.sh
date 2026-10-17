@@ -381,8 +381,11 @@ export PREVIOUS_ID
 
 write_status "3" "Building ${IMAGE}"
 log "Building ${CONTEXT}/docker/production/Dockerfile"
+# production Dockerfile uses RUN --mount=type=cache (requires BuildKit).
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 if ! docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
-    fail "Image build failed. The running container was not replaced."
+    fail "Image build failed. The running container was not replaced. If you still see '--mount option requires BuildKit', enable BuildKit (DOCKER_BUILDKIT=1) or install docker-buildx."
 fi
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then

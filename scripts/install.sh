@@ -1065,8 +1065,11 @@ if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
     fi
 
     echo " - Building docker/production/Dockerfile. This can take several minutes."
+    # production Dockerfile uses RUN --mount=type=cache (requires BuildKit).
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
     if ! docker compose --project-directory /data/coolify/source --env-file "$ENV_FILE" $COMPOSE_FILES build coolify; then
-        echo " - ERROR: Failed to build coolify-custom:local."
+        echo " - ERROR: Failed to build coolify-custom:local. If you see '--mount option requires BuildKit', enable BuildKit (DOCKER_BUILDKIT=1) or install docker-buildx."
         exit 1
     fi
 
