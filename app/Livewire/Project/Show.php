@@ -651,6 +651,19 @@ class Show extends Component
 
     public function navigateToEnvironment($projectUuid, $environmentUuid)
     {
+        $environment = $this->project->environments->firstWhere('uuid', $environmentUuid);
+        if ($environment instanceof Environment && (string) $this->project->uuid === (string) $projectUuid) {
+            $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter())
+                ?? $environment->services->first();
+            if ($service instanceof Service) {
+                return redirectRoute($this, 'project.service.configuration', [
+                    'project_uuid' => $projectUuid,
+                    'environment_uuid' => $environmentUuid,
+                    'service_uuid' => $service->uuid,
+                ]);
+            }
+        }
+
         return redirectRoute($this, 'project.resource.index', [
             'project_uuid' => $projectUuid,
             'environment_uuid' => $environmentUuid,
@@ -816,7 +829,7 @@ class Show extends Component
                 default => $statusKey,
             });
             $version = $odooOnly ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
-            $serviceHref = ! $odooOnly && $service instanceof Service
+            $serviceHref = $service instanceof Service
                 ? route('project.service.configuration', [
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $environment->uuid,
@@ -868,15 +881,11 @@ class Show extends Component
                 'monitorHref' => $monitorHref,
                 'logsHref' => $logsHref,
                 'terminalHref' => $terminalHref,
-                'environmentHref' => $odooOnly && $service instanceof Service
-                    ? route('project.odoo.backups', [
-                        'project_uuid' => $this->project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                    ])
-                    : route('project.resource.index', [
-                        'project_uuid' => $this->project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                    ]),
+                // Open environment → service panel (not the resource list). Empty envs keep the catalog index.
+                'environmentHref' => $serviceHref ?? route('project.resource.index', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                ]),
                 'resourceCount' => $resourceCount,
                 'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [
                     'project_uuid' => $this->project->uuid,
@@ -893,6 +902,7 @@ class Show extends Component
                         ? route('project.resource.index', [
                             'project_uuid' => $this->project->uuid,
                             'environment_uuid' => $environment->uuid,
+                            'catalog' => 1,
                         ])
                         : route('project.resource.create', [
                             'project_uuid' => $this->project->uuid,

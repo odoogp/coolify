@@ -44,25 +44,34 @@
             wire:click="connectAs" x-on:click="menu = false">{{ __('Connect as') }}</button>
     </div>
     @if ($open)
-        <div class="fixed inset-0 z-[120] flex items-center justify-center bg-black/50 p-4" wire:click="$set('open', false)">
-            <div wire:click.stop class="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-5 dark:border-white/10 dark:bg-neutral-900">
-                <div class="mb-4 flex items-center justify-between gap-3">
-                    <h2 class="text-base font-semibold">{{ __('Internal Users') }} ({{ count($users) }})</h2>
-                    <button type="button" class="text-sm" wire:click="$set('open', false)">{{ __('Close') }}</button>
-                </div>
-                @forelse ($users as $user)
-                    <div class="flex items-center justify-between gap-3 border-t border-neutral-200 py-3 text-sm dark:border-white/10" wire:key="odoo-user-{{ $user['login'] }}">
-                        <span>
-                            <span class="font-medium">{{ $user['name'] }}</span>
-                            <span class="ml-3 font-mono text-neutral-500">{{ $user['login'] }}</span>
-                        </span>
-                        <a class="font-medium text-emerald-700 dark:text-emerald-300" target="_blank" rel="noopener noreferrer"
-                            href="{{ $enterUrl }}?login={{ urlencode($user['login']) }}">{{ __('Connect') }}</a>
+        {{-- Teleport out of #resource-action-hud-slot: header backdrop-blur makes position:fixed relative to the bar. --}}
+        <template x-teleport="body">
+            <div class="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4"
+                wire:click="$set('open', false)" role="dialog" aria-modal="true"
+                aria-label="{{ __('Internal Users') }}">
+                <div wire:click.stop
+                    class="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-neutral-900">
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <h2 class="text-base font-semibold">{{ __('Internal Users') }} ({{ count($users) }})</h2>
+                        <button type="button" class="text-sm" wire:click="$set('open', false)">{{ __('Close') }}</button>
                     </div>
-                @empty
-                    <p class="text-sm text-neutral-500">{{ __('Odoo has no internal users yet, or it is still starting.') }}</p>
-                @endforelse
+                    @forelse ($users as $user)
+                        <div class="flex items-center justify-between gap-3 border-t border-neutral-200 py-3 text-sm dark:border-white/10"
+                            wire:key="odoo-user-{{ $user['login'] }}">
+                            <span>
+                                <span class="font-medium">{{ $user['name'] }}</span>
+                                <span class="ml-3 font-mono text-neutral-500">{{ $user['login'] }}</span>
+                            </span>
+                            <a class="font-medium text-emerald-700 dark:text-emerald-300" target="_blank"
+                                rel="noopener noreferrer"
+                                href="{{ $enterUrl }}?login={{ urlencode($user['login']) }}">{{ __('Connect') }}</a>
+                        </div>
+                    @empty
+                        <p class="text-sm text-neutral-500">
+                            {{ __('Odoo has no internal users yet, or it is still starting.') }}</p>
+                    @endforelse
+                </div>
             </div>
-        </div>
+        </template>
     @endif
 </div>

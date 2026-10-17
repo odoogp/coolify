@@ -352,25 +352,23 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
-        ->assertDontSee('Go to backups')
+        ->assertDontSee('Open environment')
         ->assertDontSee('>Clone<')
         ->call('selectEnvironment', $production->uuid)
-        ->assertSee('Go to backups')
+        ->assertSee('Open environment')
         ->assertDontSee('Clone')
         ->assertSee('Open Odoo')
         ->assertSee('production')
-        ->assertSee(route('project.odoo.backups', [
-            'project_uuid' => $this->project->uuid,
-            'environment_uuid' => $production->uuid,
-        ], false))
-        ->assertDontSee(route('project.service.configuration', [
+        ->assertSee(route('project.service.configuration', [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $production->uuid,
             'service_uuid' => $service->uuid,
         ], false));
 
     expect(file_get_contents(app_path('Livewire/Project/Resource/Index.php')))
-        ->toContain("redirect()->route('project.service.configuration'");
+        ->toContain("redirect()->route('project.service.configuration'")
+        ->toContain('primaryServiceForEnvironment')
+        ->toContain("request()->boolean('catalog')");
 });
 
 it('clears a selected environment from the project', function () {
@@ -386,7 +384,7 @@ it('clears a selected environment from the project', function () {
         ->call('clearEnvironmentSelection')
         ->assertSet('selectedEnvironmentUuid', null)
         ->assertSet('showCloneWizard', false)
-        ->assertDontSee('Go to backups')
+        ->assertDontSee('Open environment')
         ->call('selectEnvironment', $production->uuid)
         ->call('selectEnvironment', $production->uuid)
         ->assertSet('selectedEnvironmentUuid', null);

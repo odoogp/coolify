@@ -74,6 +74,48 @@ class Index extends Component
             ]);
         }
 
+        // Skip the resource list when the environment already has a primary service.
+        // New / catalog stays on this page via ?catalog=1.
+        if (! request()->boolean('catalog')) {
+            $primary = $this->primaryServiceForEnvironment();
+            if ($primary instanceof Service) {
+                return redirect()->route('project.service.configuration', [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $this->environment->uuid,
+                    'service_uuid' => $primary->uuid,
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Prefer the Odoo service; otherwise a lone service when the environment has no other resources.
+     */
+    private function primaryServiceForEnvironment(): ?Service
+    {
+        $odoo = $this->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+        if ($this->project->odooProfile()->exists() && $odoo instanceof Service) {
+            return $odoo;
+        }
+
+        $otherResources = $this->applications->count()
+            + $this->postgresqls->count()
+            + $this->redis->count()
+            + $this->mongodbs->count()
+            + $this->mysqls->count()
+            + $this->mariadbs->count()
+            + $this->keydbs->count()
+            + $this->dragonflies->count()
+            + $this->clickhouses->count();
+
+        if ($otherResources === 0 && $this->services->count() === 1) {
+            $only = $this->services->first();
+
+            return $only instanceof Service ? $only : null;
+        }
+
         return null;
     }
 
