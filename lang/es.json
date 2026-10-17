@@ -4796,5 +4796,15 @@
     "This creates staging :name from production and copies its services. It does not create another production.": "Esto crea el staging :name desde producción y copia sus servicios. No crea otra producción.",
     "Every service on production is copied into the new staging environment and started when the server is ready.": "Cada servicio de producción se copia al nuevo entorno de staging y se inicia cuando el servidor está listo.",
     "Clone starts from production after at least one service is launched.": "El clonado parte de producción cuando ya hay al menos un servicio lanzado.",
-    "Production has no services to clone.": "Producción no tiene servicios para clonar."
+    "Production has no services to clone.": "Producción no tiene servicios para clonar.",
+    "Coolify will not publish ports 80/443 or run coolify-proxy. It can still attach an external Traefik to Coolify app networks.": "Coolify no publicará los puertos 80/443 ni ejecutará coolify-proxy. Aun así puede unir un Traefik externo a las redes de las apps de Coolify.",
+    "Configure and operate the proxy outside Coolify. When you set an external proxy name below, Coolify connects that container to every coolify.managed network so new services get HTTPS without a manual docker network connect.": "Configura y opera el proxy fuera de Coolify. Cuando indiques abajo el nombre del proxy externo, Coolify conecta ese contenedor a cada red coolify.managed para que los servicios nuevos tengan HTTPS sin un docker network connect manual.",
+    "External proxy container": "Contenedor del proxy externo",
+    "Docker name filter for the running proxy (substring match). Example: easypanel-traefik for EasyPanel Traefik Swarm tasks.": "Filtro de nombre Docker del proxy en ejecución (coincidencia parcial). Ejemplo: easypanel-traefik para las tareas Swarm de Traefik de EasyPanel.",
+    "Save external proxy": "Guardar proxy externo",
+    "Connect networks now": "Conectar redes ahora",
+    "External proxy settings saved.": "Ajustes del proxy externo guardados.",
+    "External proxy settings are only available with Custom proxy.": "Los ajustes del proxy externo solo están disponibles con proxy personalizado.",
+    "Set an external proxy container name first.": "Indica primero el nombre del contenedor del proxy externo.",
+    "Connecting the external proxy to Coolify networks.": "Conectando el proxy externo a las redes de Coolify."
 }

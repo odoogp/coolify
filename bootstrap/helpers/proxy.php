@@ -107,6 +107,15 @@ function collectDockerNetworksByServer(Server $server)
 }
 function connectProxyToNetworks(Server $server)
 {
+    if ($server->usesExternalProxyNetworkConnect()) {
+        return connectExternalProxyToNetworks($server);
+    }
+
+    // Custom without an external proxy name: never touch coolify-proxy networks.
+    if ($server->proxyType() === ProxyTypes::NONE->value) {
+        return collect();
+    }
+
     if ($server->isSwarm()) {
         ['networks' => $networks] = collectDockerNetworksByServer($server);
         $commands = $networks->map(function ($network) {
@@ -131,6 +140,36 @@ function connectProxyToNetworks(Server $server)
         '        docker network connect "$network" coolify-proxy >/dev/null 2>&1 || true',
         '    fi',
         'done',
+    ]);
+}
+
+/**
+ * Attach an external reverse proxy (Custom / NONE) to every coolify.managed network.
+ * Resolves the running container via docker name filter (Swarm task names change).
+ *
+ * @return Collection<int, string>
+ */
+function connectExternalProxyToNetworks(Server $server)
+{
+    $filter = $server->externalProxyName();
+    if ($filter === null) {
+        return collect();
+    }
+
+    $filterArg = escapeshellarg($filter);
+
+    return collect([
+        "PROXY=\$(docker ps --filter name={$filterArg} --format '{{.Names}}' | head -1)",
+        'if [ -n "$PROXY" ]; then',
+        'for network in $(docker inspect $(docker ps --filter label=coolify.managed=true --format "{{.ID}}") --format=\'{{range $network, $_ := .NetworkSettings.Networks}}{{println $network}}{{end}}\' 2>/dev/null | sort -u); do',
+        '    if [ -z "$network" ] || [ "$network" = "bridge" ] || [ "$network" = "host" ] || [ "$network" = "none" ] || [ "$network" = "default" ]; then',
+        '        continue',
+        '    fi',
+        '    if docker network inspect "$network" >/dev/null 2>&1; then',
+        '        docker network connect "$network" "$PROXY" >/dev/null 2>&1 || true',
+        '    fi',
+        'done',
+        'fi',
     ]);
 }
 

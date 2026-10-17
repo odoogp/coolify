@@ -151,15 +151,34 @@
             </form>
         @elseif($selectedProxy === 'NONE')
             <x-application.settings-section title="{{ __('Custom proxy') }}"
-                helper="{{ __('Coolify will not manage a reverse proxy for this server.') }}">
+                helper="{{ __('Coolify will not publish ports 80/443 or run coolify-proxy. It can still attach an external Traefik to Coolify app networks.') }}">
                 <x-slot:actions>
                     @can('update', $server)
                         <x-forms.button wire:click.prevent="changeProxy">{{ __('Switch proxy') }}</x-forms.button>
                     @endcan
                 </x-slot:actions>
                 <x-callout type="info" title="{{ __('Custom proxy selected') }}">
-                    {{ __('Configure and operate the proxy outside Coolify.') }}
+                    {{ __('Configure and operate the proxy outside Coolify. When you set an external proxy name below, Coolify connects that container to every coolify.managed network so new services get HTTPS without a manual docker network connect.') }}
                 </x-callout>
+                <div class="mt-4 grid max-w-xl gap-4">
+                    <x-forms.input canGate="update" :canResource="$server" id="externalProxyName"
+                        label="{{ __('External proxy container') }}"
+                        placeholder="easypanel-traefik"
+                        helper="{{ __('Docker name filter for the running proxy (substring match). Example: easypanel-traefik for EasyPanel Traefik Swarm tasks.') }}" />
+                    @can('update', $server)
+                        <div class="compact-actions flex flex-wrap gap-2">
+                            <x-forms.button wire:click="saveExternalProxy" wire:target="saveExternalProxy" isHighlighted>
+                                {{ __('Save external proxy') }}
+                            </x-forms.button>
+                            @if (filled($externalProxyName))
+                                <x-forms.button wire:click="connectExternalProxyNetworks"
+                                    wire:target="connectExternalProxyNetworks">
+                                    {{ __('Connect networks now') }}
+                                </x-forms.button>
+                            @endif
+                        </div>
+                    @endcan
+                </div>
             </x-application.settings-section>
         @else
             <x-application.settings-section title="{{ __('Proxy configuration') }}"

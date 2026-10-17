@@ -557,6 +557,38 @@ class Server extends BaseModel
         return $this->proxyType() && $this->proxyType() !== 'NONE' && $this->isFunctional() && ! $this->isSwarmWorker() && ! $this->settings->is_build_server;
     }
 
+    /**
+     * Docker name filter for an external reverse proxy (Custom / NONE).
+     * Used with `docker ps --filter name=…` (substring match), e.g. easypanel-traefik.
+     */
+    public function externalProxyName(): ?string
+    {
+        $name = trim((string) data_get($this->proxy, 'external_proxy_name', ''));
+        if ($name === '' || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\z/', $name) !== 1) {
+            return null;
+        }
+
+        return $name;
+    }
+
+    public function usesExternalProxyNetworkConnect(): bool
+    {
+        return $this->proxyType() === ProxyTypes::NONE->value
+            && $this->externalProxyName() !== null
+            && $this->isFunctional()
+            && ! $this->isSwarmWorker()
+            && ! $this->settings->is_build_server;
+    }
+
+    /**
+     * Whether Coolify should attach a proxy container to coolify.managed networks.
+     * Managed Traefik/Caddy use coolify-proxy; Custom uses external_proxy_name when set.
+     */
+    public function shouldReconcileProxyNetworks(): bool
+    {
+        return $this->proxySet() || $this->usesExternalProxyNetworkConnect();
+    }
+
     public function setupDefaultRedirect()
     {
         $banner =

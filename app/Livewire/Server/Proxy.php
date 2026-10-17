@@ -5,6 +5,7 @@ namespace App\Livewire\Server;
 use App\Actions\Proxy\GetProxyConfiguration;
 use App\Actions\Proxy\SaveProxyConfiguration;
 use App\Enums\ProxyTypes;
+use App\Jobs\ConnectProxyToNetworksJob;
 use App\Models\Server;
 use App\Rules\SafeExternalUrl;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -25,6 +26,8 @@ class Proxy extends Component
     public ?string $redirectUrl = null;
 
     public bool $generateExactLabels = false;
+
+    public ?string $externalProxyName = null;
 
     /**
      * Cache the versions.json file data in memory for this component instance.
@@ -47,6 +50,7 @@ class Proxy extends Component
         return [
             'generateExactLabels' => 'required|boolean',
             'redirectUrl' => ['nullable', new SafeExternalUrl],
+            'externalProxyName' => ['nullable', 'string', 'max:128', 'regex:/^[A-Za-z0-9][A-Za-z0-9_.-]*$/'],
         ];
     }
 
@@ -55,6 +59,7 @@ class Proxy extends Component
         $this->selectedProxy = $this->server->proxyType();
         $this->redirectEnabled = data_get($this->server, 'proxy.redirect_enabled', true);
         $this->redirectUrl = data_get($this->server, 'proxy.redirect_url');
+        $this->externalProxyName = data_get($this->server, 'proxy.external_proxy_name');
         $this->syncData(false);
         $this->loadProxyConfiguration();
     }
@@ -147,6 +152,41 @@ class Proxy extends Component
             $this->server->save();
             $this->server->setupDefaultRedirect();
             $this->dispatch('success', __('Proxy configuration saved.'));
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
+    public function saveExternalProxy()
+    {
+        try {
+            $this->authorize('update', $this->server);
+            if ($this->server->proxyType() !== ProxyTypes::NONE->value) {
+                throw new \RuntimeException(__('External proxy settings are only available with Custom proxy.'));
+            }
+            $this->validateOnly('externalProxyName');
+            $name = trim((string) $this->externalProxyName);
+            $this->server->proxy->external_proxy_name = $name !== '' ? $name : null;
+            $this->server->save();
+            $this->externalProxyName = $this->server->externalProxyName();
+            if ($this->server->usesExternalProxyNetworkConnect()) {
+                ConnectProxyToNetworksJob::dispatchSync($this->server);
+            }
+            $this->dispatch('success', __('External proxy settings saved.'));
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
+    public function connectExternalProxyNetworks()
+    {
+        try {
+            $this->authorize('update', $this->server);
+            if (! $this->server->usesExternalProxyNetworkConnect()) {
+                throw new \RuntimeException(__('Set an external proxy container name first.'));
+            }
+            ConnectProxyToNetworksJob::dispatchSync($this->server);
+            $this->dispatch('success', __('Connecting the external proxy to Coolify networks.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

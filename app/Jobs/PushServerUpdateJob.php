@@ -678,12 +678,20 @@ class PushServerUpdateJob implements ShouldBeEncrypted, ShouldQueue, Silenced
             } else {
                 // Connect proxy to networks periodically as a safety net to avoid excessive job dispatches.
                 // On-demand triggers (new network, service deploy) use dispatchSync() and bypass this.
-                $proxyCacheKey = 'connect-proxy:'.$this->server->id;
-                if (! Cache::has($proxyCacheKey)) {
-                    Cache::put($proxyCacheKey, true, config('constants.proxy.connect_networks_interval_seconds', 3600));
-                    ConnectProxyToNetworksJob::dispatch($this->server);
-                }
+                $this->dispatchProxyNetworkReconcile();
             }
+        } elseif ($this->server->usesExternalProxyNetworkConnect()) {
+            // Custom proxy: do not start coolify-proxy; still attach the external Traefik to app networks.
+            $this->dispatchProxyNetworkReconcile();
+        }
+    }
+
+    private function dispatchProxyNetworkReconcile(): void
+    {
+        $proxyCacheKey = 'connect-proxy:'.$this->server->id;
+        if (! Cache::has($proxyCacheKey)) {
+            Cache::put($proxyCacheKey, true, config('constants.proxy.connect_networks_interval_seconds', 3600));
+            ConnectProxyToNetworksJob::dispatch($this->server);
         }
     }
 

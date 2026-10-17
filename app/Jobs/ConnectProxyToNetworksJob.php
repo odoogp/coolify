@@ -13,10 +13,8 @@ use Illuminate\Queue\SerializesModels;
 use Laravel\Horizon\Contracts\Silenced;
 
 /**
- * Asynchronously connects the coolify-proxy to Docker networks.
- *
- * This job is dispatched from PushServerUpdateJob when the proxy is found running
- * to ensure it's connected to all required networks without blocking the status update.
+ * Connects coolify-proxy (managed Traefik/Caddy) or an external proxy (Custom / NONE)
+ * to Docker networks used by coolify.managed containers.
  */
 class ConnectProxyToNetworksJob implements ShouldBeEncrypted, ShouldQueue, Silenced
 {
@@ -40,13 +38,13 @@ class ConnectProxyToNetworksJob implements ShouldBeEncrypted, ShouldQueue, Silen
 
     public function handle()
     {
-        if (! $this->server->isFunctional()) {
+        if (! $this->server->shouldReconcileProxyNetworks()) {
             return;
         }
 
         $connectProxyToDockerNetworks = connectProxyToNetworks($this->server);
 
-        if (empty($connectProxyToDockerNetworks)) {
+        if ($connectProxyToDockerNetworks->isEmpty()) {
             return;
         }
 
