@@ -1263,9 +1263,14 @@ BASH;
 
         $needle = escapeshellarg('"main":"'.$host.'"');
         $needleSpaced = escapeshellarg('"main": "'.$host.'"');
+        $proxy = 'coolify-proxy';
+        if ($server->usesExternalProxyNetworkConnect()) {
+            $filter = escapeshellarg((string) $server->externalProxyName());
+            $proxy = "\$(docker ps --filter name={$filter} --format '{{.Names}}' | head -1)";
+        }
         try {
             $output = instant_remote_process([
-                "if docker exec coolify-proxy grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null; then echo applied; else echo pending; fi",
+                "PROXY={$proxy}; if [ -n \"\$PROXY\" ] && docker exec \"\$PROXY\" grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null 2>&1; then echo applied; else echo pending; fi",
             ], $server, false);
         } catch (\Throwable) {
             return false;

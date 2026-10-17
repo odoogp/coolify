@@ -57,6 +57,32 @@ test('attaching the proxy to a service network is not hidden when it fails', fun
     expect($command)->not->toContain('$');
 });
 
+test('attaching an external Custom proxy resolves the container by name filter', function () {
+    $server = Mockery::mock(\App\Models\Server::class);
+    $server->shouldReceive('proxyType')->andReturn(\App\Enums\ProxyTypes::NONE->value);
+    $server->shouldReceive('externalProxyName')->andReturn('easypanel-traefik');
+
+    $command = coolifyProxyNetworkConnectCommand('svc-uuid', $server);
+
+    expect($command)
+        ->toContain("docker ps --filter name='easypanel-traefik'")
+        ->toContain("docker network inspect 'svc-uuid'")
+        ->toContain('docker network connect \'svc-uuid\' "$PROXY"')
+        ->not->toContain('coolify-proxy');
+});
+
+test('Custom without external_proxy_name skips proxy network connect', function () {
+    $server = Mockery::mock(\App\Models\Server::class);
+    $server->shouldReceive('proxyType')->andReturn(\App\Enums\ProxyTypes::NONE->value);
+    $server->shouldReceive('externalProxyName')->andReturn(null);
+
+    $command = coolifyProxyNetworkConnectCommand('svc-uuid', $server);
+
+    expect($command)
+        ->toContain('Skipping proxy network connect')
+        ->not->toContain('docker network connect');
+});
+
 test('container listen port uses the compose target, not the published host port', function () {
     expect(containerListenPort(['8080:8069']))->toBe('8069');
     expect(containerListenPort([['target' => 8069, 'published' => 8080]]))->toBe('8069');

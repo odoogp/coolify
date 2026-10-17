@@ -7,6 +7,7 @@ use App\Models\ApplicationPreview;
 use App\Models\GpshOwnerModule;
 use App\Models\LocalFileVolume;
 use App\Models\LocalPersistentVolume;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
@@ -363,13 +364,32 @@ function parseDockerVolumeString(string $volumeString): array
 }
 
 /**
- * Attach coolify-proxy to the service network. A restart finds it already
+ * Attach the reverse proxy to the service network. A restart finds it already
  * connected; connecting again makes Docker fail the deploy.
+ *
+ * Managed Traefik/Caddy use coolify-proxy. Custom / NONE with external_proxy_name
+ * (e.g. easypanel-traefik) resolves that running container. Custom without a name
+ * skips the connect (no coolify-proxy on the host).
  */
-function coolifyProxyNetworkConnectCommand(string $network): string
+function coolifyProxyNetworkConnectCommand(string $network, ?Server $server = null): string
 {
     $quoted = escapeshellarg($network);
     $format = escapeshellarg('{{range .Containers}}{{.Name}} {{end}}');
+
+    if ($server !== null && $server->proxyType() === ProxyTypes::NONE->value) {
+        $filter = $server->externalProxyName();
+        if ($filter === null) {
+            return 'echo '.escapeshellarg('Skipping proxy network connect (Custom without external_proxy_name).');
+        }
+
+        $filterArg = escapeshellarg($filter);
+
+        // Resolve the running container (Swarm/compose names vary); skip if absent.
+        return 'PROXY=$(docker ps --filter name='.$filterArg." --format '{{.Names}}' | head -1); ".
+            'if [ -n "$PROXY" ]; then '.
+            'docker network inspect '.$quoted.' --format '.$format.' | grep -qw "$PROXY" || docker network connect '.$quoted.' "$PROXY"; '.
+            'else echo '.escapeshellarg('External proxy not running; skipped network connect.').'; fi';
+    }
 
     return 'docker network inspect '.$quoted.' --format '.$format.' | grep -qw coolify-proxy || docker network connect '.$quoted.' coolify-proxy';
 }

@@ -47,6 +47,7 @@ Expect: Coolify UI `:8000`, EasyPanel UI `:3000`, Traefik on `80`/`443`, Traefik
 
 - `Server::externalProxyName()` / `usesExternalProxyNetworkConnect()` / `shouldReconcileProxyNetworks()`
 - `connectProxyToNetworks()` → `connectExternalProxyToNetworks()` when Custom + name set
+- `coolifyProxyNetworkConnectCommand($uuid, $server)` on service start/deploy — attaches external Traefik (not `coolify-proxy`) when Custom + `external_proxy_name`
 - Jobs: `ConnectProxyToNetworksJob`, `PushServerUpdateJob`, `ServerCheckJob`; Livewire Proxy + Destinations; StandaloneDocker create; API `ServerProxyController`
 
 ## Expose Coolify UI on a custom domain (e.g. getcloud.sh)

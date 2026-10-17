@@ -55,7 +55,7 @@ class DeployServiceApplication
         $commands->push('echo Starting service container.');
         $commands->push($upCommand);
 
-        $commands->push(coolifyProxyNetworkConnectCommand($service->uuid));
+        $commands->push(coolifyProxyNetworkConnectCommand($service->uuid, $service->server));
 
         if (data_get($service, 'connect_to_docker_network')) {
             $network = escapeshellarg($service->destination->network);

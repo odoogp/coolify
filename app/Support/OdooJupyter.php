@@ -453,9 +453,14 @@ BASH;
         }
         $network = 'coolify';
         if (! app()->runningUnitTests()) {
+            $proxyInspect = 'coolify-proxy';
+            if ($server->usesExternalProxyNetworkConnect()) {
+                $filter = escapeshellarg((string) $server->externalProxyName());
+                $proxyInspect = "\$(docker ps --filter name={$filter} --format '{{.Names}}' | head -1)";
+            }
             $listed = instant_remote_process([
-                'docker inspect coolify-proxy --format \'{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}\'',
-            ], $server);
+                "PROXY={$proxyInspect}; [ -n \"\$PROXY\" ] && docker inspect \"\$PROXY\" --format '{{range \$k, \$v := .NetworkSettings.Networks}}{{\$k}} {{end}}'",
+            ], $server, false);
             $network = self::proxyNetworkFrom((string) $listed);
         }
         $instances = self::ownerInstances();
@@ -494,6 +499,10 @@ BASH], $server);
             $needle = escapeshellarg('"main":"'.$host.'"');
             $needleSpaced = escapeshellarg('"main": "'.$host.'"');
             $quotedHost = escapeshellarg($host);
+            $proxyResolve = 'PROXY=coolify-proxy';
+            if ($server->usesExternalProxyNetworkConnect()) {
+                $proxyResolve = 'PROXY=$(docker ps --filter name='.escapeshellarg((string) $server->externalProxyName())." --format '{{.Names}}' | head -1)";
+            }
             $output = instant_remote_process([<<<BASH
 set -eu
 before=missing
@@ -523,7 +532,8 @@ if [ "\$changed" = 1 ] || [ "\$running" != true ]; then
   fi
 fi
 cert=pending
-if docker exec coolify-proxy grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null 2>&1; then
+{$proxyResolve}
+if [ -n "\$PROXY" ] && docker exec "\$PROXY" grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null 2>&1; then
   cert=applied
 fi
 if [ "\$cert" = pending ]; then
