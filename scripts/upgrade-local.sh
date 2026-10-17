@@ -68,6 +68,68 @@ load_paths() {
     fi
 }
 
+buildx_is_usable() {
+    docker buildx version >/dev/null 2>&1 || return 1
+    docker buildx ls >/dev/null 2>&1 || return 1
+    return 0
+}
+
+install_docker_buildx_plugin() {
+    if command -v apt-get >/dev/null 2>&1; then
+        log "Installing docker-buildx-plugin via apt-get"
+        apt-get update -qq >/dev/null 2>&1 || true
+        apt-get install -y docker-buildx-plugin 2>&1 | tee -a "$LOGFILE" || return 1
+        return 0
+    fi
+    if command -v dnf >/dev/null 2>&1; then
+        log "Installing docker-buildx-plugin via dnf"
+        dnf install -y docker-buildx-plugin 2>&1 | tee -a "$LOGFILE" || return 1
+        return 0
+    fi
+    return 1
+}
+
+install_docker_buildx_binary() {
+    local arch plugin_dir url version="v0.23.0"
+    case "$(uname -m)" in
+        x86_64 | amd64) arch="amd64" ;;
+        aarch64 | arm64) arch="arm64" ;;
+        *)
+            log "Unsupported arch for buildx binary: $(uname -m)"
+            return 1
+            ;;
+    esac
+    plugin_dir="/usr/local/lib/docker/cli-plugins"
+    mkdir -p "$plugin_dir"
+    url="https://github.com/docker/buildx/releases/download/${version}/buildx-${version}.linux-${arch}"
+    log "Downloading buildx ${version} (${arch}) to ${plugin_dir}/docker-buildx"
+    if ! curl -fsSL "$url" -o "${plugin_dir}/docker-buildx" 2>&1 | tee -a "$LOGFILE"; then
+        return 1
+    fi
+    chmod +x "${plugin_dir}/docker-buildx"
+    return 0
+}
+
+# Recent Docker requires the buildx CLI plugin; classic DOCKER_BUILDKIT=0 no longer works.
+ensure_docker_buildx() {
+    if buildx_is_usable; then
+        log "docker buildx is available"
+        return 0
+    fi
+
+    log "docker buildx missing or broken; installing"
+    if install_docker_buildx_plugin && buildx_is_usable; then
+        log "docker-buildx-plugin installed"
+        return 0
+    fi
+    if install_docker_buildx_binary && buildx_is_usable; then
+        log "docker-buildx binary installed"
+        return 0
+    fi
+
+    fail "Docker buildx is required but could not be installed. On the host run: apt-get install -y docker-buildx-plugin (or dnf install docker-buildx-plugin), then retry the upgrade."
+}
+
 resolve_branch() {
     if [ -z "$BRANCH" ]; then
         BRANCH=$(git rev-parse --abbrev-ref HEAD)
@@ -381,23 +443,14 @@ export PREVIOUS_ID
 
 write_status "3" "Building ${IMAGE}"
 log "Building ${CONTEXT}/docker/production/Dockerfile"
-# Dockerfile does not require BuildKit --mount. Use buildx only when it works;
-# otherwise classic builder with DOCKER_BUILDKIT=0 (DOCKER_BUILDKIT=1 without
-# the buildx plugin fails with "buildx component is missing or broken").
-if docker buildx version >/dev/null 2>&1 && docker buildx ls >/dev/null 2>&1; then
-    export DOCKER_BUILDKIT=1
-    export COMPOSE_DOCKER_CLI_BUILD=1
-    log "Using docker buildx"
-    if ! docker buildx build --load -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
-        fail "Image build failed. The running container was not replaced."
-    fi
-else
-    export DOCKER_BUILDKIT=0
-    export COMPOSE_DOCKER_CLI_BUILD=0
-    log "buildx unavailable; using classic docker build (DOCKER_BUILDKIT=0)"
-    if ! docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
-        fail "Image build failed. The running container was not replaced."
-    fi
+# Recent Docker CLI has no classic builder: builds need the buildx plugin.
+# DOCKER_BUILDKIT=0 still errors with "buildx component is missing or broken".
+ensure_docker_buildx
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
+log "Using docker buildx"
+if ! docker buildx build --load -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
+    fail "Image build failed. The running container was not replaced."
 fi
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then

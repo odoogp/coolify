@@ -121,4 +121,9 @@ Expect `200`/`302` from Coolify login, not Traefik’s HTML 404.
 
 ## Local image build note
 
-`docker/production/Dockerfile` does **not** require BuildKit cache mounts (legacy `docker build` works). `scripts/upgrade-local.sh` and local `install.sh` use `docker buildx` only when `buildx ls` works; otherwise they set `DOCKER_BUILDKIT=0` (with BuildKit enabled but no buildx plugin, `docker build` fails with “buildx component is missing or broken”). Optional: install `docker-buildx-plugin` for faster builds.
+`docker/production/Dockerfile` does **not** require BuildKit cache mounts, but recent Docker CLI **requires the buildx plugin** (there is no usable classic builder). `scripts/upgrade-local.sh` installs `docker-buildx-plugin` (or a buildx binary) when missing. Manual fix on the host:
+
+```bash
+apt-get update && apt-get install -y docker-buildx-plugin
+docker buildx version
+```
