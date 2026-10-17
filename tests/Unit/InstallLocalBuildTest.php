@@ -51,6 +51,15 @@ it('keeps the official cdn install and adds a local build mode', function () {
         ->toContain('exec "$SCRIPT_DIR/install.sh"');
 });
 
+it('keeps the production Dockerfile buildable without the buildx plugin', function () {
+    $dockerfile = file_get_contents(base_path('docker/production/Dockerfile'));
+
+    expect($dockerfile)
+        ->not->toContain('--mount=type=cache')
+        ->toContain('composer install --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist')
+        ->toContain('npm ci');
+});
+
 it('builds the fork image and keeps the official postgres redis and realtime images', function () {
     $prod = file_get_contents(base_path('docker-compose.prod.yml'));
     $base = file_get_contents(base_path('docker-compose.yml'));
@@ -87,6 +96,7 @@ it('updates a local checkout without pulling the official image', function () {
         ->toContain('keeping pulled nginx/s6-overlay from origin')
         ->toContain('git merge-base --is-ancestor HEAD "origin/${BRANCH}"')
         ->toContain('docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT"')
+        ->toContain('docker buildx build --load')
         ->toContain('export DOCKER_BUILDKIT=1')
         ->toContain('coolify-custom:local')
         ->toContain('COOLIFY_PULL_POLICY="never"')

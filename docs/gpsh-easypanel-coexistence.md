@@ -51,9 +51,4 @@ Expect: Coolify UI `:8000`, EasyPanel UI `:3000`, Traefik on `80`/`443`, Traefik
 
 ## Local image build note
 
-`docker/production/Dockerfile` needs BuildKit (`RUN --mount=type=cache`). `scripts/upgrade-local.sh` and local install export `DOCKER_BUILDKIT=1`. If a manual build fails with `the --mount option requires BuildKit`, run:
-
-```bash
-export DOCKER_BUILDKIT=1
-docker build -f docker/production/Dockerfile -t coolify-custom:local .
-```
+`docker/production/Dockerfile` does **not** require BuildKit cache mounts (legacy `docker build` works). Optional: install `docker-buildx-plugin` for faster builds via `docker buildx`.
