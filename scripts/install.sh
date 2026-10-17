@@ -1065,8 +1065,16 @@ if [ "$COOLIFY_LOCAL_BUILD" = "true" ]; then
     fi
 
     echo " - Building docker/production/Dockerfile. This can take several minutes."
-    export DOCKER_BUILDKIT=1
-    export COMPOSE_DOCKER_CLI_BUILD=1
+    # DOCKER_BUILDKIT=1 without the buildx plugin fails; prefer classic builder.
+    if docker buildx version >/dev/null 2>&1 && docker buildx ls >/dev/null 2>&1; then
+        export DOCKER_BUILDKIT=1
+        export COMPOSE_DOCKER_CLI_BUILD=1
+        echo " - Using docker buildx"
+    else
+        export DOCKER_BUILDKIT=0
+        export COMPOSE_DOCKER_CLI_BUILD=0
+        echo " - buildx unavailable; using classic docker build (DOCKER_BUILDKIT=0)"
+    fi
     if ! docker compose --project-directory /data/coolify/source --env-file "$ENV_FILE" $COMPOSE_FILES build coolify; then
         echo " - ERROR: Failed to build coolify-custom:local."
         exit 1

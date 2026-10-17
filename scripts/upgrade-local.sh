@@ -381,15 +381,23 @@ export PREVIOUS_ID
 
 write_status "3" "Building ${IMAGE}"
 log "Building ${CONTEXT}/docker/production/Dockerfile"
-# Prefer BuildKit/buildx when present; Dockerfile itself does not require --mount.
-export DOCKER_BUILDKIT=1
-export COMPOSE_DOCKER_CLI_BUILD=1
-if docker buildx version >/dev/null 2>&1; then
+# Dockerfile does not require BuildKit --mount. Use buildx only when it works;
+# otherwise classic builder with DOCKER_BUILDKIT=0 (DOCKER_BUILDKIT=1 without
+# the buildx plugin fails with "buildx component is missing or broken").
+if docker buildx version >/dev/null 2>&1 && docker buildx ls >/dev/null 2>&1; then
+    export DOCKER_BUILDKIT=1
+    export COMPOSE_DOCKER_CLI_BUILD=1
+    log "Using docker buildx"
     if ! docker buildx build --load -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
         fail "Image build failed. The running container was not replaced."
     fi
-elif ! docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
-    fail "Image build failed. The running container was not replaced."
+else
+    export DOCKER_BUILDKIT=0
+    export COMPOSE_DOCKER_CLI_BUILD=0
+    log "buildx unavailable; using classic docker build (DOCKER_BUILDKIT=0)"
+    if ! docker build -f "${CONTEXT}/docker/production/Dockerfile" -t "$IMAGE" "$CONTEXT" 2>&1 | tee -a "$LOGFILE"; then
+        fail "Image build failed. The running container was not replaced."
+    fi
 fi
 
 if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
