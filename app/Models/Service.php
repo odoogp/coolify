@@ -14,7 +14,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use OpenApi\Attributes as OA;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Url\Url;
@@ -1621,16 +1620,15 @@ class Service extends BaseModel
 
         $workdir = $this->workdir();
 
+        // Write compose over SSH (base64), same as .env below — avoid local
+        // storage/app/tmp + scp, which fails with "stat local ... Permission denied"
+        // when the Coolify container cannot read files created for SCP.
+        $compose_base64 = base64_encode($this->docker_compose);
         instant_remote_process([
             "mkdir -p $workdir",
             "cd $workdir",
+            "echo '$compose_base64' | base64 -d | tee $workdir/docker-compose.yml > /dev/null",
         ], $this->server);
-
-        $filename = new_public_id().'-docker-compose.yml';
-        Storage::disk('local')->put("tmp/{$filename}", $this->docker_compose);
-        $path = Storage::path("tmp/{$filename}");
-        instant_scp($path, "{$workdir}/docker-compose.yml", $this->server);
-        Storage::disk('local')->delete("tmp/{$filename}");
 
         $commands[] = "cd $workdir";
         $commands[] = 'rm -f .env || true';

@@ -49,6 +49,76 @@ Expect: Coolify UI `:8000`, EasyPanel UI `:3000`, Traefik on `80`/`443`, Traefik
 - `connectProxyToNetworks()` → `connectExternalProxyToNetworks()` when Custom + name set
 - Jobs: `ConnectProxyToNetworksJob`, `PushServerUpdateJob`, `ServerCheckJob`; Livewire Proxy + Destinations; StandaloneDocker create; API `ServerProxyController`
 
+## Expose Coolify UI on a custom domain (e.g. getcloud.sh)
+
+Setting **Settings → General → URL** to `https://getcloud.sh` only changes how Coolify generates links. It does **not** publish the domain. With EasyPanel on `80`/`443`, Traefik must route that Host to Coolify (`:8000` on the host, or the `coolify` container on `8080`).
+
+### Option A — EasyPanel “App” / reverse proxy to Coolify (preferred if UI allows)
+
+1. Create a small service (or use Domains → custom backend if available) that targets `http://HOST_IP:8000` or the Coolify container.
+2. Attach domain `getcloud.sh` with HTTPS.
+3. Keep Coolify instance URL as `https://getcloud.sh`.
+
+### Option B — Traefik file in EasyPanel
+
+1. Confirm Coolify listens: `curl -sI http://127.0.0.1:8000 | head`
+2. Inspect Traefik entrypoints/certresolver names:
+
+```bash
+docker service inspect easypanel-traefik --format '{{json .Spec.TaskTemplate.ContainerSpec.Args}}' | jq .
+ls /etc/easypanel/traefik/config/
+```
+
+3. Add a dynamic file (names must match your EasyPanel Traefik; adjust `web`/`websecure`/`https` and certresolver):
+
+```yaml
+# /etc/easypanel/traefik/config/coolify-getcloud.yml
+http:
+  routers:
+    coolify-getcloud-http:
+      rule: Host(`getcloud.sh`)
+      entryPoints:
+        - web
+      middlewares:
+        - coolify-getcloud-https
+      service: coolify-ui
+    coolify-getcloud-https:
+      rule: Host(`getcloud.sh`)
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      service: coolify-ui
+  middlewares:
+    coolify-getcloud-https:
+      redirectScheme:
+        scheme: https
+  services:
+    coolify-ui:
+      loadBalancer:
+        servers:
+          # Docker host gateway from the Traefik task (common on Linux):
+          - url: "http://172.17.0.1:8000"
+```
+
+4. Prefer attaching Coolify to the `easypanel` network and using `http://coolify:8080` instead of `172.17.0.1:8000` when possible:
+
+```bash
+docker network connect easypanel coolify 2>/dev/null || true
+# then set servers url to http://coolify:8080
+```
+
+5. Verify:
+
+```bash
+docker service ls --format '{{.Name}}' | while read s; do
+  docker service inspect "$s" --format '{{.Spec.Name}} {{json .Spec.TaskTemplate.ContainerSpec.Labels}}'
+done | grep -i getcloud || true
+curl -kI https://getcloud.sh | head -15
+```
+
+Expect `200`/`302` from Coolify login, not Traefik’s HTML 404.
+
 ## Local image build note
 
 `docker/production/Dockerfile` does **not** require BuildKit cache mounts (legacy `docker build` works). Optional: install `docker-buildx-plugin` for faster builds via `docker buildx`.
