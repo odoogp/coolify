@@ -68,11 +68,20 @@ RUN npm run build
 FROM alpine:3 AS minio-client
 
 ARG MINIO_VERSION
-ARG TARGETARCH
+# Empty default: BuildKit/buildx fills TARGETARCH; legacy docker build leaves it empty.
+ARG TARGETARCH=
 
 RUN set -eux; \
     apk add --no-cache ca-certificates curl; \
-    curl -fsSL "https://github.com/minio/mc/releases/download/${MINIO_VERSION}/mc.linux-${TARGETARCH}.${MINIO_VERSION}" -o /usr/bin/mc; \
+    arch="${TARGETARCH}"; \
+    if [ -z "${arch}" ]; then \
+        case "$(uname -m)" in \
+            x86_64|amd64) arch=amd64 ;; \
+            aarch64|arm64) arch=arm64 ;; \
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+        esac; \
+    fi; \
+    curl -fsSL "https://github.com/minio/mc/releases/download/${MINIO_VERSION}/mc.linux-${arch}.${MINIO_VERSION}" -o /usr/bin/mc; \
     chmod +x /usr/bin/mc; \
     mc --version
 
@@ -83,7 +92,8 @@ FROM serversideup/php:${SERVERSIDEUP_PHP_VERSION}
 
 ARG USER_ID
 ARG GROUP_ID
-ARG TARGETPLATFORM
+# Empty default for legacy docker build (no buildx); BuildKit fills linux/amd64|arm64.
+ARG TARGETPLATFORM=
 ARG POSTGRES_VERSION
 ARG CLOUDFLARED_VERSION
 ARG NGINX_VERSION
@@ -117,8 +127,7 @@ RUN apk add --no-cache gnupg && \
     curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor > /usr/share/keyrings/postgresql.gpg
 
 # Install system dependencies
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk upgrade && \
+RUN apk upgrade && \
     apk add --no-cache \
     postgresql${POSTGRES_VERSION}-client \
     openssh-client \
@@ -134,12 +143,24 @@ RUN echo "alias ll='ls -al'" >> /etc/profile && \
     echo "alias logs='tail -f storage/logs/laravel.log'" >> /etc/profile
 
 # Install Cloudflared based on architecture
-RUN mkdir -p /usr/local/bin && \
-    if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then \
-    curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" -o /usr/local/bin/cloudflared; \
-    elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
-    curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-arm64" -o /usr/local/bin/cloudflared; \
-    fi && \
+RUN set -eux; \
+    mkdir -p /usr/local/bin; \
+    platform="${TARGETPLATFORM}"; \
+    if [ -z "${platform}" ]; then \
+        case "$(uname -m)" in \
+            x86_64|amd64) platform=linux/amd64 ;; \
+            aarch64|arm64) platform=linux/arm64 ;; \
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+        esac; \
+    fi; \
+    if [ "${platform}" = "linux/amd64" ]; then \
+        curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" -o /usr/local/bin/cloudflared; \
+    elif [ "${platform}" = "linux/arm64" ]; then \
+        curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-arm64" -o /usr/local/bin/cloudflared; \
+    else \
+        echo "Unsupported TARGETPLATFORM: ${platform}" >&2; \
+        exit 1; \
+    fi; \
     chmod +x /usr/local/bin/cloudflared
 
 # Configure PHP

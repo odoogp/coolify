@@ -56,6 +56,9 @@ it('keeps the production Dockerfile buildable without the buildx plugin', functi
 
     expect($dockerfile)
         ->not->toContain('--mount=type=cache')
+        ->toContain('ARG TARGETARCH=')
+        ->toContain('ARG TARGETPLATFORM=')
+        ->toContain('uname -m')
         ->toContain('composer install --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist')
         ->toContain('npm ci');
 });
