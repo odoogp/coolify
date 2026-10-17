@@ -167,8 +167,9 @@ RUN set -eux; \
 COPY docker/production/etc/php/conf.d/zzz-custom-php.ini /usr/local/etc/php/conf.d/zzz-custom-php.ini
 ENV PHP_OPCACHE_ENABLE=1
 
-# Configure entrypoint
-COPY --chmod=755 docker/production/entrypoint.d/ /etc/entrypoint.d
+# Configure entrypoint (chmod via RUN: COPY --chmod needs BuildKit)
+COPY docker/production/entrypoint.d/ /etc/entrypoint.d
+RUN chmod -R 755 /etc/entrypoint.d
 
 # Copy application files from previous stages
 COPY --from=base --chown=www-data:www-data /var/www/html/vendor ./vendor
@@ -196,7 +197,7 @@ RUN composer dump-autoload && chmod 755 scripts/upgrade-local.sh
 # Configure Nginx and S6 overlay
 COPY docker/production/etc/nginx/conf.d/custom.conf /etc/nginx/conf.d/custom.conf
 COPY docker/production/etc/nginx/site-opts.d/http.conf /etc/nginx/site-opts.d/http.conf
-COPY --chmod=755 docker/production/etc/s6-overlay/ /etc/s6-overlay/
+COPY docker/production/etc/s6-overlay/ /etc/s6-overlay/
 
 RUN mkdir -p /etc/nginx/conf.d /etc/s6-overlay/s6-rc.d/user && \
     printf 'bundle\n' > /etc/s6-overlay/s6-rc.d/user/type && \

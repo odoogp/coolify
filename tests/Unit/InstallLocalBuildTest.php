@@ -56,9 +56,11 @@ it('keeps the production Dockerfile buildable without the buildx plugin', functi
 
     expect($dockerfile)
         ->not->toContain('--mount=type=cache')
+        ->not->toContain('COPY --chmod')
         ->toContain('ARG TARGETARCH=')
         ->toContain('ARG TARGETPLATFORM=')
         ->toContain('uname -m')
+        ->toContain('chmod -R 755 /etc/entrypoint.d')
         ->toContain('composer install --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist')
         ->toContain('npm ci');
 });
