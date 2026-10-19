@@ -43,6 +43,7 @@ afterEach(function () {
 it('replaces the login and menu logo from settings', function () {
     Livewire::test(Index::class)
         ->set('platformLogo', UploadedFile::fake()->image('logo.png', 80, 40))
+        ->assertSee('Save logo')
         ->call('instantSave')
         ->assertHasNoErrors();
 

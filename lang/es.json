@@ -4834,5 +4834,6 @@
     "Logo": "Logo",
     "Use the default logo": "Usar el logo original",
     "Logo updated.": "Logo actualizado.",
-    "Shown on the login screen and in the menu. PNG, JPG, or WebP. Save to keep it. Remove it to use the current logo again.": "Se ve en el inicio de sesión y en el menú. PNG, JPG o WebP. Guarda para conservarlo. Quítalo para volver al logo original."
+    "Shown on the login screen and in the menu. PNG, JPG, or WebP. After you choose a file, click Save logo.": "Se ve en el inicio de sesión y en el menú. PNG, JPG o WebP. Cuando elijas el archivo, pulsa Guardar logo.",
+    "Save logo": "Guardar logo"
 }

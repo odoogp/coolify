@@ -45,12 +45,15 @@
                                 <input id="platformLogo" type="file" wire:model="platformLogo" accept="image/png,image/jpeg,image/webp"
                                     class="block w-full text-sm">
                             </label>
+                            @if ($platformLogo)
+                                <button type="submit" class="button">{{ __('Save logo') }}</button>
+                            @endif
                             @if (product_logo_path())
                                 <button type="button" class="button" wire:click="removePlatformLogo">{{ __('Use the default logo') }}</button>
                             @endif
                         </div>
                         <p class="mt-1 text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
-                            {{ __('Shown on the login screen and in the menu. PNG, JPG, or WebP. Save to keep it. Remove it to use the current logo again.') }}
+                            {{ __('Shown on the login screen and in the menu. PNG, JPG, or WebP. After you choose a file, click Save logo.') }}
                         </p>
                         @error('platformLogo')
                             <p class="mt-1 text-sm text-error">{{ $message }}</p>
