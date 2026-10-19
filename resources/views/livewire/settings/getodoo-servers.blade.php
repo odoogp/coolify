@@ -67,6 +67,57 @@
                 </form>
             </x-application.settings-section>
 
+            <x-application.settings-section title="n1co"
+                description="{{ __('n1co charges this price before the server or the plan is created. Sandbox uses your test account. Leave a secret empty to keep the one already saved.') }}">
+                <form wire:submit="saveN1co" class="grid max-w-xl gap-4">
+                    <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                        {{ __('The secret key is under Settings, developer options, Checkout link. Generate the webhook secret on the Webhook screen. The n1co store must charge in US dollars.') }}
+                        {{ __('While Use n1co for charges is on, new payments go to n1co instead of Wompi.') }}
+                    </p>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Secret key') }}</span>
+                        <input id="n1coSecret" type="password" wire:model="n1coSecret" autocomplete="new-password"
+                            placeholder="{{ $n1coReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('n1coSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Webhook secret') }}</span>
+                        <input id="n1coWebhookSecret" type="password" wire:model="n1coWebhookSecret" autocomplete="new-password"
+                            placeholder="{{ $n1coReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('n1coWebhookSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input id="n1coSandbox" type="checkbox" wire:model="n1coSandbox" class="rounded">
+                        <span>{{ __('Sandbox') }}</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input id="n1coCharges" type="checkbox" wire:model="n1coCharges" class="rounded">
+                        <span>{{ __('Use n1co for charges') }}</span>
+                    </label>
+                    <div class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Webhook URL') }}</p>
+                        <p class="mt-1 break-all font-mono text-[12px] text-neutral-800 dark:text-fg">{{ route('getodoo.n1co.webhook') }}</p>
+                        <p class="mt-1 text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Paste this URL in n1co under Settings, then Webhook.') }}
+                        </p>
+                    </div>
+                    @if ($n1coSandbox)
+                        <p class="text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Sandbox test card: Visa 4000056655665556, any CVC, any future date. A successful test payment creates the server or the account.') }}
+                        </p>
+                    @endif
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
             <x-application.settings-section title="{{ __('GetOdoo servers') }}"
                 description="{{ __('Fetch only the Hetzner servers that can be created right now, set a markup, and choose which ones admins can launch.') }}">
                 @if ($selectedToken)

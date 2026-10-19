@@ -7,8 +7,8 @@ use App\Jobs\DeleteResourceJob;
 use App\Models\GetOdooServerOffer;
 use App\Models\GetOdooServerOrder;
 use App\Models\Server;
+use App\Services\GetOdoo\GetOdooCheckout;
 use App\Services\GetOdoo\GetOdooServerCatalog;
-use App\Services\GetOdoo\WompiClient;
 use App\Services\HetznerService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
@@ -25,7 +25,7 @@ class Billing extends Component
         }
     }
 
-    public function pay(int $serverId, WompiClient $wompi): mixed
+    public function pay(int $serverId, GetOdooCheckout $checkout): mixed
     {
         abort_unless(auth()->user()?->canAddServers(), 403);
 
@@ -38,7 +38,7 @@ class Billing extends Component
             ->whereNotNull('getodoo_offer_id')
             ->findOrFail($serverId);
 
-        if (! $wompi->configured()) {
+        if ($checkout->provider() === null) {
             return $this->dispatch('error', __('Wompi is not ready for charges.'));
         }
 
@@ -57,7 +57,7 @@ class Billing extends Component
             ->latest('id')
             ->first();
 
-        if ($pending instanceof GetOdooServerOrder && $wompi->sameMoney($pending->amount, $amount)) {
+        if ($pending instanceof GetOdooServerOrder && ($pending->payment_gateway ?: 'wompi') === $checkout->provider() && $checkout->sameMoney($pending->amount, $amount)) {
             return redirect()->away($pending->wompi_link_url);
         }
 
@@ -84,10 +84,11 @@ class Billing extends Component
             'amount' => $amount,
             'status' => 'awaiting_payment',
             'purpose' => 'renewal',
+            'payment_gateway' => $checkout->provider(),
         ]);
 
         try {
-            $link = $wompi->createServerLink($order);
+            $link = $checkout->linkForServer($order);
         } catch (Throwable $exception) {
             $order->delete();
             report($exception);
@@ -103,7 +104,7 @@ class Billing extends Component
         return redirect()->away($link['url']);
     }
 
-    public function payOrder(int $orderId, WompiClient $wompi): mixed
+    public function payOrder(int $orderId, GetOdooCheckout $checkout): mixed
     {
         abort_unless(auth()->user()?->canAddServers(), 403);
 
@@ -118,18 +119,18 @@ class Billing extends Component
             return $this->dispatch('error', __('The payment could not be started.'));
         }
 
-        if (! $wompi->configured()) {
+        if ($checkout->provider() === null) {
             return $this->dispatch('error', __('Wompi is not ready for charges.'));
         }
 
-        if ($order->status === 'awaiting_payment' && filled($order->wompi_link_url)) {
+        if ($order->status === 'awaiting_payment' && filled($order->wompi_link_url) && ($order->payment_gateway ?: 'wompi') === $checkout->provider()) {
             return redirect()->away($order->wompi_link_url);
         }
 
-        $order->forceFill(['uuid' => new_public_id()])->save();
+        $order->forceFill(['uuid' => new_public_id(), 'payment_gateway' => $checkout->provider()])->save();
 
         try {
-            $link = $wompi->createServerLink($order);
+            $link = $checkout->linkForServer($order);
         } catch (Throwable $exception) {
             report($exception);
 

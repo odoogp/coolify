@@ -4,6 +4,7 @@ namespace App\Livewire\GetOdoo;
 
 use App\Models\GetOdooPlanSignup;
 use App\Models\User;
+use App\Services\GetOdoo\N1coClient;
 use App\Services\GetOdoo\SettleGetOdooPlanSignup;
 use App\Services\GetOdoo\WompiClient;
 use Illuminate\Contracts\View\View;
@@ -19,7 +20,7 @@ class PlanReturn extends Component
 
     public string $message = '';
 
-    public function mount(string $plan, string $signup, WompiClient $wompi, SettleGetOdooPlanSignup $settle): void
+    public function mount(string $plan, string $signup, WompiClient $wompi, N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
     {
         $found = GetOdooPlanSignup::query()
             ->where('uuid', $signup)
@@ -31,6 +32,12 @@ class PlanReturn extends Component
 
         if ($found->status === 'paid' && $found->user instanceof User) {
             $this->enter($found->user);
+
+            return;
+        }
+
+        if ($found->payment_gateway === 'n1co') {
+            $this->confirmN1co($found, $n1co, $settle);
 
             return;
         }
@@ -81,11 +88,69 @@ class PlanReturn extends Component
         $this->enter($user);
     }
 
+    public function refreshStatus(N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
+    {
+        $signup = GetOdooPlanSignup::query()->find($this->signupId);
+
+        if (! $signup instanceof GetOdooPlanSignup) {
+            return;
+        }
+
+        if ($signup->status === 'paid' && $signup->user instanceof User) {
+            $this->enter($signup->user);
+
+            return;
+        }
+
+        if ($signup->payment_gateway === 'n1co') {
+            $this->confirmN1co($signup, $n1co, $settle);
+        }
+    }
+
     public function render(): View
     {
         return view('livewire.getodoo.plan-return', [
             'signup' => GetOdooPlanSignup::query()->with('plan')->find($this->signupId),
         ])->layout('layouts.simple');
+    }
+
+    private function confirmN1co(GetOdooPlanSignup $signup, N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
+    {
+        $code = (string) $signup->wompi_link_id;
+
+        if ($code === '' || ! $n1co->configured()) {
+            $this->message = __('n1co has not confirmed this payment yet.');
+
+            return;
+        }
+
+        try {
+            $remote = $n1co->order($code);
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->message = __('n1co has not confirmed this payment yet.');
+
+            return;
+        }
+
+        if (! $n1co->isPaid($remote, $signup->amount)) {
+            $this->message = __('n1co has not confirmed this payment yet.');
+
+            return;
+        }
+
+        $transactionId = (string) data_get($remote, 'payment.authorizationCode', 'n1co-'.$code);
+
+        try {
+            $user = $settle->settle($signup, $transactionId !== '' ? $transactionId : 'n1co-'.$code);
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->message = __('The account could not be created.');
+
+            return;
+        }
+
+        $this->enter($user);
     }
 
     private function enter(User $user): void

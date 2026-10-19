@@ -65,7 +65,7 @@
             </x-application.settings-section>
 
             <x-application.settings-section title="{{ __('Launch') }}"
-                description="{{ $paysWithWompi ? __('The GetOdoo server is created after Wompi approves this monthly charge.') : __('The server is created from the GetOdoo connection.') }}">
+                description="{{ $paymentProvider === 'n1co' ? __('The GetOdoo server is created after n1co approves this monthly charge.') : ($paymentProvider === 'wompi' ? __('The GetOdoo server is created after Wompi approves this monthly charge.') : __('The server is created from the GetOdoo connection.')) }}">
                 <div class="grid max-w-xl gap-4">
                     <x-forms.input id="server_name" label="{{ __('Server name') }}" required />
                     @if ($selectedOffer && count($selectedOffer->locations ?? []) > 1)
@@ -97,7 +97,7 @@
                     @endif
                     <div>
                         <button type="submit" class="button button-highlighted" @disabled($limit_reached || ! $private_key_id)>
-                            {{ $paysWithWompi ? __('Pay with Wompi') : __('Buy and create') }}
+                            {{ $paymentProvider === 'n1co' ? __('Pay with n1co') : ($paymentProvider === 'wompi' ? __('Pay with Wompi') : __('Buy and create')) }}
                         </button>
                     </div>
                 </div>

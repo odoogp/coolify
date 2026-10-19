@@ -4,6 +4,7 @@ use App\Http\Controllers\Webhook\Bitbucket;
 use App\Http\Controllers\Webhook\Gitea;
 use App\Http\Controllers\Webhook\Github;
 use App\Http\Controllers\Webhook\Gitlab;
+use App\Http\Controllers\Webhook\N1co;
 use App\Http\Controllers\Webhook\Stripe;
 use App\Http\Controllers\Webhook\Wompi;
 use Illuminate\Support\Facades\Route;
@@ -26,3 +27,4 @@ Route::post('/source/gitea/events/manual', [Gitea::class, 'manual']);
 
 Route::post('/payments/stripe/events', [Stripe::class, 'events']);
 Route::post('/payments/wompi', Wompi::class)->name('getodoo.wompi.webhook');
+Route::post('/payments/n1co', N1co::class)->name('getodoo.n1co.webhook');

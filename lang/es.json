@@ -4806,5 +4806,22 @@
     "External proxy settings saved.": "Ajustes del proxy externo guardados.",
     "External proxy settings are only available with Custom proxy.": "Los ajustes del proxy externo solo están disponibles con proxy personalizado.",
     "Set an external proxy container name first.": "Indica primero el nombre del contenedor del proxy externo.",
-    "Connecting the external proxy to Coolify networks.": "Conectando el proxy externo a las redes de Coolify."
+    "Connecting the external proxy to Coolify networks.": "Conectando el proxy externo a las redes de Coolify.",
+    "n1co charges this price before the server or the plan is created. Sandbox uses your test account. Leave a secret empty to keep the one already saved.": "n1co cobra este precio antes de crear el servidor o el plan. Sandbox es tu cuenta de prueba. Deja un secreto vacío para conservar el que ya está guardado.",
+    "The secret key is under Settings, developer options, Checkout link. Generate the webhook secret on the Webhook screen. The n1co store must charge in US dollars.": "La llave secreta está en Configuración, opciones para desarrolladores, Link de Checkout. Genera el secreto del webhook en la pantalla Webhook. La tienda de n1co debe cobrar en dólares.",
+    "While Use n1co for charges is on, new payments go to n1co instead of Wompi.": "Mientras Usar n1co para los cobros esté activo, los pagos nuevos van a n1co en lugar de Wompi.",
+    "Sandbox": "Sandbox",
+    "Use n1co for charges": "Usar n1co para los cobros",
+    "Paste this URL in n1co under Settings, then Webhook.": "Pega esta URL en n1co, en Configuración y luego Webhook.",
+    "Sandbox test card: Visa 4000056655665556, any CVC, any future date. A successful test payment creates the server or the account.": "Tarjeta de prueba: Visa 4000056655665556, cualquier CVC, cualquier fecha futura. Un pago de prueba exitoso crea el servidor o la cuenta.",
+    "n1co saved.": "n1co guardado.",
+    "The secret key is required.": "La llave secreta es obligatoria.",
+    "The webhook secret is required.": "El secreto del webhook es obligatorio.",
+    "Pay with n1co": "Pagar con n1co",
+    "The GetOdoo server is created after n1co approves this monthly charge.": "El servidor se crea cuando n1co aprueba este cobro mensual.",
+    "This is the standard monthly plan price. This step pays the first charge with n1co.": "Este es el precio mensual estándar del plan. Este paso paga el primer cobro con n1co.",
+    "This is the monthly price for your location. This step pays the first charge with n1co.": "Este es el precio mensual de tu ubicación. Este paso paga el primer cobro con n1co.",
+    "n1co has not confirmed this payment yet.": "n1co todavía no confirma este pago.",
+    "n1co is not ready for charges.": "n1co no está listo para cobrar.",
+    "The payment was cancelled.": "El pago fue cancelado."
 }

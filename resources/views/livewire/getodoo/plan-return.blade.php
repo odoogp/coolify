@@ -1,4 +1,5 @@
-<x-auth.shell :title="product_name()" :description="$signup?->plan?->name">
+<div @if (($signup?->payment_gateway) === 'n1co') wire:poll.5s="refreshStatus" @endif>
+    <x-auth.shell :title="product_name()" :description="$signup?->plan?->name">
     <x-auth.alert type="warning">
         <p>{{ $message }}</p>
     </x-auth.alert>
@@ -7,4 +8,5 @@
             {{ __('Back to the plan') }}
         </a>
     @endif
-</x-auth.shell>
+    </x-auth.shell>
+</div>

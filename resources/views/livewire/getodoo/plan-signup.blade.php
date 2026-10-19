@@ -51,6 +51,10 @@
             <p class="auth-plan-copy">
                 @if ($quote['amount'] <= 0)
                     {{ __('This package has no charge.') }}
+                @elseif (($paymentProvider ?? null) === 'n1co' && ($usesStandardPrice ?? false))
+                    {{ __('This is the standard monthly plan price. This step pays the first charge with n1co.') }}
+                @elseif (($paymentProvider ?? null) === 'n1co')
+                    {{ __('This is the monthly price for your location. This step pays the first charge with n1co.') }}
                 @elseif ($usesStandardPrice ?? false)
                     {{ __('This is the standard monthly plan price. This step pays the first charge with Wompi.') }}
                 @else

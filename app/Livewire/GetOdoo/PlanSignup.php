@@ -6,10 +6,10 @@ use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooPricingArea;
 use App\Models\User;
+use App\Services\GetOdoo\GetOdooCheckout;
 use App\Services\GetOdoo\GetOdooPlanPricing;
 use App\Services\GetOdoo\OpenGetOdooPlanAccount;
 use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
-use App\Services\GetOdoo\WompiClient;
 use App\Support\DetectRequestCountry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
@@ -51,7 +51,7 @@ class PlanSignup extends Component
         }
     }
 
-    public function register(WompiClient $wompi, OpenGetOdooPlanAccount $accounts): mixed
+    public function register(GetOdooCheckout $checkout, OpenGetOdooPlanAccount $accounts): mixed
     {
         $plan = $this->plan();
 
@@ -132,15 +132,9 @@ class PlanSignup extends Component
             return $this->enter($user);
         }
 
-        $gateway = $plan->payment_gateway ?: 'wompi';
+        $provider = $checkout->provider();
 
-        if ($gateway !== 'wompi') {
-            $this->addError('email', __('This payment gateway is not ready.'));
-
-            return null;
-        }
-
-        if (! $wompi->configured()) {
+        if ($provider === null) {
             $this->addError('email', __('Wompi is not ready for charges.'));
 
             return null;
@@ -161,21 +155,24 @@ class PlanSignup extends Component
                 'email' => strtolower($this->email),
                 'password' => $this->password,
                 'amount' => $amount,
-                'payment_gateway' => 'wompi',
+                'payment_gateway' => $provider,
                 'status' => 'awaiting_payment',
             ]);
         } else {
+            $previousGateway = $signup->payment_gateway;
             $signup->fill([
                 'pricing_area_id' => $country?->id,
                 'name' => trim($this->name),
                 'organization' => trim($this->organization),
                 'password' => $this->password,
+                'payment_gateway' => $provider,
             ]);
 
-            if (number_format((float) $signup->amount, 2, '.', '') !== $amount || blank($signup->wompi_link_url)) {
+            if ($previousGateway !== $provider || number_format((float) $signup->amount, 2, '.', '') !== $amount || blank($signup->wompi_link_url)) {
                 $signup->forceFill([
                     'uuid' => new_public_id(),
                     'amount' => $amount,
+                    'payment_gateway' => $provider,
                     'wompi_link_id' => null,
                     'wompi_link_url' => null,
                 ]);
@@ -184,20 +181,21 @@ class PlanSignup extends Component
             $signup->save();
         }
 
-        if (filled($signup->wompi_link_url)) {
+        if (filled($signup->wompi_link_url) && $signup->payment_gateway === $provider) {
             return redirect()->away($signup->wompi_link_url);
         }
 
         try {
-            $link = $wompi->createPlanLink($signup);
+            $link = $checkout->linkForPlan($signup);
         } catch (Throwable $exception) {
             report($exception);
-            $this->addError('email', __('Wompi is not ready for charges.'));
+            $this->addError('email', $provider === 'n1co' ? __('n1co is not ready for charges.') : __('Wompi is not ready for charges.'));
 
             return null;
         }
 
         $signup->update([
+            'payment_gateway' => $provider,
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
         ]);
@@ -236,6 +234,7 @@ class PlanSignup extends Component
             'locationLabel' => $locationLabel,
             'usesStandardPrice' => ! $locationLocked,
             'canRegister' => ! auth()->check() && User::query()->count() > 0,
+            'paymentProvider' => app(GetOdooCheckout::class)->provider(),
         ])->layout('layouts.simple');
     }
 
