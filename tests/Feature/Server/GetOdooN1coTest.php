@@ -115,6 +115,12 @@ it('sends the buyer to the n1co sandbox link and does not create the server yet'
     session(['currentTeam' => $team]);
 
     Livewire::test(ByGetOdoo::class)
+        ->assertSee(__('Payment method'))
+        ->assertSee(__('Accepted cards'))
+        ->assertSee('n1co')
+        ->assertSee('Visa')
+        ->assertSee('Mastercard')
+        ->assertDontSee('Wompi')
         ->set('server_name', 'cliente-n1co')
         ->set('location', 'fsn1')
         ->set('private_key_id', $key->id)

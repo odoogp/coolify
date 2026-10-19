@@ -139,18 +139,7 @@
                     @if ($quote['amount'] > 0)
                         <fieldset class="flex flex-col gap-2">
                             <legend class="text-[13px] font-medium text-neutral-800 dark:text-fg">{{ __('Payment method') }}</legend>
-                            @if (in_array('wompi', $gateways ?? [], true))
-                                <label class="flex items-center gap-2 text-[13px] text-neutral-700 dark:text-fg">
-                                    <input type="radio" name="gateway" value="wompi" wire:model="gateway" class="rounded-full">
-                                    Wompi
-                                </label>
-                            @endif
-                            @if (in_array('n1co', $gateways ?? [], true))
-                                <label class="flex items-center gap-2 text-[13px] text-neutral-700 dark:text-fg">
-                                    <input type="radio" name="gateway" value="n1co" wire:model="gateway" class="rounded-full">
-                                    n1co
-                                </label>
-                            @endif
+                            <x-getodoo.payment-methods :gateways="$gateways ?? []" model="gateway" />
                             @if (count($gateways ?? []) === 0)
                                 <p class="text-[12px] text-red-600 dark:text-red-400">{{ __('No payment method is ready.') }}</p>
                             @endif

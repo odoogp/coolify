@@ -293,6 +293,9 @@ it('lets a plan be paid with Wompi or with n1co', function () {
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->assertSee(__('Payment method'))
+        ->assertSee(__('Accepted cards'))
+        ->assertSee('Visa')
+        ->assertSee('Mastercard')
         ->assertSee(__('This is the monthly price for your location. This step pays the first charge with Wompi or n1co.'))
         ->set('name', 'Ana')
         ->set('organization', 'Acme Org')
@@ -347,6 +350,8 @@ it('sends a paid plan to n1co when Wompi is not configured', function () {
         ->assertSee(__('This is the monthly price for your location. This step pays the first charge with n1co.'))
         ->assertSee(__('Payment method'))
         ->assertSee('n1co')
+        ->assertSee('Visa')
+        ->assertSee('Mastercard')
         ->assertDontSee('Wompi')
         ->assertDontSee(__('Wompi is not ready for charges.'))
         ->set('name', 'Ana')

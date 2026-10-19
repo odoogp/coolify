@@ -95,6 +95,12 @@
                             <x-private-key.download :keys="$private_keys" :selected="$private_key_id" />
                         </div>
                     @endif
+                    @if ($paymentProvider)
+                        <div>
+                            <p class="mb-2 text-sm font-medium">{{ __('Payment method') }}</p>
+                            <x-getodoo.payment-methods :gateways="[$paymentProvider]" />
+                        </div>
+                    @endif
                     <div>
                         <button type="submit" class="button button-highlighted" @disabled($limit_reached || ! $private_key_id)>
                             {{ $paymentProvider === 'n1co' ? __('Pay with n1co') : ($paymentProvider === 'wompi' ? __('Pay with Wompi') : __('Buy and create')) }}
