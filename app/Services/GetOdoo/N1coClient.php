@@ -16,6 +16,11 @@ class N1coClient
         return filled(instanceSettings()->n1co_secret) && filled(instanceSettings()->n1co_webhook_secret);
     }
 
+    public function canChargePlans(): bool
+    {
+        return filled(instanceSettings()->n1co_secret);
+    }
+
     public function charges(): bool
     {
         return $this->configured() && (bool) instanceSettings()->n1co_charges;

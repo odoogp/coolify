@@ -51,7 +51,7 @@ class GetOdooCheckout
             $gateways[] = 'wompi';
         }
 
-        if ($this->n1co->charges()) {
+        if ($this->n1co->canChargePlans()) {
             $gateways[] = 'n1co';
         }
 
@@ -66,7 +66,7 @@ class GetOdooCheckout
         $gateway ??= $this->provider();
 
         return match ($gateway) {
-            'n1co' => $this->n1co->charges()
+            'n1co' => $this->n1co->canChargePlans()
                 ? $this->n1co->createPlanLink($signup)
                 : throw new RuntimeException('The payment gateway is not ready.'),
             'wompi' => $this->wompi->configured()

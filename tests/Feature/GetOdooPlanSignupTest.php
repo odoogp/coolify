@@ -325,7 +325,7 @@ it('sends a paid plan to n1co when Wompi is not configured', function () {
         'n1co_secret' => 'secret-n1co',
         'n1co_webhook_secret' => 'whsec-n1co',
         'n1co_sandbox' => true,
-        'n1co_charges' => true,
+        'n1co_charges' => false,
         'is_registration_enabled' => false,
     ]);
     Http::fake(function ($request) {
@@ -344,7 +344,10 @@ it('sends a paid plan to n1co when Wompi is not configured', function () {
 
     Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
         ->assertSee(__('This is the monthly price for your location. This step pays the first charge with n1co.'))
-        ->assertDontSee(__('Payment method'))
+        ->assertSee(__('Payment method'))
+        ->assertSee('n1co')
+        ->assertDontSee('Wompi')
+        ->assertDontSee(__('Wompi is not ready for charges.'))
         ->set('name', 'Ana')
         ->set('organization', 'Acme Org')
         ->set('email', 'ana-only-n1co@example.com')

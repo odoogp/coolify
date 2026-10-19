@@ -137,7 +137,7 @@ class PlanSignup extends Component
         $gateways = $checkout->gateways();
 
         if ($gateways === []) {
-            $this->addError('email', __('Wompi is not ready for charges.'));
+            $this->addError('gateway', __('No payment method is ready.'));
 
             return null;
         }
@@ -201,7 +201,7 @@ class PlanSignup extends Component
             $link = $checkout->linkForPlan($signup, $provider);
         } catch (Throwable $exception) {
             report($exception);
-            $this->addError('email', $provider === 'n1co' ? __('n1co is not ready for charges.') : __('Wompi is not ready for charges.'));
+            $this->addError('gateway', $provider === 'n1co' ? __('n1co is not ready for charges.') : __('Wompi is not ready for charges.'));
 
             return null;
         }
@@ -230,6 +230,11 @@ class PlanSignup extends Component
         }
 
         $quote = GetOdooPlanPricing::quote($plan, $country);
+        $gateways = app(GetOdooCheckout::class)->gateways();
+
+        if ($gateways !== [] && ! in_array($this->gateway, $gateways, true)) {
+            $this->gateway = $gateways[0];
+        }
 
         $region = $lockedCountry?->region();
         $locationLabel = null;
@@ -246,7 +251,7 @@ class PlanSignup extends Component
             'locationLabel' => $locationLabel,
             'usesStandardPrice' => ! $locationLocked,
             'canRegister' => ! auth()->check() && User::query()->count() > 0,
-            'gateways' => app(GetOdooCheckout::class)->gateways(),
+            'gateways' => $gateways,
         ])->layout('layouts.simple');
     }
 
