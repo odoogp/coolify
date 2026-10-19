@@ -51,9 +51,13 @@
             <p class="auth-plan-copy">
                 @if ($quote['amount'] <= 0)
                     {{ __('This package has no charge.') }}
-                @elseif (($paymentProvider ?? null) === 'n1co' && ($usesStandardPrice ?? false))
+                @elseif (in_array('wompi', $gateways ?? [], true) && in_array('n1co', $gateways ?? [], true) && ($usesStandardPrice ?? false))
+                    {{ __('This is the standard monthly plan price. This step pays the first charge with Wompi or n1co.') }}
+                @elseif (in_array('wompi', $gateways ?? [], true) && in_array('n1co', $gateways ?? [], true))
+                    {{ __('This is the monthly price for your location. This step pays the first charge with Wompi or n1co.') }}
+                @elseif (in_array('n1co', $gateways ?? [], true) && ($usesStandardPrice ?? false))
                     {{ __('This is the standard monthly plan price. This step pays the first charge with n1co.') }}
-                @elseif (($paymentProvider ?? null) === 'n1co')
+                @elseif (in_array('n1co', $gateways ?? [], true))
                     {{ __('This is the monthly price for your location. This step pays the first charge with n1co.') }}
                 @elseif ($usesStandardPrice ?? false)
                     {{ __('This is the standard monthly plan price. This step pays the first charge with Wompi.') }}
@@ -131,6 +135,23 @@
                             <p class="mt-1 text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    @if ($quote['amount'] > 0 && count($gateways ?? []) > 1)
+                        <fieldset class="flex flex-col gap-2">
+                            <legend class="text-[13px] font-medium text-neutral-800 dark:text-fg">{{ __('Payment method') }}</legend>
+                            <label class="flex items-center gap-2 text-[13px] text-neutral-700 dark:text-fg">
+                                <input type="radio" name="gateway" value="wompi" wire:model="gateway" class="rounded-full">
+                                Wompi
+                            </label>
+                            <label class="flex items-center gap-2 text-[13px] text-neutral-700 dark:text-fg">
+                                <input type="radio" name="gateway" value="n1co" wire:model="gateway" class="rounded-full">
+                                n1co
+                            </label>
+                            @error('gateway')
+                                <p class="text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </fieldset>
+                    @endif
 
                     <x-forms.button class="w-full justify-center" type="submit" isHighlighted>
                         {{ $quote['amount'] <= 0 ? __('Create account') : __('Continue to payment') }}

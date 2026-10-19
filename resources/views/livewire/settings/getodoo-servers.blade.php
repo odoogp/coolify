@@ -72,7 +72,7 @@
                 <form wire:submit="saveN1co" class="grid max-w-xl gap-4">
                     <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
                         {{ __('The secret key is under Settings, developer options, Checkout link. Generate the webhook secret on the Webhook screen. The n1co store must charge in US dollars.') }}
-                        {{ __('While Use n1co for charges is on, new payments go to n1co instead of Wompi.') }}
+                        {{ __('While Use n1co for charges is on, a plan can be paid with Wompi or with n1co.') }}
                     </p>
                     <label class="flex flex-col gap-1 text-sm">
                         <span>{{ __('Secret key') }}</span>

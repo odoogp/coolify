@@ -39,13 +39,39 @@ class GetOdooCheckout
     }
 
     /**
+     * Gateways that can charge a plan right now. Wompi and n1co can both be ready.
+     *
+     * @return list<string>
+     */
+    public function gateways(): array
+    {
+        $gateways = [];
+
+        if ($this->wompi->configured()) {
+            $gateways[] = 'wompi';
+        }
+
+        if ($this->n1co->charges()) {
+            $gateways[] = 'n1co';
+        }
+
+        return $gateways;
+    }
+
+    /**
      * @return array{id: string, url: string}
      */
-    public function linkForPlan(GetOdooPlanSignup $signup): array
+    public function linkForPlan(GetOdooPlanSignup $signup, ?string $gateway = null): array
     {
-        return match ($this->provider()) {
-            'n1co' => $this->n1co->createPlanLink($signup),
-            'wompi' => $this->wompi->createPlanLink($signup),
+        $gateway ??= $this->provider();
+
+        return match ($gateway) {
+            'n1co' => $this->n1co->charges()
+                ? $this->n1co->createPlanLink($signup)
+                : throw new RuntimeException('The payment gateway is not ready.'),
+            'wompi' => $this->wompi->configured()
+                ? $this->wompi->createPlanLink($signup)
+                : throw new RuntimeException('The payment gateway is not ready.'),
             default => throw new RuntimeException('The payment gateway is not ready.'),
         };
     }

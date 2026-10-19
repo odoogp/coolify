@@ -252,6 +252,109 @@ it('opens a free plan without Wompi and without using the public registration sw
         ->and(GetOdooPlanSignup::query()->where('email', 'ana@example.com')->value('status'))->toBe('paid');
 });
 
+it('lets a plan be paid with Wompi or with n1co', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'wompi_client_id' => 'client-1',
+        'wompi_client_secret' => 'secret-1',
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => true,
+        'is_registration_enabled' => false,
+    ]);
+    Http::fake(function ($request) {
+        $url = $request->url();
+
+        if (str_contains($url, 'id.wompi.sv/connect/token')) {
+            return Http::response(['access_token' => 'token-1']);
+        }
+
+        if (str_contains($url, 'api.wompi.sv/EnlacePago') && $request->method() === 'POST') {
+            return Http::response([
+                'idEnlace' => 15,
+                'urlEnlace' => 'https://lk.wompi.sv/plan',
+            ]);
+        }
+
+        if (str_contains($url, 'api-pay-sandbox.n1co.shop/api/paymentlink/checkout') && $request->method() === 'POST') {
+            return Http::response([
+                'orderCode' => 'PLAN1',
+                'orderId' => 20,
+                'paymentLinkUrl' => 'https://pay.n1co.shop/PLAN1',
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$url], 500);
+    });
+    $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee(__('Payment method'))
+        ->assertSee(__('This is the monthly price for your location. This step pays the first charge with Wompi or n1co.'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-n1co@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->set('gateway', 'n1co')
+        ->call('register')
+        ->assertRedirect('https://pay.n1co.shop/PLAN1');
+
+    expect(GetOdooPlanSignup::query()->where('email', 'ana-n1co@example.com')->value('payment_gateway'))->toBe('n1co');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-wompi@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->set('gateway', 'wompi')
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect(GetOdooPlanSignup::query()->where('email', 'ana-wompi@example.com')->value('payment_gateway'))->toBe('wompi');
+});
+
+it('sends a paid plan to n1co when Wompi is not configured', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => true,
+        'is_registration_enabled' => false,
+    ]);
+    Http::fake(function ($request) {
+        if (str_contains($request->url(), 'api-pay-sandbox.n1co.shop/api/paymentlink/checkout') && $request->method() === 'POST') {
+            return Http::response([
+                'orderCode' => 'PLAN2',
+                'orderId' => 21,
+                'paymentLinkUrl' => 'https://pay.n1co.shop/PLAN2',
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$request->url()], 500);
+    });
+    $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee(__('This is the monthly price for your location. This step pays the first charge with n1co.'))
+        ->assertDontSee(__('Payment method'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-only-n1co@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://pay.n1co.shop/PLAN2');
+});
+
 it('sends a paid plan to Wompi and creates the account only after a live charge', function () {
     User::factory()->create();
     getOdooPlanWompi();

@@ -39,6 +39,8 @@ class PlanSignup extends Component
 
     public bool $acceptedTerms = false;
 
+    public string $gateway = 'wompi';
+
     public function mount(string $plan): void
     {
         $found = GetOdooPlan::query()->where('uuid', $plan)->where('is_active', true)->first();
@@ -132,12 +134,22 @@ class PlanSignup extends Component
             return $this->enter($user);
         }
 
-        $provider = $checkout->provider();
+        $gateways = $checkout->gateways();
 
-        if ($provider === null) {
+        if ($gateways === []) {
             $this->addError('email', __('Wompi is not ready for charges.'));
 
             return null;
+        }
+
+        if (count($gateways) === 1) {
+            $provider = $gateways[0];
+        } elseif (! in_array($this->gateway, $gateways, true)) {
+            $this->addError('gateway', __('Choose how to pay.'));
+
+            return null;
+        } else {
+            $provider = $this->gateway;
         }
 
         $signup = GetOdooPlanSignup::query()
@@ -186,7 +198,7 @@ class PlanSignup extends Component
         }
 
         try {
-            $link = $checkout->linkForPlan($signup);
+            $link = $checkout->linkForPlan($signup, $provider);
         } catch (Throwable $exception) {
             report($exception);
             $this->addError('email', $provider === 'n1co' ? __('n1co is not ready for charges.') : __('Wompi is not ready for charges.'));
@@ -234,7 +246,7 @@ class PlanSignup extends Component
             'locationLabel' => $locationLabel,
             'usesStandardPrice' => ! $locationLocked,
             'canRegister' => ! auth()->check() && User::query()->count() > 0,
-            'paymentProvider' => app(GetOdooCheckout::class)->provider(),
+            'gateways' => app(GetOdooCheckout::class)->gateways(),
         ])->layout('layouts.simple');
     }
 
