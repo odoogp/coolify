@@ -21,7 +21,7 @@
                             class="getodoo-choice flex cursor-pointer flex-col gap-3 rounded-xl border p-3 {{ (int) $offerId === (int) $offer->id ? 'is-selected' : '' }}">
                             <span class="flex items-start justify-between gap-3">
                                 <span class="flex min-w-0 items-start gap-2">
-                                    <img src="{{ asset('gpsh-logo.svg') }}" alt="GetOdoo" class="size-8 shrink-0">
+                                    <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="size-8 shrink-0 object-contain">
                                     <span class="min-w-0">
                                         <span class="block text-sm font-semibold">{{ $offer->description ?: $offer->name }}</span>
                                         <span class="mt-0.5 block text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">{{ $offer->customerSummary() }}</span>

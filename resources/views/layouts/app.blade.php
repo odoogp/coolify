@@ -38,12 +38,17 @@
                     :class="collapsed ? 'w-16 justify-center px-0' : 'w-56 px-4'">
                     <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
                         class="flex min-w-0 shrink items-center hover:opacity-80 transition-opacity">
-                        <img x-show="collapsed" x-cloak src="/gpsh-logo.svg" alt="{{ product_name() }}"
-                            class="size-5 shrink-0" />
-                        <img x-show="!collapsed" x-cloak src="/brand/logotipo.svg" alt="GetOdoo"
-                            class="h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:hidden" />
-                        <img x-show="!collapsed" x-cloak src="/brand/logotipo-oscuro.svg" alt=""
-                            class="hidden h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:block" />
+                        <img x-show="collapsed" x-cloak src="{{ product_mark_url() }}" alt="{{ product_name() }}"
+                            class="size-5 shrink-0 object-contain" />
+                        @if (product_logo_path())
+                            <img x-show="!collapsed" x-cloak src="{{ product_logo_url() }}" alt="{{ product_name() }}"
+                                class="h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left" />
+                        @else
+                            <img x-show="!collapsed" x-cloak src="/brand/logotipo.svg" alt="{{ product_name() }}"
+                                class="h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:hidden" />
+                            <img x-show="!collapsed" x-cloak src="/brand/logotipo-oscuro.svg" alt=""
+                                class="hidden h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:block" />
+                        @endif
                     </a>
                     <x-version x-show="!collapsed"
                         class="shrink-0 !text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 dark:hover:text-fg hover:text-black" />
@@ -115,7 +120,7 @@
                 <div class="flex min-w-0 flex-1 items-center gap-2.5">
                     <a href="/"
                         class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 transition-opacity hover:opacity-80 dark:bg-white/[0.06]">
-                        <img src="/gpsh-logo.svg" alt="{{ product_name() }}" class="w-[18px] h-[18px]" />
+                        <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="h-[18px] w-[18px] object-contain" />
                     </a>
                     <div class="min-w-0" x-data="{ collapsed: false }">
                         <livewire:switch-team />

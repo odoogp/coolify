@@ -883,7 +883,42 @@ function is_coolify_local_build(): bool
 
 function product_name(): string
 {
-    return 'getodoo.sh';
+    try {
+        $name = trim((string) instanceSettings()->instance_name);
+    } catch (Throwable $exception) {
+        $name = '';
+    }
+
+    return $name !== '' ? $name : 'getodoo.sh';
+}
+
+function product_logo_path(): ?string
+{
+    try {
+        $path = trim((string) instanceSettings()->platform_logo);
+    } catch (Throwable $exception) {
+        return null;
+    }
+
+    if ($path === '' || str_contains($path, '..') || ! str_starts_with($path, 'brand/platform-logo.')) {
+        return null;
+    }
+
+    return is_file(public_path($path)) ? $path : null;
+}
+
+function product_logo_url(): string
+{
+    $path = product_logo_path();
+
+    return $path !== null ? asset($path) : asset('brand/getodoo-isologo.png');
+}
+
+function product_mark_url(): string
+{
+    $path = product_logo_path();
+
+    return $path !== null ? asset($path) : asset('gpsh-logo.svg');
 }
 
 function product_description(): string

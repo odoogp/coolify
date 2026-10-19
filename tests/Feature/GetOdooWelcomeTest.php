@@ -39,6 +39,16 @@ beforeEach(function () {
     session(['currentTeam' => $this->team]);
 });
 
+it('shows the platform name from configuration on the welcome screen', function () {
+    instanceSettings()->update(['instance_name' => 'Nube Norte']);
+
+    expect(product_name())->toBe('Nube Norte');
+
+    Livewire::test(Index::class)
+        ->assertSee('Welcome to Nube Norte')
+        ->assertDontSee('Welcome to getodoo.sh');
+});
+
 it('walks a new account from welcome to a project, an invite, and the server step', function () {
     Livewire::test(Index::class)
         ->assertSet('currentState', 'getodoo-welcome')

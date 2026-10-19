@@ -61,7 +61,7 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect($shell)->toContain('auth-login-heading');
     expect($styles)->toContain('.auth-isologo {');
     expect($styles)->toContain('.auth-isologo img');
-    expect($shell)->toContain('brand/getodoo-isologo.png');
+    expect($shell)->toContain('product_logo_url()');
     expect($shell)->toContain('<h1>{{ $title }}</h1>');
     expect($shell)->not->toContain('getodoo-wordmark.png');
     expect(file_exists(public_path('brand/getodoo-isologo.png')))->toBeTrue();

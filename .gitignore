@@ -56,3 +56,6 @@ ref
 
 # local agent scratch
 .tmp*
+
+# Logo uploaded from Settings → General
+/public/brand/platform-logo.*

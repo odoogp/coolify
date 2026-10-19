@@ -4828,5 +4828,11 @@
     "This is the monthly price for your location. This step pays the first charge with n1co.": "Este es el precio mensual de tu ubicación. Este paso paga el primer cobro con n1co.",
     "n1co has not confirmed this payment yet.": "n1co todavía no confirma este pago.",
     "n1co is not ready for charges.": "n1co no está listo para cobrar.",
-    "The payment was cancelled.": "El pago fue cancelado."
+    "The payment was cancelled.": "El pago fue cancelado.",
+    "Platform name": "Nombre de la plataforma",
+    "This name is what customers see on the welcome screen, login, and the rest of the platform. Leave it empty to use getodoo.sh.": "Este nombre es el que ven los clientes en la bienvenida, el inicio de sesión y el resto de la plataforma. Déjalo vacío para usar getodoo.sh.",
+    "Logo": "Logo",
+    "Use the default logo": "Usar el logo original",
+    "Logo updated.": "Logo actualizado.",
+    "Shown on the login screen and in the menu. PNG, JPG, or WebP. Save to keep it. Remove it to use the current logo again.": "Se ve en el inicio de sesión y en el menú. PNG, JPG o WebP. Guarda para conservarlo. Quítalo para volver al logo original."
 }

@@ -115,7 +115,7 @@ test('settings general unsaved bar excludes auto-saving instance timezone', func
     $contents = file_get_contents($path);
 
     expect($contents)
-        ->toContain('targets="fqdn,instance_name,public_ipv4,public_ipv6,dev_helper_version"')
+        ->toContain('targets="fqdn,instance_name,platformLogo,public_ipv4,public_ipv6,dev_helper_version,terms_and_conditions_html"')
         ->toContain('id="instance_timezone"')
         ->toContain('onChange="submit"')
         ->toContain('x-forms.searchable-listbox')

@@ -9,10 +9,12 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Index extends Component
 {
     use AuthorizesRequests;
+    use WithFileUploads;
 
     public InstanceSettings $settings;
 
@@ -32,6 +34,9 @@ class Index extends Component
 
     #[Validate('nullable|string|max:255')]
     public ?string $instance_name = null;
+
+    #[Validate('nullable|image|mimes:jpg,jpeg,png,webp|max:2048')]
+    public $platformLogo = null;
 
     #[Validate('nullable|ipv4')]
     public ?string $public_ipv4 = null;
@@ -104,6 +109,9 @@ class Index extends Component
         $this->settings->public_port_min = $this->public_port_min;
         $this->settings->public_port_max = $this->public_port_max;
         $this->settings->instance_name = $this->instance_name;
+        if ($this->platformLogo) {
+            $this->storePlatformLogo();
+        }
         $this->settings->public_ipv4 = $this->public_ipv4;
         $this->settings->public_ipv6 = $this->public_ipv6;
         $this->settings->instance_timezone = $this->instance_timezone;
@@ -115,6 +123,20 @@ class Index extends Component
         if ($isSave) {
             $this->settings->save();
             $this->dispatch('success', __('Settings updated!'));
+        }
+    }
+
+    public function removePlatformLogo(): void
+    {
+        try {
+            $this->authorize('update', $this->settings);
+            $this->deletePlatformLogoFiles();
+            $this->settings->platform_logo = null;
+            $this->settings->save();
+            $this->platformLogo = null;
+            $this->dispatch('success', __('Logo updated.'));
+        } catch (\Exception $e) {
+            handleError($e, $this);
         }
     }
 
@@ -187,6 +209,35 @@ class Index extends Component
             }
         } catch (\Exception $e) {
             return handleError($e, $this);
+        }
+    }
+
+    private function storePlatformLogo(): void
+    {
+        $extension = strtolower((string) $this->platformLogo->getClientOriginalExtension());
+        $extension = match ($extension) {
+            'jpeg', 'jpg' => 'jpg',
+            'webp' => 'webp',
+            default => 'png',
+        };
+        $this->deletePlatformLogoFiles();
+        $relative = 'brand/platform-logo.'.$extension;
+        $contents = file_get_contents($this->platformLogo->getRealPath());
+        if ($contents === false) {
+            throw new \RuntimeException('The logo could not be read.');
+        }
+        file_put_contents(public_path($relative), $contents);
+        $this->settings->platform_logo = $relative;
+        $this->platformLogo = null;
+    }
+
+    private function deletePlatformLogoFiles(): void
+    {
+        foreach (['png', 'jpg', 'webp'] as $extension) {
+            $file = public_path('brand/platform-logo.'.$extension);
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
     }
 

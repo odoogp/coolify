@@ -37,7 +37,7 @@ it('shows the product icon in the collapsed desktop brand slot', function () {
     $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
     expect($layout)
-        ->toContain('x-show="collapsed" x-cloak src="/gpsh-logo.svg" alt="{{ product_name() }}"')
+        ->toContain('x-show="collapsed" x-cloak src="{{ product_mark_url() }}" alt="{{ product_name() }}"')
         ->not->toContain('>C</span>');
 });
 

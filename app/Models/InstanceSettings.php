@@ -41,6 +41,7 @@ class InstanceSettings extends Model
         'custom_dns_servers',
         'domain_connect_private_key',
         'instance_name',
+        'platform_logo',
         'terms_and_conditions_html',
         'is_api_enabled',
         'allowed_ips',

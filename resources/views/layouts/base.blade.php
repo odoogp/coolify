@@ -124,7 +124,7 @@
         }
     @endphp
     <title>{{ $name }}{{ $pageTitle }}</title>
-    <link rel="icon" href="{{ asset('gpsh-logo.svg') }}" type="image/svg+xml" />
+    <link rel="icon" href="{{ product_mark_url() }}" />
     <link rel="icon" href="{{ asset('brand/favicon-32.png') }}" sizes="32x32" type="image/png" />
     <link rel="icon" href="{{ asset('brand/favicon-16.png') }}" sizes="16x16" type="image/png" />
     <link rel="apple-touch-icon" href="{{ asset('brand/icono-app.png') }}" />
