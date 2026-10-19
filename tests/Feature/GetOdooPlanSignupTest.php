@@ -12,6 +12,7 @@ use App\Models\Server;
 use App\Models\Team;
 use App\Models\User;
 use App\Services\GetOdoo\GetOdooAreaEntitlements;
+use App\Services\GetOdoo\N1coClient;
 use App\Services\GetOdoo\GetOdooPlanPricing;
 use App\Services\GetOdoo\OpenGetOdooPlanAccount;
 use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
@@ -356,6 +357,75 @@ it('sends a paid plan to n1co when Wompi is not configured', function () {
         ->set('acceptedTerms', true)
         ->call('register')
         ->assertRedirect('https://pay.n1co.shop/PLAN2');
+});
+
+it('opens the account when n1co already shows the order as paid', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => null,
+        'n1co_sandbox' => true,
+        'n1co_charges' => false,
+        'is_registration_enabled' => false,
+    ]);
+    $plan = getOdooPlan(['name' => 'Inicial', 'price' => 50]);
+    $signup = $plan->signups()->create([
+        'name' => 'Ana',
+        'organization' => 'Acme Org',
+        'email' => 'ana-paid@example.com',
+        'password' => 'password1',
+        'amount' => 50,
+        'payment_gateway' => 'n1co',
+        'status' => 'awaiting_payment',
+        'wompi_link_id' => 'RJZjSmO',
+        'wompi_link_url' => 'https://pay-sandbox.n1co.shop/RJZjSmO',
+    ]);
+
+    Http::fake(function ($request) use ($signup) {
+        if (str_contains($request->url(), 'api-pay-sandbox.n1co.shop/api/paymentlink/order/RJZjSmO')) {
+            return Http::response([
+                'OrderCode' => 'RJZjSmO',
+                'OrderReference' => $signup->uuid,
+                'OrderStatus' => 'FINALIZED',
+                'Total' => 50,
+                'Payment' => [
+                    'AuthorizationCode' => '1792430802763',
+                    'Status' => 'Pagado',
+                ],
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$request->url()], 500);
+    });
+
+    $this->get(route('getodoo.plan.return', [
+        'plan' => $plan->uuid,
+        'signup' => $signup->uuid,
+        'order_code' => 'RJZjSmO',
+    ]))->assertRedirect(route('dashboard'));
+
+    expect($signup->fresh()->status)->toBe('paid')
+        ->and($signup->fresh()->wompi_transaction_id)->toBe('1792430802763')
+        ->and(User::query()->where('email', 'ana-paid@example.com')->exists())->toBeTrue();
+});
+
+it('recognizes a finalized n1co order that the portal marks as paid', function () {
+    $client = app(N1coClient::class);
+
+    expect($client->isPaid([
+        'orderStatus' => 'Finalizado',
+        'total' => '50.00',
+        'payment' => ['status' => 'Pagado', 'authorizationCode' => '1792430802763'],
+    ], 50))->toBeTrue()
+        ->and($client->isPaid([
+            'orderStatus' => 'FINALIZED',
+            'total' => 50,
+        ], 50))->toBeFalse()
+        ->and($client->isPaid([
+            'orderStatus' => 'PAID',
+            'total' => 40,
+            'payment' => ['authorizationCode' => '1'],
+        ], 50))->toBeFalse();
 });
 
 it('sends a paid plan to Wompi and creates the account only after a live charge', function () {

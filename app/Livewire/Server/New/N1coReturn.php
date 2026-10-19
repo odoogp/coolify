@@ -73,30 +73,23 @@ class N1coReturn extends Component
 
     private function confirm(GetOdooServerOrder $order, N1coClient $n1co, SettleGetOdooServerPayment $settle): void
     {
-        $code = (string) $order->wompi_link_id;
-
-        if ($code === '' || ! $n1co->configured()) {
+        if (! $n1co->canChargePlans()) {
             $this->message = __('n1co has not confirmed this payment yet.');
 
             return;
         }
 
-        try {
-            $remote = $n1co->order($code);
-        } catch (Throwable $exception) {
-            report($exception);
+        $codes = $n1co->candidateOrderCodes($order->wompi_link_id, $order->wompi_link_url, request()->query());
+        $remote = $n1co->paidOrder($codes, $order->amount, $order->uuid);
+
+        if (! is_array($remote)) {
             $this->message = __('n1co has not confirmed this payment yet.');
 
             return;
         }
 
-        if (! $n1co->isPaid($remote, $order->amount)) {
-            $this->message = __('n1co has not confirmed this payment yet.');
-
-            return;
-        }
-
-        $transactionId = (string) data_get($remote, 'payment.authorizationCode', 'n1co-'.$code);
+        $code = (string) ($codes[0] ?? '');
+        $transactionId = $n1co->authorizationCode($remote);
 
         try {
             $server = $settle->settle($order, $transactionId !== '' ? $transactionId : 'n1co-'.$code);

@@ -8,6 +8,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
+use Throwable;
 
 class N1coClient
 {
@@ -88,14 +89,291 @@ class N1coClient
     }
 
     /**
+     * Codes n1co may use for the same link: the one we stored, the link slug, and the return query.
+     *
+     * @param  array<string, mixed>  $query
+     * @return list<string>
+     */
+    public function candidateOrderCodes(?string $storedId, ?string $storedUrl, array $query = []): array
+    {
+        $codes = [];
+        $push = function (?string $code) use (&$codes): void {
+            $code = trim((string) $code);
+
+            if ($code !== '' && ! in_array($code, $codes, true)) {
+                $codes[] = $code;
+            }
+        };
+
+        $push($storedId);
+        $path = parse_url((string) $storedUrl, PHP_URL_PATH);
+        $push(basename(is_string($path) ? $path : ''));
+
+        foreach (['order_code', 'orderCode', 'OrderCode'] as $key) {
+            $value = $query[$key] ?? null;
+
+            if (is_string($value)) {
+                $push($value);
+            }
+        }
+
+        return $codes;
+    }
+
+    /**
+     * @param  list<string>  $codes
+     * @return array<string, mixed>|null
+     */
+    public function paidOrder(array $codes, mixed $amount, ?string $reference = null): ?array
+    {
+        foreach ($codes as $code) {
+            try {
+                $order = $this->order($code);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                continue;
+            }
+
+            $remoteReference = $this->text($order, 'orderReference', 'OrderReference');
+
+            if (is_string($reference) && $reference !== '' && $remoteReference !== '' && $remoteReference !== $reference) {
+                continue;
+            }
+
+            if ($this->isPaid($order, $amount)) {
+                return $order;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param  array<string, mixed>  $order
      */
     public function isPaid(array $order, mixed $amount): bool
     {
-        $status = strtoupper((string) data_get($order, 'orderStatus'));
-        $paid = $status === 'PAID' || ($status === 'FINALIZED' && filled(data_get($order, 'payment.authorizationCode')));
+        $order = $this->unwrap($order);
 
-        return $paid && $this->sameMoney(data_get($order, 'total'), $amount);
+        if (! $this->hasPaidSignal($order)) {
+            return false;
+        }
+
+        $paid = $this->moneyOf($order);
+
+        return $paid !== null && $this->sameMoney($paid, $amount);
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     */
+    public function authorizationCode(array $order): string
+    {
+        $order = $this->unwrap($order);
+        $direct = $this->text($order, 'authorizationCode', 'AuthorizationCode');
+
+        if ($direct !== '') {
+            return $direct;
+        }
+
+        foreach ($this->paymentRows($order) as $row) {
+            $code = $this->text($row, 'authorizationCode', 'AuthorizationCode');
+
+            if ($code !== '') {
+                return $code;
+            }
+        }
+
+        return $this->metadataValue($order, 'authorizationCode', 'AuthorizationCode', 'PaymentId');
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     * @return array<string, mixed>
+     */
+    private function unwrap(array $order): array
+    {
+        foreach (['data', 'result', 'order', 'Data', 'Result', 'Order'] as $key) {
+            $nested = $order[$key] ?? null;
+
+            if (! is_array($nested) || array_is_list($nested)) {
+                continue;
+            }
+
+            if ($this->text($nested, 'orderStatus', 'OrderStatus', 'orderCode', 'OrderCode') !== '') {
+                return $nested;
+            }
+        }
+
+        return $order;
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     */
+    private function hasPaidSignal(array $order): bool
+    {
+        $status = strtoupper($this->text($order, 'orderStatus', 'OrderStatus', 'status', 'Status'));
+
+        if (in_array($status, ['CANCELLED', 'CANCELED', 'CANCELADO', 'PENDING', 'EXPIRED', 'FAILED', 'REJECTED', 'VOID'], true)) {
+            return false;
+        }
+
+        $paymentStatuses = [];
+
+        foreach ($this->paymentRows($order) as $row) {
+            $paymentStatuses[] = strtoupper($this->text($row, 'status', 'Status', 'paymentStatus', 'PaymentStatus'));
+        }
+
+        $paymentStatuses[] = strtoupper($this->metadataValue($order, 'Status', 'status', 'paymentStatus'));
+
+        foreach ($paymentStatuses as $paymentStatus) {
+            if (in_array($paymentStatus, ['PAID', 'PAGADO', 'SUCCEEDED', 'SUCCESS', 'APPROVED', 'CAPTURED'], true)) {
+                return true;
+            }
+        }
+
+        if (in_array($status, ['PAID', 'PAGADO', 'SUCCEEDED', 'SUCCESS', 'APPROVED'], true)) {
+            return true;
+        }
+
+        return $this->authorizationCode($order) !== '' && in_array($status, ['FINALIZED', 'FINALIZADO', 'COMPLETED', 'COMPLETE', '4'], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     */
+    private function moneyOf(array $order): mixed
+    {
+        foreach (['total', 'Total', 'subtotal', 'Subtotal', 'amount', 'Amount'] as $key) {
+            $candidate = $this->value($order, $key);
+
+            if (is_numeric($candidate)) {
+                return $candidate;
+            }
+        }
+
+        foreach ($this->paymentRows($order) as $row) {
+            foreach (['amount', 'total', 'Amount', 'Total'] as $key) {
+                $candidate = $this->value($row, $key);
+
+                if (is_numeric($candidate)) {
+                    return $candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     * @return list<array<string, mixed>>
+     */
+    private function paymentRows(array $order): array
+    {
+        $rows = [];
+
+        foreach (['payment', 'charges', 'payments'] as $key) {
+            $value = $this->value($order, $key);
+
+            if (! is_array($value)) {
+                continue;
+            }
+
+            if (array_is_list($value)) {
+                foreach ($value as $row) {
+                    if (is_array($row)) {
+                        $rows[] = $row;
+                    }
+                }
+
+                continue;
+            }
+
+            $rows[] = $value;
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  array<string, mixed>  $order
+     */
+    private function metadataValue(array $order, string ...$names): string
+    {
+        $metadata = $this->value($order, 'metadata', 'Metadata');
+
+        if (! is_array($metadata)) {
+            return '';
+        }
+
+        if (! array_is_list($metadata)) {
+            foreach ($names as $name) {
+                $direct = $this->text($metadata, $name);
+
+                if ($direct !== '') {
+                    return $direct;
+                }
+            }
+
+            return '';
+        }
+
+        foreach ($metadata as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $name = strtolower($this->text($row, 'name', 'Name'));
+
+            foreach ($names as $wanted) {
+                if ($name === strtolower($wanted)) {
+                    return $this->text($row, 'value', 'Value');
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     */
+    private function text(array $source, string ...$keys): string
+    {
+        $value = $this->value($source, ...$keys);
+
+        return is_scalar($value) ? trim((string) $value) : '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $source
+     */
+    private function value(array $source, string ...$keys): mixed
+    {
+        $lower = [];
+
+        foreach ($source as $name => $item) {
+            if (is_string($name)) {
+                $lower[strtolower($name)] = $item;
+            }
+        }
+
+        foreach ($keys as $key) {
+            if (! array_key_exists(strtolower($key), $lower)) {
+                continue;
+            }
+
+            $found = $lower[strtolower($key)];
+
+            if ($found !== null && $found !== '') {
+                return $found;
+            }
+        }
+
+        return null;
     }
 
     public function webhookHash(string $body): string

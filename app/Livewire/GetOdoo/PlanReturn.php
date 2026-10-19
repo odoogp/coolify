@@ -116,30 +116,25 @@ class PlanReturn extends Component
 
     private function confirmN1co(GetOdooPlanSignup $signup, N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
     {
-        $code = (string) $signup->wompi_link_id;
-
-        if ($code === '' || ! $n1co->configured()) {
+        if (! $n1co->canChargePlans()) {
             $this->message = __('n1co has not confirmed this payment yet.');
 
             return;
         }
 
-        try {
-            $remote = $n1co->order($code);
-        } catch (Throwable $exception) {
-            report($exception);
+        $codes = $n1co->candidateOrderCodes($signup->wompi_link_id, $signup->wompi_link_url, request()->query());
+        $remote = $n1co->paidOrder($codes, $signup->amount, $signup->uuid);
+
+        if (! is_array($remote)) {
             $this->message = __('n1co has not confirmed this payment yet.');
 
             return;
         }
 
-        if (! $n1co->isPaid($remote, $signup->amount)) {
-            $this->message = __('n1co has not confirmed this payment yet.');
-
-            return;
-        }
-
-        $transactionId = (string) data_get($remote, 'payment.authorizationCode', 'n1co-'.$code);
+        $code = $n1co->authorizationCode($remote) !== ''
+            ? (string) ($remote['orderCode'] ?? $remote['OrderCode'] ?? $codes[0] ?? '')
+            : (string) ($codes[0] ?? '');
+        $transactionId = $n1co->authorizationCode($remote);
 
         try {
             $user = $settle->settle($signup, $transactionId !== '' ? $transactionId : 'n1co-'.$code);
