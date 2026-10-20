@@ -27,7 +27,7 @@
                     <div class="application-settings-section-body flex flex-col gap-3">
                         <a href="{{ $getodoo_available ? route('server.create.type', ['type' => 'getodoo']) : route('settings.getodoo-servers') }}"
                             class="getodoo-server-card" {{ wireNavigate() }}>
-                            <img src="{{ asset('gpsh-logo.svg') }}" alt="GetOdoo" class="size-12">
+                            <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="size-12 object-contain">
                             <span>
                                 <span class="getodoo-kicker">GetOdoo</span>
                                 <span class="mt-1 block text-lg font-semibold">{{ __('GetOdoo server') }}</span>

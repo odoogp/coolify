@@ -8,7 +8,7 @@
             {{-- instance_timezone auto-saves via $wire.set + submit; exclude it so
                  the bar does not flash while the snapshot catches up. --}}
             <x-unsaved-bar action="submit"
-                targets="fqdn,instance_name,public_ipv4,public_ipv6,dev_helper_version,terms_and_conditions_html" />
+                targets="fqdn,instance_name,platformLogo,public_ipv4,public_ipv6,dev_helper_version,terms_and_conditions_html" />
             <x-application.settings-section title="{{ __('General') }}">
                 <div class="grid gap-4 lg:grid-cols-2">
                     <div @class([
@@ -32,8 +32,33 @@
                         </div>
                     @endif
 
-                    <x-forms.input canGate="update" :canResource="$settings" id="instance_name" label="{{ __('Name') }}"
-                        placeholder="{{ product_name() }}" helper="{{ product_text('Custom name for this Coolify instance.') }}" />
+                    <x-forms.input canGate="update" :canResource="$settings" id="instance_name" label="{{ __('Platform name') }}"
+                        placeholder="getodoo.sh"
+                        helper="{{ __('This name is what customers see on the welcome screen, login, and the rest of the platform. Leave it empty to use getodoo.sh.') }}" />
+
+                    <div class="lg:col-span-2">
+                        <p class="mb-2 text-sm font-medium">{{ __('Logo') }}</p>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <img src="{{ product_logo_url() }}" alt="{{ product_name() }}"
+                                class="h-12 w-auto max-w-[10rem] rounded-md border border-neutral-200 bg-white object-contain p-1 dark:border-white/10">
+                            <label class="text-sm">
+                                <input id="platformLogo" type="file" wire:model="platformLogo" accept="image/png,image/jpeg,image/webp"
+                                    class="block w-full text-sm">
+                            </label>
+                            @if ($platformLogo)
+                                <button type="submit" class="button">{{ __('Save logo') }}</button>
+                            @endif
+                            @if (product_logo_path())
+                                <button type="button" class="button" wire:click="removePlatformLogo">{{ __('Use the default logo') }}</button>
+                            @endif
+                        </div>
+                        <p class="mt-1 text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Shown on the login screen and in the menu. PNG, JPG, or WebP. After you choose a file, click Save logo.') }}
+                        </p>
+                        @error('platformLogo')
+                            <p class="mt-1 text-sm text-error">{{ $message }}</p>
+                        @enderror
+                    </div>
 
                     {{-- Use searchable-listbox so the label row (h-4) and control height match
                          sibling x-forms.input fields (Name). onChange auto-saves like before. --}}

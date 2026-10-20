@@ -41,6 +41,7 @@ class InstanceSettings extends Model
         'custom_dns_servers',
         'domain_connect_private_key',
         'instance_name',
+        'platform_logo',
         'terms_and_conditions_html',
         'is_api_enabled',
         'allowed_ips',
@@ -73,6 +74,10 @@ class InstanceSettings extends Model
         'getodoo_margin_percent',
         'wompi_client_id',
         'wompi_client_secret',
+        'n1co_secret',
+        'n1co_webhook_secret',
+        'n1co_sandbox',
+        'n1co_charges',
     ];
 
     protected $hidden = [
@@ -86,6 +91,8 @@ class InstanceSettings extends Model
         'domain_connect_private_key',
         'sentinel_token',
         'wompi_client_secret',
+        'n1co_secret',
+        'n1co_webhook_secret',
     ];
 
     protected $casts = [
@@ -103,6 +110,10 @@ class InstanceSettings extends Model
         'resend_api_key' => 'encrypted',
         'domain_connect_private_key' => 'encrypted',
         'wompi_client_secret' => 'encrypted',
+        'n1co_secret' => 'encrypted',
+        'n1co_webhook_secret' => 'encrypted',
+        'n1co_sandbox' => 'boolean',
+        'n1co_charges' => 'boolean',
 
         'allowed_ip_ranges' => 'array',
         'is_auto_update_enabled' => 'boolean',

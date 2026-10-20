@@ -21,7 +21,7 @@
                             class="getodoo-choice flex cursor-pointer flex-col gap-3 rounded-xl border p-3 {{ (int) $offerId === (int) $offer->id ? 'is-selected' : '' }}">
                             <span class="flex items-start justify-between gap-3">
                                 <span class="flex min-w-0 items-start gap-2">
-                                    <img src="{{ asset('gpsh-logo.svg') }}" alt="GetOdoo" class="size-8 shrink-0">
+                                    <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="size-8 shrink-0 object-contain">
                                     <span class="min-w-0">
                                         <span class="block text-sm font-semibold">{{ $offer->description ?: $offer->name }}</span>
                                         <span class="mt-0.5 block text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">{{ $offer->customerSummary() }}</span>
@@ -65,7 +65,7 @@
             </x-application.settings-section>
 
             <x-application.settings-section title="{{ __('Launch') }}"
-                description="{{ $paysWithWompi ? __('The GetOdoo server is created after Wompi approves this monthly charge.') : __('The server is created from the GetOdoo connection.') }}">
+                description="{{ $paymentProvider === 'n1co' ? __('The GetOdoo server is created after n1co approves this monthly charge.') : ($paymentProvider === 'wompi' ? __('The GetOdoo server is created after Wompi approves this monthly charge.') : __('The server is created from the GetOdoo connection.')) }}">
                 <div class="grid max-w-xl gap-4">
                     <x-forms.input id="server_name" label="{{ __('Server name') }}" required />
                     @if ($selectedOffer && count($selectedOffer->locations ?? []) > 1)
@@ -95,9 +95,15 @@
                             <x-private-key.download :keys="$private_keys" :selected="$private_key_id" />
                         </div>
                     @endif
+                    @if ($paymentProvider)
+                        <div>
+                            <p class="mb-2 text-sm font-medium">{{ __('Payment method') }}</p>
+                            <x-getodoo.payment-methods :gateways="[$paymentProvider]" />
+                        </div>
+                    @endif
                     <div>
                         <button type="submit" class="button button-highlighted" @disabled($limit_reached || ! $private_key_id)>
-                            {{ $paysWithWompi ? __('Pay with Wompi') : __('Buy and create') }}
+                            {{ $paymentProvider === 'n1co' ? __('Pay with n1co') : ($paymentProvider === 'wompi' ? __('Pay with Wompi') : __('Buy and create')) }}
                         </button>
                     </div>
                 </div>

@@ -51,6 +51,14 @@
             <p class="auth-plan-copy">
                 @if ($quote['amount'] <= 0)
                     {{ __('This package has no charge.') }}
+                @elseif (in_array('wompi', $gateways ?? [], true) && in_array('n1co', $gateways ?? [], true) && ($usesStandardPrice ?? false))
+                    {{ __('This is the standard monthly plan price. This step pays the first charge with Wompi or n1co.') }}
+                @elseif (in_array('wompi', $gateways ?? [], true) && in_array('n1co', $gateways ?? [], true))
+                    {{ __('This is the monthly price for your location. This step pays the first charge with Wompi or n1co.') }}
+                @elseif (in_array('n1co', $gateways ?? [], true) && ($usesStandardPrice ?? false))
+                    {{ __('This is the standard monthly plan price. This step pays the first charge with n1co.') }}
+                @elseif (in_array('n1co', $gateways ?? [], true))
+                    {{ __('This is the monthly price for your location. This step pays the first charge with n1co.') }}
                 @elseif ($usesStandardPrice ?? false)
                     {{ __('This is the standard monthly plan price. This step pays the first charge with Wompi.') }}
                 @else
@@ -127,6 +135,19 @@
                             <p class="mt-1 text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
                         @enderror
                     </div>
+
+                    @if ($quote['amount'] > 0)
+                        <fieldset class="flex flex-col gap-2">
+                            <legend class="text-[13px] font-medium text-neutral-800 dark:text-fg">{{ __('Payment method') }}</legend>
+                            <x-getodoo.payment-methods :gateways="$gateways ?? []" model="gateway" />
+                            @if (count($gateways ?? []) === 0)
+                                <p class="text-[12px] text-red-600 dark:text-red-400">{{ __('No payment method is ready.') }}</p>
+                            @endif
+                            @error('gateway')
+                                <p class="text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                            @enderror
+                        </fieldset>
+                    @endif
 
                     <x-forms.button class="w-full justify-center" type="submit" isHighlighted>
                         {{ $quote['amount'] <= 0 ? __('Create account') : __('Continue to payment') }}

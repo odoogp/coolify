@@ -47,7 +47,7 @@ test('server selection uses the provider logos', function () {
         ->toContain("src=\"{{ asset('svgs/hetzner.svg') }}\"")
         ->toContain("src=\"{{ asset('svgs/ssh.svg') }}\"")
         ->toContain('class="getodoo-server-card"')
-        ->toContain("src=\"{{ asset('gpsh-logo.svg') }}\"")
+        ->toContain('src="{{ product_mark_url() }}"')
         ->and($onboardingView)
         ->toContain('src="https://www.vultr.com/media/logo_ondark.svg"')
         ->toContain("src=\"{{ asset('svgs/hetzner.svg') }}\"");

@@ -19,6 +19,7 @@ class GetOdooServerOrder extends BaseModel
         'amount',
         'status',
         'purpose',
+        'payment_gateway',
         'wompi_link_id',
         'wompi_link_url',
         'wompi_transaction_id',

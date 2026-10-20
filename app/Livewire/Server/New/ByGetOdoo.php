@@ -7,9 +7,9 @@ use App\Models\GetOdooServerOrder;
 use App\Models\PrivateKey;
 use App\Models\Server;
 use App\Models\Team;
+use App\Services\GetOdoo\GetOdooCheckout;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use App\Services\GetOdoo\ProvisionGetOdooServer;
-use App\Services\GetOdoo\WompiClient;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 use Throwable;
@@ -62,7 +62,7 @@ class ByGetOdoo extends Component
         $this->location = $offer?->location;
     }
 
-    public function submit(GetOdooServerCatalog $catalog, WompiClient $wompi, ProvisionGetOdooServer $provisioner)
+    public function submit(GetOdooServerCatalog $catalog, GetOdooCheckout $checkout, ProvisionGetOdooServer $provisioner)
     {
         $this->authorize('create', Server::class);
 
@@ -92,8 +92,8 @@ class ByGetOdoo extends Component
 
         $price = $offer->sellPrice($this->location);
 
-        if ($wompi->configured()) {
-            return $this->startPayment($wompi, $offer, $price);
+        if ($checkout->provider() !== null) {
+            return $this->startPayment($checkout, $offer, $price);
         }
 
         try {
@@ -121,13 +121,14 @@ class ByGetOdoo extends Component
         return view('livewire.server.new.by-get-odoo', [
             'offers' => $this->offers(),
             'selectedOffer' => $offer,
-            'paysWithWompi' => app(WompiClient::class)->configured(),
+            'paymentProvider' => app(GetOdooCheckout::class)->provider(),
             'privateKeyOptions' => $this->private_keys->map(fn ($key) => ['value' => $key->id, 'label' => $key->name])->values()->all(),
         ]);
     }
 
-    private function startPayment(WompiClient $wompi, GetOdooServerOffer $offer, float $price): mixed
+    private function startPayment(GetOdooCheckout $checkout, GetOdooServerOffer $offer, float $price): mixed
     {
+        $provider = $checkout->provider();
         $order = GetOdooServerOrder::query()->create([
             'team_id' => currentTeam()->id,
             'user_id' => auth()->id(),
@@ -138,10 +139,11 @@ class ByGetOdoo extends Component
             'amount' => $price,
             'status' => 'awaiting_payment',
             'purpose' => 'launch',
+            'payment_gateway' => $provider,
         ]);
 
         try {
-            $link = $wompi->createServerLink($order);
+            $link = $checkout->linkForServer($order);
         } catch (Throwable $exception) {
             $order->delete();
             report($exception);

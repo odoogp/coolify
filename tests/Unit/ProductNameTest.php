@@ -14,11 +14,11 @@ it('uses getodoo.sh as the visible product name', function () {
         ->toContain('product_name()')
         ->toContain('product_description()')
         ->toContain('product_og_image_url()')
-        ->toContain("asset('gpsh-logo.svg')")
+        ->toContain('product_mark_url()')
         ->not->toContain('cdn.coollabs.io/og-images/coolify.png')
         ->not->toContain('https://coolify.io')
         ->not->toContain('@coolifyio')
-        ->and($app)->toContain('gpsh-logo.svg')
+        ->and($app)->toContain('product_mark_url()')
         ->and(is_file($root.'/public/gpsh-logo.svg'))->toBeTrue()
         ->and(is_file($root.'/public/brand/og.png'))->toBeTrue();
 });

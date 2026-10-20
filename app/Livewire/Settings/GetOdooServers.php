@@ -6,6 +6,7 @@ use App\Models\CloudProviderToken;
 use App\Models\GetOdooServerOffer;
 use App\Services\GetOdoo\GetOdooPrice;
 use App\Services\GetOdoo\GetOdooServerCatalog;
+use App\Services\GetOdoo\N1coClient;
 use App\Services\GetOdoo\WompiClient;
 use Livewire\Component;
 use Throwable;
@@ -38,6 +39,16 @@ class GetOdooServers extends Component
 
     public bool $wompiReady = false;
 
+    public string $n1coSecret = '';
+
+    public string $n1coWebhookSecret = '';
+
+    public bool $n1coSandbox = true;
+
+    public bool $n1coCharges = false;
+
+    public bool $n1coReady = false;
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -50,6 +61,7 @@ class GetOdooServers extends Component
         $this->loadPricing();
         $this->loadOffers();
         $this->loadWompi();
+        $this->loadN1co();
     }
 
     public function getListeners(): array
@@ -263,6 +275,50 @@ class GetOdooServers extends Component
         $this->dispatch('success', __('Wompi saved.'));
     }
 
+    public function saveN1co(): void
+    {
+        if (! isInstanceOwner()) {
+            return;
+        }
+
+        $this->validate([
+            'n1coSecret' => 'nullable|string|max:500',
+            'n1coWebhookSecret' => 'nullable|string|max:500',
+            'n1coSandbox' => 'boolean',
+            'n1coCharges' => 'boolean',
+        ]);
+
+        $settings = instanceSettings();
+        $secret = trim($this->n1coSecret);
+        $webhook = trim($this->n1coWebhookSecret);
+        $secret = $secret !== '' ? $secret : (string) ($settings->n1co_secret ?? '');
+        $webhook = $webhook !== '' ? $webhook : (string) ($settings->n1co_webhook_secret ?? '');
+
+        if ($this->n1coCharges && ($secret === '' || $webhook === '')) {
+            if ($secret === '') {
+                $this->addError('n1coSecret', __('The secret key is required.'));
+            }
+
+            if ($webhook === '') {
+                $this->addError('n1coWebhookSecret', __('The webhook secret is required.'));
+            }
+
+            return;
+        }
+
+        $settings->update([
+            'n1co_secret' => $secret !== '' ? $secret : null,
+            'n1co_webhook_secret' => $webhook !== '' ? $webhook : null,
+            'n1co_sandbox' => $this->n1coSandbox,
+            'n1co_charges' => $this->n1coCharges,
+        ]);
+
+        $this->n1coSecret = '';
+        $this->n1coWebhookSecret = '';
+        $this->loadN1co();
+        $this->dispatch('success', __('n1co saved.'));
+    }
+
     public function suggestedUsd(float $netEur, int $offerId): float
     {
         $margin = (float) ($this->lineMargins[$offerId] ?? $this->marginPercent);
@@ -290,6 +346,16 @@ class GetOdooServers extends Component
         $this->wompiClientId = (string) ($settings->wompi_client_id ?? '');
         $this->wompiClientSecret = '';
         $this->wompiReady = app(WompiClient::class)->configured();
+    }
+
+    private function loadN1co(): void
+    {
+        $settings = instanceSettings();
+        $this->n1coSecret = '';
+        $this->n1coWebhookSecret = '';
+        $this->n1coSandbox = (bool) ($settings->n1co_sandbox ?? true);
+        $this->n1coCharges = (bool) ($settings->n1co_charges ?? false);
+        $this->n1coReady = app(N1coClient::class)->charges();
     }
 
     private function loadPricing(): void

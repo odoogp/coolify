@@ -73,12 +73,12 @@
                         @if ($tunnel === 'login')
                             <h1 class="auth-login-heading">
                                 <span class="auth-isologo auth-login-heading-mark">
-                                    <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="{{ $title }}">
+                                    <img src="{{ product_logo_url() }}" alt="{{ $title }}">
                                 </span>
                             </h1>
                         @elseif ($lockup)
                             <div class="auth-isologo auth-lockup-isologo">
-                                <img src="{{ asset('brand/getodoo-isologo.png') }}" alt="{{ $title }}">
+                                <img src="{{ product_logo_url() }}" alt="{{ $title }}">
                             </div>
                         @else
                             <h1>{{ $title }}</h1>
