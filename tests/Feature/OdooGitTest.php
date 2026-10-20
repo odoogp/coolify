@@ -1263,6 +1263,7 @@ it('clones the repository branch into the addon volume jupyter shows', function 
         ->and($script)->toContain('svc_odoo-extra-addons')
         ->and($script)->toContain('alpine/git')
         ->and($script)->toContain('/addons')
+        ->and($script)->toContain('safe.directory')
         ->and($script)->toContain('test -d /addons/.git')
         ->and($script)->toContain('rev-parse --verify HEAD')
         ->and($script)->toContain('gpsh-keep');

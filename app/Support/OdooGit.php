@@ -1956,6 +1956,16 @@ BASH;
     }
 
     /**
+     * alpine/git runs as root against a volume often owned by Odoo/Jupyter (100:101).
+     * Without safe.directory, git aborts with "detected dubious ownership".
+     */
+    public static function gitSafeDirectorySetup(): string
+    {
+        return 'git config --global --add safe.directory /addons; '
+            .'git config --global --add safe.directory "*"; ';
+    }
+
+    /**
      * @return list<string>
      */
     public static function cloneCommands(string $volume, string $cloneUrl, string $branch): array
@@ -1963,6 +1973,7 @@ BASH;
         // Preserve .gpsh (logs / owner-package markers). A bare `git init` without a
         // working tree used to make the fetch path a no-op and leave Jupyter empty.
         $script = 'set -e; '
+            .self::gitSafeDirectorySetup()
             .'mkdir -p /addons; '
             .'if [ -d /addons/.gpsh ]; then cp -a /addons/.gpsh /tmp/gpsh-keep; fi; '
             .'if [ -d /addons/.git ] && git -C /addons remote get-url origin >/dev/null 2>&1 '
@@ -2040,7 +2051,8 @@ BASH;
 
         $listing = instant_remote_process([
             'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons:ro alpine/git -c '.escapeshellarg(
-                'set -e; test -d /addons/.git; git -C /addons rev-parse --verify HEAD >/dev/null; '
+                'set -e; '.self::gitSafeDirectorySetup()
+                .'test -d /addons/.git; git -C /addons rev-parse --verify HEAD >/dev/null; '
                 .'ls -la /addons | head -n 40'
             ),
         ], $server);
@@ -2154,6 +2166,7 @@ BASH;
     public static function pushCommands(string $volume, string $cloneUrl, string $branch): array
     {
         $script = 'set -e; '
+            .self::gitSafeDirectorySetup()
             .'printf %s\\n ".gpsh/" > /addons/.gitignore; '
             .'if [ ! -d /addons/.git ]; then git -C /addons init; fi; '
             .'git -C /addons config user.email "gpsh@localhost"; '
@@ -2257,6 +2270,7 @@ BASH;
             ? 'rm -f /addons/.gpsh-module-name; '
             : 'if [ -f /addons/__manifest__.py ] || [ -f /addons/__openerp__.py ]; then printf %s\\n '.escapeshellarg($module).' > /addons/.gpsh-module-name; else rm -f /addons/.gpsh-module-name; fi; ';
         $script = 'set -e; '
+            .self::gitSafeDirectorySetup()
             .'if [ -d /addons/.git ]; then '
             .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).' && git -C /addons checkout -B '.escapeshellarg($branch).' FETCH_HEAD; '
             .'else rm -rf /tmp/src; git clone --depth 1 --branch '.escapeshellarg($branch).' '.escapeshellarg($cloneUrl).' /tmp/src && find /addons -mindepth 1 -maxdepth 1 -exec rm -rf {} + && cp -a /tmp/src/. /addons/; '
