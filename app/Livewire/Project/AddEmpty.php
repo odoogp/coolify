@@ -34,7 +34,7 @@ class AddEmpty extends Component
 
     public string $service = '';
 
-    public string $odooVersion = '18';
+    public string $odooVersion = '';
 
     public bool $connectGithub = true;
 
@@ -80,9 +80,8 @@ class AddEmpty extends Component
         if ($server instanceof Server) {
             $this->serverId = (string) $server->id;
         }
-        $versions = OdooComposeTemplate::configuredVersions();
-        if ($versions !== [] && ! in_array($this->odooVersion, $versions, true)) {
-            $this->odooVersion = $versions[0];
+        if ($this->odooVersion !== '' && ! in_array($this->odooVersion, OdooComposeTemplate::configuredVersions(), true)) {
+            $this->odooVersion = '';
         }
     }
 
@@ -262,9 +261,8 @@ class AddEmpty extends Component
             ->values()
             ->all();
 
-        $versions = OdooComposeTemplate::configuredVersions();
-        if ($versions !== [] && ! in_array($this->odooVersion, $versions, true)) {
-            $this->odooVersion = $versions[0];
+        if ($this->odooVersion !== '' && ! in_array($this->odooVersion, OdooComposeTemplate::configuredVersions(), true)) {
+            $this->odooVersion = '';
         }
 
         return view('livewire.project.add-empty', [

@@ -44,6 +44,8 @@ class SyncOdooAddonsJob implements ShouldQueue
         $volume = $service === null ? null : OdooAddons::extraAddonsVolume($service);
 
         try {
+            $branch->update(['status' => 'updating']);
+
             if ($deployment !== null) {
                 $deployment->update([
                     'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,

@@ -1153,7 +1153,15 @@ it('opens the working repository on github', function () {
         ->and(file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php')))
         ->toContain('GitHub branch :branch.')
         ->toContain('loadLinkedOdooBranches')
+        ->toContain('saveLinkedOdooBranch')
+        ->toContain('Cloning branch…')
+        ->toContain('wire:poll.2s="refreshOdooBranchStatus"')
+        ->not->toContain('{{ __(\'Change branch\') }}')
         ->not->toContain('git_branch ?: $environment->name');
+
+    expect(file_get_contents(app_path('Livewire/Project/Service/Configuration.php')))
+        ->toContain('SyncOdooAddonsJob::dispatch')
+        ->toContain("'status' => 'updating'");
 
     expect(fn () => OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main'], $production, 'production'))
         ->toThrow(InvalidArgumentException::class, 'Use the branch name from GitHub, not the environment name.');

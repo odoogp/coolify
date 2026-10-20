@@ -7,6 +7,7 @@ use App\Models\Environment;
 use App\Models\EnvironmentVariable;
 use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
+use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Service;
@@ -29,7 +30,7 @@ trait LaunchesCatalogService
 
     public string $selectedService = 'odoo';
 
-    public string $odooVersion = '18';
+    public string $odooVersion = '';
 
     /** Version for non-Odoo catalog services that expose more than one option. */
     public string $serviceVersion = '';
@@ -62,11 +63,17 @@ trait LaunchesCatalogService
 
             if ($name === 'odoo') {
                 if ($project->odooProfile === null) {
+                    // Production (first) launch sets the project version; staging reuses it.
                     $this->validateCatalogOdooVersion();
                     $project->enableOdoo($this->odooVersion);
                     $project->refresh();
                 } else {
-                    $this->odooVersion = (string) ($project->odooProfile->odoo_version ?: $this->odooVersion);
+                    $this->odooVersion = (string) $project->odooProfile->odoo_version;
+                    if ($this->odooVersion === '') {
+                        throw ValidationException::withMessages([
+                            'odooVersion' => [__('This project has no Odoo version on its profile. Launch production again after configuring Compose templates.')],
+                        ]);
+                    }
                 }
                 $service = $this->existingOdooService($environment)
                     ?? $this->createOdooService($project, $environment, start: false, destination: $this->chosenDestination($project, $environment));
@@ -167,11 +174,12 @@ trait LaunchesCatalogService
     protected function ensureDefaultOdooVersion(): void
     {
         $versions = OdooComposeTemplate::configuredVersions();
-        if ($versions === []) {
+        if ($this->odooVersion === '') {
             return;
         }
-        if (! in_array($this->odooVersion, $versions, true)) {
-            $this->odooVersion = $versions[0];
+        // Drop a stale client value (e.g. old hardcoded 18) that is not configured.
+        if ($versions === [] || ! in_array($this->odooVersion, $versions, true)) {
+            $this->odooVersion = '';
         }
     }
 
@@ -362,11 +370,30 @@ trait LaunchesCatalogService
 
         $service->parse(isNew: true);
         applyServiceApplicationPrerequisites($service);
+        $this->syncEnvironmentOdooVersion($environment, $version, $service->id);
         if ($start) {
             OdooGit::startIfPossible($service);
         }
 
         return $service;
+    }
+
+    protected function syncEnvironmentOdooVersion(Environment $environment, string $version, int $serviceId): void
+    {
+        if ($version === '') {
+            return;
+        }
+
+        $row = OdooEnvironmentBranch::query()->firstOrNew([
+            'environment_id' => $environment->id,
+        ]);
+        if (! $row->exists) {
+            $row->git_branch = (string) ($environment->name ?: 'main');
+            $row->jupyter_enabled = true;
+        }
+        $row->odoo_version = $version;
+        $row->service_id = $serviceId;
+        $row->save();
     }
 
     protected function chosenDestination(Project $project, Environment $environment): StandaloneDocker|SwarmDocker

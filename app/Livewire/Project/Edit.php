@@ -36,7 +36,7 @@ class Edit extends Component
 
     public ?string $description = null;
 
-    public string $odooVersion = '18';
+    public string $odooVersion = '';
 
     public bool $odooStagingIsEmpty = false;
 
@@ -443,9 +443,8 @@ class Edit extends Component
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
         $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
 
-        $versions = OdooComposeTemplate::configuredVersions();
-        if ($versions !== [] && ! in_array($this->odooVersion, $versions, true)) {
-            $this->odooVersion = $versions[0];
+        if ($this->odooVersion !== '' && ! in_array($this->odooVersion, OdooComposeTemplate::configuredVersions(), true)) {
+            $this->odooVersion = '';
         }
 
         return view('livewire.project.edit', [

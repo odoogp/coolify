@@ -142,8 +142,10 @@ it('asks for an Odoo version before enabling the profile on first catalog launch
         'allEnvironments' => collect([$this->environment]),
     ])
         ->assertSet('selectedService', 'odoo')
+        ->assertSet('odooVersion', '')
         ->assertSee(__('Odoo version'))
-        ->assertSee(__('Choose carefully: the Odoo version cannot be changed later from the installation assistant or project settings. Staging uses the same version.'))
+        ->assertSee(__('This becomes the project version. Staging and other environments use the same Compose.'))
+        ->assertDontSee(__('This project runs Odoo :version (chosen when you launched production). It cannot be changed later in this assistant or in project settings. Staging uses the same version.', ['version' => '20']))
         ->set('odooVersion', '20')
         ->set('serverId', (string) $this->server->id)
         ->call('launchService')
@@ -214,11 +216,20 @@ it('asks for confirmation before removing a github collaborator on the service p
         ->not->toContain('wire:click="removeGithubUser(');
 });
 
-it('warns on the new-project form that the Odoo version cannot be changed later', function () {
+it('lets the new-project form pick a configured Odoo version without inventing 18', function () {
     Livewire::test(AddEmpty::class)
+        ->assertSet('odooVersion', '')
         ->set('service', 'odoo')
         ->assertSee(__('Odoo version'))
-        ->assertSee(__('Choose carefully: the Odoo version cannot be changed later from the installation assistant or project settings. Staging uses the same version.'));
+        ->assertSee(__('This becomes the project version. Staging and other environments use the same Compose.'));
+});
+
+it('shows the immutable version warning on the GitHub launch wizard', function () {
+    $blade = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
+
+    expect($blade)
+        ->toContain('awaitingRepositoryChoice')
+        ->toContain('chosen when you launched production');
 });
 
 it('creates a non-odoo service from the new-project form without starting containers', function () {

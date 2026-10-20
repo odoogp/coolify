@@ -4,6 +4,7 @@ namespace App\Livewire\Project\Service;
 
 use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
+use App\Jobs\SyncOdooAddonsJob;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Support\OdooGit;
@@ -153,6 +154,16 @@ class Configuration extends Component
             }
             if ($this->associatingWithoutGithub) {
                 $this->odooRepoMode = 'new';
+            }
+            if (
+                $this->odooPanel === 'github'
+                && $this->odooIsOdoo
+                && $this->odooGithubConnected
+                && ! $this->odooAccountChanged
+                && filled($project->odooProfile?->git_repository)
+                && auth()->user()?->can('update', $this->service)
+            ) {
+                $this->loadLinkedOdooBranches();
             }
             if ($this->odooIsOdoo && isInstanceOwner()) {
                 $this->ownerPackageRepository = (string) (instanceSettings()->odoo_owner_repository ?? '');
@@ -389,12 +400,28 @@ class Configuration extends Component
         }
     }
 
+    public function updatedOdooPanel(string $value): void
+    {
+        if (
+            $value === 'github'
+            && $this->odooIsOdoo
+            && $this->odooGithubConnected
+            && ! $this->odooAccountChanged
+            && filled($this->project->odooProfile?->git_repository)
+            && $this->odooGithubBranches === []
+            && auth()->user()?->can('update', $this->service)
+        ) {
+            $this->loadLinkedOdooBranches();
+        }
+    }
+
     public function loadLinkedOdooBranches(): void
     {
         try {
             $this->authorize('update', $this->service);
             [$owner, $name] = $this->linkedRepository();
             $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $owner, $name);
+            $this->environment->loadMissing('odooBranch');
             $stored = (string) ($this->environment->odooBranch?->git_branch ?? '');
             $this->odooBranch = in_array($stored, $this->odooGithubBranches, true)
                 ? $stored
@@ -410,6 +437,9 @@ class Configuration extends Component
     {
         try {
             $this->authorize('update', $this->service);
+            if ($this->odooBranchIsSyncing()) {
+                return;
+            }
             $profile = $this->project->odooProfile;
             [$owner, $name] = $this->linkedRepository();
             $branches = $this->odooGithubBranches !== []
@@ -427,12 +457,41 @@ class Configuration extends Component
             );
             $this->environment->unsetRelation('odooBranch');
             $this->environment->load('odooBranch');
-            $this->dispatch('success', __('GitHub branch :branch.', ['branch' => $branch]));
+            $row = $this->environment->odooBranch;
+            if ($row !== null) {
+                $row->update([
+                    'status' => 'updating',
+                    'service_id' => $row->service_id ?: $this->service->id,
+                ]);
+                SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
+            }
+            $this->dispatch('success', __('Cloning branch :branch into this environment…', ['branch' => $branch]));
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
+    }
+
+    public function refreshOdooBranchStatus(): void
+    {
+        $wasUpdating = $this->odooBranchIsSyncing();
+        $this->environment->unsetRelation('odooBranch');
+        $this->environment->load('odooBranch');
+        if ($wasUpdating && ! $this->odooBranchIsSyncing()) {
+            $branch = (string) ($this->environment->odooBranch?->git_branch ?? '');
+            $failed = ($this->environment->odooBranch?->status ?? '') === 'failed';
+            if ($failed) {
+                $this->dispatch('error', __('Cloning branch :branch failed. Try saving again.', ['branch' => $branch]));
+            } elseif ($branch !== '') {
+                $this->dispatch('success', __('GitHub branch :branch is ready.', ['branch' => $branch]));
+            }
+        }
+    }
+
+    public function odooBranchIsSyncing(): bool
+    {
+        return ($this->environment->odooBranch?->status ?? '') === 'updating';
     }
 
     public function loadOwnerPackageBranches(): void
