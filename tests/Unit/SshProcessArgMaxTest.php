@@ -32,7 +32,7 @@ it('runs large ssh scripts via a bash temp file to avoid argument list too long'
 
     expect($result)->toBe('ran-large')
         ->and($seen)->toBeArray()
-        ->and($seen[0])->toBe('/bin/bash')
+        ->and($seen[0])->toBe('/bin/sh')
         ->and($tmpPath)->not->toBeNull()
         ->and(is_file($tmpPath))->toBeFalse();
 });

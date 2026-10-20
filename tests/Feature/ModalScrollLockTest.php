@@ -16,6 +16,12 @@ test('confirmation modal keeps an in-progress state instead of reopening an empt
         ->toContain("__('Working…')")
         ->toContain("__('Use the password of the account you are signed in with.')")
         ->toContain('result === true || result === null || result === undefined')
+        ->toContain('confirmationMatches()')
+        ->toContain('step = 3')
         ->toMatch('/submitting = true;\s*passwordError = \'\';\s*submitForm\(\)/s')
         ->not->toMatch('/submitting = true;\s*modalOpen = false;\s*\$nextTick\(\(\) => \{\s*submitForm\(\)/s');
+
+    expect(file_get_contents(base_path('app/Helpers/SshMultiplexingHelper.php')))
+        ->toContain("['/bin/sh'")
+        ->not->toContain("['/bin/bash'");
 });

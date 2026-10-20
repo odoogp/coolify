@@ -254,7 +254,7 @@ class SshMultiplexingHelper
      *
      * Process::run(string) wraps the whole heredoc in `sh -c`, so large Odoo
      * compose payloads fail with proc_open(): posix_spawn() Argument list too long.
-     * Above the threshold we write the script to a temp file and exec bash on it.
+     * Above the threshold we write the script to a temp file and exec /bin/sh on it.
      *
      * @template T
      *
@@ -274,7 +274,8 @@ class SshMultiplexingHelper
         }
 
         try {
-            return $callback(['/bin/bash', $tmp]);
+            // Coolify's PHP image is often Alpine without /bin/bash — sh is enough to feed the SSH heredoc.
+            return $callback(['/bin/sh', $tmp]);
         } finally {
             @unlink($tmp);
         }

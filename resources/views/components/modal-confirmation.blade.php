@@ -90,6 +90,9 @@
     step1ButtonText: @js($step1ButtonText),
     step2ButtonText: @js($effectiveStep2ButtonText),
     step3ButtonText: @js($step3ButtonText),
+    confirmationMatches() {
+        return this.userConfirmationText.trim() === String(this.confirmationText).trim();
+    },
     validatePassword() {
         if (this.confirmWithPassword && !this.password) {
             return @js(translateUiText('Password is required.'));
@@ -318,6 +321,8 @@
                             @endif
                         @endif
 
+                        <p x-show="passwordError && !(confirmWithPassword && !skipPasswordConfirmation)" x-cloak
+                            x-text="passwordError" class="mb-3 text-sm text-red-500"></p>
                         <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                             @if (!empty($checkboxes))
                                 <x-forms.button @click="step--">
@@ -330,19 +335,22 @@
                             @endif
                             <x-forms.button
                                 :showLoadingIndicator="false"
-                                x-bind:disabled="submitting || (!disableTwoStepConfirmation && confirmWithText && userConfirmationText !==
-                                    confirmationText)"
+                                x-bind:disabled="submitting || (!disableTwoStepConfirmation && confirmWithText && !confirmationMatches())"
                                 class="w-auto" isError
-                                @click="
+                                x-on:click.prevent="
+                                    passwordError = '';
                                     if (dispatchEvent) {
                                         modalOpen = false;
                                         $nextTick(() => $wire.dispatch(dispatchEventType, dispatchEventMessage));
                                     }
                                     if (confirmWithPassword && !skipPasswordConfirmation) {
-                                        step++;
+                                        step = 3;
+                                        $nextTick(() => {
+                                            const field = $root.querySelector('input[type=password]');
+                                            if (field) { field.focus(); }
+                                        });
                                     } else {
                                         submitting = true;
-                                        passwordError = '';
                                         submitForm().then((result) => {
                                             if (result === true) {
                                                 modalOpen = false;
@@ -350,7 +358,7 @@
                                                 return;
                                             }
                                             submitting = false;
-                                            passwordError = typeof result === 'string' ? result : '';
+                                            passwordError = typeof result === 'string' ? result : @js(__('Something went wrong. Try again.'));
                                         }).catch(() => {
                                             submitting = false;
                                             passwordError = @js(__('Something went wrong. Try again.'));
