@@ -26,6 +26,12 @@ it('does not open the blank livewire dialog while an update is restarting', func
         ->not->toContain('$wire.getUpgradeStatus()')
         ->not->toContain('$wire.upgradeLog()');
 
-    expect(file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php')))
-        ->toContain('fixed top-16 right-4');
+    $bell = file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php'));
+
+    expect($bell)
+        ->toContain('wire:poll.15s')
+        ->toContain('inset-x-3')
+        ->toContain('x-on:gpsh-toast.window')
+        // Alpine must stay nested under the Livewire root or poll morphs break the page.
+        ->toMatch('/wire:poll\.15s[^>]*>\s*<div[^>]*x-data=/s');
 });

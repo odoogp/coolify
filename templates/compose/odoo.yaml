@@ -16,6 +16,9 @@ services:
     volumes:
       - odoo-web-data:/var/lib/odoo
       - odoo-extra-addons:/mnt/extra-addons
+    depends_on:
+      postgresql:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8069"]
       interval: 2s

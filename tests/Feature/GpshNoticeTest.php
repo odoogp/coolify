@@ -294,7 +294,9 @@ it('puts the newest notice first and lets the owner delete them all from the cen
         ->and(file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php')))
         ->toContain('wire:click="deleteAll"')
         ->toContain('Clear all notices from this list?')
-        ->toContain('inset-x-3');
+        ->toContain('inset-x-3')
+        ->toContain('onToast($event)')
+        ->toMatch('/wire:poll\.15s[^>]*>\s*<div[^>]*x-data=/s');
 
     $this->actingAs($this->client);
     Livewire::test(GpshNoticeBell::class)

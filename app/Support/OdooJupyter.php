@@ -1388,9 +1388,8 @@ ENDSTATUS
 python3 /tmp/gpsh-status.py >/tmp/gpsh-status.log 2>&1 &
 echo $! > /tmp/gpsh-status.pid
 python3 - <<'PY' || true
-import os, time
+import os, socket, time
 from pathlib import Path
-host = os.environ.get("HOST", "postgresql")
 user = os.environ.get("USER") or ""
 password = os.environ.get("PASSWORD") or ""
 database = os.environ.get("ODOO_DATABASE") or "__ODOO_DB__"
@@ -1558,22 +1557,42 @@ try:
     Path("/tmp/gpsh-addons-path").write_text("/tmp/gpsh_addons," + current)
 except Exception:
     pass
-if not database or not user or not password:
-    raise SystemExit(0)
-def connect(name):
+def db_hosts():
+    out = []
+    for key in ("HOST", "SERVICE_NAME_POSTGRESQL", "SERVICE_NAME_POSTGRES", "POSTGRES_HOST"):
+        value = (os.environ.get(key) or "").strip()
+        if value and value not in out:
+            out.append(value)
+    for value in ("postgresql", "postgres"):
+        if value not in out:
+            out.append(value)
+    return out
+def connect(host, name):
     try:
         import psycopg2
-        return psycopg2.connect(host=host, user=user, password=password, dbname=name)
+        return psycopg2.connect(host=host, user=user, password=password, dbname=name, connect_timeout=5)
     except ImportError:
         import psycopg
-        return psycopg.connect(host=host, user=user, password=password, dbname=name)
+        return psycopg.connect(host=host, user=user, password=password, dbname=name, connect_timeout=5)
 conn = None
-for _ in range(30):
-    try:
-        conn = connect("postgres")
-        break
-    except Exception:
+chosen = ""
+if not database or not user or not password:
+    Path("/tmp/odoo-db-ready").write_text("0")
+    raise SystemExit(0)
+deadline = time.time() + 600
+while time.time() < deadline and conn is None:
+    for candidate in db_hosts():
+        try:
+            socket.getaddrinfo(candidate, int(os.environ.get("PORT") or "5432"), type=socket.SOCK_STREAM)
+            conn = connect(candidate, "postgres")
+            chosen = candidate
+            break
+        except Exception:
+            continue
+    if conn is None:
         time.sleep(2)
+if chosen:
+    Path("/tmp/gpsh-db-host").write_text(chosen)
 ready = False
 if conn is not None:
     conn.autocommit = True
@@ -1581,7 +1600,7 @@ if conn is not None:
     cur.execute("SELECT 1 FROM pg_database WHERE datname=%s", (database,))
     if cur.fetchone():
         try:
-            other = connect(database)
+            other = connect(chosen, database)
             check = other.cursor()
             other.autocommit = True
             check.execute("SELECT 1 FROM information_schema.tables WHERE table_name='ir_module_module'")
@@ -1590,9 +1609,19 @@ if conn is not None:
             other.close()
         except Exception:
             ready = False
-open("/tmp/odoo-db-ready", "w").write("1" if ready else "0")
+Path("/tmp/odoo-db-ready").write_text("1" if ready else "0")
+if not chosen:
+    raise SystemExit(1)
 PY
-args=(--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode --no-database-list)
+mkdir -p /mnt/extra-addons /var/lib/odoo /tmp/gpsh_addons 2>/dev/null || true
+if [ ! -s /tmp/gpsh-db-host ]; then
+  python3 /tmp/gpsh-page.py "Esperando la base de datos." || true
+  sleep 10
+  exit 1
+fi
+DB_HOST=$(cat /tmp/gpsh-db-host)
+export HOST="$DB_HOST"
+args=(--db_host="$DB_HOST" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" --http-interface=0.0.0.0 --proxy-mode --no-database-list)
 case "__ODOO_WORKERS__" in ''|0) ;; *) args+=(--workers=__ODOO_WORKERS__) ;; esac
 for link in /mnt/extra-addons/*; do
   [ -L "$link" ] || continue
@@ -1641,7 +1670,19 @@ if [ -d "$image" ] && [ -d /gpsh-owner-modules ]; then
   fi
 fi
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
-load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons")
+# Prefer an existing mount; skip empty paths so Odoo 20 does not warn and drop them.
+addons_ok=""
+IFS=','; for part in $addons; do
+  part=$(printf %s "$part" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -n "$part" ] || continue
+  if [ -d "$part" ]; then
+    mkdir -p "$part" 2>/dev/null || true
+    addons_ok="${addons_ok:+$addons_ok,}$part"
+  fi
+done
+unset IFS
+[ -n "$addons_ok" ] || addons_ok=/usr/lib/python3/dist-packages/odoo/addons
+load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons_ok")
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
   python3 /tmp/gpsh-page.py "Instalando la base." || true
   odoo "${args[@]}" "${load[@]}" --http-port=8071 --without-demo=all -d __ODOO_DB__ -i base --stop-after-init || true
@@ -1649,7 +1690,7 @@ fi
 python3 - <<'PY' || true
 import os
 from pathlib import Path
-host = os.environ.get("HOST", "postgresql")
+host = (Path("/tmp/gpsh-db-host").read_text().strip() if Path("/tmp/gpsh-db-host").is_file() else "") or os.environ.get("HOST", "postgresql")
 user = os.environ.get("USER") or ""
 password = os.environ.get("PASSWORD") or ""
 database = os.environ.get("ODOO_DATABASE") or "__ODOO_DB__"
@@ -1949,10 +1990,12 @@ BASH));
                 }
                 $service['environment'] = $environment;
                 $service['labels'] = self::forwardedProtoLabels($service['labels'] ?? []);
+                $service['depends_on'] = self::postgresDependsOn($services, $service['depends_on'] ?? null);
 
                 continue;
             }
             $service['command'] = 'odoo --http-interface=0.0.0.0';
+            $service['depends_on'] = self::postgresDependsOn($services, $service['depends_on'] ?? null);
         }
         unset($service);
 
@@ -2151,6 +2194,49 @@ BASH));
         }
 
         return false;
+    }
+
+    /**
+     * Keep Odoo from racing PostgreSQL DNS/startup on the compose network.
+     *
+     * @param  array<string, mixed>  $services
+     * @return array<string, array{condition: string}>|list<string>
+     */
+    private static function postgresDependsOn(array $services, mixed $existing): array
+    {
+        $depends = [];
+        if ($existing instanceof \Illuminate\Support\Collection) {
+            $existing = $existing->all();
+        }
+        if (is_array($existing)) {
+            if (array_is_list($existing)) {
+                foreach ($existing as $name) {
+                    if (is_string($name) && $name !== '') {
+                        $depends[$name] = ['condition' => 'service_started'];
+                    }
+                }
+            } else {
+                foreach ($existing as $name => $spec) {
+                    if (! is_string($name) || $name === '') {
+                        continue;
+                    }
+                    $depends[$name] = is_array($spec)
+                        ? $spec
+                        : ['condition' => 'service_started'];
+                }
+            }
+        }
+
+        foreach (array_keys($services) as $name) {
+            $key = strtolower((string) $name);
+            if ($key !== 'postgresql' && $key !== 'postgres') {
+                continue;
+            }
+            $depends[(string) $name] = ['condition' => 'service_healthy'];
+            break;
+        }
+
+        return $depends;
     }
 
     private static function workspaceMountTarget(string $source, bool $asPrimaryWorkspace): string

@@ -273,6 +273,9 @@ test('odoo without a custom command listens on every container interface', funct
     expect($aligned['odoo-worker']['command'])->toBe('odoo --http-interface=0.0.0.0');
     expect($aligned['odoo-blank']['command'])->toBe('odoo --http-interface=0.0.0.0');
     expect($aligned['postgresql']['command'])->toBe('postgres');
+    expect($aligned['odoo']['depends_on'] ?? [])->toBe([
+        'postgresql' => ['condition' => 'service_healthy'],
+    ]);
     expect($aligned['jupyter']['volumes'])->toBe(['svc_odoo-extra-addons:/workspace/addons']);
 });
 
@@ -393,6 +396,9 @@ test('an odoo service starts one database with https proxy mode and an admin use
         'odoo-worker' => [
             'image' => 'odoo:20',
         ],
+        'postgresql' => [
+            'image' => 'postgres:16-alpine',
+        ],
     ];
 
     $aligned = OdooJupyter::alignParsedServices($services, 'mi_empresa_staging_1', 'https://odoo.example.test', 'tokentokentoken', 'adminpass');
@@ -420,8 +426,14 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('Estamos preparando todo.')
         ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
         ->and($command)->toContain('Instalando la base.')
+        ->and($command)->toContain('Esperando la base de datos.')
+        ->and($command)->toContain('gpsh-db-host')
+        ->and($command)->toContain('socket.getaddrinfo')
         ->and($command)->toContain('Ya casi está.')
         ->and($command)->toContain('gpsh-waiting.tpl')
+        ->and($aligned['odoo']['depends_on'] ?? [])->toBe([
+            'postgresql' => ['condition' => 'service_healthy'],
+        ])
         ->and($command)->toContain('websocket')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
