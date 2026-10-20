@@ -349,14 +349,34 @@ function githubFailedRequestException(array $result): RuntimeException
             return githubRateLimitException($remaining !== '' ? $remaining : null, $message);
         }
 
-        return new RuntimeException(__('GitHub refused this action (HTTP :status). The hourly quota still shows :remaining requests left, so waiting will not fix it. Typical causes: the GitHub App lacks Administration/Contents write, the installation has not accepted updated permissions, or GitHub is blocking this installation. Open the app → Permissions & events, set Administration and Contents to Read and write, then Review request on the installation. GitHub said: :message', [
+        // Docs for POST /user/repos → personal account; installation tokens cannot create those repos.
+        if (str_contains($docs, 'create-a-repository-for-the-authenticated-user')) {
+            return new RuntimeException(__('GitHub Apps cannot create repositories on a personal account — Administration write is not enough. Install the App on a GitHub Organization (auto-create works there), or create the repository yourself and choose an existing one on launch.'));
+        }
+
+        // GitHub often returns the literal "Rate Limit Exceeded" here even when remaining > 0.
+        // Quoting that string makes people wait; the real fix is usually App permissions.
+        $detail = __('GitHub refused this action (HTTP :status). The hourly quota still shows :remaining requests left, so waiting will not fix it. Typical causes: the GitHub App lacks Administration/Contents write, the installation has not accepted updated permissions, or GitHub is blocking this installation. Open the app → Permissions & events, set Administration and Contents to Read and write, then Review request on the installation.', [
             'status' => $status > 0 ? (string) $status : '403',
             'remaining' => $remaining !== '' ? $remaining : __('unknown'),
-            'message' => $message !== '' ? $message : __('Rate Limit Exceeded'),
-        ]).($docs !== '' ? ' '.$docs : ''));
+        ]);
+        if ($message !== '' && preg_match('/^rate limit exceeded\.?$/i', $message) !== 1) {
+            $detail .= ' '.__('GitHub said: :message', ['message' => $message]);
+        }
+        if ($docs !== '') {
+            $detail .= ' '.$docs;
+        }
+
+        return new RuntimeException($detail);
     }
 
-    if (str_contains($lower, 'resource not accessible') || str_contains($lower, 'upgrade')) {
+    if (str_contains($docs, 'create-a-repository-for-the-authenticated-user')
+        || str_contains($lower, 'resource not accessible')
+        || str_contains($lower, 'upgrade')) {
+        if (str_contains($docs, 'create-a-repository-for-the-authenticated-user')) {
+            return new RuntimeException(__('GitHub Apps cannot create repositories on a personal account — Administration write is not enough. Install the App on a GitHub Organization (auto-create works there), or create the repository yourself and choose an existing one on launch.'));
+        }
+
         return new RuntimeException(__('This GitHub account cannot create repositories. In the GitHub App permissions, Administration must be Read and write, then accept the new permissions on the installation.').(filled($message) ? ' '.__('GitHub said: :message', ['message' => $message]) : ''));
     }
 

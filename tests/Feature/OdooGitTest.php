@@ -403,7 +403,22 @@ it('only treats github secondary limits as wait-and-retry', function () {
         'data' => collect(['message' => 'Rate Limit Exceeded']),
     ]);
     expect($vague->getMessage())->toContain('hourly quota still shows')
-        ->and($vague->getMessage())->not->toContain('secondary rate limit');
+        ->and($vague->getMessage())->toContain('Administration')
+        ->and($vague->getMessage())->not->toContain('secondary rate limit')
+        ->and($vague->getMessage())->not->toContain('GitHub said:')
+        ->and($vague->getMessage())->not->toContain('Rate Limit Exceeded');
+
+    $personal = githubFailedRequestException([
+        'status' => 403,
+        'rate_limit_remaining' => '12496',
+        'retry_after' => null,
+        'data' => collect([
+            'message' => 'Rate Limit Exceeded',
+            'documentation_url' => 'https://docs.github.com/rest/repos/repos#create-a-repository-for-the-authenticated-user',
+        ]),
+    ]);
+    expect($personal->getMessage())->toContain('personal account')
+        ->and($personal->getMessage())->not->toContain('Rate Limit Exceeded');
 });
 
 it('queues associate-new-repository instead of creating it inside livewire', function () {
@@ -532,10 +547,10 @@ it('creates the repository from the launch job and leaves the button request', f
         }
         if (str_contains($url, '/app/installations/')) {
             return Http::response([
-                'account' => ['login' => 'acme', 'type' => 'User'],
+                'account' => ['login' => 'acme', 'type' => 'Organization'],
             ], 200, $date);
         }
-        if ($method === 'POST' && str_contains($url, '/user/repos')) {
+        if ($method === 'POST' && str_contains($url, '/orgs/acme/repos')) {
             return Http::response([
                 'id' => 99,
                 'full_name' => 'acme/odoo',
@@ -558,6 +573,72 @@ it('creates the repository from the launch job and leaves the button request', f
 
     expect($this->project->odooProfile->fresh()->git_repository)->toBe('acme/odoo')
         ->and(Cache::get('launch-odoo-test')['error'])->toBe('No server is available for this Odoo service.');
+});
+
+it('exposes installation account type for the github panel', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = PrivateKey::create([
+        'name' => 'odoo-github-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'installation_id' => '42',
+        'app_id' => '99',
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    Http::fake([
+        'https://api.github.com/app/installations/42' => Http::response([
+            'account' => ['login' => 'arielmim97', 'type' => 'User'],
+        ], 200),
+    ]);
+
+    expect(OdooGit::installationAccount($this->githubApp))
+        ->toBe(['login' => 'arielmim97', 'type' => 'User'])
+        ->and(OdooGit::cannotAutoCreateOnPersonalAccountMessage())->toContain('personal account');
+});
+
+it('refuses to auto-create a repository on a personal github account', function () {
+    $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+    openssl_pkey_export($key, $pem);
+    $privateKey = PrivateKey::create([
+        'name' => 'odoo-github-app',
+        'private_key' => $pem,
+        'is_git_related' => true,
+        'team_id' => $this->team->id,
+    ]);
+    $this->githubApp->update([
+        'private_key_id' => $privateKey->id,
+        'webhook_secret' => 'odoo-hook',
+    ]);
+    $this->project->update(['name' => 'Odoo']);
+    $urls = [];
+    Http::fake(function ($request) use (&$urls) {
+        $urls[] = $request->url();
+        $date = ['Date' => gmdate('D, d M Y H:i:s').' GMT'];
+        if (str_contains($request->url(), '/zen')) {
+            return Http::response('Keep it logically awesome.', 200, $date);
+        }
+        if (str_contains($request->url(), '/access_tokens')) {
+            return Http::response(['token' => 'ghs_test'], 201, $date);
+        }
+        if (str_contains($request->url(), '/app/installations/')) {
+            return Http::response([
+                'account' => ['login' => 'arielmim97', 'type' => 'User'],
+            ], 200, $date);
+        }
+
+        return Http::response(['message' => 'unexpected'], 500, $date);
+    });
+
+    expect(fn () => OdooGit::launchEnvironment($this->project, $this->githubApp, 'production'))
+        ->toThrow(RuntimeException::class, 'personal account');
+
+    expect(collect($urls)->contains(fn (string $url): bool => str_contains($url, '/user/repos') || str_contains($url, '/orgs/')))
+        ->toBeFalse();
 });
 
 it('waits out a secondary github limit and still creates the repository', function () {
@@ -605,10 +686,10 @@ it('waits out a secondary github limit and still creates the repository', functi
         }
         if (str_contains($url, '/app/installations/')) {
             return Http::response([
-                'account' => ['login' => 'acme', 'type' => 'User'],
+                'account' => ['login' => 'acme', 'type' => 'Organization'],
             ], 200, $date);
         }
-        if ($method === 'POST' && str_contains($url, '/user/repos')) {
+        if ($method === 'POST' && str_contains($url, '/orgs/acme/repos')) {
             $posts++;
             if ($posts === 1) {
                 return Http::response(['message' => 'You have exceeded a secondary rate limit.'], 403, [

@@ -1642,7 +1642,10 @@ BASH;
             ->update(['github_app_id' => $githubApp->id]);
     }
 
-    private static function installationAccount(GithubApp $githubApp): array
+    /**
+     * @return array{login: string, type: 'User'|'Organization'}
+     */
+    public static function installationAccount(GithubApp $githubApp): array
     {
         $cached = Cache::get('github-installation-account:'.$githubApp->id);
         if (is_array($cached) && filled($cached['login'] ?? null) && filled($cached['type'] ?? null)) {
@@ -1670,18 +1673,26 @@ BASH;
         return $account;
     }
 
+    public static function cannotAutoCreateOnPersonalAccountMessage(): string
+    {
+        return __('GitHub Apps cannot create repositories on a personal account — Administration write is not enough. Install the App on a GitHub Organization (auto-create works there), or create the repository yourself and choose an existing one on launch.');
+    }
+
     /**
      * @return array{full_name: string, id: int}
      */
     private static function createRepository(GithubApp $githubApp, string $type, string $owner, string $name, string $projectName): array
     {
+        // Installation tokens can create repos on Organizations only. POST /user/repos needs a
+        // user-to-server OAuth token; GitHub often answers that with a misleading 403 "Rate Limit Exceeded".
+        if ($type !== 'Organization') {
+            throw new RuntimeException(self::cannotAutoCreateOnPersonalAccountMessage());
+        }
+
         // Drop a cached installation token so Administration/Contents updates apply.
         forgetGithubInstallationToken($githubApp);
 
-        $endpoint = $type === 'Organization'
-            ? '/orgs/'.rawurlencode($owner).'/repos'
-            : '/user/repos';
-        $created = githubApi($githubApp, $endpoint, 'post', [
+        $created = githubApi($githubApp, '/orgs/'.rawurlencode($owner).'/repos', 'post', [
             'name' => $name,
             'private' => true,
             'auto_init' => true,

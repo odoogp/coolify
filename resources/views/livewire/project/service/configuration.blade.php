@@ -266,7 +266,9 @@
                                         </p>
                                     @elseif ($associatingWithoutGithub)
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                            {{ __('This project started without GitHub. Create a repository and push the custom addons that are already on the instance.') }}
+                                            {{ $odooGithubIsPersonal
+                                                ? __('This project started without GitHub. On a personal GitHub account, create the repository yourself, then associate it here so custom addons can be pushed.')
+                                                : __('This project started without GitHub. Create a repository and push the custom addons that are already on the instance.') }}
                                         </p>
                                     @else
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
@@ -280,19 +282,26 @@
                                             {{ __('This project runs Odoo :version (chosen when you launched production). It cannot be changed later in this assistant or in project settings. Staging uses the same version.', ['version' => $project->odooProfile->odoo_version]) }}
                                         </p>
                                     @endif
-                                    @unless ($associatingWithoutGithub)
+                                    @unless ($associatingWithoutGithub && ! $odooGithubIsPersonal)
                                     <div class="flex flex-wrap gap-4 text-sm">
+                                        @unless ($odooGithubIsPersonal)
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
                                             {{ __('Launch production on a new repository') }}
                                         </label>
+                                        @endunless
                                         <label class="inline-flex items-center gap-2">
                                             <input type="radio" wire:model.live="odooRepoMode" value="existing" class="rounded-full">
                                             {{ __('Use an existing repository') }}
                                         </label>
                                     </div>
                                     @endunless
-                                    @if ($odooRepoMode === 'new' || $associatingWithoutGithub)
+                                    @if ($odooGithubIsPersonal)
+                                        <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                                            {{ __('GitHub Apps cannot create repositories on a personal account — Administration write is not enough. Install the App on a GitHub Organization (auto-create works there), or create the repository yourself and choose an existing one on launch.') }}
+                                        </p>
+                                    @endif
+                                    @if ($odooRepoMode === 'new' && ! $odooGithubIsPersonal)
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             @if ($environment->isProduction())
                                                 {{ __('The new repository is named :name. This environment tracks its default branch.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
@@ -359,10 +368,10 @@
                                     <div class="flex flex-wrap items-center gap-3"
                                         @if ($associateRunning) wire:poll.2s="refreshAssociateProgress" @endif>
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted
-                                            :disabled="$associateRunning">
-                                            {{ $associatingWithoutGithub
-                                                ? __('Create repository')
-                                                : ($odooRepoMode === 'new' ? __('Launch production') : __('Associate repository')) }}
+                                            :disabled="$associateRunning || ($odooRepoMode === 'new' && $odooGithubIsPersonal)">
+                                            {{ $odooRepoMode === 'new' && ! $odooGithubIsPersonal
+                                                ? ($associatingWithoutGithub ? __('Create repository') : __('Launch production'))
+                                                : __('Associate repository') }}
                                         </x-forms.button>
                                         @unless ($associatingWithoutGithub)
                                         <x-forms.button type="button" wire:click="launchWithoutGithub" canGate="update" :canResource="$service">
@@ -376,7 +385,7 @@
                                             </p>
                                         @else
                                             <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
-                                                {{ $associatingWithoutGithub ? __('Creating the repository…') : __('Starting Odoo.') }}
+                                                {{ $odooRepoMode === 'new' && ! $odooGithubIsPersonal ? __('Creating the repository…') : __('Starting Odoo.') }}
                                             </p>
                                         @endif
                                     </div>

@@ -94,46 +94,49 @@ class RunRemoteProcess
 
         $status = ProcessStatus::IN_PROGRESS;
         $timeout = config('constants.ssh.command_timeout');
-        $process = Process::timeout($timeout)->start($this->getCommand(), $this->handleOutput(...));
-        $this->activity->properties = $this->activity->properties->merge([
-            'process_id' => $process->id(),
-        ]);
 
-        $processResult = $process->wait();
-        if ($this->activity->properties->get('status') === ProcessStatus::ERROR->value) {
-            $status = ProcessStatus::ERROR;
-        } else {
-            if ($processResult->exitCode() == 0) {
-                $status = ProcessStatus::FINISHED;
-            } else {
+        return SshMultiplexingHelper::withProcessCommand($this->getCommand(), function (string|array $command) use ($timeout, &$status) {
+            $process = Process::timeout($timeout)->start($command, $this->handleOutput(...));
+            $this->activity->properties = $this->activity->properties->merge([
+                'process_id' => $process->id(),
+            ]);
+
+            $processResult = $process->wait();
+            if ($this->activity->properties->get('status') === ProcessStatus::ERROR->value) {
                 $status = ProcessStatus::ERROR;
-            }
-        }
-
-        $this->activity->properties = $this->activity->properties->merge([
-            'exitCode' => $processResult->exitCode(),
-            'stdout' => $processResult->output(),
-            'stderr' => $processResult->errorOutput(),
-            'status' => $status->value,
-        ]);
-        $this->activity->save();
-        if ($this->call_event_on_finish) {
-            try {
-                $eventClass = "App\\Events\\$this->call_event_on_finish";
-                if (! is_null($this->call_event_data)) {
-                    event(new $eventClass($this->call_event_data));
+            } else {
+                if ($processResult->exitCode() == 0) {
+                    $status = ProcessStatus::FINISHED;
                 } else {
-                    event(new $eventClass($this->activity->causer_id));
+                    $status = ProcessStatus::ERROR;
                 }
-            } catch (\Throwable $e) {
-                Log::error('Error calling event: '.$e->getMessage());
             }
-        }
-        if ($processResult->exitCode() != 0 && ! $this->ignore_errors) {
-            throw new \RuntimeException($processResult->errorOutput(), $processResult->exitCode());
-        }
 
-        return $processResult;
+            $this->activity->properties = $this->activity->properties->merge([
+                'exitCode' => $processResult->exitCode(),
+                'stdout' => $processResult->output(),
+                'stderr' => $processResult->errorOutput(),
+                'status' => $status->value,
+            ]);
+            $this->activity->save();
+            if ($this->call_event_on_finish) {
+                try {
+                    $eventClass = "App\\Events\\$this->call_event_on_finish";
+                    if (! is_null($this->call_event_data)) {
+                        event(new $eventClass($this->call_event_data));
+                    } else {
+                        event(new $eventClass($this->activity->causer_id));
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Error calling event: '.$e->getMessage());
+                }
+            }
+            if ($processResult->exitCode() != 0 && ! $this->ignore_errors) {
+                throw new \RuntimeException($processResult->errorOutput(), $processResult->exitCode());
+            }
+
+            return $processResult;
+        });
     }
 
     protected function getCommand(): string

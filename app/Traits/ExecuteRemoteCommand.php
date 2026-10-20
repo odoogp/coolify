@@ -161,88 +161,90 @@ trait ExecuteRemoteCommand
         }
 
         $remote_command = SshMultiplexingHelper::generateSshCommand($this->server, $command);
-        $process = Process::timeout(config('constants.ssh.command_timeout'))->idleTimeout(3600)->start($remote_command, function (string $type, string $output) use ($command, $hidden, $customType, $append, $command_hidden, $skip_command_log) {
-            $output = str($output)->trim();
-            if ($output->startsWith('╔')) {
-                $output = "\n".$output;
-            }
+        SshMultiplexingHelper::withProcessCommand($remote_command, function (string|array $processCommand) use ($command, $hidden, $customType, $append, $ignore_errors, $command_hidden, $skip_command_log) {
+            $process = Process::timeout(config('constants.ssh.command_timeout'))->idleTimeout(3600)->start($processCommand, function (string $type, string $output) use ($command, $hidden, $customType, $append, $command_hidden, $skip_command_log) {
+                $output = str($output)->trim();
+                if ($output->startsWith('╔')) {
+                    $output = "\n".$output;
+                }
 
-            // Sanitize output to ensure valid UTF-8 encoding before JSON encoding
-            $sanitized_output = sanitize_utf8_text($output);
+                // Sanitize output to ensure valid UTF-8 encoding before JSON encoding
+                $sanitized_output = sanitize_utf8_text($output);
 
-            $new_log_entry = [
-                'command' => $skip_command_log || $command_hidden ? null : $this->redact_sensitive_info($command),
-                'output' => $this->redact_sensitive_info($sanitized_output),
-                'type' => $customType ?? ($type === 'err' ? 'stderr' : 'stdout'),
-                'timestamp' => Carbon::now('UTC'),
-                'hidden' => $hidden,
-                'batch' => static::$batch_counter,
-            ];
-            if (! $this->application_deployment_queue->logs) {
-                $new_log_entry['order'] = 1;
-            } else {
+                $new_log_entry = [
+                    'command' => $skip_command_log || $command_hidden ? null : $this->redact_sensitive_info($command),
+                    'output' => $this->redact_sensitive_info($sanitized_output),
+                    'type' => $customType ?? ($type === 'err' ? 'stderr' : 'stdout'),
+                    'timestamp' => Carbon::now('UTC'),
+                    'hidden' => $hidden,
+                    'batch' => static::$batch_counter,
+                ];
+                if (! $this->application_deployment_queue->logs) {
+                    $new_log_entry['order'] = 1;
+                } else {
+                    try {
+                        $previous_logs = json_decode($this->application_deployment_queue->logs, associative: true, flags: JSON_THROW_ON_ERROR);
+                    } catch (\JsonException $e) {
+                        // If existing logs are corrupted, start fresh
+                        $previous_logs = [];
+                        $new_log_entry['order'] = 1;
+                    }
+                    if (is_array($previous_logs)) {
+                        $new_log_entry['order'] = count($previous_logs) + 1;
+                    } else {
+                        $previous_logs = [];
+                        $new_log_entry['order'] = 1;
+                    }
+                }
+                $previous_logs[] = $new_log_entry;
+
                 try {
-                    $previous_logs = json_decode($this->application_deployment_queue->logs, associative: true, flags: JSON_THROW_ON_ERROR);
+                    $this->application_deployment_queue->logs = json_encode($previous_logs, flags: JSON_THROW_ON_ERROR);
                 } catch (\JsonException $e) {
-                    // If existing logs are corrupted, start fresh
-                    $previous_logs = [];
-                    $new_log_entry['order'] = 1;
+                    // If JSON encoding still fails, use fallback with invalid sequences replacement
+                    $this->application_deployment_queue->logs = json_encode($previous_logs, flags: JSON_INVALID_UTF8_SUBSTITUTE);
                 }
-                if (is_array($previous_logs)) {
-                    $new_log_entry['order'] = count($previous_logs) + 1;
-                } else {
-                    $previous_logs = [];
-                    $new_log_entry['order'] = 1;
+
+                $this->application_deployment_queue->save();
+
+                if ($this->save) {
+                    if (data_get($this->saved_outputs, $this->save, null) === null) {
+                        $this->saved_outputs->put($this->save, str());
+                    }
+                    if ($append) {
+                        $current_value = $this->saved_outputs->get($this->save);
+                        $this->saved_outputs->put($this->save, str($current_value.str($sanitized_output)->trim()));
+                    } else {
+                        $this->saved_outputs->put($this->save, str($sanitized_output)->trim());
+                    }
                 }
-            }
-            $previous_logs[] = $new_log_entry;
+            });
+            $this->application_deployment_queue->update([
+                'current_process_id' => $process->id(),
+            ]);
 
-            try {
-                $this->application_deployment_queue->logs = json_encode($previous_logs, flags: JSON_THROW_ON_ERROR);
-            } catch (\JsonException $e) {
-                // If JSON encoding still fails, use fallback with invalid sequences replacement
-                $this->application_deployment_queue->logs = json_encode($previous_logs, flags: JSON_INVALID_UTF8_SUBSTITUTE);
-            }
+            $process_result = $process->wait();
+            if ($process_result->exitCode() !== 0) {
+                if (! $ignore_errors) {
+                    // Check if deployment was cancelled while command was running
+                    if (isset($this->application_deployment_queue)) {
+                        $this->application_deployment_queue->refresh();
+                        if ($this->application_deployment_queue->status === ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
+                            throw new \RuntimeException('Deployment cancelled by user', 69420);
+                        }
+                    }
 
-            $this->application_deployment_queue->save();
-
-            if ($this->save) {
-                if (data_get($this->saved_outputs, $this->save, null) === null) {
-                    $this->saved_outputs->put($this->save, str());
-                }
-                if ($append) {
-                    $current_value = $this->saved_outputs->get($this->save);
-                    $this->saved_outputs->put($this->save, str($current_value.str($sanitized_output)->trim()));
-                } else {
-                    $this->saved_outputs->put($this->save, str($sanitized_output)->trim());
+                    // Don't immediately set to FAILED - let the retry logic handle it
+                    // This prevents premature status changes during retryable SSH errors
+                    $error = $process_result->errorOutput();
+                    if (empty($error)) {
+                        $error = $process_result->output() ?: 'Command failed with no error output';
+                    }
+                    $redactedCommand = $this->redact_sensitive_info($command);
+                    throw new DeploymentException("Command execution failed (exit code {$process_result->exitCode()}): {$redactedCommand}\nError: {$error}");
                 }
             }
         });
-        $this->application_deployment_queue->update([
-            'current_process_id' => $process->id(),
-        ]);
-
-        $process_result = $process->wait();
-        if ($process_result->exitCode() !== 0) {
-            if (! $ignore_errors) {
-                // Check if deployment was cancelled while command was running
-                if (isset($this->application_deployment_queue)) {
-                    $this->application_deployment_queue->refresh();
-                    if ($this->application_deployment_queue->status === ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
-                        throw new \RuntimeException('Deployment cancelled by user', 69420);
-                    }
-                }
-
-                // Don't immediately set to FAILED - let the retry logic handle it
-                // This prevents premature status changes during retryable SSH errors
-                $error = $process_result->errorOutput();
-                if (empty($error)) {
-                    $error = $process_result->output() ?: 'Command failed with no error output';
-                }
-                $redactedCommand = $this->redact_sensitive_info($command);
-                throw new DeploymentException("Command execution failed (exit code {$process_result->exitCode()}): {$redactedCommand}\nError: {$error}");
-            }
-        }
     }
 
     /**

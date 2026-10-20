@@ -13,4 +13,10 @@ it('writes docker-compose over SSH with base64 instead of local tmp scp', functi
         ->not->toContain('instant_scp')
         ->not->toContain("Storage::disk('local')->put")
         ->not->toContain('tmp/{$filename}');
+
+    // Large Odoo compose (waiting page HTML) must not hit ARG_MAX via sh -c.
+    expect(file_get_contents(base_path('app/Helpers/SshMultiplexingHelper.php')))
+        ->toContain('function withProcessCommand')
+        ->and(file_get_contents(base_path('bootstrap/helpers/remoteProcess.php')))
+        ->toContain('withProcessCommand');
 });

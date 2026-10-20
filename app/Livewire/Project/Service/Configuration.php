@@ -68,6 +68,9 @@ class Configuration extends Component
 
     public string $odooGithubLogin = '';
 
+    /** True when the GitHub App installation is on a personal user account (cannot auto-create repos). */
+    public bool $odooGithubIsPersonal = false;
+
     public string $odooRepositoryQuery = '';
 
     public bool $odooAccountChanged = false;
@@ -151,6 +154,9 @@ class Configuration extends Component
                 && blank($project->odooProfile?->git_repository)
                 && $this->odooGithubConnected
                 && $this->odooIsOdoo;
+            if ($this->odooGithubIsPersonal && ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub)) {
+                $this->odooRepoMode = 'existing';
+            }
             if (
                 $this->odooAccountChanged
                 || $this->awaitingRepositoryChoice
@@ -160,13 +166,16 @@ class Configuration extends Component
                 $this->odooPanel = 'github';
             }
             if ($this->associatingWithoutGithub) {
-                $this->odooRepoMode = 'new';
+                $this->odooRepoMode = $this->odooGithubIsPersonal ? 'existing' : 'new';
                 $this->associateKey = 'associate-odoo-'.$this->service->uuid;
                 $associateStatus = Cache::get($this->associateKey);
                 if (is_array($associateStatus) && ($associateStatus['done'] ?? false) !== true && blank($associateStatus['error'] ?? null)) {
                     $this->associateRunning = true;
                 } elseif (is_array($associateStatus) && filled($associateStatus['error'] ?? null)) {
                     $this->associateError = (string) $associateStatus['error'];
+                }
+                if ($this->odooRepoMode === 'existing' && auth()->user()?->can('update', $this->service)) {
+                    $this->loadOdooRepositories();
                 }
             }
             if (
@@ -629,6 +638,9 @@ class Configuration extends Component
 
             if ($this->odooRepoMode === 'new') {
                 $githubApp = $this->odooGithubApp();
+                if ($this->odooGithubIsPersonal) {
+                    throw new RuntimeException(OdooGit::cannotAutoCreateOnPersonalAccountMessage());
+                }
                 if ($this->associatingWithoutGithub || (! $this->awaitingRepositoryChoice && blank($this->project->odooProfile?->git_repository))) {
                     // Create + push in a queue job (console can wait out secondary GitHub limits;
                     // Livewire must not hold the request or the CSRF token expires → "Page expired").
@@ -769,6 +781,16 @@ class Configuration extends Component
         $this->odooGithubApps = $app instanceof GithubApp
             ? [['value' => $app->id, 'label' => $app->name]]
             : [];
+        $this->odooGithubIsPersonal = false;
+        if ($app instanceof GithubApp && filled($app->installation_id) && filled($app->private_key_id)) {
+            try {
+                $account = OdooGit::installationAccount($app);
+                $this->odooGithubLogin = $account['login'];
+                $this->odooGithubIsPersonal = $account['type'] === 'User';
+            } catch (\Throwable) {
+                // Keep the GitHub panel usable if GitHub is briefly unreachable.
+            }
+        }
         if ($app instanceof GithubApp && auth()->id() !== null) {
             OdooGit::rememberForUser((int) auth()->id(), (int) $this->project->team_id, $app);
         }

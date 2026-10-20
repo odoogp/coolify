@@ -249,6 +249,37 @@ class SshMultiplexingHelper
             .$delimiter;
     }
 
+    /**
+     * Run a script from generateSshCommand without blowing ARG_MAX.
+     *
+     * Process::run(string) wraps the whole heredoc in `sh -c`, so large Odoo
+     * compose payloads fail with proc_open(): posix_spawn() Argument list too long.
+     * Above the threshold we write the script to a temp file and exec bash on it.
+     *
+     * @template T
+     *
+     * @param  callable(string|list<string>): T  $callback
+     * @return T
+     */
+    public static function withProcessCommand(string $sshCommand, callable $callback): mixed
+    {
+        // Keep well under common ARG_MAX floors (often ~128KiB–256KiB including env).
+        if (strlen($sshCommand) <= 65_536) {
+            return $callback($sshCommand);
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'coolify-ssh-');
+        if ($tmp === false || file_put_contents($tmp, $sshCommand) === false) {
+            throw new \RuntimeException('Could not prepare the SSH command script.');
+        }
+
+        try {
+            return $callback(['/bin/bash', $tmp]);
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
     public static function getConnectionTimeout(Server $server): int
     {
         $timeout = data_get($server, 'settings.connection_timeout');
