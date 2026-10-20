@@ -1,5 +1,7 @@
 {{--
-    Back-compat alias. Prefer layouts.app (has {{ $slot }} in the authenticated shell).
-    Livewire page components should use ->layout('layouts.app') or the config default.
+    Livewire page layout (config/livewire.php). Livewire renders this as a Blade
+    @component and forwards the page into $slot; layouts.app echoes that slot
+    inside the authenticated shell. Do not point config at layouts.app directly:
+    that view @extends layouts.base and 500s when used as a Livewire component.
 --}}
 @extends('layouts.app')
