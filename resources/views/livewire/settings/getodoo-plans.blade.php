@@ -48,6 +48,20 @@
                         <x-forms.input id="price" type="number" step="0.01" min="0" required
                             label="{{ __('Monthly list price') }}"
                             helper="{{ __('Standard USD price for this plan. Rest of the world always charges this amount. A country or region promo can replace it for that coverage.') }}" />
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span>{{ __('How this plan is charged') }}</span>
+                            <select id="chargeMode" wire:model="chargeMode"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                                <option value="once">{{ __('One-time payment') }}</option>
+                                <option value="subscription">{{ __('Monthly subscription') }}</option>
+                            </select>
+                            <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                                {{ __('A subscription asks n1co to charge this price again every month. A one-time payment is a single charge with Wompi or n1co.') }}
+                            </span>
+                            @error('chargeMode')
+                                <p class="text-sm text-red-500">{{ $message }}</p>
+                            @enderror
+                        </label>
                         <div class="flex flex-col gap-3">
                             <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
                                 {{ __('These limits belong to this admin. Leave a field empty for no limit. A member never receives servers or S3.') }}
@@ -277,6 +291,9 @@
                                     </div>
                                     <div class="text-[13px]">
                                         {{ $plan->isFree() ? __('Free') : '$'.number_format((float) $plan->price, 2) }}
+                                        <div class="text-[11px] text-neutral-500 dark:text-fg-dim">
+                                            {{ $plan->chargesAsSubscription() ? __('Monthly subscription') : __('One-time payment') }}
+                                        </div>
                                     </div>
                                     <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
                                         {{ $plan->scopeLabel() }}

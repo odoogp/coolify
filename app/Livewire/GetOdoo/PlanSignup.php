@@ -168,25 +168,30 @@ class PlanSignup extends Component
                 'password' => $this->password,
                 'amount' => $amount,
                 'payment_gateway' => $provider,
+                'charge_mode' => $plan->charge_mode ?: 'once',
                 'status' => 'awaiting_payment',
             ]);
         } else {
             $previousGateway = $signup->payment_gateway;
+            $previousChargeMode = $signup->charge_mode;
+            $chargeMode = $plan->charge_mode ?: 'once';
             $signup->fill([
                 'pricing_area_id' => $country?->id,
                 'name' => trim($this->name),
                 'organization' => trim($this->organization),
                 'password' => $this->password,
                 'payment_gateway' => $provider,
+                'charge_mode' => $chargeMode,
             ]);
 
-            if ($previousGateway !== $provider || number_format((float) $signup->amount, 2, '.', '') !== $amount || blank($signup->wompi_link_url)) {
+            if ($previousGateway !== $provider || $previousChargeMode !== $chargeMode || number_format((float) $signup->amount, 2, '.', '') !== $amount || blank($signup->wompi_link_url)) {
                 $signup->forceFill([
                     'uuid' => new_public_id(),
                     'amount' => $amount,
                     'payment_gateway' => $provider,
                     'wompi_link_id' => null,
                     'wompi_link_url' => null,
+                    'n1co_plan_id' => null,
                 ]);
             }
 
@@ -210,6 +215,8 @@ class PlanSignup extends Component
             'payment_gateway' => $provider,
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
+            'n1co_plan_id' => $link['plan_id'] ?? null,
+            'charge_mode' => $link['charge_mode'] ?? $signup->charge_mode,
         ]);
 
         return redirect()->away($link['url']);

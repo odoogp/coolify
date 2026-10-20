@@ -64,6 +64,9 @@
                 @else
                     {{ __('This is the monthly price for your location. This step pays the first charge with Wompi.') }}
                 @endif
+                @if ($plan->chargesAsSubscription())
+                    {{ __('n1co renews this plan every month until it is cancelled.') }}
+                @endif
             </p>
         </aside>
 

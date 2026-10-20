@@ -78,6 +78,8 @@ class InstanceSettings extends Model
         'n1co_webhook_secret',
         'n1co_sandbox',
         'n1co_charges',
+        'n1co_location_id',
+        'n1co_server_charge_mode',
     ];
 
     protected $hidden = [
@@ -114,6 +116,8 @@ class InstanceSettings extends Model
         'n1co_webhook_secret' => 'encrypted',
         'n1co_sandbox' => 'boolean',
         'n1co_charges' => 'boolean',
+        'n1co_location_id' => 'integer',
+        'n1co_server_charge_mode' => 'string',
 
         'allowed_ip_ranges' => 'array',
         'is_auto_update_enabled' => 'boolean',

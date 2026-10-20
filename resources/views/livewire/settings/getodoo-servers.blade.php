@@ -100,6 +100,28 @@
                         <input id="n1coCharges" type="checkbox" wire:model="n1coCharges" class="rounded">
                         <span>{{ __('Use n1co for charges') }}</span>
                     </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('How servers are charged') }}</span>
+                        <select id="n1coServerChargeMode" wire:model="n1coServerChargeMode"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                            <option value="once">{{ __('One-time payment') }}</option>
+                            <option value="subscription">{{ __('Monthly subscription') }}</option>
+                        </select>
+                        <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('A subscription asks n1co to charge the server again every month. A one-time payment creates the server after a single charge.') }}
+                        </span>
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('n1co branch id') }}</span>
+                        <input id="n1coLocationId" type="number" min="1" wire:model="n1coLocationId"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Required for monthly subscriptions. In the n1co portal open Configuration, then Branches. It is the location id, not the location code.') }}
+                        </span>
+                        @error('n1coLocationId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
                     <div class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
                         <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Webhook URL') }}</p>
                         <p class="mt-1 break-all font-mono text-[12px] text-neutral-800 dark:text-fg">{{ route('getodoo.n1co.webhook') }}</p>

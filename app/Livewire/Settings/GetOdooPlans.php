@@ -32,6 +32,8 @@ class GetOdooPlans extends Component
 
     public string $price = '0';
 
+    public string $chargeMode = 'once';
+
     public bool $active = true;
 
     public mixed $maxProjects = null;
@@ -113,6 +115,7 @@ class GetOdooPlans extends Component
             'pendingRegionId',
         ]);
         $this->price = '0';
+        $this->chargeMode = 'once';
         $this->active = true;
         $this->includesBackups = false;
         $this->backupFrequency = GetOdooBackupFrequency::DAILY;
@@ -133,6 +136,7 @@ class GetOdooPlans extends Component
         $this->summary = (string) $plan->summary;
         $this->description = (string) $plan->description;
         $this->price = number_format((float) $plan->price, 2, '.', '');
+        $this->chargeMode = $plan->charge_mode ?: 'once';
         $this->active = $plan->is_active;
         $this->maxProjects = $plan->max_projects;
         $this->maxEnvironments = $plan->max_environments;
@@ -290,6 +294,7 @@ class GetOdooPlans extends Component
             'summary' => ['nullable', 'string', 'max:180'],
             'description' => ['nullable', 'string', 'max:2000'],
             'price' => ['required', 'numeric', 'min:0', 'max:100000'],
+            'chargeMode' => ['required', Rule::in(['once', 'subscription'])],
             'active' => ['boolean'],
             'maxProjects' => ['nullable', 'integer', 'min:0'],
             'maxEnvironments' => ['nullable', 'integer', 'min:0'],
@@ -343,6 +348,7 @@ class GetOdooPlans extends Component
             'summary' => trim($this->summary) ?: null,
             'description' => trim($this->description) ?: null,
             'price' => $price,
+            'charge_mode' => $this->chargeMode === 'subscription' ? 'subscription' : 'once',
             'currency' => 'USD',
             'payment_gateway' => $price > 0 ? 'wompi' : null,
             'is_active' => $this->active,

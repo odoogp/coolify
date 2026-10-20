@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GetOdooPlan extends BaseModel
 {
+    public const CHARGE_ONCE = 'once';
+
+    public const CHARGE_SUBSCRIPTION = 'subscription';
+
     protected $fillable = [
         'name',
         'summary',
@@ -29,6 +33,7 @@ class GetOdooPlan extends BaseModel
         'includes_migration',
         'backup_frequency',
         'backup_retention_days',
+        'charge_mode',
     ];
 
     protected function casts(): array
@@ -76,6 +81,11 @@ class GetOdooPlan extends BaseModel
     public function isRestOfWorld(): bool
     {
         return (bool) $this->is_rest_of_world;
+    }
+
+    public function chargesAsSubscription(): bool
+    {
+        return $this->charge_mode === self::CHARGE_SUBSCRIPTION;
     }
 
     /**

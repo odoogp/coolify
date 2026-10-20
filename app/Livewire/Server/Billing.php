@@ -99,6 +99,8 @@ class Billing extends Component
         $order->update([
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
+            'n1co_plan_id' => $link['plan_id'] ?? null,
+            'charge_mode' => $link['charge_mode'] ?? 'once',
         ]);
 
         return redirect()->away($link['url']);
@@ -141,6 +143,8 @@ class Billing extends Component
             'status' => 'awaiting_payment',
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
+            'n1co_plan_id' => $link['plan_id'] ?? null,
+            'charge_mode' => $link['charge_mode'] ?? 'once',
         ]);
 
         return redirect()->away($link['url']);

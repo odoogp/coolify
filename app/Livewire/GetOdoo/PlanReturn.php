@@ -122,6 +122,31 @@ class PlanReturn extends Component
             return;
         }
 
+        if (filled($signup->n1co_plan_id)) {
+            $subscription = $n1co->paidSubscription($signup->n1co_plan_id, $signup->amount);
+
+            if (is_array($subscription)) {
+                $subscriptionId = trim((string) ($subscription['subscriptionId'] ?? ''));
+
+                try {
+                    $user = $settle->settle($signup, $subscriptionId !== '' ? $subscriptionId : 'n1co-'.$signup->uuid);
+                    $signup->update([
+                        'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $signup->n1co_subscription_id,
+                        'n1co_subscription_status' => 'active',
+                    ]);
+                } catch (Throwable $exception) {
+                    report($exception);
+                    $this->message = __('The account could not be created.');
+
+                    return;
+                }
+
+                $this->enter($user);
+
+                return;
+            }
+        }
+
         $codes = $n1co->candidateOrderCodes($signup->wompi_link_id, $signup->wompi_link_url, request()->query());
         $remote = $n1co->paidOrder($codes, $signup->amount, $signup->uuid);
 

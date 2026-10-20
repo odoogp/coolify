@@ -2,6 +2,7 @@
 
 namespace App\Services\GetOdoo;
 
+use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
 use Illuminate\Http\Client\PendingRequest;
@@ -41,11 +42,19 @@ class N1coClient
         $offer = $order->offer;
         $name = trim((string) ($offer?->description ?: $offer?->name ?: product_name()));
 
+        $label = product_name().' '.$name;
+        $description = $name.' · '.$order->location.' · '.__('per month');
+        $mode = $order->charge_mode ?: (instanceSettings()->n1co_server_charge_mode ?: GetOdooPlan::CHARGE_ONCE);
+
+        if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+            return $this->subscriptionLink($order->uuid, (float) $order->amount, $label, $description);
+        }
+
         return $this->checkout(
             $order->uuid,
             (float) $order->amount,
-            product_name().' '.$name,
-            $name.' · '.$order->location.' · '.__('per month'),
+            $label,
+            $description,
             route('getodoo.n1co.return', ['order' => $order->uuid]),
             route('getodoo.n1co.return', ['order' => $order->uuid, 'cancelled' => 1]),
         );
@@ -64,6 +73,16 @@ class N1coClient
         }
 
         $name = trim((string) ($plan->name ?: product_name()));
+        $mode = $signup->charge_mode ?: ($plan->charge_mode ?: GetOdooPlan::CHARGE_ONCE);
+
+        if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+            return $this->subscriptionLink(
+                $signup->uuid,
+                (float) $signup->amount,
+                product_name().' '.$name,
+                trim((string) ($plan->summary ?: $name)),
+            );
+        }
 
         return $this->checkout(
             $signup->uuid,
@@ -394,7 +413,105 @@ class N1coClient
     }
 
     /**
-     * @return array{id: string, url: string}
+     * @return array<string, mixed>|null
+     */
+    public function paidSubscription(?string $planId, mixed $amount): ?array
+    {
+        if (! is_string($planId) || $planId === '') {
+            return null;
+        }
+
+        try {
+            $rows = $this->request()
+                ->get($this->subscriptionsBaseUrl().'/Plans/'.rawurlencode($planId).'/Subscriptions')
+                ->throw()
+                ->json();
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return null;
+        }
+
+        if (! is_array($rows)) {
+            return null;
+        }
+
+        foreach ($rows as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $status = (string) ($row['subscriptionStatus'] ?? '');
+
+            if (! in_array($status, ['Activa', 'Active'], true)) {
+                continue;
+            }
+
+            if ($this->sameMoney($row['amount'] ?? null, $amount)) {
+                return $row;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{id: string, url: string, plan_id: string, charge_mode: string}
+     */
+    private function subscriptionLink(string $reference, float $amount, string $name, string $description): array
+    {
+        $locationId = (int) instanceSettings()->n1co_location_id;
+
+        if ($locationId < 1) {
+            throw new RuntimeException('n1co needs a branch id before a subscription can start.');
+        }
+
+        $suffix = ' '.$reference;
+        $label = mb_substr(trim($name), 0, max(1, 120 - mb_strlen($suffix))).$suffix;
+
+        try {
+            $response = $this->request()->post($this->subscriptionsBaseUrl().'/Plans', [
+                'name' => $label,
+                'description' => mb_substr($description !== '' ? $description : $name, 0, 500),
+                'amount' => round($amount, 2),
+                'billingCycleType' => 'Month',
+                'billingCyclesNumber' => 1,
+                'cyclesToBillBeforeAllowCancelation' => null,
+                'subscriberLimit' => 1,
+                'enrollmentEndDate' => null,
+                'subscriptionEndDate' => null,
+                'billingDay' => null,
+                'locationId' => $locationId,
+            ])->throw();
+        } catch (RequestException $exception) {
+            throw new RuntimeException('n1co did not accept the subscription.', 0, $exception);
+        }
+
+        $planId = $response->json('planId');
+        $url = $response->json('paymentLink.linkUrl');
+        $code = $response->json('paymentLink.code');
+
+        if (! is_numeric($planId) || ! is_string($url) || $url === '' || ! is_string($code) || $code === '') {
+            throw new RuntimeException('n1co did not return a subscription link.');
+        }
+
+        return [
+            'id' => $code,
+            'url' => $url,
+            'plan_id' => (string) $planId,
+            'charge_mode' => GetOdooPlan::CHARGE_SUBSCRIPTION,
+        ];
+    }
+
+    public function subscriptionsBaseUrl(): string
+    {
+        return $this->sandbox()
+            ? 'https://api-sandbox.n1co.shop/api/v3'
+            : 'https://api.n1co.shop/api/v3';
+    }
+
+    /**
+     * @return array{id: string, url: string, plan_id: null, charge_mode: string}
      */
     private function checkout(string $reference, float $amount, string $name, string $description, string $success, string $cancel): array
     {
@@ -424,6 +541,8 @@ class N1coClient
         return [
             'id' => $code,
             'url' => $url,
+            'plan_id' => null,
+            'charge_mode' => GetOdooPlan::CHARGE_ONCE,
         ];
     }
 

@@ -79,6 +79,36 @@ class N1coReturn extends Component
             return;
         }
 
+        if (filled($order->n1co_plan_id)) {
+            $subscription = $n1co->paidSubscription($order->n1co_plan_id, $order->amount);
+
+            if (is_array($subscription)) {
+                $subscriptionId = trim((string) ($subscription['subscriptionId'] ?? ''));
+
+                try {
+                    $server = $settle->settle($order, $subscriptionId !== '' ? $subscriptionId : 'n1co-'.$order->uuid);
+                    $order->update([
+                        'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $order->n1co_subscription_id,
+                        'n1co_subscription_status' => 'active',
+                    ]);
+                } catch (Throwable $exception) {
+                    report($exception);
+                    $this->message = $order->purpose === 'renewal'
+                        ? __('The monthly charge could not be applied.')
+                        : __('The GetOdoo server could not be created.');
+
+                    return;
+                }
+
+                if ($server) {
+                    $order->refresh();
+                    $this->redirectAfterPayment($order);
+
+                    return;
+                }
+            }
+        }
+
         $codes = $n1co->candidateOrderCodes($order->wompi_link_id, $order->wompi_link_url, request()->query());
         $remote = $n1co->paidOrder($codes, $order->amount, $order->uuid);
 

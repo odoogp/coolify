@@ -49,6 +49,10 @@ class GetOdooServers extends Component
 
     public bool $n1coReady = false;
 
+    public string $n1coLocationId = '';
+
+    public string $n1coServerChargeMode = 'once';
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -286,6 +290,8 @@ class GetOdooServers extends Component
             'n1coWebhookSecret' => 'nullable|string|max:500',
             'n1coSandbox' => 'boolean',
             'n1coCharges' => 'boolean',
+            'n1coLocationId' => ['nullable', 'regex:/^$|^[1-9][0-9]*$/'],
+            'n1coServerChargeMode' => 'required|in:once,subscription',
         ]);
 
         $settings = instanceSettings();
@@ -293,6 +299,12 @@ class GetOdooServers extends Component
         $webhook = trim($this->n1coWebhookSecret);
         $secret = $secret !== '' ? $secret : (string) ($settings->n1co_secret ?? '');
         $webhook = $webhook !== '' ? $webhook : (string) ($settings->n1co_webhook_secret ?? '');
+
+        if ($this->n1coServerChargeMode === 'subscription' && trim($this->n1coLocationId) === '') {
+            $this->addError('n1coLocationId', __('The n1co branch id is required for a monthly subscription.'));
+
+            return;
+        }
 
         if ($this->n1coCharges && ($secret === '' || $webhook === '')) {
             if ($secret === '') {
@@ -311,6 +323,8 @@ class GetOdooServers extends Component
             'n1co_webhook_secret' => $webhook !== '' ? $webhook : null,
             'n1co_sandbox' => $this->n1coSandbox,
             'n1co_charges' => $this->n1coCharges,
+            'n1co_location_id' => trim($this->n1coLocationId) === '' ? null : (int) $this->n1coLocationId,
+            'n1co_server_charge_mode' => $this->n1coServerChargeMode === 'subscription' ? 'subscription' : 'once',
         ]);
 
         $this->n1coSecret = '';
@@ -355,6 +369,8 @@ class GetOdooServers extends Component
         $this->n1coWebhookSecret = '';
         $this->n1coSandbox = (bool) ($settings->n1co_sandbox ?? true);
         $this->n1coCharges = (bool) ($settings->n1co_charges ?? false);
+        $this->n1coLocationId = $settings->n1co_location_id ? (string) $settings->n1co_location_id : '';
+        $this->n1coServerChargeMode = $settings->n1co_server_charge_mode ?: 'once';
         $this->n1coReady = app(N1coClient::class)->charges();
     }
 

@@ -92,6 +92,16 @@ class SettleGetOdooServerPayment
         }
     }
 
+    public function recordRenewal(GetOdooServerOrder $order): void
+    {
+        $order->refresh();
+        $server = $order->server;
+
+        if ($server instanceof Server) {
+            $this->extendPaidUntil($server);
+        }
+    }
+
     private function renew(GetOdooServerOrder $order): Server
     {
         $server = Server::query()->find($order->server_id);
