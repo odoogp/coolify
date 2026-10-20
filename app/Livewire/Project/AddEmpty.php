@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project;
 
-use App\Jobs\LaunchOdooProjectJob;
 use App\Models\EnvironmentVariable;
 use App\Models\GithubApp;
 use App\Models\OdooComposeTemplate;
@@ -170,25 +169,17 @@ class AddEmpty extends Component
             }
 
             if ($created instanceof Service && $this->service === 'odoo') {
-                if ($githubApp instanceof GithubApp) {
-                    OdooGit::cloneIntoService($created);
-                }
-                $this->launchKey = 'launch-odoo-'.$created->uuid;
-                Cache::put($this->launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
-                LaunchOdooProjectJob::dispatch(
-                    $created->id,
-                    $this->launchKey,
-                    (int) auth()->id(),
-                );
-                $this->launchStep = 1;
-                $this->launchError = null;
-                $this->launchRunning = true;
-
+                // Prepare the service only. Containers start from Deploy or the GitHub assistant
+                // (launch=choose → Launch without GitHub / repository choice).
                 if ($this->migrateFromOdoo) {
                     return redirect()->route('project.odoo.migrate', ['project_uuid' => $project->uuid]);
                 }
 
-                return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
+                return redirect()->route('project.service.configuration', [
+                    'project_uuid' => $project->uuid,
+                    'environment_uuid' => $productionEnvironment->uuid,
+                    'service_uuid' => $created->uuid,
+                ]);
             }
 
             if ($this->service === 'odoo' && $this->migrateFromOdoo) {

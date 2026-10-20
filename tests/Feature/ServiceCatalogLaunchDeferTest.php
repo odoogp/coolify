@@ -150,9 +150,33 @@ it('asks for an Odoo version before enabling the profile on first catalog launch
         ->set('serverId', (string) $this->server->id)
         ->call('launchService')
         ->assertHasNoErrors()
-        ->assertRedirect();
+        ->assertRedirect(route('project.service.configuration', [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $this->environment->uuid,
+            'service_uuid' => Service::query()->where('environment_id', $this->environment->id)->value('uuid'),
+        ]));
 
     expect($this->project->fresh()->odooProfile?->odoo_version)->toBe('20');
+    Bus::assertNotDispatched(LaunchOdooProjectJob::class);
+    Bus::assertNotDispatched(StartService::class);
+});
+
+it('starts Odoo containers only when Launch without GitHub is explicit', function () {
+    Bus::fake();
+
+    Livewire::test(Index::class, [
+        'project' => $this->project,
+        'environment' => $this->environment,
+        'allProjects' => collect([$this->project]),
+        'allEnvironments' => collect([$this->environment]),
+    ])
+        ->set('odooVersion', '20')
+        ->set('serverId', (string) $this->server->id)
+        ->set('skipGithubChoice', true)
+        ->call('launchService')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->project->uuid]));
+
     Bus::assertDispatched(LaunchOdooProjectJob::class);
 });
 
@@ -248,6 +272,30 @@ it('creates a non-odoo service from the new-project form without starting contai
     $service = $project->environments()->where('name', 'production')->first()?->services()->first();
     expect($service)->not->toBeNull()
         ->and($service->service_type)->toBe('demo-worker');
+
+    Bus::assertNotDispatched(StartService::class);
+    Bus::assertNotDispatched(LaunchOdooProjectJob::class);
+});
+
+it('creates an Odoo project from the new-project form without starting containers', function () {
+    Bus::fake();
+
+    Livewire::test(AddEmpty::class)
+        ->set('name', 'Odoo project')
+        ->set('service', 'odoo')
+        ->set('odooVersion', '20')
+        ->set('connectGithub', false)
+        ->set('serverId', (string) $this->server->id)
+        ->call('submit')
+        ->assertRedirect();
+
+    $project = Project::query()->where('name', 'Odoo project')->first();
+    $service = $project?->environments()->where('name', 'production')->first()?->services()->first();
+
+    expect($project)->not->toBeNull()
+        ->and($project->odooProfile?->odoo_version)->toBe('20')
+        ->and($service)->not->toBeNull()
+        ->and($service->service_type)->toBe('odoo');
 
     Bus::assertNotDispatched(StartService::class);
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);

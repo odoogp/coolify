@@ -28,36 +28,65 @@
                 </x-application.settings-section>
             </form>
         @endif
-        <form wire:submit="save" class="application-settings-form flex w-full min-w-0 flex-col gap-6">
-            <x-application.settings-section title="{{ __('Odoo templates') }}"
-                description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it.') }}">
-                <div class="grid max-w-xl gap-4 sm:grid-cols-2">
-                    <div>
-                        <label class="mb-1.5 block text-sm font-medium" for="odoo-template-version">{{ __('Odoo version') }}</label>
-                        <select id="odoo-template-version" wire:model.live="version" class="input">
-                            @foreach ($versions as $option)
-                                <option value="{{ $option }}">{{ $option }}</option>
+        <div class="application-settings-form mb-6 flex w-full min-w-0 flex-col gap-6">
+            @if ($showTemplateEditor)
+                <form wire:submit="save" class="flex w-full min-w-0 flex-col gap-6">
+                    <x-application.settings-section
+                        :title="$editingExistingTemplate ? __('Edit Odoo template') : __('New Odoo template')"
+                        description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it.') }}">
+                        <div class="grid max-w-xl gap-4 sm:grid-cols-2">
+                            <x-forms.input id="version" label="{{ __('Odoo version') }}"
+                                helper="{{ __('Image tag, for example 18 or 21.') }}"
+                                placeholder="18" required />
+                            <x-forms.input id="postgresVersion" label="{{ __('PostgreSQL') }}"
+                                helper="{{ __('Image tag used by the postgresql service, for example 16-alpine.') }}"
+                                placeholder="16-alpine" />
+                        </div>
+                        <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="22" />
+                        <div class="flex flex-wrap gap-2">
+                            <x-forms.button type="submit" isHighlighted>{{ __('Save') }}</x-forms.button>
+                            <button type="button" class="button" wire:click="cancelTemplateEditor">{{ __('Cancel') }}</button>
+                        </div>
+                    </x-application.settings-section>
+                </form>
+            @else
+                <x-application.settings-section title="{{ __('Odoo templates') }}"
+                    description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it. Launch pickers only offer versions saved here.') }}"
+                    flush>
+                    <x-slot:actions>
+                        <x-forms.button type="button" wire:click="newTemplate" isHighlighted>
+                            {{ __('New') }}
+                        </x-forms.button>
+                    </x-slot:actions>
+                    @if ($templates->isEmpty())
+                        <x-empty size="sm" title="{{ __('No Odoo templates yet.') }}"
+                            description="{{ __('Create a template for each Odoo version clients can launch.') }}"
+                            icon-name="server" />
+                    @else
+                        <div class="data-table">
+                            <div class="data-table-header grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_max-content] gap-3">
+                                <span>{{ __('Odoo version') }}</span>
+                                <span>{{ __('PostgreSQL') }}</span>
+                                <span></span>
+                            </div>
+                            @foreach ($templates as $template)
+                                <div class="data-table-row grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_max-content] gap-3 border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
+                                    wire:key="odoo-template-{{ $template->id }}">
+                                    <div class="truncate text-[13px] font-medium">{{ $template->version }}</div>
+                                    <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">{{ $template->postgres_version }}</div>
+                                    <div class="flex justify-end">
+                                        <button type="button" class="button"
+                                            wire:click="editTemplate('{{ $template->version }}')">
+                                            {{ __('Edit') }}
+                                        </button>
+                                    </div>
+                                </div>
                             @endforeach
-                        </select>
-                    </div>
-                    <x-forms.input id="postgresVersion" label="{{ __('PostgreSQL') }}"
-                        helper="{{ __('Image tag used by the postgresql service, for example 16-alpine.') }}"
-                        placeholder="16-alpine" />
-                </div>
-                <div class="flex max-w-xl items-end gap-2">
-                    <div class="min-w-0 flex-1">
-                        <x-forms.input id="newVersion" label="{{ __('New version') }}"
-                            helper="{{ __('Image tag for a version that is not in the list, for example 21.') }}"
-                            placeholder="21" />
-                    </div>
-                    <x-forms.button type="button" wire:click="createVersion">{{ __('Create template') }}</x-forms.button>
-                </div>
-                <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="22" />
-                <div>
-                    <x-forms.button type="submit" isHighlighted>{{ __('Save') }}</x-forms.button>
-                </div>
-            </x-application.settings-section>
-        </form>
+                        </div>
+                    @endif
+                </x-application.settings-section>
+            @endif
+        </div>
         <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
             <x-application.settings-section title="{{ __('Owner modules') }}"
                 description="{{ __('House modules come from a GitHub branch on this instance. Each Odoo start copies them into the image addons, so they show up in the Odoo apps and stay out of the client addon folder and Jupyter. Saving does not restart Odoo. To put a package branch into a client project volume, open that service as owner and use Owner package.') }}">

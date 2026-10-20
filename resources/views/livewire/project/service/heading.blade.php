@@ -141,7 +141,7 @@
                         :aria-expanded="open" aria-haspopup="menu">
                         <span class="inline-flex items-center gap-2">
                             <x-loading-on-button x-show="deploying" x-cloak />
-                            <span x-text="deploying ? @js(__('Deploying…')) : @js(__('Actions'))">Actions</span>
+                            <span x-text="deploying ? @js(__('Starting…')) : @js(__('Actions'))">Actions</span>
                         </span>
                         <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
                             <x-reicon name="chevron-down" class="size-3 opacity-55" />
@@ -201,20 +201,20 @@
                                 <button type="button" class="listbox-option justify-start! gap-2.5!"
                                     @click="open = false; deploying = true; $wire.dispatch('startEvent')" role="menuitem">
                                     <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                                    {{ __('Deploy') }}
+                                    {{ __('Start') }}
                                 </button>
                             @else
                                 <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
                                     role="menuitem">
                                     <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                                    {{ __('Deploy') }}
+                                    {{ __('Start') }}
                                 </button>
                             @endcan
                             <button type="button" class="listbox-option justify-start! gap-2.5!"
                                 @disabled(!auth()->user()->can('deploy', $service))
                                 @click="$wire.dispatch('forceDeployEvent'); open = false" role="menuitem">
                                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                                {{ __('Force Deploy') }}
+                                {{ __('Force Start') }}
                             </button>
                             <button type="button" class="listbox-option justify-start! gap-2.5!"
                                 @disabled(!auth()->user()->can('stop', $service))
@@ -311,7 +311,7 @@
                                             @disabled(!auth()->user()->can('deploy', $service))
                                             @click="deploying = true; $wire.dispatch('startEvent'); open = false">
                                             <x-reicon name="play-circle" class="size-3.5 opacity-70" />
-                                            {{ __('Deploy') }}
+                                            {{ __('Start') }}
                                         </button>
                                     @endif
                                     @if (! $serviceStatus->contains('running'))
@@ -329,7 +329,7 @@
                                             @disabled(!auth()->user()->can('deploy', $service))
                                             @click="$wire.dispatch('forceDeployEvent'); open = false">
                                             <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                                            {{ __('Force Deploy') }}
+                                            {{ __('Force Start') }}
                                         </button>
                                         <button type="button" class="listbox-option justify-start! gap-2.5!"
                                             @disabled(!auth()->user()->can('stop', $service))

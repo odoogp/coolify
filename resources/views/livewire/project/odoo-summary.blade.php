@@ -41,7 +41,7 @@
                             </p>
                             @if ($canUpdate)
                                 <div class="mt-2 flex flex-wrap gap-2">
-                                    <x-forms.button type="button" wire:click="deploy({{ $row['id'] }})">{{ __('Deploy') }}</x-forms.button>
+                                    <x-forms.button type="button" wire:click="deploy({{ $row['id'] }})">{{ __('Start') }}</x-forms.button>
                                     <x-forms.button type="button" wire:click="backup({{ $row['id'] }})" :disabled="$row['backupRunning']">
                                         {{ $row['backupRunning'] ? __('Backup in progress') : __('Backup') }}
                                     </x-forms.button>

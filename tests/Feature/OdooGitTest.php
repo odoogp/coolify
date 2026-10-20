@@ -2308,14 +2308,19 @@ it('opens the repository choice when github is already installed on a recovered 
 });
 
 it('asks for a repository before launching when github is ready', function () {
-    $index = file_get_contents(app_path('Livewire/Project/Resource/Index.php'));
+    $source = file_get_contents(app_path('Livewire/Project/Concerns/LaunchesCatalogService.php'));
 
-    expect($index)
+    expect($source)
         ->toContain('skipGithubChoice')
         ->toContain("request()->query('github') === '0'")
         ->toContain("'launch' => 'choose'")
-        ->toContain('LaunchOdooProjectJob::dispatch')
-        ->and(strpos($index, "'launch' => 'choose'"))->toBeLessThan(strpos($index, 'LaunchOdooProjectJob::dispatch'));
+        ->toContain('LaunchOdooProjectJob::dispatch');
+
+    // Job only runs for explicit Launch without GitHub; plain Launch opens configuration.
+    expect(preg_match(
+        '/if \(\$skipGithubChoice\) \{.*?LaunchOdooProjectJob::dispatch/s',
+        $source
+    ))->toBe(1);
 });
 
 it('tells the owner when the owner jupyter or its certificate was missing', function () {

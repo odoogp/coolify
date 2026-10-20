@@ -34,7 +34,7 @@
                 @click="$wire.dispatch('forceDeployEvent'); open = false"
                 role="menuitem">
                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                {{ __('Force Deploy') }}
+                {{ __('Force Start') }}
             </button>
             <button type="button" class="listbox-option justify-start! gap-2.5!"
                 @disabled(! $canStop)

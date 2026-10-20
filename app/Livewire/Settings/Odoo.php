@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Settings;
 
-use App\Domain\Odoo\OdooVersion;
 use App\Models\GithubApp;
 use App\Models\GpshOwnerModule;
 use App\Models\InstanceSettings;
@@ -21,9 +20,11 @@ class Odoo extends Component
 
     public InstanceSettings $settings;
 
-    public string $version = '18';
+    public bool $showTemplateEditor = false;
 
-    public string $newVersion = '';
+    public bool $editingExistingTemplate = false;
+
+    public string $version = '';
 
     public string $postgresVersion = '16-alpine';
 
@@ -73,7 +74,6 @@ class Odoo extends Component
         $this->ownerGithubAppId = $storedAppId > 0
             ? $storedAppId
             : OdooGit::ownerGithubApp()?->id;
-        $this->loadVersion();
         if ($this->ownerGithubAppId) {
             $this->loadOwnerRepositories(silent: true);
             if ($this->ownerRepository !== '') {
@@ -97,32 +97,59 @@ class Odoo extends Component
         $this->refreshOwnerBranches();
     }
 
-    public function updatedVersion(): void
+    public function newTemplate(): void
     {
-        $this->loadVersion();
+        $this->authorize('update', $this->settings);
+        $this->resetErrorBag();
+        $this->version = '';
+        $this->compose = OdooComposeTemplate::defaultCompose('18');
+        $this->postgresVersion = '16-alpine';
+        $this->editingExistingTemplate = false;
+        $this->showTemplateEditor = true;
     }
 
-    public function createVersion(): void
+    public function editTemplate(string $version): void
     {
-        $version = trim($this->newVersion);
+        $this->authorize('update', $this->settings);
         if (! preg_match('/^\d+(?:\.\d+)?$/', $version)) {
             $this->dispatch('error', __('The Odoo version is the image tag, for example 21.'));
 
             return;
         }
 
+        $this->resetErrorBag();
         $this->version = $version;
-        $this->newVersion = '';
         $this->loadVersion();
+        $this->editingExistingTemplate = true;
+        $this->showTemplateEditor = true;
+    }
+
+    public function cancelTemplateEditor(): void
+    {
+        $this->resetErrorBag();
+        $this->version = '';
+        $this->compose = '';
+        $this->postgresVersion = '16-alpine';
+        $this->editingExistingTemplate = false;
+        $this->showTemplateEditor = false;
     }
 
     public function save(): void
     {
         try {
             $this->authorize('update', $this->settings);
+            $version = trim($this->version);
+            if (! preg_match('/^\d+(?:\.\d+)?$/', $version)) {
+                $this->dispatch('error', __('The Odoo version is the image tag, for example 21.'));
+
+                return;
+            }
+            $this->version = $version;
             $row = OdooComposeTemplate::saveFor($this->version, $this->compose, $this->postgresVersion);
             $this->compose = $row->compose;
             $this->postgresVersion = $row->postgres_version;
+            $this->editingExistingTemplate = false;
+            $this->showTemplateEditor = false;
             $this->dispatch('success', __('Odoo template saved.'));
         } catch (InvalidArgumentException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
@@ -360,7 +387,6 @@ class Odoo extends Component
 
     public function render()
     {
-        $saved = OdooComposeTemplate::query()->orderBy('version')->pluck('version')->all();
         $ownerGithubApps = OdooGit::connectedAppsForOwnerModules();
         $selected = $this->selectedOwnerGithubApp();
         $ownerGithubLogin = '';
@@ -369,7 +395,11 @@ class Odoo extends Component
         }
 
         return view('livewire.settings.odoo', [
-            'versions' => array_values(array_unique([...OdooVersion::SUPPORTED, ...$saved, $this->version])),
+            'templates' => OdooComposeTemplate::query()
+                ->whereNotNull('compose')
+                ->where('compose', '!=', '')
+                ->orderBy('version')
+                ->get(['id', 'version', 'postgres_version', 'updated_at']),
             'ownerModules' => GpshOwnerModule::names(),
             'volumes' => OdooJupyter::pageVolumeRows(OdooJupyter::leftoverVolumeRowsOnInstance(), $this->volumePage),
             'ownerGithubApps' => $ownerGithubApps
@@ -418,7 +448,10 @@ class Odoo extends Component
     private function loadVersion(): void
     {
         if (! preg_match('/^\d+(?:\.\d+)?$/', $this->version)) {
-            $this->version = '18';
+            $this->compose = OdooComposeTemplate::defaultCompose('18');
+            $this->postgresVersion = '16-alpine';
+
+            return;
         }
 
         $state = OdooComposeTemplate::editorState($this->version);

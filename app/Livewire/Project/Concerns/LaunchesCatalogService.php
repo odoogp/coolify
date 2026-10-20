@@ -83,26 +83,32 @@ trait LaunchesCatalogService
 
                 $skipGithubChoice = $this->skipGithubChoice || request()->query('github') === '0';
                 $project->loadMissing('odooProfile');
-                if (
-                    ! $skipGithubChoice
-                    && blank($project->odooProfile?->git_repository)
-                    && OdooGit::installedApp((int) $project->team_id, auth()->id()) instanceof GithubApp
-                ) {
-                    return redirect()->route('project.service.configuration', [
+
+                // Explicit "Launch without GitHub" (skip / github=0) starts containers.
+                // Plain catalog Launch only prepares the service and opens configuration.
+                if ($skipGithubChoice) {
+                    $launchKey = 'launch-odoo-'.$service->uuid;
+                    Cache::put($launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
+                    LaunchOdooProjectJob::dispatch($service->id, $launchKey, (int) auth()->id());
+
+                    return redirect()->route('project.show', [
                         'project_uuid' => $project->uuid,
-                        'environment_uuid' => $environment->uuid,
-                        'service_uuid' => $service->uuid,
-                        'launch' => 'choose',
                     ]);
                 }
 
-                $launchKey = 'launch-odoo-'.$service->uuid;
-                Cache::put($launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
-                LaunchOdooProjectJob::dispatch($service->id, $launchKey, (int) auth()->id());
-
-                return redirect()->route('project.show', [
+                $parameters = [
                     'project_uuid' => $project->uuid,
-                ]);
+                    'environment_uuid' => $environment->uuid,
+                    'service_uuid' => $service->uuid,
+                ];
+                if (
+                    blank($project->odooProfile?->git_repository)
+                    && OdooGit::installedApp((int) $project->team_id, auth()->id()) instanceof GithubApp
+                ) {
+                    $parameters['launch'] = 'choose';
+                }
+
+                return redirect()->route('project.service.configuration', $parameters);
             }
 
             GetOdooAreaEntitlements::assertServiceAllowed(currentTeam(), $name);

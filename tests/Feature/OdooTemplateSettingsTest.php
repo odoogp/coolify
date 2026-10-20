@@ -24,18 +24,28 @@ beforeEach(function () {
     session(['currentTeam' => $this->root]);
 });
 
-it('edits the compose and postgresql version for one odoo version', function () {
-    $component = Livewire::test(Odoo::class)
+it('lists only saved odoo templates and opens the editor on New', function () {
+    Livewire::test(Odoo::class)
         ->assertSee('Odoo templates')
-        ->assertSet('version', '18')
-        ->assertSet('postgresVersion', '16-alpine');
+        ->assertSee(__('No Odoo templates yet.'))
+        ->assertSet('showTemplateEditor', false)
+        ->call('newTemplate')
+        ->assertSet('showTemplateEditor', true)
+        ->assertSet('editingExistingTemplate', false)
+        ->assertSee(__('New Odoo template'));
+});
 
-    expect($component->get('compose'))->toContain('image: postgres:16-alpine');
-
-    $component->set('postgresVersion', '17-alpine')
+it('saves a new template and returns it on the list', function () {
+    $component = Livewire::test(Odoo::class)
+        ->call('newTemplate')
+        ->set('version', '18')
+        ->set('postgresVersion', '17-alpine')
         ->call('save')
         ->assertHasNoErrors()
-        ->assertSet('postgresVersion', '17-alpine');
+        ->assertSet('showTemplateEditor', false)
+        ->assertSee('18')
+        ->assertSee('17-alpine')
+        ->assertDontSee(__('No Odoo templates yet.'));
 
     $saved = OdooComposeTemplate::query()->where('version', '18')->first();
 
@@ -45,6 +55,13 @@ it('edits the compose and postgresql version for one odoo version', function () 
         ->and($saved->compose)->not->toContain('postgres:16-alpine')
         ->and(OdooComposeTemplate::composeFor('20'))->toBeNull()
         ->and(OdooVersion::current(OdooComposeTemplate::defaultCompose('20')))->toBe('20');
+
+    $component->call('editTemplate', '18')
+        ->assertSet('showTemplateEditor', true)
+        ->assertSet('editingExistingTemplate', true)
+        ->assertSet('version', '18')
+        ->assertSet('postgresVersion', '17-alpine')
+        ->assertSee(__('Edit Odoo template'));
 });
 
 it('keeps each odoo version template separate', function () {
@@ -55,6 +72,13 @@ it('keeps each odoo version template separate', function () {
         ->and(OdooComposeTemplate::composeFor('18'))->toContain('postgres:16-alpine')
         ->and(OdooComposeTemplate::composeFor('20'))->toContain('odoo:20')
         ->and(OdooComposeTemplate::composeFor('20'))->toContain('postgres:15-alpine');
+
+    Livewire::test(Odoo::class)
+        ->assertSee('18')
+        ->assertSee('20')
+        ->assertSee('16-alpine')
+        ->assertSee('15-alpine')
+        ->assertDontSee(__('No Odoo templates yet.'));
 });
 
 it('rejects a compose without odoo and a postgresql tag that is not a tag', function () {

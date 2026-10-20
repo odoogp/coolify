@@ -131,11 +131,14 @@ it('keeps advanced operations in a dedicated Advanced dropdown', function () {
         ->not->toContain('Force deploy without cache')
         ->and($serviceDesktop)
         ->toContain('service-desktop-actions')
-        ->toContain('Force Deploy')
+        ->toContain('Force Start')
         ->toContain('Force Cleanup Containers')
         ->toContain('Restart (pull latest)')
         ->not->toContain('resource-heading-overflow-separator')
-        ->not->toContain('Pull Latest Images & Restart');
+        ->not->toContain('Pull Latest Images & Restart')
+        ->not->toContain("__('Deploy')")
+        ->toContain("__('Start')")
+        ->toContain("__('Stop')");
 
     expect(strpos($applicationDesktop, '<x-applications.links'))
         ->toBeLessThan(strpos($applicationDesktop, 'application-desktop-actions'));
@@ -153,7 +156,7 @@ it('keeps advanced operations in a dedicated Advanced dropdown', function () {
         ->not->toContain('Pull Latest Images & Restart')
         ->not->toContain('Pull latest and restart')
         ->toContain('Force Restart')
-        ->toContain('Force Deploy')
+        ->toContain('Force Start')
         ->toContain('Force Cleanup Containers')
         ->and($links)->toContain("'right-0! left-auto! min-w-60! max-w-96!' => !\$fullWidth")
         ->and($links)->toContain('listbox-option justify-start! gap-2.5!')
