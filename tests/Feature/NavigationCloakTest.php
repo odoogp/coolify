@@ -26,3 +26,24 @@ it('does not cloak the authenticated app shell so Alpine errors cannot blank Key
         ->toContain("x-data=\"{\n            open: false,")
         ->not->toMatch('/x-data="\{[^"]*open: false[\s\S]*?\}\s*"[^>]*\bx-cloak\b/');
 });
+
+it('forwards the Livewire page slot into main via an explicit Blade section', function () {
+    $bridge = file_get_contents(resource_path('views/components/layout.blade.php'));
+    $app = file_get_contents(resource_path('views/layouts/app.blade.php'));
+    $config = file_get_contents(config_path('livewire.php'));
+    $keys = file_get_contents(app_path('Livewire/Security/PrivateKey/Index.php'));
+
+    expect($bridge)
+        ->toContain("@extends('layouts.app')")
+        ->toContain("@section('page')")
+        ->toContain('{{ $slot }}');
+
+    expect($app)
+        ->toContain("@hasSection('page')")
+        ->toContain("@yield('page')")
+        ->toContain('{{ $slot }}');
+
+    expect($config)->toContain("'layout' => 'components.layout'");
+
+    expect($keys)->toContain("->layout('components.layout')");
+});

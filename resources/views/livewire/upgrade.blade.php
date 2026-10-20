@@ -520,6 +520,10 @@
                     this.beforeUnloadHandler = null;
                 }
 
+                // Always clear the upgrading flag on failure. Leaving it set makes
+                // layouts/base swallow every Livewire failure (blank SPA pages).
+                delete document.documentElement.dataset.upgrading;
+
                 this.upgradeError = true;
                 this.currentStatus = `Error: ${message}`;
             },

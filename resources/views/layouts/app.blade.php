@@ -153,7 +153,13 @@
                 class="min-h-screen bg-white dark:bg-panel px-5 py-6 sm:px-8 lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10"
                 :class="[collapsed ? 'lg:ml-16' : 'lg:ml-56', sidebarReady ? 'transition-[margin] duration-200' : '']">
                 <div class="w-full" :class="pageWidth === 'centered' ? 'mx-auto max-w-[1400px]' : 'max-w-none'">
-                    {{ $slot }}
+                    {{-- components.layout forwards Livewire/<x-layout> via @section('page');
+                         direct ->layout('layouts.app') still uses {{ $slot }}. --}}
+                    @hasSection('page')
+                        @yield('page')
+                    @else
+                        {{ $slot }}
+                    @endif
                     <footer class="mt-10 text-center text-[11px] text-neutral-400 dark:text-fg-faint">{{ product_name() }}</footer>
                 </div>
             </main>

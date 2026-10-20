@@ -53,6 +53,6 @@ class Help extends Component
 
     public function render()
     {
-        return view('livewire.help')->layout('layouts.app');
+        return view('livewire.help')->layout('components.layout');
     }
 }

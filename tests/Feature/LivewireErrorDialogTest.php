@@ -11,6 +11,8 @@ it('does not open the blank livewire dialog while an update is restarting', func
         ->toContain("document.documentElement.dataset.upgrading === '1'")
         ->toContain("document.getElementById('livewire-error')?.remove()")
         ->toContain('preventDefault()')
+        ->toContain('gpshShellReload')
+        ->toContain("document.querySelector('main')")
         ->not->toContain('const EchoConstructor')
         ->not->toContain('dialog#livewire-error')
         ->not->toContain('window.gpshReportCutRequest');
@@ -25,6 +27,11 @@ it('does not open the blank livewire dialog while an update is restarting', func
         ->toContain("route('upgrade.log')")
         ->not->toContain('$wire.getUpgradeStatus()')
         ->not->toContain('$wire.upgradeLog()');
+
+    // showError must clear the flag (closeErrorModal / showSuccess already did).
+    expect($upgrade)->toMatch(
+        '/showError\(message\)\s*\{[\s\S]*?delete document\.documentElement\.dataset\.upgrading/'
+    );
 
     $bell = file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php'));
 

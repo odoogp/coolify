@@ -393,7 +393,27 @@
 
                     preventDefault()
                     dismissLivewireError()
+
+                    // Empty/cut responses during wire:navigate can leave a shell-less
+                    // document (no <main>). Recover with one hard reload, not a loop.
+                    if (document.documentElement.dataset.upgrading === '1') {
+                        return
+                    }
+                    if (document.querySelector('main')) {
+                        return
+                    }
+                    if (sessionStorage.getItem('gpshShellReload') === '1') {
+                        return
+                    }
+                    sessionStorage.setItem('gpshShellReload', '1')
+                    window.location.reload()
                 })
+            })
+
+            document.addEventListener('livewire:navigated', () => {
+                if (document.querySelector('main')) {
+                    sessionStorage.removeItem('gpshShellReload')
+                }
             })
 
             window.Livewire.on('reloadWindow', (timeout) => {
