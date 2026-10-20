@@ -1021,17 +1021,59 @@ BASH], $local, false);
     }
 
     /**
-     * Platform logo as a data URI so the public waiting page (on the Odoo host) can show it.
+     * Signup-style isologo (glass frame) as a data URI for the public waiting page.
      */
     public static function waitingLogoDataUri(): ?string
     {
-        $candidates = array_values(array_unique(array_filter([
-            product_logo_path(),
+        $custom = product_logo_path();
+
+        return self::waitingAssetDataUri([
+            $custom,
             'brand/getodoo-isologo.png',
             'brand/getodoo-mark.png',
+            'brand/icono-app.png',
             'brand/favicon.png',
-        ])));
-        foreach ($candidates as $relative) {
+            'gpsh-logo.svg',
+            'brand/favicon.svg',
+        ]);
+    }
+
+    /**
+     * Absolute URL for a public Coolify asset (video/poster are too large to inline).
+     */
+    public static function waitingPublicAssetUrl(string $path): string
+    {
+        $path = ltrim($path, '/');
+        if ($path === '' || str_contains($path, '..')) {
+            return '';
+        }
+
+        try {
+            $base = rtrim((string) (instanceSettings()->fqdn ?: config('app.url')), '/');
+        } catch (Throwable) {
+            $base = rtrim((string) config('app.url'), '/');
+        }
+
+        if ($base === '') {
+            return '/'.$path;
+        }
+
+        if (! str_starts_with($base, 'http://') && ! str_starts_with($base, 'https://')) {
+            $base = 'https://'.$base;
+        }
+
+        return $base.'/'.$path;
+    }
+
+    /**
+     * @param  list<string|null>  $candidates  Paths relative to public/
+     */
+    public static function waitingAssetDataUri(array $candidates): ?string
+    {
+        foreach (array_values(array_unique(array_filter($candidates))) as $relative) {
+            if (! is_string($relative) || $relative === '' || str_contains($relative, '..')) {
+                continue;
+            }
             $file = public_path($relative);
             if (! is_file($file) || ! is_readable($file)) {
                 continue;
@@ -1060,7 +1102,7 @@ BASH], $local, false);
     }
 
     /**
-     * Public waiting page while Odoo mounts (same atmosphere as plan signup).
+     * Public waiting page while Odoo mounts (same tunnel + isologo as plan signup).
      *
      * @param  list<string>  $tips
      */
@@ -1078,13 +1120,19 @@ BASH], $local, false);
         if (! is_string($tipsJson)) {
             $tipsJson = '[]';
         }
+
         $logoUri = self::waitingLogoDataUri();
         $logoHtml = $logoUri !== null
-            ? '<img class="logo" src="'.htmlspecialchars($logoUri, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'" alt="'.$product.'">'
-            : '<p class="brand">'.$product.'</p>';
+            ? '<div class="isologo"><img src="'.htmlspecialchars($logoUri, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'" alt="'.$product.'"></div>'
+            : '<p class="brand-fallback">'.$product.'</p>';
+
+        $posterAttr = htmlspecialchars(self::waitingPublicAssetUrl('media/moon-walk.jpg'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $videoUrl = htmlspecialchars(self::waitingPublicAssetUrl('media/moon-walk.mp4'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
         $tipBlock = $tips === []
             ? ''
             : '<div class="tip-wrap" id="gpsh-tip-wrap"><p class="tip-label">'.$tipLabel.'</p><p class="tip" id="gpsh-tip"></p></div>';
+
         $script = '<script>(function(){'
             .'var tips='.$tipsJson.';'
             .'var readyText='.json_encode($readyText, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS).';'
@@ -1094,6 +1142,8 @@ BASH], $local, false);
             .'var msgEl=document.getElementById("gpsh-msg");'
             .'var subEl=document.getElementById("gpsh-sub");'
             .'var shell=document.getElementById("gpsh-shell");'
+            .'var tunnel=document.getElementById("gpsh-tunnel");'
+            .'var video=document.getElementById("gpsh-video");'
             .'var tipTimer=null;'
             .'var done=false;'
             .'var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;'
@@ -1111,69 +1161,55 @@ BASH], $local, false);
             .'window.setTimeout(function(){location.reload();},reduce?900:2600);}'
             .'function poll(){if(done)return;fetch(location.href,{cache:"no-store",credentials:"same-origin",headers:{"Accept":"text/html"}})'
             .'.then(function(r){return r.text();}).then(function(t){if(done)return;if(t.indexOf("data-gpsh-waiting")===-1){finish();}}).catch(function(){});}'
-            .'startTips();window.setInterval(poll,3500);window.setTimeout(poll,1200);'
+            .'function bootTunnel(){if(!video||!tunnel||reduce)return;'
+            .'var markReady=function(){tunnel.classList.add("is-ready");};'
+            .'video.addEventListener("playing",markReady);'
+            .'video.addEventListener("error",function(){tunnel.classList.remove("is-ready");});'
+            .'var attempt=video.play();if(attempt&&attempt.catch){attempt.catch(function(){});}}'
+            .'startTips();bootTunnel();window.setInterval(poll,3500);window.setTimeout(poll,1200);'
             .'})();</script>';
 
         return '<!doctype html><html lang="es"><head><meta charset="utf-8"><noscript><meta http-equiv="refresh" content="20"></noscript><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$product.'</title><style>'
-            .'html,body{margin:0;min-height:100%;background:#07080e;color:#f6f7fb;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}'
-            .'.shell{position:relative;isolation:isolate;display:flex;min-height:100dvh;align-items:center;justify-content:center;overflow:hidden;'
-            .'background:radial-gradient(ellipse 48% 40% at 28% 44%,rgba(108,92,231,.42),transparent 70%),radial-gradient(ellipse 34% 28% at 78% 76%,rgba(40,180,120,.22),transparent 70%),linear-gradient(180deg,#140c28 0%,#07080e 100%)}'
-            .'.stage{position:absolute;inset:0;pointer-events:none;overflow:hidden}'
-            .'.glow,.orbit,.shard,.mark,.ridge{animation-timing-function:ease-in-out;animation-iteration-count:infinite}'
-            .'.glow{position:absolute;width:28rem;height:28rem;border-radius:50%;background:radial-gradient(circle,rgba(108,92,231,.55),transparent 68%);filter:blur(8px);left:8%;top:8%;animation:auth-glow 14s infinite}'
-            .'.glow-b{left:auto;right:6%;top:auto;bottom:4%;width:22rem;height:22rem;background:radial-gradient(circle,rgba(40,180,120,.35),transparent 68%);animation-duration:18s;animation-delay:-6s}'
-            .'.orbit{position:absolute;left:50%;top:42%;width:min(440px,70vw);height:150px;margin-left:calc(min(440px,70vw)/-2);margin-top:-75px;border:1px solid rgba(168,148,255,.32);border-radius:50%;animation:auth-spin 22s infinite}'
-            .'.orbit-b{width:min(300px,48vw);height:110px;margin-left:calc(min(300px,48vw)/-2);margin-top:-55px;opacity:.7;animation-duration:28s;animation-direction:reverse}'
-            .'.mark-slot{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);opacity:.22}'
-            .'.mark{display:block;width:min(160px,36vw);filter:drop-shadow(0 24px 40px rgba(40,20,120,.35));animation:auth-float 9s infinite}'
-            .'.flare{position:absolute;left:12%;right:12%;top:18%;height:42%;background:radial-gradient(ellipse at center,rgba(255,255,255,.55),transparent 68%);filter:blur(10px);animation:auth-flare 8s ease-in-out infinite}'
-            .'.shard{position:absolute;background:linear-gradient(160deg,rgba(255,255,255,.85),rgba(198,188,255,.22));box-shadow:inset 0 0 0 1px rgba(255,255,255,.55),0 12px 24px rgba(40,20,90,.28);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:auth-drift 15s infinite}'
-            .'.s-a{top:14%;left:12%;width:34px;height:40px}.s-b{top:64%;left:16%;width:26px;height:30px;opacity:.8;animation-delay:-3s}'
-            .'.s-c{top:18%;right:12%;width:48px;height:56px;animation-delay:-5s}.s-d{top:60%;right:18%;width:20px;height:24px;opacity:.75;animation-delay:-8s}'
-            .'.ridge{position:absolute;bottom:-8px;height:18%;background:#1a2140;border-radius:60% 40% 0 0;animation:auth-ridge 16s infinite}'
-            .'.ridge-a{left:-4%;width:46%}.ridge-b{right:-6%;width:38%;height:14%;background:#14192e;animation-direction:reverse}'
-            .'.card{position:relative;z-index:1;width:min(100% - 2rem,28rem);padding:2rem 1.5rem 1.75rem;text-align:center}'
-            .'.logo{display:block;width:min(240px,78%);height:auto;margin:0 auto 1.25rem;object-fit:contain;filter:drop-shadow(0 10px 24px rgba(20,10,60,.4))}'
-            .'.brand{margin:0 0 .85rem;font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;opacity:.55}'
-            .'.msg{margin:0;font-size:clamp(1.35rem,4vw,1.75rem);line-height:1.35;font-weight:600;transition:opacity .75s ease,transform .75s ease}'
+            .'html,body{margin:0;min-height:100%;background:#070b14;color:#1a1524;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}'
+            .'.shell{position:relative;isolation:isolate;display:flex;min-height:100dvh;align-items:center;justify-content:center;overflow:hidden;background:#070b14;padding:1.25rem}'
+            .'.tunnel{position:fixed;inset:0;z-index:0;width:100%;height:100dvh;pointer-events:none;background:#070b14}'
+            .'.tunnel img,.tunnel video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}'
+            .'.tunnel-poster{z-index:2;opacity:1;transition:opacity 1.4s ease}'
+            .'.tunnel.is-ready .tunnel-poster{opacity:0}'
+            .'.tunnel video{z-index:1;opacity:1;background:transparent}'
+            .'.panel{position:relative;z-index:2;width:min(100%,26rem);display:flex;flex-direction:column;align-items:stretch;gap:1rem}'
+            .'.isologo{display:flex;align-items:center;justify-content:center;box-sizing:border-box;width:min(16rem,100%);margin:0 auto;padding:1rem;border-radius:28px;'
+            .'border:1px solid rgb(255 255 255 / .55);background:linear-gradient(180deg,rgb(255 255 255 / .72),rgb(255 255 255 / .4));'
+            .'box-shadow:inset 0 1px 0 rgb(255 255 255 / .85),0 24px 60px rgb(40 24 80 / .14);backdrop-filter:blur(28px) saturate(1.35)}'
+            .'.isologo img{display:block;width:100%;height:auto}'
+            .'.brand-fallback{margin:0;text-align:center;font-size:clamp(1.55rem,5vw,2rem);font-weight:650;letter-spacing:-.03em;color:#f7f9fc;text-shadow:0 1px 10px rgb(0 0 0 / .55)}'
+            .'.card{padding:1.35rem 1.25rem 1.3rem;border:1px solid rgb(255 255 255 / .55);border-radius:28px;'
+            .'background:linear-gradient(180deg,rgb(255 255 255 / .72),rgb(255 255 255 / .4));'
+            .'box-shadow:inset 0 1px 0 rgb(255 255 255 / .85),0 24px 60px rgb(40 24 80 / .14);'
+            .'backdrop-filter:blur(28px) saturate(1.35);color:#1a1524;text-align:center}'
+            .'.msg{margin:0;font-size:clamp(1.2rem,3.6vw,1.55rem);line-height:1.35;font-weight:650;transition:opacity .75s ease,transform .75s ease}'
             .'.msg.is-swap,.sub.is-swap{opacity:0;transform:translateY(8px)}'
-            .'.msg.is-ready{color:#b8f0d0}'
-            .'.sub{margin:.85rem 0 0;opacity:.65;font-size:.95rem;transition:opacity .75s ease,transform .75s ease}'
-            .'.tip-wrap{margin-top:1.75rem;min-height:4.75rem;padding:1rem 1.1rem;border:1px solid rgba(255,255,255,.1);border-radius:1rem;background:rgba(255,255,255,.04);backdrop-filter:blur(10px);text-align:left;transition:opacity .75s ease,transform .75s ease}'
+            .'.msg.is-ready{color:#0f7a4a}'
+            .'.sub{margin:.7rem 0 0;opacity:.72;font-size:.92rem;transition:opacity .75s ease,transform .75s ease}'
+            .'.tip-wrap{margin-top:1.15rem;min-height:5.25rem;padding:1rem 1.05rem;border:1px solid rgb(40 24 80 / .1);border-radius:1rem;'
+            .'background:rgb(255 255 255 / .42);text-align:left;transition:opacity .75s ease,transform .75s ease}'
             .'.tip-wrap.is-gone{opacity:0;transform:translateY(10px);pointer-events:none}'
-            .'.tip-label{margin:0 0 .35rem;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;opacity:.5}'
+            .'.tip-label{margin:0 0 .35rem;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;opacity:.55}'
             .'.tip{margin:0;font-size:.98rem;line-height:1.45;opacity:0;transform:translateY(8px);transition:opacity .75s ease,transform .75s ease}'
-            .'.tip.is-on{opacity:.92;transform:translateY(0)}'
-            .'@keyframes auth-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}'
-            .'@keyframes auth-drift{0%,100%{transform:translate3d(0,0,0) rotate(0)}50%{transform:translate3d(8px,-12px,0) rotate(8deg)}}'
-            .'@keyframes auth-spin{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(12deg)}}'
-            .'@keyframes auth-glow{0%,100%{transform:translate3d(0,0,0) scale(1);opacity:.8}50%{transform:translate3d(16px,12px,0) scale(1.06);opacity:1}}'
-            .'@keyframes auth-ridge{0%,100%{transform:translateX(0)}50%{transform:translateX(10px)}}'
-            .'@keyframes auth-flare{0%,100%{opacity:.4}50%{opacity:.9}}'
-            .'@media (prefers-reduced-motion:reduce){.glow,.orbit,.shard,.mark,.flare,.ridge{animation:none!important}.tip,.msg,.sub,.tip-wrap{transition:none!important}}'
-            .'</style></head><body><div class="shell" id="gpsh-shell" data-gpsh-waiting="1"><div class="stage" aria-hidden="true">'
-            .'<span class="glow"></span><span class="glow glow-b"></span>'
-            .'<span class="orbit"></span><span class="orbit orbit-b"></span>'
-            .'<span class="shard s-a"></span><span class="shard s-b"></span><span class="shard s-c"></span><span class="shard s-d"></span>'
-            .'<div class="mark-slot"><span class="flare"></span>'
-            .'<svg class="mark" viewBox="0 0 200 200"><defs>'
-            .'<linearGradient id="g" x1="28" y1="8" x2="172" y2="188" gradientUnits="userSpaceOnUse">'
-            .'<stop offset="0" stop-color="#ffffff" stop-opacity="0.94"/><stop offset="0.32" stop-color="#efeaff" stop-opacity="0.5"/>'
-            .'<stop offset="0.68" stop-color="#8ea0ff" stop-opacity="0.26"/><stop offset="1" stop-color="#241a4a" stop-opacity="0.18"/></linearGradient>'
-            .'<linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>'
-            .'<stop offset="0.5" stop-color="#c9bdff" stop-opacity="0.4"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.12"/></linearGradient>'
-            .'<filter id="b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter></defs>'
-            .'<polygon points="100,18 166,56 166,130 100,168 34,130 34,56" fill="#b7a6ff" opacity="0.45" filter="url(#b)"/>'
-            .'<polygon points="100,16 168,54 168,132 100,170 32,132 32,54" fill="url(#g)" stroke="url(#r)" stroke-width="2.4"/>'
-            .'<polygon points="100,16 168,54 100,92 32,54" fill="rgb(255 255 255 / 0.28)"/>'
-            .'<polygon points="100,48 134,67 134,110 100,130 66,110 66,67" fill="rgb(255 255 255 / 0.08)" stroke="rgb(255 255 255 / 0.62)" stroke-width="1.5"/>'
-            .'<path d="M78 112 L100 70 L122 112 L109 112 L100 94 L91 112 Z" fill="#ffffff"/></svg></div>'
-            .'<span class="ridge ridge-a"></span><span class="ridge ridge-b"></span></div>'
-            .'<div class="card">'.$logoHtml
-            .'<p class="msg" id="gpsh-msg">__GPSH_WAITING_MESSAGE__</p>'
+            .'.tip.is-on{opacity:.95;transform:translateY(0)}'
+            .'@media (prefers-reduced-motion:reduce){.tunnel-poster{transition:none!important}.tip,.msg,.sub,.tip-wrap{transition:none!important}}'
+            .'</style></head><body><div class="shell" id="gpsh-shell" data-gpsh-waiting="1">'
+            .'<div class="tunnel" id="gpsh-tunnel" aria-hidden="true">'
+            .'<img class="tunnel-poster" src="'.$posterAttr.'" alt="">'
+            .($videoUrl !== ''
+                ? '<video id="gpsh-video" autoplay muted playsinline webkit-playsinline loop preload="auto" poster="'.$posterAttr.'" src="'.$videoUrl.'" disablepictureinpicture></video>'
+                : '')
+            .'</div>'
+            .'<div class="panel">'.$logoHtml
+            .'<div class="card"><p class="msg" id="gpsh-msg">__GPSH_WAITING_MESSAGE__</p>'
             .'<p class="sub" id="gpsh-sub">Esta página se actualiza sola.</p>'
             .$tipBlock
-            .'</div></div>'.$script.'</body></html>';
+            .'</div></div></div>'.$script.'</body></html>';
     }
 
     /**

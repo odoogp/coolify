@@ -72,6 +72,7 @@
     dispatchAction: @js($dispatchAction),
     submitting: false,
     passwordError: '',
+    genericError: @js(__('Something went wrong. Try again.')),
     selectedActions: @js(collect($checkboxes)->pluck('id')->filter(fn($id) => $this->$id)->values()->all()),
     dispatchEvent: @js($dispatchEvent),
     dispatchEventType: @js($dispatchEventType),
@@ -83,6 +84,7 @@
         this.deleteText = '';
         this.password = '';
         this.submitting = false;
+        this.passwordError = '';
         this.userConfirmationText = '';
         this.selectedActions = @js(collect($checkboxes)->pluck('id')->filter(fn($id) => $this->$id)->values()->all());
         $wire.$refresh();
@@ -98,6 +100,60 @@
             return @js(translateUiText('Password is required.'));
         }
         return '';
+    },
+    emitDispatchEvent() {
+        if (! this.dispatchEvent) {
+            return;
+        }
+        $wire.dispatch(this.dispatchEventType, this.dispatchEventMessage);
+    },
+    advanceFromStep2() {
+        this.passwordError = '';
+        if (this.dispatchEvent) {
+            this.modalOpen = false;
+            this.$nextTick(() => this.emitDispatchEvent());
+        }
+        if (this.confirmWithPassword && ! this.skipPasswordConfirmation) {
+            this.step = 3;
+            this.$nextTick(() => {
+                const field = this.$root.querySelector('input[type=password]');
+                if (field) {
+                    field.focus();
+                }
+            });
+
+            return;
+        }
+        this.runSubmit({ clearPassword: false });
+    },
+    confirmPasswordStep() {
+        if (this.dispatchEvent) {
+            this.emitDispatchEvent();
+        }
+        this.runSubmit({ clearPassword: true });
+    },
+    runSubmit({ clearPassword }) {
+        this.submitting = true;
+        this.passwordError = '';
+        this.submitForm().then((result) => {
+            if (result === true) {
+                this.modalOpen = false;
+                this.resetModal();
+
+                return;
+            }
+            this.submitting = false;
+            this.passwordError = typeof result === 'string' ? result : this.genericError;
+            if (clearPassword) {
+                this.password = '';
+            }
+        }).catch(() => {
+            this.submitting = false;
+            this.passwordError = this.genericError;
+            if (clearPassword) {
+                this.password = '';
+            }
+        });
     },
     submitForm() {
         if (this.confirmWithPassword) {
@@ -337,34 +393,7 @@
                                 :showLoadingIndicator="false"
                                 x-bind:disabled="submitting || (!disableTwoStepConfirmation && confirmWithText && !confirmationMatches())"
                                 class="w-auto" isError
-                                x-on:click.prevent="
-                                    passwordError = '';
-                                    if (dispatchEvent) {
-                                        modalOpen = false;
-                                        $nextTick(() => $wire.dispatch(dispatchEventType, dispatchEventMessage));
-                                    }
-                                    if (confirmWithPassword && !skipPasswordConfirmation) {
-                                        step = 3;
-                                        $nextTick(() => {
-                                            const field = $root.querySelector('input[type=password]');
-                                            if (field) { field.focus(); }
-                                        });
-                                    } else {
-                                        submitting = true;
-                                        submitForm().then((result) => {
-                                            if (result === true) {
-                                                modalOpen = false;
-                                                resetModal();
-                                                return;
-                                            }
-                                            submitting = false;
-                                            passwordError = typeof result === 'string' ? result : @js(__('Something went wrong. Try again.'));
-                                        }).catch(() => {
-                                            submitting = false;
-                                            passwordError = @js(__('Something went wrong. Try again.'));
-                                        });
-                                    }
-                                ">
+                                x-on:click.prevent="advanceFromStep2()">
                                 <x-loading-on-button x-show="submitting" x-cloak />
                                 <span x-show="!submitting" x-text="step2ButtonText"></span>
                                 <span x-show="submitting" x-cloak>{{ __('Working…') }}</span>
@@ -415,27 +444,7 @@
                                 </x-forms.button>
                                 <x-forms.button :showLoadingIndicator="false"
                                     x-bind:disabled="(!password && !submitting) || submitting" class="w-auto" isError
-                                    @click="
-                                    if (dispatchEvent) {
-                                        $wire.dispatch(dispatchEventType, dispatchEventMessage);
-                                    }
-                                    submitting = true;
-                                    passwordError = '';
-                                    submitForm().then((result) => {
-                                        if (result === true) {
-                                            modalOpen = false;
-                                            resetModal();
-                                            return;
-                                        }
-                                        submitting = false;
-                                        passwordError = typeof result === 'string' ? result : '';
-                                        password = '';
-                                    }).catch(() => {
-                                        submitting = false;
-                                        passwordError = @js(__('Something went wrong. Try again.'));
-                                        password = '';
-                                    });
-                                    ">
+                                    x-on:click.prevent="confirmPasswordStep()">
                                     <x-loading-on-button x-show="submitting" x-cloak />
                                     <span x-show="!submitting" x-text="step3ButtonText"></span>
                                     <span x-show="submitting" x-cloak>{{ __('Working…') }}</span>

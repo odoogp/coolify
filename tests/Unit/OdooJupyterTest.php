@@ -454,19 +454,27 @@ test('the waiting page keeps each stage for twenty seconds and says almost there
         ->and($command)->toContain('Esta página se actualiza sola.')
         ->and($command)->toContain('gpsh-waiting.tpl')
         ->and($command)->not->toContain('Es mejor que vayas por un café.')
-        ->and($decoded)->toContain('auth-glow')
+        ->and($decoded)->toContain('gpsh-tunnel')
+        ->and($decoded)->toContain('moon-walk.mp4')
+        ->and($decoded)->toContain('class="isologo"')
         ->and($decoded)->toContain('gpsh-tip')
         ->and($decoded)->toContain('data-gpsh-waiting')
         ->and($decoded)->toContain(__('Everything is ready.'))
         ->and($decoded)->toContain(__('Opening Odoo…'))
         ->and($decoded)->toContain('data:image')
-        ->and($decoded)->toContain('class="logo"')
         ->and($decoded)->toContain('transition:opacity .75s ease')
         ->and($decoded)->toContain('location.reload')
-        ->and($decoded)->toContain(__('Each environment can use its own GitHub branch.'))
+        ->and($decoded)->toContain(__('From a sales order you can create the invoice without leaving the form.'))
+        ->and($decoded)->not->toContain(__('Each environment can use its own GitHub branch.'))
         ->and($activity)->toContain('20000')
         ->and($activity)->not->toContain('setInterval')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Project/Show.php'))->toContain('Almost there.');
+});
+
+test('waiting page public asset urls prefer the instance fqdn', function () {
+    expect(OdooJupyter::waitingPublicAssetUrl('media/moon-walk.mp4'))
+        ->toContain('media/moon-walk.mp4')
+        ->and(OdooJupyter::waitingPublicAssetUrl('../secret'))->toBe('');
 });
 
 test('waiting tips for a version can replace the stock carousel', function () {
@@ -481,7 +489,7 @@ test('waiting tips for a version can replace the stock carousel', function () {
 
     expect($decoded)->toContain('Custom tip about inventories.')
         ->and($decoded)->toContain('Another tip.')
-        ->and($decoded)->not->toContain(__('Each environment can use its own GitHub branch.'));
+        ->and($decoded)->not->toContain(__('From a sales order you can create the invoice without leaving the form.'));
 });
 
 test('an odoo https router tells odoo the browser used https', function () {

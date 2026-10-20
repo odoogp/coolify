@@ -43,7 +43,7 @@
                                 placeholder="16-alpine" />
                         </div>
                         <x-forms.textarea id="waitingTipsText" label="{{ __('Waiting tips') }}" rows="8"
-                            helper="{{ __('One tip per line. Shown on the public page while this Odoo version is mounting. Leave empty to hide tips.') }}" />
+                            helper="{{ __('One tip per line for Odoo end users (Sales, Inventory, Accounting…). Shown while this version is mounting. Leave empty to hide tips; clear and save to restore the stock tips.') }}" />
                         <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="22" />
                         <div class="flex flex-wrap gap-2">
                             <x-forms.button type="submit" isHighlighted>{{ __('Save') }}</x-forms.button>

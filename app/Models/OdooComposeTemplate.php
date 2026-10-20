@@ -42,12 +42,12 @@ class OdooComposeTemplate extends Model
     public static function defaultWaitingTips(): array
     {
         return [
-            'Each environment can use its own GitHub branch.',
-            'JupyterLab opens the addons folder while Odoo starts.',
-            'Production and staging keep separate databases and filestores.',
-            'A push to the environment branch updates only the modules.',
-            'When it finishes, Open Odoo starts the administrator session.',
-            'Worker changes apply the next time the service starts.',
+            'From a sales order you can create the invoice without leaving the form.',
+            'Contacts keep customers and vendors in one place for the whole company.',
+            'Inventory shows stock by warehouse before you confirm a delivery.',
+            'Bank reconciliation matches statements with open customer invoices.',
+            'Activities and chatter keep follow-ups on every record.',
+            'In Apps you can install CRM, Inventory, or Accounting when you need them.',
         ];
     }
 

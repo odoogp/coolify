@@ -72,7 +72,9 @@ it('saves a new template and returns it on the list', function () {
 it('falls back to stock waiting tips when a version has none saved', function () {
     expect(OdooComposeTemplate::waitingTipsFor('19'))
         ->toBe(OdooComposeTemplate::defaultWaitingTips())
-        ->and(OdooComposeTemplate::defaultWaitingTips())->not->toBeEmpty();
+        ->and(OdooComposeTemplate::defaultWaitingTips())->not->toBeEmpty()
+        ->and(OdooComposeTemplate::defaultWaitingTips()[0])->toContain('sales order')
+        ->and(collect(OdooComposeTemplate::defaultWaitingTips())->implode(' '))->not->toContain('GitHub');
 });
 
 it('keeps each odoo version template separate', function () {
