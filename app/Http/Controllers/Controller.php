@@ -7,6 +7,7 @@ use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Providers\RouteServiceProvider;
 use App\Services\AdminCreationQuota;
+use App\Support\OdooGit;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Contracts\View\View;
@@ -135,6 +136,7 @@ class Controller extends BaseController
             $team = $invitation->team;
             if (! $user->teams()->where('team_id', $team->id)->exists()) {
                 $user->teams()->attach($team->id, app(AdminCreationQuota::class)->attributesForAcceptedInvitation($invitation));
+                OdooGit::inviteEmailToRepositories((int) $team->id, (string) $user->email);
             }
 
             $user->forceFill([
@@ -260,6 +262,7 @@ class Controller extends BaseController
         }
         DB::transaction(function () use ($user, $invitation): void {
             $user->teams()->attach($invitation->team->id, app(AdminCreationQuota::class)->attributesForAcceptedInvitation($invitation));
+            OdooGit::inviteEmailToRepositories((int) $invitation->team_id, (string) $user->email);
             $invitation->delete();
         });
 

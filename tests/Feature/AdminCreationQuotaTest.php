@@ -214,8 +214,8 @@ test('a pending invitation reserves a member and accepting it does not add anoth
 
     $invitation = TeamInvitation::query()->where('email', 'invitee@example.com')->first();
     $invitee = User::query()->where('email', 'invitee@example.com')->first();
+    expect($invitee->teams()->where('team_id', $this->team->id)->exists())->toBeFalse();
     $invitee->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
-    $invitee->teams()->update(['show_boarding' => false]);
 
     $this->actingAs($invitee);
     $this->withoutMiddleware(VerifyCsrfToken::class)
@@ -223,7 +223,9 @@ test('a pending invitation reserves a member and accepting it does not add anoth
         ->assertRedirect(route('team.index'));
 
     expect(TeamInvitation::query()->count())->toBe(0);
+    expect($invitee->fresh()->teams()->where('team_id', $this->team->id)->exists())->toBeTrue();
     expect((int) DB::table('team_user')->where('team_id', $this->team->id)->where('user_id', $invitee->id)->value('added_by'))->toBe($this->admin->id);
+    DB::table('team_user')->where('user_id', $invitee->id)->where('team_id', $this->team->id)->update(['show_boarding' => false]);
 
     $this->actingAs($this->admin);
     session(['currentTeam' => $this->team]);

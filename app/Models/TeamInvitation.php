@@ -11,10 +11,18 @@ class TeamInvitation extends Model
         'uuid',
         'email',
         'role',
+        'membership',
         'link',
         'via',
         'invited_by',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'membership' => 'array',
+        ];
+    }
 
     /**
      * Set the email attribute to lowercase.

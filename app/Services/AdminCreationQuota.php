@@ -101,11 +101,17 @@ class AdminCreationQuota
     }
 
     /**
-     * @return array{role: string, added_by?: int}
+     * Pivot attributes applied only when the invitee accepts (never at invite create time).
+     *
+     * @return array<string, mixed>
      */
     public function attributesForAcceptedInvitation(TeamInvitation $invitation): array
     {
-        $attributes = ['role' => $invitation->role];
+        $stored = is_array($invitation->membership) ? $invitation->membership : [];
+        $attributes = [
+            ...$stored,
+            'role' => $invitation->role,
+        ];
 
         if ($invitation->invited_by !== null) {
             $attributes['added_by'] = $invitation->invited_by;

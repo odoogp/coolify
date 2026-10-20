@@ -149,18 +149,19 @@ class InviteLink extends Component
                 }
             }
 
+            $membership = $this->membershipAttributes($team);
+            unset($membership['role'], $membership['added_by']);
             $invitation = app(AdminCreationQuota::class)->createInvitation(auth()->user(), [
                 'team_id' => $team->id,
                 'uuid' => $uuid,
                 'email' => $this->email,
                 'role' => $this->role,
+                'membership' => $membership === [] ? null : $membership,
                 'link' => $link,
                 'via' => $sendEmail ? 'email' : 'link',
             ]);
-            if (! $user->teams()->where('teams.id', $team->id)->exists()) {
-                $user->teams()->attach($team->id, $this->membershipAttributes($team));
-            }
-            OdooGit::inviteEmailToRepositories((int) $team->id, $this->email);
+            // Do not attach the user here. Membership starts only when they accept the link;
+            // otherwise opening the invitation says they are already on the team.
             if ($sendEmail) {
                 $mail = new MailMessage;
                 $mail->view('emails.invitation-link', [

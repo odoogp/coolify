@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Models\Environment;
 use App\Models\LocalPersistentVolume;
+use App\Models\OdooComposeTemplate;
 use App\Models\Server;
 use App\Models\Service;
 use Illuminate\Support\Facades\Cache;
@@ -1020,9 +1021,166 @@ BASH], $local, false);
     }
 
     /**
-     * @param  list<string>  $modules
+     * Platform logo as a data URI so the public waiting page (on the Odoo host) can show it.
      */
-    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = '', array $modules = [], int $workers = 0): string
+    public static function waitingLogoDataUri(): ?string
+    {
+        $candidates = array_values(array_unique(array_filter([
+            product_logo_path(),
+            'brand/getodoo-isologo.png',
+            'brand/getodoo-mark.png',
+            'brand/favicon.png',
+        ])));
+        foreach ($candidates as $relative) {
+            $file = public_path($relative);
+            if (! is_file($file) || ! is_readable($file)) {
+                continue;
+            }
+            $size = filesize($file);
+            // Keep the launch command small: the page is base64-wrapped again for Compose.
+            if ($size === false || $size < 1 || $size > 180_000) {
+                continue;
+            }
+            $bytes = file_get_contents($file);
+            if (! is_string($bytes) || $bytes === '') {
+                continue;
+            }
+            $mime = match (strtolower(pathinfo($file, PATHINFO_EXTENSION))) {
+                'svg' => 'image/svg+xml',
+                'jpg', 'jpeg' => 'image/jpeg',
+                'webp' => 'image/webp',
+                'gif' => 'image/gif',
+                default => 'image/png',
+            };
+
+            return 'data:'.$mime.';base64,'.base64_encode($bytes);
+        }
+
+        return null;
+    }
+
+    /**
+     * Public waiting page while Odoo mounts (same atmosphere as plan signup).
+     *
+     * @param  list<string>  $tips
+     */
+    public static function waitingPageMarkup(array $tips = []): string
+    {
+        $tips = array_values(array_map(
+            fn (string $tip): string => (string) __($tip),
+            OdooComposeTemplate::normalizeWaitingTips($tips),
+        ));
+        $product = htmlspecialchars(product_name(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $tipLabel = htmlspecialchars((string) __('Tip'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $readyText = (string) __('Everything is ready.');
+        $readySub = (string) __('Opening Odoo…');
+        $tipsJson = json_encode($tips, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS);
+        if (! is_string($tipsJson)) {
+            $tipsJson = '[]';
+        }
+        $logoUri = self::waitingLogoDataUri();
+        $logoHtml = $logoUri !== null
+            ? '<img class="logo" src="'.htmlspecialchars($logoUri, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'" alt="'.$product.'">'
+            : '<p class="brand">'.$product.'</p>';
+        $tipBlock = $tips === []
+            ? ''
+            : '<div class="tip-wrap" id="gpsh-tip-wrap"><p class="tip-label">'.$tipLabel.'</p><p class="tip" id="gpsh-tip"></p></div>';
+        $script = '<script>(function(){'
+            .'var tips='.$tipsJson.';'
+            .'var readyText='.json_encode($readyText, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS).';'
+            .'var readySub='.json_encode($readySub, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS).';'
+            .'var tipEl=document.getElementById("gpsh-tip");'
+            .'var tipWrap=document.getElementById("gpsh-tip-wrap");'
+            .'var msgEl=document.getElementById("gpsh-msg");'
+            .'var subEl=document.getElementById("gpsh-sub");'
+            .'var shell=document.getElementById("gpsh-shell");'
+            .'var tipTimer=null;'
+            .'var done=false;'
+            .'var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;'
+            .'var fadeMs=reduce?0:750;'
+            .'var holdMs=reduce?5000:9000;'
+            .'var i=0;'
+            .'function showTip(){if(!tipEl||!tips.length||done)return;tipEl.classList.remove("is-on");'
+            .'window.setTimeout(function(){if(done)return;tipEl.textContent=tips[i%tips.length];i++;'
+            .'window.requestAnimationFrame(function(){tipEl.classList.add("is-on");});},fadeMs);}'
+            .'function startTips(){if(!tipEl||!tips.length)return;showTip();if(tips.length>1){tipTimer=window.setInterval(showTip,holdMs);}}'
+            .'function finish(){if(done)return;done=true;if(tipTimer){window.clearInterval(tipTimer);}if(tipWrap){tipWrap.classList.add("is-gone");}'
+            .'if(msgEl){msgEl.classList.add("is-swap");window.setTimeout(function(){msgEl.textContent=readyText;msgEl.classList.remove("is-swap");msgEl.classList.add("is-ready");},fadeMs);}'
+            .'if(subEl){subEl.classList.add("is-swap");window.setTimeout(function(){subEl.textContent=readySub;subEl.classList.remove("is-swap");},fadeMs);}'
+            .'if(shell){shell.setAttribute("data-gpsh-ready","1");}'
+            .'window.setTimeout(function(){location.reload();},reduce?900:2600);}'
+            .'function poll(){if(done)return;fetch(location.href,{cache:"no-store",credentials:"same-origin",headers:{"Accept":"text/html"}})'
+            .'.then(function(r){return r.text();}).then(function(t){if(done)return;if(t.indexOf("data-gpsh-waiting")===-1){finish();}}).catch(function(){});}'
+            .'startTips();window.setInterval(poll,3500);window.setTimeout(poll,1200);'
+            .'})();</script>';
+
+        return '<!doctype html><html lang="es"><head><meta charset="utf-8"><noscript><meta http-equiv="refresh" content="20"></noscript><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$product.'</title><style>'
+            .'html,body{margin:0;min-height:100%;background:#07080e;color:#f6f7fb;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif}'
+            .'.shell{position:relative;isolation:isolate;display:flex;min-height:100dvh;align-items:center;justify-content:center;overflow:hidden;'
+            .'background:radial-gradient(ellipse 48% 40% at 28% 44%,rgba(108,92,231,.42),transparent 70%),radial-gradient(ellipse 34% 28% at 78% 76%,rgba(40,180,120,.22),transparent 70%),linear-gradient(180deg,#140c28 0%,#07080e 100%)}'
+            .'.stage{position:absolute;inset:0;pointer-events:none;overflow:hidden}'
+            .'.glow,.orbit,.shard,.mark,.ridge{animation-timing-function:ease-in-out;animation-iteration-count:infinite}'
+            .'.glow{position:absolute;width:28rem;height:28rem;border-radius:50%;background:radial-gradient(circle,rgba(108,92,231,.55),transparent 68%);filter:blur(8px);left:8%;top:8%;animation:auth-glow 14s infinite}'
+            .'.glow-b{left:auto;right:6%;top:auto;bottom:4%;width:22rem;height:22rem;background:radial-gradient(circle,rgba(40,180,120,.35),transparent 68%);animation-duration:18s;animation-delay:-6s}'
+            .'.orbit{position:absolute;left:50%;top:42%;width:min(440px,70vw);height:150px;margin-left:calc(min(440px,70vw)/-2);margin-top:-75px;border:1px solid rgba(168,148,255,.32);border-radius:50%;animation:auth-spin 22s infinite}'
+            .'.orbit-b{width:min(300px,48vw);height:110px;margin-left:calc(min(300px,48vw)/-2);margin-top:-55px;opacity:.7;animation-duration:28s;animation-direction:reverse}'
+            .'.mark-slot{position:absolute;left:50%;top:42%;transform:translate(-50%,-50%);opacity:.22}'
+            .'.mark{display:block;width:min(160px,36vw);filter:drop-shadow(0 24px 40px rgba(40,20,120,.35));animation:auth-float 9s infinite}'
+            .'.flare{position:absolute;left:12%;right:12%;top:18%;height:42%;background:radial-gradient(ellipse at center,rgba(255,255,255,.55),transparent 68%);filter:blur(10px);animation:auth-flare 8s ease-in-out infinite}'
+            .'.shard{position:absolute;background:linear-gradient(160deg,rgba(255,255,255,.85),rgba(198,188,255,.22));box-shadow:inset 0 0 0 1px rgba(255,255,255,.55),0 12px 24px rgba(40,20,90,.28);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:auth-drift 15s infinite}'
+            .'.s-a{top:14%;left:12%;width:34px;height:40px}.s-b{top:64%;left:16%;width:26px;height:30px;opacity:.8;animation-delay:-3s}'
+            .'.s-c{top:18%;right:12%;width:48px;height:56px;animation-delay:-5s}.s-d{top:60%;right:18%;width:20px;height:24px;opacity:.75;animation-delay:-8s}'
+            .'.ridge{position:absolute;bottom:-8px;height:18%;background:#1a2140;border-radius:60% 40% 0 0;animation:auth-ridge 16s infinite}'
+            .'.ridge-a{left:-4%;width:46%}.ridge-b{right:-6%;width:38%;height:14%;background:#14192e;animation-direction:reverse}'
+            .'.card{position:relative;z-index:1;width:min(100% - 2rem,28rem);padding:2rem 1.5rem 1.75rem;text-align:center}'
+            .'.logo{display:block;width:min(240px,78%);height:auto;margin:0 auto 1.25rem;object-fit:contain;filter:drop-shadow(0 10px 24px rgba(20,10,60,.4))}'
+            .'.brand{margin:0 0 .85rem;font-size:.75rem;letter-spacing:.18em;text-transform:uppercase;opacity:.55}'
+            .'.msg{margin:0;font-size:clamp(1.35rem,4vw,1.75rem);line-height:1.35;font-weight:600;transition:opacity .75s ease,transform .75s ease}'
+            .'.msg.is-swap,.sub.is-swap{opacity:0;transform:translateY(8px)}'
+            .'.msg.is-ready{color:#b8f0d0}'
+            .'.sub{margin:.85rem 0 0;opacity:.65;font-size:.95rem;transition:opacity .75s ease,transform .75s ease}'
+            .'.tip-wrap{margin-top:1.75rem;min-height:4.75rem;padding:1rem 1.1rem;border:1px solid rgba(255,255,255,.1);border-radius:1rem;background:rgba(255,255,255,.04);backdrop-filter:blur(10px);text-align:left;transition:opacity .75s ease,transform .75s ease}'
+            .'.tip-wrap.is-gone{opacity:0;transform:translateY(10px);pointer-events:none}'
+            .'.tip-label{margin:0 0 .35rem;font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;opacity:.5}'
+            .'.tip{margin:0;font-size:.98rem;line-height:1.45;opacity:0;transform:translateY(8px);transition:opacity .75s ease,transform .75s ease}'
+            .'.tip.is-on{opacity:.92;transform:translateY(0)}'
+            .'@keyframes auth-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}'
+            .'@keyframes auth-drift{0%,100%{transform:translate3d(0,0,0) rotate(0)}50%{transform:translate3d(8px,-12px,0) rotate(8deg)}}'
+            .'@keyframes auth-spin{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(12deg)}}'
+            .'@keyframes auth-glow{0%,100%{transform:translate3d(0,0,0) scale(1);opacity:.8}50%{transform:translate3d(16px,12px,0) scale(1.06);opacity:1}}'
+            .'@keyframes auth-ridge{0%,100%{transform:translateX(0)}50%{transform:translateX(10px)}}'
+            .'@keyframes auth-flare{0%,100%{opacity:.4}50%{opacity:.9}}'
+            .'@media (prefers-reduced-motion:reduce){.glow,.orbit,.shard,.mark,.flare,.ridge{animation:none!important}.tip,.msg,.sub,.tip-wrap{transition:none!important}}'
+            .'</style></head><body><div class="shell" id="gpsh-shell" data-gpsh-waiting="1"><div class="stage" aria-hidden="true">'
+            .'<span class="glow"></span><span class="glow glow-b"></span>'
+            .'<span class="orbit"></span><span class="orbit orbit-b"></span>'
+            .'<span class="shard s-a"></span><span class="shard s-b"></span><span class="shard s-c"></span><span class="shard s-d"></span>'
+            .'<div class="mark-slot"><span class="flare"></span>'
+            .'<svg class="mark" viewBox="0 0 200 200"><defs>'
+            .'<linearGradient id="g" x1="28" y1="8" x2="172" y2="188" gradientUnits="userSpaceOnUse">'
+            .'<stop offset="0" stop-color="#ffffff" stop-opacity="0.94"/><stop offset="0.32" stop-color="#efeaff" stop-opacity="0.5"/>'
+            .'<stop offset="0.68" stop-color="#8ea0ff" stop-opacity="0.26"/><stop offset="1" stop-color="#241a4a" stop-opacity="0.18"/></linearGradient>'
+            .'<linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>'
+            .'<stop offset="0.5" stop-color="#c9bdff" stop-opacity="0.4"/><stop offset="1" stop-color="#ffffff" stop-opacity="0.12"/></linearGradient>'
+            .'<filter id="b" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter></defs>'
+            .'<polygon points="100,18 166,56 166,130 100,168 34,130 34,56" fill="#b7a6ff" opacity="0.45" filter="url(#b)"/>'
+            .'<polygon points="100,16 168,54 168,132 100,170 32,132 32,54" fill="url(#g)" stroke="url(#r)" stroke-width="2.4"/>'
+            .'<polygon points="100,16 168,54 100,92 32,54" fill="rgb(255 255 255 / 0.28)"/>'
+            .'<polygon points="100,48 134,67 134,110 100,130 66,110 66,67" fill="rgb(255 255 255 / 0.08)" stroke="rgb(255 255 255 / 0.62)" stroke-width="1.5"/>'
+            .'<path d="M78 112 L100 70 L122 112 L109 112 L100 94 L91 112 Z" fill="#ffffff"/></svg></div>'
+            .'<span class="ridge ridge-a"></span><span class="ridge ridge-b"></span></div>'
+            .'<div class="card">'.$logoHtml
+            .'<p class="msg" id="gpsh-msg">__GPSH_WAITING_MESSAGE__</p>'
+            .'<p class="sub" id="gpsh-sub">Esta página se actualiza sola.</p>'
+            .$tipBlock
+            .'</div></div>'.$script.'</body></html>';
+    }
+
+    /**
+     * @param  list<string>  $modules
+     * @param  list<string>|null  $tips
+     */
+    public static function launchCommand(string $database, string $url = '', string $token = '', string $password = '', array $modules = [], int $workers = 0, ?array $tips = null): string
     {
         $database = preg_replace('/[^a-z0-9_]/', '', $database) ?? '';
         $url = preg_match('#^https://[A-Za-z0-9.-]+$#', $url) === 1 ? $url : '';
@@ -1033,28 +1191,35 @@ BASH], $local, false);
             fn (mixed $name): bool => is_string($name) && preg_match('/^[A-Za-z0-9_]+$/', $name) === 1,
         )));
         $workers = max(0, min(32, $workers));
+        $tips = OdooComposeTemplate::normalizeWaitingTips(
+            $tips ?? OdooComposeTemplate::defaultWaitingTips(),
+        );
+        $waitingPageB64 = base64_encode(self::waitingPageMarkup($tips));
         // ponytail: Compose interpolates $ in the command. $$ is the only escape; a bare $( fails the deploy.
         // The database, URL, token and password are literals so they match the GPSH link even when the container env is empty.
 
         return str_replace('$', '$$', str_replace(
-            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__', '__OWNER_KEEP__', '__OWNER_LIST__', '__ODOO_WORKERS__'],
-            [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules), (string) $workers],
+            ['__ODOO_DB__', '__ODOO_URL__', '__ODOO_TOKEN__', '__ODOO_PASSWORD__', '__OWNER_KEEP__', '__OWNER_LIST__', '__ODOO_WORKERS__', '__WAITING_PAGE_B64__'],
+            [$database, $url, $token, $password, ' '.implode(' ', $modules).' ', implode(' ', $modules), (string) $workers, $waitingPageB64],
             <<<'BASH'
 python3 - <<'PY' || true
-import time
+import base64, html, time
 from pathlib import Path
+Path("/tmp/gpsh-waiting.tpl").write_text(base64.b64decode("__WAITING_PAGE_B64__").decode("utf-8"))
 def page(text):
-    Path("/tmp/gpsh-status.html").write_text("<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+text+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>")
+    tpl = Path("/tmp/gpsh-waiting.tpl").read_text()
+    Path("/tmp/gpsh-status.html").write_text(tpl.replace("__GPSH_WAITING_MESSAGE__", html.escape(text)))
     Path("/tmp/gpsh-page-at").write_text(str(time.time()))
 page("Estamos preparando todo.")
 PY
 cat > /tmp/gpsh-page.py << 'ENDPAGE'
-import sys, time
+import html, sys, time
 from pathlib import Path
 text = sys.argv[1] if len(sys.argv) > 1 else "Estamos preparando todo."
-html = Path("/tmp/gpsh-status.html")
+html_path = Path("/tmp/gpsh-status.html")
 stamp = Path("/tmp/gpsh-page-at")
 pending = Path("/tmp/gpsh-page-next")
+tpl = Path("/tmp/gpsh-waiting.tpl")
 now = time.time()
 last = 0.0
 if stamp.exists():
@@ -1063,17 +1228,19 @@ if stamp.exists():
     except Exception:
         last = 0.0
 def document(message):
-    return "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+message+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>"
-if html.exists() and now - last < 20:
+    body = tpl.read_text() if tpl.exists() else "<!doctype html><title>GPSH</title><body>__GPSH_WAITING_MESSAGE__</body>"
+    return body.replace("__GPSH_WAITING_MESSAGE__", html.escape(message))
+if html_path.exists() and now - last < 20:
     pending.write_text(text)
 else:
-    html.write_text(document(text))
+    html_path.write_text(document(text))
     stamp.write_text(str(now))
     if pending.exists():
         pending.unlink()
 ENDPAGE
 cat > /tmp/gpsh-status.py << 'ENDSTATUS'
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import html
 import http.client
 import os
 import select
@@ -1166,7 +1333,11 @@ class H(BaseHTTPRequestHandler):
             return
         if pending == "" or time.time() - last < 20:
             return
-        page = "<!doctype html><meta charset=\"utf-8\"><meta http-equiv=\"refresh\" content=\"20\"><title>GPSH</title><body style=\"margin:0;background:#0c0c0c;color:#f5f5f5;font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center\"><div style=\"max-width:28rem;padding:2rem\"><p style=\"font-size:1.5rem;line-height:1.4\">"+pending+"</p><p style=\"opacity:.65\">Esta página se actualiza sola.</p></div></body>"
+        try:
+            tpl = open("/tmp/gpsh-waiting.tpl", "r", encoding="utf-8").read()
+        except Exception:
+            tpl = "<!doctype html><title>GPSH</title><body>__GPSH_WAITING_MESSAGE__</body>"
+        page = tpl.replace("__GPSH_WAITING_MESSAGE__", html.escape(pending))
         open("/tmp/gpsh-status.html", "w", encoding="utf-8").write(page)
         open("/tmp/gpsh-page-at", "w", encoding="utf-8").write(str(time.time()))
         try:
@@ -1707,8 +1878,12 @@ BASH));
             }
             if ($database !== null && $database !== '' && $name === 'odoo') {
                 // -c, not -lc: a login shell overwrites Docker's USER (the Postgres role).
+                $version = OdooComposeTemplate::tagFromImage($image) ?? '';
+                $tips = $version !== ''
+                    ? OdooComposeTemplate::waitingTipsFor($version)
+                    : OdooComposeTemplate::defaultWaitingTips();
                 $service['entrypoint'] = ['bash', '-c'];
-                $service['command'] = [self::launchCommand($database, $url, $token, $password, $modules, $workers)];
+                $service['command'] = [self::launchCommand($database, $url, $token, $password, $modules, $workers, $tips)];
                 $service['user'] = '0:0';
                 $service['restart'] = 'unless-stopped';
                 $volumes = $service['volumes'] ?? [];

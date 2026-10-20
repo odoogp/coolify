@@ -149,6 +149,35 @@ it('announces when the instance is up and when it can be opened', function () {
         ->assertRedirect($mounted->href());
 });
 
+it('notifies when an odoo restart starts and watches until it can be opened', function () {
+    $project = Project::factory()->create(['name' => 'Mi Empresa', 'team_id' => $this->clientTeam->id]);
+    $environment = $project->environments()->first()
+        ?? Environment::factory()->create(['name' => 'production', 'project_id' => $project->id]);
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    $this->actingAs($this->client);
+    $restarting = GpshNotices::announceRestarting($service);
+
+    expect($restarting)->not->toBeNull()
+        ->and($restarting->kind)->toBe('custom')
+        ->and($restarting->title)->toBe(__('Odoo is restarting'))
+        ->and($restarting->body)->toContain('Mi Empresa')
+        ->and($restarting->team_id)->toBe($this->clientTeam->id);
+
+    Livewire::test(GpshNoticeBell::class)->assertSee(__('Odoo is restarting'));
+
+    $heading = file_get_contents(app_path('Livewire/Project/Service/Heading.php'));
+    expect($heading)
+        ->toContain('announceRestarting')
+        ->toContain('WatchOdooServiceStartJob')
+        ->toContain('The instance started restarting.');
+    expect(file_get_contents(app_path('Jobs/WatchOdooServiceStartJob.php')))
+        ->toContain('GpshNotices::watchActivity');
+});
+
 it('removes notices older than the time set in the notification center', function () {
     $this->actingAs($this->owner);
     Livewire::test(Center::class)

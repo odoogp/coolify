@@ -121,11 +121,14 @@
         }
         return $wire[methodName](...params)
             .then(result => {
-                if (result === true) {
+                // true = explicit success; null/undefined = Livewire redirect / void success
+                if (result === true || result === null || result === undefined) {
                     return true;
-                } else if (typeof result === 'string') {
+                }
+                if (typeof result === 'string') {
                     return result;
                 }
+                return true;
             });
     },
     toggleAction(id) {
@@ -339,20 +342,24 @@
                                         step++;
                                     } else {
                                         submitting = true;
-                                        modalOpen = false;
-                                        $nextTick(() => {
-                                            submitForm().then((result) => {
-                                                submitting = false;
+                                        passwordError = '';
+                                        submitForm().then((result) => {
+                                            if (result === true) {
+                                                modalOpen = false;
                                                 resetModal();
-                                            }).catch(() => {
-                                                submitting = false;
-                                                modalOpen = true;
-                                            });
+                                                return;
+                                            }
+                                            submitting = false;
+                                            passwordError = typeof result === 'string' ? result : '';
+                                        }).catch(() => {
+                                            submitting = false;
+                                            passwordError = @js(__('Something went wrong. Try again.'));
                                         });
                                     }
                                 ">
                                 <x-loading-on-button x-show="submitting" x-cloak />
-                                <span x-text="step2ButtonText"></span>
+                                <span x-show="!submitting" x-text="step2ButtonText"></span>
+                                <span x-show="submitting" x-cloak>{{ __('Working…') }}</span>
                             </x-forms.button>
                         </div>
                     </div>
@@ -360,61 +367,70 @@
                     <!-- Step 3: Password confirmation -->
                     @if (!$skipPasswordConfirmation)
                         <div x-show="step === 3 && confirmWithPassword">
-                            <x-callout type="danger" title="{{ __('Final Confirmation') }}" class="mb-4">
-                                {{ __('Please enter your password to confirm this destructive action.') }}
-                            </x-callout>
-                            <div class="flex flex-col gap-2 mb-4">
-                                @php
-                                    $passwordConfirm = Str::uuid();
-                                @endphp
-                                <label for="password-confirm-{{ $passwordConfirm }}"
-                                    class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                    {{ __('Your Password') }}
-                                </label>
-                                <form @submit.prevent="false" @keydown.enter.prevent>
-                                    <input type="text" name="username" autocomplete="username"
-                                        value="{{ auth()->user()->email }}" style="display: none;">
-                                    <input type="password" id="password-confirm-{{ $passwordConfirm }}"
-                                        x-model="password" class="w-full input" placeholder="{{ __('Enter your password') }}"
-                                        autocomplete="current-password">
-                                </form>
-                                <p x-show="passwordError" x-text="passwordError" class="mt-1 text-sm text-red-500">
-                                </p>
-                                @error('password')
-                                    <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                                @enderror
+                            <div x-show="submitting" x-cloak class="mb-4">
+                                <x-callout type="info" title="{{ __('Working…') }}" class="mb-0">
+                                    {{ __('This can take a moment. Do not close this window.') }}
+                                </x-callout>
+                            </div>
+                            <div x-show="!submitting">
+                                <x-callout type="danger" title="{{ __('Final Confirmation') }}" class="mb-4">
+                                    {{ __('Please enter your password to confirm this destructive action.') }}
+                                    <span class="mt-1 block opacity-80">{{ __('Use the password of the account you are signed in with.') }}</span>
+                                </x-callout>
+                                <div class="flex flex-col gap-2 mb-4">
+                                    @php
+                                        $passwordConfirm = Str::uuid();
+                                    @endphp
+                                    <label for="password-confirm-{{ $passwordConfirm }}"
+                                        class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        {{ __('Your Password') }}
+                                    </label>
+                                    <form @submit.prevent="false" @keydown.enter.prevent>
+                                        <input type="text" name="username" autocomplete="username"
+                                            value="{{ auth()->user()->email }}" style="display: none;">
+                                        <input type="password" id="password-confirm-{{ $passwordConfirm }}"
+                                            x-model="password" class="w-full input" placeholder="{{ __('Enter your password') }}"
+                                            autocomplete="current-password"
+                                            x-bind:disabled="submitting">
+                                    </form>
+                                    <p x-show="passwordError" x-text="passwordError" class="mt-1 text-sm text-red-500">
+                                    </p>
+                                    @error('password')
+                                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
                             </div>
 
                             <div class="mt-4 flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-                                <x-forms.button @click="step--">
+                                <x-forms.button @click="step--" x-bind:disabled="submitting">
                                     {{ __('Back') }}
                                 </x-forms.button>
                                 <x-forms.button :showLoadingIndicator="false"
-                                    x-bind:disabled="!password || submitting" class="w-auto" isError
+                                    x-bind:disabled="(!password && !submitting) || submitting" class="w-auto" isError
                                     @click="
                                     if (dispatchEvent) {
                                         $wire.dispatch(dispatchEventType, dispatchEventMessage);
                                     }
                                     submitting = true;
-                                    modalOpen = false;
-                                    $nextTick(() => {
-                                        submitForm().then((result) => {
-                                            submitting = false;
-                                            if (result === true) {
-                                                resetModal();
-                                            } else {
-                                                modalOpen = true;
-                                                passwordError = result;
-                                                password = '';
-                                            }
-                                        }).catch(() => {
-                                            submitting = false;
-                                            modalOpen = true;
-                                        });
+                                    passwordError = '';
+                                    submitForm().then((result) => {
+                                        if (result === true) {
+                                            modalOpen = false;
+                                            resetModal();
+                                            return;
+                                        }
+                                        submitting = false;
+                                        passwordError = typeof result === 'string' ? result : '';
+                                        password = '';
+                                    }).catch(() => {
+                                        submitting = false;
+                                        passwordError = @js(__('Something went wrong. Try again.'));
+                                        password = '';
                                     });
                                     ">
                                     <x-loading-on-button x-show="submitting" x-cloak />
-                                    <span x-text="step3ButtonText"></span>
+                                    <span x-show="!submitting" x-text="step3ButtonText"></span>
+                                    <span x-show="submitting" x-cloak>{{ __('Working…') }}</span>
                                 </x-forms.button>
                             </div>
                         </div>

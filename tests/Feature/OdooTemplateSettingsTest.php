@@ -40,6 +40,7 @@ it('saves a new template and returns it on the list', function () {
         ->call('newTemplate')
         ->set('version', '18')
         ->set('postgresVersion', '17-alpine')
+        ->set('waitingTipsText', "Tip one about staging.\nTip two about branches.")
         ->call('save')
         ->assertHasNoErrors()
         ->assertSet('showTemplateEditor', false)
@@ -53,6 +54,8 @@ it('saves a new template and returns it on the list', function () {
         ->and($saved->compose)->toContain('image: odoo:18')
         ->and($saved->compose)->toContain('image: postgres:17-alpine')
         ->and($saved->compose)->not->toContain('postgres:16-alpine')
+        ->and($saved->waiting_tips)->toBe(['Tip one about staging.', 'Tip two about branches.'])
+        ->and(OdooComposeTemplate::waitingTipsFor('18'))->toBe(['Tip one about staging.', 'Tip two about branches.'])
         ->and(OdooComposeTemplate::composeFor('20'))->toBeNull()
         ->and(OdooVersion::current(OdooComposeTemplate::defaultCompose('20')))->toBe('20');
 
@@ -61,7 +64,15 @@ it('saves a new template and returns it on the list', function () {
         ->assertSet('editingExistingTemplate', true)
         ->assertSet('version', '18')
         ->assertSet('postgresVersion', '17-alpine')
-        ->assertSee(__('Edit Odoo template'));
+        ->assertSet('waitingTipsText', "Tip one about staging.\nTip two about branches.")
+        ->assertSee(__('Edit Odoo template'))
+        ->assertSee(__('Waiting tips'));
+});
+
+it('falls back to stock waiting tips when a version has none saved', function () {
+    expect(OdooComposeTemplate::waitingTipsFor('19'))
+        ->toBe(OdooComposeTemplate::defaultWaitingTips())
+        ->and(OdooComposeTemplate::defaultWaitingTips())->not->toBeEmpty();
 });
 
 it('keeps each odoo version template separate', function () {
@@ -86,6 +97,24 @@ it('rejects a compose without odoo and a postgresql tag that is not a tag', func
         ->toThrow(InvalidArgumentException::class);
     expect(fn () => OdooComposeTemplate::saveFor('18', OdooComposeTemplate::defaultCompose('18'), '16 alpine'))
         ->toThrow(InvalidArgumentException::class);
+});
+
+it('rewrites the postgres data mount for version 18 and keeps the old path below 18', function () {
+    $legacy = OdooComposeTemplate::defaultCompose('20');
+    expect($legacy)->toContain('postgresql-data:/var/lib/postgresql/data');
+
+    $pg18 = OdooComposeTemplate::applyPostgres($legacy, '18-alpine');
+    expect($pg18)->toContain('image: postgres:18-alpine')
+        ->and($pg18)->toContain('postgresql-data:/var/lib/postgresql')
+        ->and($pg18)->not->toContain('postgresql-data:/var/lib/postgresql/data');
+
+    $pg16 = OdooComposeTemplate::applyPostgres($pg18, '16-alpine');
+    expect($pg16)->toContain('image: postgres:16-alpine')
+        ->and($pg16)->toContain('postgresql-data:/var/lib/postgresql/data');
+
+    $saved = OdooComposeTemplate::saveFor('20', $legacy, '18-alpine');
+    expect($saved->compose)->toContain('postgresql-data:/var/lib/postgresql')
+        ->and($saved->compose)->toContain('postgres:18-alpine');
 });
 
 it('hides odoo templates from someone who is not an instance admin', function () {

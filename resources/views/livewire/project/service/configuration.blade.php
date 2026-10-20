@@ -255,7 +255,7 @@
                                                 'user' => auth()->user()->email,
                                             ]) }}
                                         </p>
-                                        <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$service">
+                                        <x-forms.button type="button" wire:click="changeOdooGithubAccount" canGate="update" :canResource="$service">
                                             {{ __('Change account') }}
                                         </x-forms.button>
                                     </div>

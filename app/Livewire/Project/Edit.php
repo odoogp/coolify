@@ -183,6 +183,57 @@ class Edit extends Component
         }
     }
 
+    public function saveOdooVersion(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                $this->enableOdoo();
+
+                return;
+            }
+            if ($this->projectHasActiveOdooEnvironments()) {
+                $this->odooVersion = (string) $profile->odoo_version;
+                $this->dispatch('error', __('The Odoo version is locked because this project already has launched environments. New environments keep using Odoo :version.', [
+                    'version' => $profile->odoo_version,
+                ]));
+
+                return;
+            }
+            $validated = Validator::make([
+                'odooVersion' => $this->odooVersion,
+            ], [
+                'odooVersion' => ['required', Rule::in(OdooComposeTemplate::configuredVersions())],
+            ])->validate();
+
+            $profile->update(['odoo_version' => $validated['odooVersion']]);
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('Odoo version saved. New environments will use this Compose.'));
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    /**
+     * Any environment that already has an Odoo service locks the project version.
+     */
+    public function projectHasActiveOdooEnvironments(): bool
+    {
+        $this->project->loadMissing('environments.services');
+
+        foreach ($this->project->environments as $environment) {
+            if ($environment->services->contains(fn ($service): bool => $service->supportsOdooJupyter())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private function syncOdooState(): void
     {
         $this->project->load('odooProfile');
@@ -456,6 +507,8 @@ class Edit extends Component
             'canMigrate' => (bool) $this->project->odooProfile
                 && auth()->user()?->can('update', $this->project),
             'odooVersionOptions' => OdooComposeTemplate::versionOptions(),
+            'odooVersionLocked' => $this->project->odooProfile !== null
+                && $this->projectHasActiveOdooEnvironments(),
         ]);
     }
 }

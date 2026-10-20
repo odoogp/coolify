@@ -233,7 +233,17 @@ describe('privilege escalation prevention', function () {
             ->assertDispatched('success');
 
         $invited = User::whereEmail('client-admin@example.com')->firstOrFail();
-        $pivot = $invited->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        $invitation = TeamInvitation::whereEmail('client-admin@example.com')->firstOrFail();
+        expect($invited->teams()->where('teams.id', $this->team->id)->exists())->toBeFalse()
+            ->and((int) ($invitation->membership['max_staging_branches'] ?? 0))->toBe(2);
+
+        $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
+        $this->actingAs($invited);
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+            ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
+            ->assertRedirect(route('team.index'));
+
+        $pivot = $invited->fresh()->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
         expect($pivot->role)->toBe('admin')
             ->and((int) $pivot->max_staging_branches)->toBe(2)
             ->and((bool) $pivot->can_add_servers)->toBeTrue()
@@ -257,7 +267,16 @@ describe('privilege escalation prevention', function () {
             ->assertDispatched('success');
 
         $invited = User::whereEmail('client-member@example.com')->firstOrFail();
-        $pivot = $invited->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        $invitation = TeamInvitation::whereEmail('client-member@example.com')->firstOrFail();
+        expect($invited->teams()->where('teams.id', $this->team->id)->exists())->toBeFalse();
+
+        $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
+        $this->actingAs($invited);
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+            ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
+            ->assertRedirect(route('team.index'));
+
+        $pivot = $invited->fresh()->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
         expect($pivot->role)->toBe('member')
             ->and((int) $pivot->max_projects)->toBe(1)
             ->and((int) $pivot->max_production_branches)->toBe(1)
@@ -279,7 +298,16 @@ describe('privilege escalation prevention', function () {
             ->assertDispatched('success');
 
         $invited = User::whereEmail('limited-admin@example.com')->firstOrFail();
-        $pivot = $invited->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        $invitation = TeamInvitation::whereEmail('limited-admin@example.com')->firstOrFail();
+        expect($invited->teams()->where('teams.id', $this->team->id)->exists())->toBeFalse();
+
+        $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
+        $this->actingAs($invited);
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+            ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
+            ->assertRedirect(route('team.index'));
+
+        $pivot = $invited->fresh()->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
         expect((bool) $pivot->can_add_servers)->toBeFalse();
     });
 });

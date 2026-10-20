@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Actions\CoolifyTask\RunRemoteProcess;
 use App\Enums\ProcessStatus;
 use App\Models\GpshNotice;
 use App\Models\GpshNoticeSetting;
@@ -10,6 +11,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Spatie\Activitylog\Models\Activity;
 
 class GpshNotices
 {
@@ -77,7 +79,7 @@ class GpshNotices
     public static function announce(Service $service, string $kind): ?GpshNotice
     {
         $service->loadMissing('environment.project');
-        $name = trim((string) $service->environment?->project?->name.' / '.(string) $service->environment?->name, ' /');
+        $name = self::serviceLabel($service);
         $title = $kind === 'mounted' ? __('Odoo is up') : __('Odoo is accessible');
         $body = $kind === 'mounted'
             ? __('The containers for :name are running.', ['name' => $name])
@@ -93,6 +95,25 @@ class GpshNotices
         );
     }
 
+    /**
+     * Bell + toast signal when a client (or admin) clicks Restart on an Odoo service.
+     */
+    public static function announceRestarting(Service $service): ?GpshNotice
+    {
+        $service->loadMissing('environment.project');
+        $name = self::serviceLabel($service);
+
+        return self::publish(
+            $service,
+            'custom',
+            __('Odoo is restarting'),
+            __('The instance :name started restarting.', ['name' => $name]),
+            'clients',
+            $service->environment?->project?->team_id,
+            Auth::id(),
+        );
+    }
+
     public static function watch(Service $service, string $output, string $status, bool &$mounted, bool &$accessible): void
     {
         if (! $mounted && str_contains($output, 'The service containers are running.')) {
@@ -103,6 +124,41 @@ class GpshNotices
             $accessible = true;
             self::announce($service, 'accessible');
         }
+    }
+
+    /**
+     * Poll a StartService / restart activity until it finishes (or fails), publishing notices.
+     */
+    public static function watchActivity(Service $service, Activity $activity, int $timeoutSeconds = 1200): void
+    {
+        $mounted = false;
+        $accessible = false;
+        $deadline = time() + max(60, $timeoutSeconds);
+        while (time() < $deadline) {
+            $status = RunRemoteProcess::readStatus($activity);
+            $output = RunRemoteProcess::logContains($activity, 'The service containers are running.')
+                ? 'The service containers are running.'
+                : '';
+            self::watch($service, $output, $status, $mounted, $accessible);
+            if ($status === ProcessStatus::FINISHED->value) {
+                return;
+            }
+            if (in_array($status, [
+                ProcessStatus::ERROR->value,
+                ProcessStatus::KILLED->value,
+                ProcessStatus::CANCELLED->value,
+            ], true)) {
+                return;
+            }
+            sleep(3);
+        }
+    }
+
+    private static function serviceLabel(Service $service): string
+    {
+        $service->loadMissing('environment.project');
+
+        return trim((string) $service->environment?->project?->name.' / '.(string) $service->environment?->name, ' /');
     }
 
     public static function forgetExpired(): void

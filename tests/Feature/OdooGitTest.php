@@ -360,16 +360,50 @@ it('stops when github is rate limited instead of calling the api again', functio
             ], 200, $date);
         }
         if (strtoupper($request->method()) === 'POST' && str_contains($request->url(), '/orgs/acme/repos')) {
-            return Http::response(['message' => 'Rate Limit Exceeded'], 403, $date);
+            // Vague "Rate Limit Exceeded" with remaining quota left is not a real wait-it-out limit.
+            return Http::response(['message' => 'Rate Limit Exceeded'], 403, $date + [
+                'X-RateLimit-Remaining' => '4980',
+            ]);
         }
 
         return Http::response(['message' => 'unexpected'], 500, $date);
     });
 
     expect(fn () => OdooGit::launchEnvironment($this->project, $this->githubApp, 'production'))
-        ->toThrow(RuntimeException::class, 'GitHub temporarily blocked this action (secondary rate limit)');
+        ->toThrow(RuntimeException::class, 'The hourly quota still shows');
 
     expect(collect($urls)->contains(fn (string $url): bool => str_contains($url, '/repos/acme/')))->toBeFalse();
+});
+
+it('only treats github secondary limits as wait-and-retry', function () {
+    Http::fake([
+        'https://api.github.com/primary' => Http::response(['message' => 'API rate limit exceeded'], 403, [
+            'X-RateLimit-Remaining' => '0',
+        ]),
+        'https://api.github.com/vague' => Http::response(['message' => 'Rate Limit Exceeded'], 403, [
+            'X-RateLimit-Remaining' => '4000',
+        ]),
+        'https://api.github.com/secondary' => Http::response(['message' => 'You have exceeded a secondary rate limit.'], 403, [
+            'Retry-After' => '30',
+            'X-RateLimit-Remaining' => '4000',
+        ]),
+    ]);
+
+    expect(githubIsPrimaryRateLimit(Http::get('https://api.github.com/primary')))->toBeTrue()
+        ->and(githubIsSecondaryRateLimit(Http::get('https://api.github.com/primary')))->toBeFalse()
+        ->and(githubIsSecondaryRateLimit(Http::get('https://api.github.com/vague')))->toBeFalse()
+        ->and(githubRateLimitPauseSeconds(Http::get('https://api.github.com/vague')))->toBeNull()
+        ->and(githubIsSecondaryRateLimit(Http::get('https://api.github.com/secondary')))->toBeTrue()
+        ->and(githubRateLimitPauseSeconds(Http::get('https://api.github.com/secondary')))->toBe(30);
+
+    $vague = githubFailedRequestException([
+        'status' => 403,
+        'rate_limit_remaining' => '4000',
+        'retry_after' => null,
+        'data' => collect(['message' => 'Rate Limit Exceeded']),
+    ]);
+    expect($vague->getMessage())->toContain('hourly quota still shows')
+        ->and($vague->getMessage())->not->toContain('secondary rate limit');
 });
 
 it('queues associate-new-repository instead of creating it inside livewire', function () {
@@ -1352,6 +1386,35 @@ it('names a new github app after the product and keeps it on the user', function
         ->where('user_id', $this->user->id)
         ->where('team_id', $this->team->id)
         ->value('github_app_id'))->toBe($app->id);
+});
+
+it('starts a new github app when changing account instead of no-oping', function () {
+    OdooGit::rememberForUser($this->user->id, $this->team->id, $this->githubApp);
+    $this->project->odooProfile?->update(['github_app_id' => $this->githubApp->id]);
+    $before = GithubApp::query()->where('team_id', $this->team->id)->count();
+
+    $changed = OdooGit::beginConnect($this->project, 'project.service.configuration', [
+        'project_uuid' => $this->project->uuid,
+    ], forceNew: true);
+
+    $this->project->unsetRelation('odooProfile');
+    $this->project->load('odooProfile');
+
+    expect($changed->is($this->githubApp))->toBeFalse()
+        ->and($changed->installation_id)->toBeNull()
+        ->and(GithubApp::query()->where('team_id', $this->team->id)->count())->toBe($before + 1)
+        ->and(DB::table('team_user')
+            ->where('user_id', $this->user->id)
+            ->where('team_id', $this->team->id)
+            ->value('github_app_id'))->toBeNull()
+        ->and($this->project->odooProfile?->github_app_id)->toBeNull();
+
+    $source = file_get_contents(app_path('Livewire/Project/Service/Configuration.php'));
+    expect($source)
+        ->toContain('function changeOdooGithubAccount')
+        ->toContain('forceNew: true');
+    expect(file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php')))
+        ->toContain('wire:click="changeOdooGithubAccount"');
 });
 
 it('clones the production branch onto a different branch and asks github for one token', function () {

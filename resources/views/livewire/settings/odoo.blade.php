@@ -39,9 +39,11 @@
                                 helper="{{ __('Image tag, for example 18 or 21.') }}"
                                 placeholder="18" required />
                             <x-forms.input id="postgresVersion" label="{{ __('PostgreSQL') }}"
-                                helper="{{ __('Image tag used by the postgresql service, for example 16-alpine.') }}"
+                                helper="{{ __('Image tag used by the postgresql service, for example 16-alpine. Tags 18+ remount the data volume at /var/lib/postgresql.') }}"
                                 placeholder="16-alpine" />
                         </div>
+                        <x-forms.textarea id="waitingTipsText" label="{{ __('Waiting tips') }}" rows="8"
+                            helper="{{ __('One tip per line. Shown on the public page while this Odoo version is mounting. Leave empty to hide tips.') }}" />
                         <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="22" />
                         <div class="flex flex-wrap gap-2">
                             <x-forms.button type="submit" isHighlighted>{{ __('Save') }}</x-forms.button>

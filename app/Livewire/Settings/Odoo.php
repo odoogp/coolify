@@ -30,6 +30,9 @@ class Odoo extends Component
 
     public string $compose = '';
 
+    /** One tip per line; shown on the public waiting page for this version. */
+    public string $waitingTipsText = '';
+
     public string $moduleName = '';
 
     public string $ownerRepository = '';
@@ -104,6 +107,10 @@ class Odoo extends Component
         $this->version = '';
         $this->compose = OdooComposeTemplate::defaultCompose('18');
         $this->postgresVersion = '16-alpine';
+        $this->waitingTipsText = implode("\n", array_map(
+            fn (string $tip): string => (string) __($tip),
+            OdooComposeTemplate::defaultWaitingTips(),
+        ));
         $this->editingExistingTemplate = false;
         $this->showTemplateEditor = true;
     }
@@ -130,6 +137,7 @@ class Odoo extends Component
         $this->version = '';
         $this->compose = '';
         $this->postgresVersion = '16-alpine';
+        $this->waitingTipsText = '';
         $this->editingExistingTemplate = false;
         $this->showTemplateEditor = false;
     }
@@ -145,9 +153,13 @@ class Odoo extends Component
                 return;
             }
             $this->version = $version;
-            $row = OdooComposeTemplate::saveFor($this->version, $this->compose, $this->postgresVersion);
+            $tips = OdooComposeTemplate::normalizeWaitingTips(
+                preg_split("/\r\n|\n|\r/", $this->waitingTipsText) ?: [],
+            );
+            $row = OdooComposeTemplate::saveFor($this->version, $this->compose, $this->postgresVersion, $tips);
             $this->compose = $row->compose;
             $this->postgresVersion = $row->postgres_version;
+            $this->waitingTipsText = implode("\n", OdooComposeTemplate::normalizeWaitingTips($row->waiting_tips ?? []));
             $this->editingExistingTemplate = false;
             $this->showTemplateEditor = false;
             $this->dispatch('success', __('Odoo template saved.'));
@@ -450,6 +462,10 @@ class Odoo extends Component
         if (! preg_match('/^\d+(?:\.\d+)?$/', $this->version)) {
             $this->compose = OdooComposeTemplate::defaultCompose('18');
             $this->postgresVersion = '16-alpine';
+            $this->waitingTipsText = implode("\n", array_map(
+                fn (string $tip): string => (string) __($tip),
+                OdooComposeTemplate::defaultWaitingTips(),
+            ));
 
             return;
         }
@@ -457,5 +473,12 @@ class Odoo extends Component
         $state = OdooComposeTemplate::editorState($this->version);
         $this->compose = $state['compose'];
         $this->postgresVersion = $state['postgresVersion'];
+        $row = OdooComposeTemplate::query()->where('version', $this->version)->first();
+        $tips = $state['waitingTips'];
+        // Stock tips (null column) are translated for the editor; custom rows stay as saved.
+        if ($row instanceof OdooComposeTemplate && $row->waiting_tips === null) {
+            $tips = array_map(fn (string $tip): string => (string) __($tip), $tips);
+        }
+        $this->waitingTipsText = implode("\n", $tips);
     }
 }

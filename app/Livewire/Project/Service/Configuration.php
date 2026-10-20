@@ -282,23 +282,57 @@ class Configuration extends Component
         }
     }
 
-    public function connectOdooGithub(): void
+    public function connectOdooGithub(): mixed
     {
         try {
             $this->authorize('update', $this->service);
-            $githubApp = OdooGit::beginConnect($this->project, 'project.service.configuration', [
+            $parameters = [
                 'project_uuid' => $this->project->uuid,
                 'environment_uuid' => $this->environment->uuid,
                 'service_uuid' => $this->service->uuid,
-            ]);
+            ];
+            $githubApp = OdooGit::beginConnect($this->project, 'project.service.configuration', $parameters);
             if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
                 $this->syncOdooGithub();
 
-                return;
+                return null;
             }
-            redirectRoute($this, 'source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+            if (filled($githubApp->app_id)) {
+                return redirect()->away(getInstallationPath($githubApp));
+            }
+
+            return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
         } catch (\Throwable $e) {
-            handleError($e, $this);
+            return handleError($e, $this);
+        }
+    }
+
+    /**
+     * Start a new GitHub App for another account. Reusing beginConnect without forceNew
+     * returns the already-installed app and the button appeared to do nothing.
+     */
+    public function changeOdooGithubAccount(): mixed
+    {
+        try {
+            $this->authorize('update', $this->service);
+            $githubApp = OdooGit::beginConnect(
+                $this->project,
+                'project.service.configuration',
+                [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $this->environment->uuid,
+                    'service_uuid' => $this->service->uuid,
+                    'odooPanel' => 'github',
+                ],
+                forceNew: true,
+            );
+            $this->odooGithubConnected = false;
+            $this->odooGithubAppId = null;
+            $this->odooNeedsGithub = true;
+
+            return redirect()->route('source.github.show', ['github_app_uuid' => $githubApp->uuid]);
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
         }
     }
 
@@ -727,7 +761,8 @@ class Configuration extends Component
     private function syncOdooGithub(): void
     {
         $this->odooIsOdoo = $this->service->supportsOdooJupyter();
-        $app = OdooGit::userApp((int) $this->project->team_id, auth()->id());
+        $this->project->loadMissing('odooProfile');
+        $app = OdooGit::appForProject($this->project, auth()->id());
         $this->odooGithubConnected = $app instanceof GithubApp;
         $this->odooNeedsGithub = $this->odooIsOdoo && ! $this->odooGithubConnected;
         $this->odooGithubAppId = $app?->id;
@@ -739,9 +774,13 @@ class Configuration extends Component
         }
         $profile = $this->project->odooProfile;
         $profileApp = (int) ($profile?->github_app_id ?? 0);
-        if ($app instanceof GithubApp && filled($profile?->git_repository) && $profileApp === 0) {
+        // First successful connect: remember the app on the project (do not overwrite a deliberate Change account).
+        if ($app instanceof GithubApp && $profile !== null && $profileApp === 0) {
             $profile->update(['github_app_id' => $app->id]);
             $profileApp = (int) $app->id;
+            $this->project->unsetRelation('odooProfile');
+            $this->project->load('odooProfile');
+            $profile = $this->project->odooProfile;
         }
         $this->odooAccountChanged = $this->odooGithubConnected
             && filled($profile?->git_repository)

@@ -5,6 +5,7 @@ use App\Support\OdooAddons;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
+use Illuminate\Support\Str;
 use Symfony\Component\Yaml\Yaml;
 
 function odooCompose(): string
@@ -420,7 +421,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
         ->and($command)->toContain('Instalando la base.')
         ->and($command)->toContain('Ya casi está.')
-        ->and($command)->not->toContain('setInterval')
+        ->and($command)->toContain('gpsh-waiting.tpl')
         ->and($command)->toContain('websocket')
         ->and($command)->toContain('--http-interface=0.0.0.0')
         ->and($command)->toContain('chown -R odoo:odoo /var/lib/odoo')
@@ -440,6 +441,10 @@ test('an odoo service starts one database with https proxy mode and an admin use
 test('the waiting page keeps each stage for twenty seconds and says almost there last', function () {
     $command = OdooJupyter::launchCommand('mi_empresa_production');
     $activity = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/project/environment-activity.blade.php');
+    $decoded = base64_decode(
+        (string) Str::of($command)->after('b64decode("')->before('")')->toString(),
+        true,
+    );
 
     expect($command)->toContain('Estamos preparando todo.')
         ->and($command)->toContain('Instalando la base.')
@@ -447,11 +452,36 @@ test('the waiting page keeps each stage for twenty seconds and says almost there
         ->and($command)->toContain('Ya casi está.')
         ->and($command)->toContain('time.time() - last < 20')
         ->and($command)->toContain('Esta página se actualiza sola.')
-        ->and($command)->not->toContain('setInterval')
+        ->and($command)->toContain('gpsh-waiting.tpl')
         ->and($command)->not->toContain('Es mejor que vayas por un café.')
+        ->and($decoded)->toContain('auth-glow')
+        ->and($decoded)->toContain('gpsh-tip')
+        ->and($decoded)->toContain('data-gpsh-waiting')
+        ->and($decoded)->toContain(__('Everything is ready.'))
+        ->and($decoded)->toContain(__('Opening Odoo…'))
+        ->and($decoded)->toContain('data:image')
+        ->and($decoded)->toContain('class="logo"')
+        ->and($decoded)->toContain('transition:opacity .75s ease')
+        ->and($decoded)->toContain('location.reload')
+        ->and($decoded)->toContain(__('Each environment can use its own GitHub branch.'))
         ->and($activity)->toContain('20000')
         ->and($activity)->not->toContain('setInterval')
         ->and(file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Project/Show.php'))->toContain('Almost there.');
+});
+
+test('waiting tips for a version can replace the stock carousel', function () {
+    $command = OdooJupyter::launchCommand(
+        'mi_empresa_production',
+        tips: ['Custom tip about inventories.', 'Another tip.'],
+    );
+    $decoded = base64_decode(
+        (string) Str::of($command)->after('b64decode("')->before('")')->toString(),
+        true,
+    );
+
+    expect($decoded)->toContain('Custom tip about inventories.')
+        ->and($decoded)->toContain('Another tip.')
+        ->and($decoded)->not->toContain(__('Each environment can use its own GitHub branch.'));
 });
 
 test('an odoo https router tells odoo the browser used https', function () {

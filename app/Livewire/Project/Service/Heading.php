@@ -6,7 +6,9 @@ use App\Actions\Docker\GetContainersStatus;
 use App\Actions\Service\StartService;
 use App\Actions\Service\StopService;
 use App\Enums\ProcessStatus;
+use App\Jobs\WatchOdooServiceStartJob;
 use App\Models\Service;
+use App\Support\GpshNotices;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -168,6 +170,7 @@ class Heading extends Component
                 return;
             }
             $activity = StartService::run($this->service, stopBeforeStart: true);
+            $this->notifyOdooRestart($activity);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
             $this->dispatch('activityMonitor', $activity->id);
         } catch (\Throwable $e) {
@@ -186,10 +189,24 @@ class Heading extends Component
                 return;
             }
             $activity = StartService::run($this->service, pullLatestImages: true, stopBeforeStart: true);
+            $this->notifyOdooRestart($activity);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
             $this->dispatch('activityMonitor', $activity->id);
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        }
+    }
+
+    private function notifyOdooRestart(mixed $activity): void
+    {
+        if (! $this->service->supportsOdooJupyter()) {
+            return;
+        }
+
+        GpshNotices::announceRestarting($this->service);
+        $this->dispatch('success', __('The instance started restarting.'));
+        if ($activity instanceof Activity) {
+            WatchOdooServiceStartJob::dispatch((int) $this->service->id, (int) $activity->id);
         }
     }
 

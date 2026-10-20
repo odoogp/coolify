@@ -209,14 +209,13 @@ function generateGithubToken(GithubApp $source, string $type)
             ])->post("{$source->api_url}/app/installations/{$source->installation_id}/access_tokens"));
 
             if (! $response->successful()) {
-                $error = data_get($response->json(), 'message', 'no error message found');
-                if (githubRateLimited((string) $error)) {
-                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'));
-                }
-                if ($error === 'Not Found') {
-                    $error = 'Repository not found. Is it moved or deleted?';
-                }
-                throw new RuntimeException("Failed to get installation token for {$source->name} with error: ".$error);
+                throw githubFailedRequestException([
+                    'status' => $response->status(),
+                    'rate_limit_remaining' => $response->header('X-RateLimit-Remaining'),
+                    'rate_limit_reset' => $response->header('X-RateLimit-Reset'),
+                    'retry_after' => $response->header('Retry-After'),
+                    'data' => collect($response->json()),
+                ]);
             }
 
             return $response->json()['token'];
@@ -225,24 +224,26 @@ function generateGithubToken(GithubApp $source, string $type)
     };
 }
 
-function generateGithubInstallationToken(GithubApp $source)
+function forgetGithubInstallationToken(GithubApp|int|string $source): void
 {
-    static $cache = [];
+    $id = is_object($source) ? (string) $source->id : (string) $source;
+    Cache::forget('github-installation-token:'.$id);
+}
+
+function generateGithubInstallationToken(GithubApp $source, bool $forceRefresh = false)
+{
     $id = (string) $source->id;
-    if (isset($cache[$id]) && $cache[$id]['until'] > time()) {
-        return $cache[$id]['token'];
+    if ($forceRefresh) {
+        Cache::forget('github-installation-token:'.$id);
     }
 
     $stored = Cache::get('github-installation-token:'.$id);
     if (is_string($stored) && $stored !== '') {
-        $cache[$id] = ['token' => $stored, 'until' => time() + 600];
-
         return $stored;
     }
 
     $token = generateGithubToken($source, 'installation');
     // ponytail: one installation token per app for 50 minutes, shared across requests. GitHub tokens last an hour.
-    $cache[$id] = ['token' => $token, 'until' => time() + 600];
     Cache::put('github-installation-token:'.$id, $token, 3000);
 
     return $token;
@@ -258,13 +259,28 @@ function githubRateLimited(?string $message): bool
     return is_string($message) && preg_match('/rate limit/i', $message) === 1;
 }
 
+function githubIsSecondaryRateLimit(Response $response): bool
+{
+    $message = strtolower((string) data_get($response->json(), 'message', ''));
+    if (str_contains($message, 'secondary rate limit')) {
+        return true;
+    }
+    $remaining = (string) $response->header('X-RateLimit-Remaining');
+    $retryAfter = (int) $response->header('Retry-After');
+
+    // GitHub documents secondary limits as Retry-After while primary remaining stays > 0.
+    return $retryAfter > 0 && $remaining !== '' && $remaining !== '0' && githubRateLimited($message);
+}
+
+function githubIsPrimaryRateLimit(Response $response): bool
+{
+    return githubRateLimited((string) data_get($response->json(), 'message', ''))
+        && (string) $response->header('X-RateLimit-Remaining') === '0';
+}
+
 function githubRateLimitPauseSeconds(Response $response): ?int
 {
-    $message = (string) data_get($response->json(), 'message', '');
-    if (! githubRateLimited($message)) {
-        return null;
-    }
-    if ((string) $response->header('X-RateLimit-Remaining') === '0') {
+    if (! githubIsSecondaryRateLimit($response)) {
         return null;
     }
     $wait = (int) $response->header('Retry-After');
@@ -308,6 +324,58 @@ function githubRateLimitException(?string $remaining = null, ?string $githubMess
     return new RuntimeException($message);
 }
 
+/**
+ * Classify a failed GitHub API payload. Vague "Rate Limit Exceeded" with remaining quota
+ * is usually permissions/auth/abuse — not something fixed by waiting a minute.
+ *
+ * @param  array{status?: int, rate_limit_remaining?: mixed, rate_limit_reset?: mixed, retry_after?: mixed, data?: mixed}  $result
+ */
+function githubFailedRequestException(array $result): RuntimeException
+{
+    $message = trim((string) data_get($result, 'data.message', ''));
+    $docs = trim((string) data_get($result, 'data.documentation_url', ''));
+    $remaining = $result['rate_limit_remaining'] ?? null;
+    $remaining = is_array($remaining) ? (string) ($remaining[0] ?? '') : (string) ($remaining ?? '');
+    $retryAfter = $result['retry_after'] ?? null;
+    $retryAfter = is_array($retryAfter) ? (string) ($retryAfter[0] ?? '') : (string) ($retryAfter ?? '');
+    $status = (int) ($result['status'] ?? 0);
+    $lower = strtolower($message);
+
+    if (githubRateLimited($message)) {
+        if ($remaining === '0') {
+            return githubRateLimitException('0', $message);
+        }
+        if (str_contains($lower, 'secondary rate limit') || ($retryAfter !== '' && (int) $retryAfter > 0)) {
+            return githubRateLimitException($remaining !== '' ? $remaining : null, $message);
+        }
+
+        return new RuntimeException(__('GitHub refused this action (HTTP :status). The hourly quota still shows :remaining requests left, so waiting will not fix it. Typical causes: the GitHub App lacks Administration/Contents write, the installation has not accepted updated permissions, or GitHub is blocking this installation. Open the app → Permissions & events, set Administration and Contents to Read and write, then Review request on the installation. GitHub said: :message', [
+            'status' => $status > 0 ? (string) $status : '403',
+            'remaining' => $remaining !== '' ? $remaining : __('unknown'),
+            'message' => $message !== '' ? $message : __('Rate Limit Exceeded'),
+        ]).($docs !== '' ? ' '.$docs : ''));
+    }
+
+    if (str_contains($lower, 'resource not accessible') || str_contains($lower, 'upgrade')) {
+        return new RuntimeException(__('This GitHub account cannot create repositories. In the GitHub App permissions, Administration must be Read and write, then accept the new permissions on the installation.').(filled($message) ? ' '.__('GitHub said: :message', ['message' => $message]) : ''));
+    }
+
+    $detail = $message !== ''
+        ? __('GitHub could not create the repository.').' '.__('GitHub said: :message', ['message' => $message])
+        : __('GitHub could not create the repository.');
+    if ($status > 0) {
+        $detail .= ' (HTTP '.$status.')';
+    }
+    if ($remaining !== '') {
+        $detail .= ' '.__('Hourly remaining: :remaining.', ['remaining' => $remaining]);
+    }
+    if ($docs !== '') {
+        $detail .= ' '.$docs;
+    }
+
+    return new RuntimeException($detail);
+}
+
 function githubApi(?GithubApp $source, string $endpoint, string $method = 'get', ?array $data = null, bool $throwError = true)
 {
     if (is_null($source)) {
@@ -330,26 +398,20 @@ function githubApi(?GithubApp $source, string $endpoint, string $method = 'get',
         return Http::GitHub($source->api_url, $token)->$method($endpoint);
     });
 
-    if (! $response->successful() && $throwError) {
-        $errorMessage = data_get($response->json(), 'message', 'no error message found');
-        if (githubRateLimited((string) $errorMessage)) {
-            throw githubRateLimitException($response->header('X-RateLimit-Remaining'), (string) $errorMessage);
-        }
-        $remainingCalls = $response->header('X-RateLimit-Remaining');
-        $detail = 'GitHub API call failed: '.$errorMessage;
-        if (filled($remainingCalls)) {
-            $resetTime = Carbon::parse((int) $response->header('X-RateLimit-Reset'))->format('Y-m-d H:i:s');
-            $detail .= " Remaining calls: {$remainingCalls}. Reset: {$resetTime} UTC.";
-        }
-
-        throw new Exception($detail);
-    }
-
-    return [
+    $payload = [
+        'ok' => $response->successful(),
+        'status' => $response->status(),
         'rate_limit_remaining' => $response->header('X-RateLimit-Remaining'),
         'rate_limit_reset' => $response->header('X-RateLimit-Reset'),
+        'retry_after' => $response->header('Retry-After'),
         'data' => collect($response->json()),
     ];
+
+    if (! $response->successful() && $throwError) {
+        throw githubFailedRequestException($payload);
+    }
+
+    return $payload;
 }
 
 function generateGithubAppJwt(string $privateKey, string|int $appId): string

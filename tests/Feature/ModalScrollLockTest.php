@@ -8,10 +8,14 @@ test('confirmation modal closes before dispatching an event that can open anothe
     );
 });
 
-test('confirmation modal releases its scroll lock before submitting a destructive action', function () {
+test('confirmation modal keeps an in-progress state instead of reopening an empty password field', function () {
     $modal = file_get_contents(resource_path('views/components/modal-confirmation.blade.php'));
 
     expect($modal)
-        ->toMatch('/submitting = true;\s*modalOpen = false;\s*\$nextTick\(\(\) => \{\s*submitForm\(\)/s')
-        ->toMatch('/if \(result === true\) \{\s*resetModal\(\);/s');
+        ->toContain("__('This can take a moment. Do not close this window.')")
+        ->toContain("__('Working…')")
+        ->toContain("__('Use the password of the account you are signed in with.')")
+        ->toContain('result === true || result === null || result === undefined')
+        ->toMatch('/submitting = true;\s*passwordError = \'\';\s*submitForm\(\)/s')
+        ->not->toMatch('/submitting = true;\s*modalOpen = false;\s*\$nextTick\(\(\) => \{\s*submitForm\(\)/s');
 });

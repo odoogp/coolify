@@ -62,7 +62,13 @@ class OdooGit
                 }
                 $message = (string) ($response->json('message') ?: 'GitHub repositories could not be loaded.');
                 if (githubRateLimited($message)) {
-                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'), $message);
+                    throw githubFailedRequestException([
+                        'status' => $response->status(),
+                        'rate_limit_remaining' => $response->header('X-RateLimit-Remaining'),
+                        'rate_limit_reset' => $response->header('X-RateLimit-Reset'),
+                        'retry_after' => $response->header('Retry-After'),
+                        'data' => collect($response->json()),
+                    ]);
                 }
                 throw new RuntimeException($message);
             }
@@ -108,7 +114,13 @@ class OdooGit
             if ($response->status() !== 200) {
                 $message = (string) ($response->json('message') ?: 'GitHub branches could not be loaded.');
                 if (githubRateLimited($message)) {
-                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'), $message);
+                    throw githubFailedRequestException([
+                        'status' => $response->status(),
+                        'rate_limit_remaining' => $response->header('X-RateLimit-Remaining'),
+                        'rate_limit_reset' => $response->header('X-RateLimit-Reset'),
+                        'retry_after' => $response->header('Retry-After'),
+                        'data' => collect($response->json()),
+                    ]);
                 }
                 throw new RuntimeException($message);
             }
@@ -1487,6 +1499,23 @@ BASH;
     }
 
     /**
+     * Prefer the GitHub App already stored on the project profile, then the user's remembered app.
+     */
+    public static function appForProject(Project $project, ?int $userId): ?GithubApp
+    {
+        $connected = self::connectedApps((int) $project->team_id);
+        $profileAppId = (int) ($project->odooProfile?->github_app_id ?? 0);
+        if ($profileAppId > 0) {
+            $match = $connected->firstWhere('id', $profileAppId);
+            if ($match instanceof GithubApp) {
+                return $match;
+            }
+        }
+
+        return self::userApp((int) $project->team_id, $userId);
+    }
+
+    /**
      * Add the invited person to each Odoo project's repository.
      * GitHub identifies collaborators by login, so an email GitHub cannot match is skipped.
      * A failed call does not undo the team invite.
@@ -1646,6 +1675,9 @@ BASH;
      */
     private static function createRepository(GithubApp $githubApp, string $type, string $owner, string $name, string $projectName): array
     {
+        // Drop a cached installation token so Administration/Contents updates apply.
+        forgetGithubInstallationToken($githubApp);
+
         $endpoint = $type === 'Organization'
             ? '/orgs/'.rawurlencode($owner).'/repos'
             : '/user/repos';
@@ -1658,23 +1690,12 @@ BASH;
         $id = (int) data_get($created, 'data.id');
         $fullName = (string) data_get($created, 'data.full_name');
         if ($id === 0 || $fullName === '') {
-            $message = (string) data_get($created, 'data.message', '');
-            if (githubRateLimited($message)) {
-                throw githubRateLimitException((string) data_get($created, 'rate_limit_remaining'), $message);
-            }
-            $lower = strtolower($message);
-            if (str_contains($lower, 'resource not accessible') || str_contains($lower, 'upgrade')) {
-                throw new RuntimeException(__('This GitHub account cannot create repositories. In the GitHub App permissions, Administration must be Read and write, then accept the new permissions on the installation.').(filled($message) ? ' '.__('GitHub said: :message', ['message' => $message]) : ''));
-            }
             $existing = githubApi($githubApp, '/repos/'.rawurlencode($owner).'/'.rawurlencode($name), 'get', null, false);
             $id = (int) data_get($existing, 'data.id');
             $fullName = (string) data_get($existing, 'data.full_name');
         }
         if ($id === 0 || $fullName === '') {
-            $fallback = (string) data_get($created, 'data.message', '');
-            throw new RuntimeException($fallback !== ''
-                ? __('GitHub could not create the repository.').' '.__('GitHub said: :message', ['message' => $fallback])
-                : __('GitHub could not create the repository.'));
+            throw githubFailedRequestException($created);
         }
 
         return ['full_name' => $fullName, 'id' => $id];
@@ -2267,7 +2288,7 @@ BASH;
         }
     }
 
-    public static function beginConnect(Project $project, string $back = 'project.edit', array $parameters = []): GithubApp
+    public static function beginConnect(Project $project, string $back = 'project.edit', array $parameters = [], bool $forceNew = false): GithubApp
     {
         $user = auth()->user();
         if (! $user instanceof User || ! $user->isAdminOfTeam((int) $project->team_id)) {
@@ -2281,27 +2302,46 @@ BASH;
                 'parameters' => $parameters === [] ? ['project_uuid' => $project->uuid] : $parameters,
             ],
         ]);
-        $installed = self::installedApp((int) $project->team_id, (int) $user->id);
-        if ($installed instanceof GithubApp) {
-            session(['from' => session('from') + ['source_id' => $installed->id]]);
+        if (! $forceNew) {
+            $installed = self::installedApp((int) $project->team_id, (int) $user->id);
+            if ($installed instanceof GithubApp) {
+                session(['from' => session('from') + ['source_id' => $installed->id]]);
 
-            return $installed;
+                return $installed;
+            }
+            $githubApp = GithubApp::query()
+                ->where('team_id', $project->team_id)
+                ->whereNull('installation_id')
+                ->latest('id')
+                ->first();
+            if ($githubApp instanceof GithubApp) {
+                session(['from' => session('from') + ['source_id' => $githubApp->id]]);
+
+                return $githubApp;
+            }
         }
-        $githubApp = GithubApp::query()
-            ->where('team_id', $project->team_id)
-            ->whereNull('installation_id')
-            ->latest('id')
-            ->first();
-        if (! $githubApp instanceof GithubApp) {
-            $githubApp = GithubApp::create([
-                'name' => self::appName((int) $project->team_id),
-                'api_url' => 'https://api.github.com',
-                'html_url' => 'https://github.com',
-                'custom_user' => 'git',
-                'custom_port' => 22,
-                'team_id' => $project->team_id,
-            ]);
+
+        // Change account (or first connect with no draft): new App row, then manifest / install.
+        // Clear remembered + profile apps so appForProject does not keep the previous account.
+        if ($forceNew) {
+            DB::table('team_user')
+                ->where('user_id', $user->id)
+                ->where('team_id', $project->team_id)
+                ->update(['github_app_id' => null]);
+            $project->loadMissing('odooProfile');
+            if ($project->odooProfile !== null) {
+                $project->odooProfile->update(['github_app_id' => null]);
+            }
         }
+
+        $githubApp = GithubApp::create([
+            'name' => self::appName((int) $project->team_id),
+            'api_url' => 'https://api.github.com',
+            'html_url' => 'https://github.com',
+            'custom_user' => 'git',
+            'custom_port' => 22,
+            'team_id' => $project->team_id,
+        ]);
         session(['from' => session('from') + ['source_id' => $githubApp->id]]);
 
         return $githubApp;

@@ -77,6 +77,35 @@ it('shows a valid magic link invitation without consuming it', function () {
     expect(Hash::check($password, $user->password))->toBeTrue();
 });
 
+it('does not add the invitee to the team until they accept', function () {
+    $owner = User::factory()->create();
+    $team = Team::factory()->create();
+    $owner->teams()->attach($team->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(\App\Livewire\Team\InviteLink::class)
+        ->set('email', 'pending-invitee@example.com')
+        ->set('role', 'member')
+        ->call('viaLink')
+        ->assertDispatched('success');
+
+    $invitee = User::query()->where('email', 'pending-invitee@example.com')->first();
+    $invitation = TeamInvitation::query()->where('email', 'pending-invitee@example.com')->first();
+
+    expect($invitee)->not->toBeNull()
+        ->and($invitation)->not->toBeNull()
+        ->and($invitee->teams()->where('team_id', $team->id)->exists())->toBeFalse();
+
+    parse_str((string) parse_url((string) $invitation->link, PHP_URL_QUERY), $query);
+    $token = is_string($query['token'] ?? null) ? $query['token'] : '';
+
+    $this->get(route('auth.link', ['token' => $token]))
+        ->assertSuccessful()
+        ->assertSee('Accept invitation')
+        ->assertDontSee(__('You are already a member of this team. Dismiss the invitation to continue.'));
+});
+
 it('finds the matching invitation for a legacy token when the email has multiple invitations', function () {
     $team = Team::factory()->create();
     $user = User::factory()->create([

@@ -141,9 +141,22 @@
                 @endunless
                 @if ($project->odooProfile)
                     <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                            {{ __('This project runs Odoo :version. Staging uses this same version.', ['version' => $project->odooProfile->odoo_version]) }}
-                        </p>
+                        @if ($odooVersionLocked)
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('This project runs Odoo :version. The version is locked because environments are already launched. Staging and new environments keep using the same Compose.', ['version' => $project->odooProfile->odoo_version]) }}
+                            </p>
+                        @else
+                            <div class="max-w-sm space-y-3">
+                                <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
+                                    :disabled="! auth()->user()->can('update', $project)" :options="$odooVersionOptions" />
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('You can change this while no environment has been launched yet. After the first launch, every environment reuses this version.') }}
+                                </p>
+                                <x-forms.button type="button" wire:click="saveOdooVersion" canGate="update" :canResource="$project" isHighlighted>
+                                    {{ __('Save Odoo version') }}
+                                </x-forms.button>
+                            </div>
+                        @endif
                         @if ($canMigrate)
                             <div class="flex flex-wrap items-center gap-3">
                                 <a href="{{ route('project.odoo.migrate', ['project_uuid' => $project->uuid]) }}"
