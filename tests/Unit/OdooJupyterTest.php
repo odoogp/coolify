@@ -418,6 +418,7 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('web.base.url')
         ->and($command)->toContain('-i gpsh_autoconnect')
         ->and($command)->toContain('tee -a /mnt/extra-addons/.gpsh/odoo.log')
+        ->and($command)->toContain('Always keep /mnt/extra-addons first')
         ->and($command)->toContain('/gpsh-owner-modules/')
         ->and($aligned['odoo']['volumes'] ?? [])->toContain('/data/coolify/gpsh-owner-modules:/gpsh-owner-modules:ro')
         ->and($command)->toContain('gpsh-connect-state')

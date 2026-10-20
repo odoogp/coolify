@@ -2,25 +2,30 @@
         $wire.updateShouldShowFromPath(window.location.pathname || '/')
     " x-data="{
     expanded: @entangle('expanded')
-}" class="fixed bottom-0 left-0 z-60 mb-4 ml-4 transition-[left] duration-200"
-    :class="collapsed ? 'lg:left-16' : 'lg:left-56'">
+}">
     @if ($this->shouldShow && $this->deploymentCount > 0)
-        <div class="relative">
-            {{-- Expanded deployment list (above the pill) --}}
+        <div class="pointer-events-auto relative">
+            {{-- Expanded list (above the pill, still in the right stack) --}}
             <div x-show="expanded" x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="translate-y-2" x-transition:enter-end="translate-y-0"
                 x-transition:leave="transition ease-in duration-150" x-transition:leave-start="translate-y-0"
                 x-transition:leave-end="translate-y-2" x-cloak
-                class="absolute bottom-full mb-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl"
+                class="absolute bottom-full mb-2 w-full overflow-hidden rounded-xl"
                 style="background: var(--coollabs-elevated); box-shadow: 0 0 0 1px var(--coollabs-line), var(--shadow-modal);">
                 <div class="max-h-96 space-y-1 overflow-y-auto p-2 scrollbar">
                     @foreach ($this->deployments as $deployment)
                         @php
-                            $deploymentStatus = $deployment->status === 'in_progress' ? 'In progress' : 'Queued';
+                            $isOdooAddons = (bool) ($deployment->application?->is_odoo_addons);
+                            $deploymentStatus = $deployment->status === 'in_progress'
+                                ? ($isOdooAddons ? __('Updating modules') : __('Updating'))
+                                : __('Waiting');
                             $deploymentStatusType = $deployment->status === 'in_progress' ? 'warning' : 'neutral';
                             $projectName = $deployment->application?->environment?->project?->name;
                             $environmentName = $deployment->application?->environment?->name;
                             $environmentPath = collect([$projectName, $environmentName])->filter()->join(' / ');
+                            $title = $isOdooAddons
+                                ? ($projectName ?: __('Modules'))
+                                : $deployment->application_name;
                         @endphp
                         <a wire:key="indicator-deployment-{{ $deployment->id }}"
                             href="{{ $deployment->deployment_url }}" {{ wireNavigate() }}
@@ -44,7 +49,7 @@
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-start justify-between gap-2">
                                     <p class="truncate text-[13px] font-semibold text-black dark:text-fg">
-                                        {{ $deployment->application_name }}
+                                        {{ $title }}
                                     </p>
                                     <x-status-badge :status="$deploymentStatus" :type="$deploymentStatusType"
                                         class="shrink-0" />
@@ -71,9 +76,9 @@
 
             {{-- Collapsed pill --}}
             <button type="button" @click="expanded = !expanded"
-                class="flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50 dark:border-coolgray-300 dark:bg-surface dark:text-fg dark:hover:bg-raised"
+                class="flex w-full items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3.5 py-2 text-sm font-medium text-neutral-800 transition-colors hover:bg-neutral-50 dark:border-coolgray-300 dark:bg-surface dark:text-fg dark:hover:bg-raised"
                 style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal);"
-                :aria-expanded="expanded.toString()" aria-label="{{ __('Active deployments') }}">
+                :aria-expanded="expanded.toString()" aria-label="{{ __('Updates in progress') }}">
                 <svg class="loading-indicator size-3.5 shrink-0 animate-spin"
                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
@@ -83,8 +88,12 @@
                     </path>
                 </svg>
 
-                <span>
-                    {{ $this->deploymentCount }} {{ Str::plural('deployment', $this->deploymentCount) }}
+                <span class="min-w-0 flex-1 truncate text-left">
+                    @if ($this->deploymentCount === 1)
+                        {{ __('Updating…') }}
+                    @else
+                        {{ __(':count updates…', ['count' => $this->deploymentCount]) }}
+                    @endif
                 </span>
 
                 <span class="inline-flex shrink-0 text-neutral-400 transition-transform duration-200 dark:text-fg-faint"

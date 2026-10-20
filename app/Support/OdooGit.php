@@ -2069,6 +2069,37 @@ BASH;
     }
 
     /**
+     * After files land in /mnt/extra-addons, Odoo still needs update_list() (Apps → Update Apps List).
+     */
+    public static function refreshAppsList(Service $service): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        if (! $service->supportsOdooJupyter()) {
+            return;
+        }
+
+        $service->loadMissing('destination.server');
+        $server = $service->destination?->server;
+        $database = self::databaseName($service);
+        if ($server === null || blank($database) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', (string) $service->uuid) !== 1) {
+            return;
+        }
+
+        $container = 'odoo-'.$service->uuid;
+        $script = "env['ir.module.module'].update_list()\n";
+        $encoded = base64_encode($script);
+        $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
+            .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '
+            .'-d '.escapeshellarg((string) $database);
+
+        instant_remote_process([
+            'docker exec '.escapeshellarg($container).' sh -c '.escapeshellarg($inner),
+        ], $server, false);
+    }
+
+    /**
      * Project already running without GitHub: create the repo, save it on the
      * profile, and push whatever is already in the custom addon volume.
      */

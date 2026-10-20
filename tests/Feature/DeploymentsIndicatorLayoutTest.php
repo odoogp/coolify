@@ -1,20 +1,33 @@
 <?php
 
-it('positions the deployments indicator from the sidebar collapsed state', function () {
+it('stacks the updates indicator on the right with notice toasts', function () {
     $indicatorView = file_get_contents(resource_path('views/livewire/deployments-indicator.blade.php'));
     $layoutView = file_get_contents(resource_path('views/layouts/app.blade.php'));
-
-    expect($indicatorView)
-        ->toContain('transition-[left] duration-200')
-        ->toContain(":class=\"collapsed ? 'lg:left-16' : 'lg:left-56'\"")
-        ->not->toContain('fixed bottom-0 z-60 mb-4 left-0 lg:left-56 ml-4');
+    $noticeView = file_get_contents(resource_path('views/livewire/gpsh-notice-bell.blade.php'));
 
     expect($layoutView)
-        ->toContain('<div x-data="{')
-        ->toContain('<livewire:deployments-indicator />');
+        ->toContain('id="gpsh-activity-stack"')
+        ->toContain('sm:right-4')
+        ->toContain('<livewire:deployments-indicator />')
+        ->toContain('<div x-data="{');
 
-    expect(strpos($layoutView, '<div x-data="{'))
+    expect(strpos($layoutView, 'id="gpsh-activity-stack"'))
         ->toBeLessThan(strpos($layoutView, '<livewire:deployments-indicator />'));
+
+    expect($indicatorView)
+        ->toContain('Updating…')
+        ->toContain(':count updates…')
+        ->toContain('Updating modules')
+        ->toContain('Updates in progress')
+        ->not->toContain('Str::plural(\'deployment\'')
+        ->not->toContain('transition-[left]')
+        ->not->toContain('lg:left-56')
+        ->not->toContain('fixed bottom-0');
+
+    expect($noticeView)
+        ->toContain('x-teleport="#gpsh-activity-stack"')
+        ->toContain('order-first')
+        ->not->toContain('fixed inset-x-3 top-16');
 });
 
 it('uses the redesigned elevated surface and status badge patterns', function () {
@@ -27,8 +40,8 @@ it('uses the redesigned elevated surface and status badge patterns', function ()
         ->toContain('var(--coollabs-hairline)')
         ->toContain('<x-status-badge')
         ->toContain('name="chevron-down"')
-        ->toContain("'In progress'")
-        ->toContain("'Queued'")
+        ->toContain('Updating modules')
+        ->toContain('Waiting')
         ->toContain('dark:text-fg')
         ->toContain('dark:border-coolgray-300')
         ->toContain('$this->shouldShow')
@@ -51,4 +64,21 @@ it('uses solid surfaces in every deployments indicator state', function () {
         ->not->toContain('dark:bg-white/[')
         ->not->toContain('dark:hover:bg-white/[')
         ->not->toContain('dark:border-white/[');
+});
+
+it('announces and restarts odoo after a modules sync finishes', function () {
+    $restart = file_get_contents(app_path('Jobs/RestartOdooBranchJob.php'));
+
+    expect($restart)
+        ->toContain('GpshNotices::announceRestarting')
+        ->toContain('RestartServiceApplication::run')
+        ->toContain('OdooGit::refreshAppsList');
+});
+
+it('refreshes the odoo apps list after modules land in extra-addons', function () {
+    $source = file_get_contents(app_path('Support/OdooGit.php'));
+
+    expect($source)
+        ->toContain('function refreshAppsList')
+        ->toContain("update_list()");
 });

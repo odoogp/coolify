@@ -1554,7 +1554,14 @@ try:
     parser = configparser.ConfigParser()
     parser.read("/etc/odoo/odoo.conf")
     current = parser.get("options", "addons_path", fallback="/usr/lib/python3/dist-packages/odoo/addons")
-    Path("/tmp/gpsh-addons-path").write_text("/tmp/gpsh_addons," + current)
+    # Client modules live on the shared volume Jupyter mounts at /workspace/addons.
+    # Always put /mnt/extra-addons first so a push/clone is visible to Odoo after restart.
+    parts = []
+    for part in ("/mnt/extra-addons", "/tmp/gpsh_addons", *current.split(",")):
+        part = part.strip()
+        if part and part not in parts:
+            parts.append(part)
+    Path("/tmp/gpsh-addons-path").write_text(",".join(parts))
 except Exception:
     pass
 def db_hosts():
@@ -1671,17 +1678,20 @@ if [ -d "$image" ] && [ -d /gpsh-owner-modules ]; then
 fi
 addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || echo /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons)
 # Prefer an existing mount; skip empty paths so Odoo 20 does not warn and drop them.
+# Always keep /mnt/extra-addons first — that is the volume Jupyter shows as /.
+case ",$addons," in *,/mnt/extra-addons,*) ;; *) addons="/mnt/extra-addons,$addons" ;; esac
 addons_ok=""
 IFS=','; for part in $addons; do
   part=$(printf %s "$part" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
   [ -n "$part" ] || continue
+  case ",$addons_ok," in *",$part,"*) continue ;; esac
   if [ -d "$part" ]; then
     mkdir -p "$part" 2>/dev/null || true
     addons_ok="${addons_ok:+$addons_ok,}$part"
   fi
 done
 unset IFS
-[ -n "$addons_ok" ] || addons_ok=/usr/lib/python3/dist-packages/odoo/addons
+[ -n "$addons_ok" ] || addons_ok=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons
 load=(--db-filter='^__ODOO_DB__$' --addons-path="$addons_ok")
 if [ ! -f /tmp/odoo-db-ready ] || [ "$(cat /tmp/odoo-db-ready)" != "1" ]; then
   python3 /tmp/gpsh-page.py "Instalando la base." || true
@@ -1823,6 +1833,8 @@ try:
         path = found
 except OSError:
     pass
+if "/mnt/extra-addons" not in [part.strip() for part in path.split(",")]:
+    path = "/mnt/extra-addons," + path
 cmd = ["odoo", "shell", "--no-http", "--max-cron-threads=0", "--no-database-list", "--db_host", os.environ.get("HOST") or "postgresql", "--db_port", os.environ.get("PORT") or "5432", "--db_user", os.environ.get("USER") or "", "--db_password", os.environ.get("PASSWORD") or "", "-d", os.environ.get("ODOO_DATABASE") or "", "--addons-path", path]
 def drop():
     try:

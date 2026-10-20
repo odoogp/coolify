@@ -77,10 +77,12 @@
                 </a>
             @endif
         </div>
-        <div x-cloak x-show="show"
-            class="fixed inset-x-3 top-16 z-[100] mx-auto w-[min(22rem,calc(100%-2rem))] rounded-lg border border-neutral-200 bg-white p-3 shadow-lg sm:inset-x-auto sm:right-4 sm:left-auto sm:mx-0 dark:border-white/[0.08] dark:bg-panel">
-            <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
-            <p class="mt-1 break-words text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
-        </div>
+        <template x-teleport="#gpsh-activity-stack">
+            <div x-cloak x-show="show" x-transition.opacity.duration.200ms
+                class="pointer-events-auto order-first w-full rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-panel">
+                <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
+                <p class="mt-1 break-words text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
+            </div>
+        </template>
     </div>
 </div>
