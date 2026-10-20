@@ -119,6 +119,29 @@ it('rewrites the postgres data mount for version 18 and keeps the old path below
         ->and($saved->compose)->toContain('postgres:18-alpine');
 });
 
+it('normalizes a hand-edited postgres 18 compose that still mounts .../data', function () {
+    $broken = <<<'YAML'
+services:
+  odoo:
+    image: odoo:20
+  postgresql:
+    image: postgres:18-alpine
+    volumes:
+      - postgresql-data:/var/lib/postgresql/data
+YAML;
+
+    $fixed = OdooComposeTemplate::normalizePostgresMount($broken);
+
+    expect($fixed)->toContain('image: postgres:18-alpine')
+        ->and($fixed)->toContain('postgresql-data:/var/lib/postgresql')
+        ->and($fixed)->not->toContain('postgresql-data:/var/lib/postgresql/data');
+
+    OdooComposeTemplate::saveFor('20', $broken, '18-alpine');
+    expect(OdooComposeTemplate::composeFor('20'))
+        ->toContain('postgresql-data:/var/lib/postgresql')
+        ->not->toContain('postgresql-data:/var/lib/postgresql/data');
+});
+
 it('hides odoo templates from someone who is not an instance admin', function () {
     $team = Team::factory()->create();
     $member = User::factory()->create();

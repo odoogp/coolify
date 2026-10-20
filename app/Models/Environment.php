@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Actions\Application\StopApplication;
+use App\Actions\Database\StopDatabase;
+use App\Actions\Service\StopService;
 use App\Jobs\DeleteResourceJob;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooJupyter;
@@ -11,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use OpenApi\Attributes as OA;
 
 #[OA\Schema(
@@ -80,6 +84,33 @@ class Environment extends BaseModel
                 if ($resource instanceof Service) {
                     OdooJupyter::rememberServiceVolumes($resource, $environment);
                 }
+
+                // Stop/remove containers now. DeleteResourceJob is queued — if
+                // Horizon is down (e.g. mid-upgrade), soft-delete alone leaves
+                // orphaned containers filling the host.
+                try {
+                    if ($resource instanceof Service) {
+                        StopService::run($resource, deleteConnectedNetworks: true, dockerCleanup: false);
+                        $server = $resource->destination?->server ?? $resource->server;
+                        if ($server && $server->isFunctional() && filled($resource->uuid)) {
+                            instant_remote_process([
+                                'docker ps -aq --filter name='.escapeshellarg($resource->uuid).' | xargs -r docker rm -f',
+                            ], $server, false);
+                        }
+                    } elseif ($resource instanceof Application) {
+                        StopApplication::run($resource, previewDeployments: true, dockerCleanup: false);
+                    } else {
+                        StopDatabase::run($resource, dockerCleanup: false);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('Failed to stop containers while deleting environment; queued cleanup will retry.', [
+                        'environment_id' => $environment->id,
+                        'resource_type' => $resource::class,
+                        'resource_id' => $resource->getKey(),
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+
                 $resource->delete();
                 DeleteResourceJob::dispatch($resource, $environment->deleteVolumesWithResources);
             }

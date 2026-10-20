@@ -1678,6 +1678,15 @@ class Service extends BaseModel
 
     public function parse(bool $isNew = false): Collection
     {
+        if (OdooJupyter::isOdooCompose((string) $this->docker_compose_raw)) {
+            $normalized = OdooComposeTemplate::normalizePostgresMount((string) $this->docker_compose_raw);
+            if ($normalized !== (string) $this->docker_compose_raw) {
+                $this->docker_compose_raw = $normalized;
+                // Keep the fix without firing observers that re-parse.
+                $this->saveQuietly();
+            }
+        }
+
         if ((int) $this->compose_parsing_version >= 3) {
             return serviceParser($this);
         } elseif ($this->docker_compose_raw) {

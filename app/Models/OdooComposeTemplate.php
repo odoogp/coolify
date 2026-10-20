@@ -30,7 +30,33 @@ class OdooComposeTemplate extends Model
     {
         $compose = static::query()->where('version', $version)->value('compose');
 
-        return is_string($compose) && $compose !== '' ? $compose : null;
+        if (! is_string($compose) || $compose === '') {
+            return null;
+        }
+
+        // Templates edited by hand (or before PG18 mount rules) can ship
+        // postgres:18 with the old /var/lib/postgresql/data path — that exits
+        // the DB container in a restart loop. Always normalize on read.
+        return self::normalizePostgresMount($compose);
+    }
+
+    /**
+     * Align the postgresql data volume path with the image major version.
+     * PG 18+ must mount at /var/lib/postgresql (not .../data).
+     */
+    public static function normalizePostgresMount(string $compose): string
+    {
+        $image = self::postgresImage($compose);
+        if ($image === null) {
+            return $compose;
+        }
+
+        $tag = self::tagFromImage($image);
+        if ($tag === null) {
+            return $compose;
+        }
+
+        return self::applyPostgresDataMount($compose, $tag);
     }
 
     /**

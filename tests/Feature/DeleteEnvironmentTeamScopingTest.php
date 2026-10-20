@@ -85,6 +85,17 @@ test('deleting an environment also deletes the resources it has', function () {
     Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id && $job->deleteVolumes === true);
 });
 
+test('environment deletion stops containers before soft-deleting resources', function () {
+    $source = file_get_contents(app_path('Models/Environment.php'));
+
+    expect($source)
+        ->toContain('StopService::run')
+        ->toContain('StopApplication::run')
+        ->toContain('StopDatabase::run')
+        ->toContain('docker ps -aq --filter name=')
+        ->toContain('DeleteResourceJob::dispatch');
+});
+
 test('deleting an environment keeps its volumes when that box is unchecked', function () {
     Queue::fake();
     $application = Application::factory()->create([
