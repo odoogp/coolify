@@ -48,7 +48,7 @@ class Index extends Component
 
         return view('livewire.security.private-key.index', [
             'privateKeys' => $privateKeys,
-        ])->layout('components.layout');
+        ]);
     }
 
     public function cleanupUnusedKeys()
