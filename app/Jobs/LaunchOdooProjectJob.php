@@ -68,7 +68,11 @@ class LaunchOdooProjectJob implements ShouldQueue
 
             $this->progress(2);
             OdooGit::whileServerIsFree($service->server, function () use ($service): void {
-                $current = $service->fresh() ?? $service;
+                $current = $service->fresh(['environment.project.odooProfile.githubApp', 'environment.odooBranch', 'destination.server']) ?? $service;
+                // Clone before compose up so Jupyter/Odoo mount a populated volume.
+                // StartService also clones; this makes a missing GitHub link fail the launch
+                // instead of showing loading and finishing with an empty Jupyter tree.
+                OdooGit::cloneIntoService($current);
                 OdooGit::useHttps($current);
                 $activity = StartService::run($current, pullLatestImages: false);
                 $this->waitForServiceStart($activity, $service);

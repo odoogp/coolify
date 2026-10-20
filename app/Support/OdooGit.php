@@ -1960,11 +1960,25 @@ BASH;
      */
     public static function cloneCommands(string $volume, string $cloneUrl, string $branch): array
     {
+        // Preserve .gpsh (logs / owner-package markers). A bare `git init` without a
+        // working tree used to make the fetch path a no-op and leave Jupyter empty.
         $script = 'set -e; '
-            .'if [ -d /addons/.git ]; then '
-            .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).' && git -C /addons checkout -B '.escapeshellarg($branch).' FETCH_HEAD; '
-            .'else git clone --depth 1 --branch '.escapeshellarg($branch).' '.escapeshellarg($cloneUrl).' /tmp/src && cp -a /tmp/src/. /addons/; '
-            .'fi; chown -R 100:101 /addons || true; chmod -R a+rX /addons || true';
+            .'mkdir -p /addons; '
+            .'if [ -d /addons/.gpsh ]; then cp -a /addons/.gpsh /tmp/gpsh-keep; fi; '
+            .'if [ -d /addons/.git ] && git -C /addons remote get-url origin >/dev/null 2>&1 '
+            .'&& git -C /addons rev-parse --verify HEAD >/dev/null 2>&1; then '
+            .'git -C /addons remote set-url origin '.escapeshellarg($cloneUrl).'; '
+            .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).'; '
+            .'git -C /addons checkout -B '.escapeshellarg($branch).' FETCH_HEAD; '
+            .'else '
+            .'find /addons -mindepth 1 -maxdepth 1 ! -name .gpsh -exec rm -rf {} +; '
+            .'git clone --depth 1 --branch '.escapeshellarg($branch).' '.escapeshellarg($cloneUrl).' /tmp/src; '
+            .'cp -a /tmp/src/. /addons/; '
+            .'fi; '
+            .'if [ -d /tmp/gpsh-keep ]; then mkdir -p /addons/.gpsh; cp -a /tmp/gpsh-keep/. /addons/.gpsh/; fi; '
+            .'test -d /addons/.git; '
+            .'chown -R 100:101 /addons || true; '
+            .'chmod -R a+rX /addons || true';
 
         return [
             'docker volume create '.escapeshellarg($volume),
@@ -1974,9 +1988,6 @@ BASH;
 
     public static function cloneIntoService(Service $service): void
     {
-        if (app()->runningUnitTests()) {
-            return;
-        }
         if (! $service->supportsOdooJupyter()) {
             return;
         }
@@ -1986,15 +1997,75 @@ BASH;
         $repository = $profile?->git_repository;
         $githubApp = $profile?->githubApp;
         $server = $service->destination?->server;
-        if (blank($repository) || ! $githubApp instanceof GithubApp || $server === null) {
+
+        // No GitHub on the project yet — Jupyter-only until a repository is linked.
+        if (blank($repository) && blank($profile?->github_app_id)) {
+            return;
+        }
+
+        if (blank($repository) || ! $githubApp instanceof GithubApp) {
+            throw new RuntimeException('GitHub is linked incompletely for this project. Open the service GitHub panel and save the branch again.');
+        }
+        if ($server === null) {
+            throw new RuntimeException('This Odoo service has no server destination, so addons cannot be cloned.');
+        }
+
+        if (app()->runningUnitTests()) {
             return;
         }
 
         $branch = $service->environment?->odooBranch?->git_branch ?: $service->environment?->name ?: 'main';
         $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
         $token = generateGithubInstallationToken($githubApp);
+        if (blank($token)) {
+            throw new RuntimeException('GitHub did not return an installation token. Reconnect the GitHub App and try again.');
+        }
         $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
-        instant_remote_process(self::cloneCommands(OdooAddons::extraAddonsVolume($service), $url, (string) $branch), $server);
+        $volume = OdooAddons::extraAddonsVolume($service);
+        instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
+        self::assertAddonsVolumeCloned($server, $volume, (string) $repository, (string) $branch);
+    }
+
+    /**
+     * Loading UI must not flip to "ready" when the volume still only has GPSH logs.
+     */
+    public static function assertAddonsVolumeCloned(Server $server, string $volume, string $repository, string $branch): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', $volume) !== 1) {
+            throw new RuntimeException('Invalid addons volume name.');
+        }
+
+        $listing = instant_remote_process([
+            'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons:ro alpine/git -c '.escapeshellarg(
+                'set -e; test -d /addons/.git; git -C /addons rev-parse --verify HEAD >/dev/null; '
+                .'ls -la /addons | head -n 40'
+            ),
+        ], $server);
+
+        $listing = trim((string) $listing);
+        if ($listing === '' || ! str_contains($listing, '.git')) {
+            throw new RuntimeException(
+                "Clone of {$repository}@{$branch} into {$volume} did not leave a git checkout. Jupyter stays empty until this succeeds."
+            );
+        }
+
+        // Only GPSH runtime files (no module / repo content besides .git / .gpsh / helper scripts).
+        $meaningful = instant_remote_process([
+            'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons:ro alpine -c '.escapeshellarg(
+                'find /addons -mindepth 1 -maxdepth 1 '
+                .'! -name .git ! -name .gpsh ! -name odoo-logs.sh ! -name odoo-logs.log ! -name .gitignore '
+                .'| head -n 5'
+            ),
+        ], $server, false);
+
+        if (trim((string) $meaningful) === '') {
+            throw new RuntimeException(
+                "Clone of {$repository}@{$branch} into {$volume} produced no addon files (volume only has GPSH helpers). Check that the branch has modules, then save the branch again."
+            );
+        }
     }
 
     /**

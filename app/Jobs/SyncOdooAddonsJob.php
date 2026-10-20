@@ -41,28 +41,32 @@ class SyncOdooAddonsJob implements ShouldQueue
 
         $environment = $branch->environment()->with('project', 'services')->first();
         $service = $this->service($environment, $branch);
-        $volume = $service === null ? null : OdooAddons::extraAddonsVolume($service);
 
         try {
             $branch->update(['status' => 'updating']);
 
-            if ($deployment !== null) {
-                $deployment->update([
-                    'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
-                    'logs' => $volume === null ? '' : 'git pull '.$volume,
-                ]);
+            if ($service === null) {
+                throw new \RuntimeException('No Odoo service is linked to this environment branch, so addons cannot be cloned.');
             }
 
-            if ($service !== null) {
-                OdooGit::cloneIntoService($service);
-                OdooGit::reinstallOwnerPackageIntoService($service);
-            }
+            $volume = OdooAddons::extraAddonsVolume($service);
+            $deployment?->update([
+                'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
+                'logs' => "Cloning into {$volume}",
+            ]);
+
+            OdooGit::ensureAddonsApplication($environment, $service);
+            OdooGit::cloneIntoService($service);
+            OdooGit::reinstallOwnerPackageIntoService($service);
 
             (new RestartOdooBranchJob($branch->id))->handle();
 
-            $deployment?->update(['status' => ApplicationDeploymentStatus::FINISHED->value]);
+            $deployment?->update([
+                'status' => ApplicationDeploymentStatus::FINISHED->value,
+                'logs' => trim((string) ($deployment->logs ?? '')."\nClone finished for {$volume}"),
+            ]);
             $this->record($environment, 'odoo.addons.synced', 'finished', [
-                'volume' => $service === null ? null : OdooAddons::extraAddonsVolume($service),
+                'volume' => $volume,
             ]);
         } catch (Throwable $e) {
             $deployment?->update(['status' => ApplicationDeploymentStatus::FAILED->value]);

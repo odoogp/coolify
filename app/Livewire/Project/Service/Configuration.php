@@ -676,6 +676,18 @@ class Configuration extends Component
                 $this->environment,
                 $branch,
             );
+            $this->environment->unsetRelation('odooBranch');
+            $this->environment->load('odooBranch');
+            $row = $this->environment->odooBranch;
+            if ($row !== null) {
+                $row->update([
+                    'status' => 'updating',
+                    'service_id' => $row->service_id ?: $this->service->id,
+                ]);
+                // StartService also clones, but queue an explicit sync so a failed
+                // silent path cannot leave Jupyter on an empty addons volume.
+                SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
+            }
             $this->syncOdooGithub();
 
             return $this->startPlannedLaunch();

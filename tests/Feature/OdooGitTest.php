@@ -1262,7 +1262,36 @@ it('clones the repository branch into the addon volume jupyter shows', function 
         ->and($script)->toContain('production')
         ->and($script)->toContain('svc_odoo-extra-addons')
         ->and($script)->toContain('alpine/git')
-        ->and($script)->toContain('/addons');
+        ->and($script)->toContain('/addons')
+        ->and($script)->toContain('test -d /addons/.git')
+        ->and($script)->toContain('rev-parse --verify HEAD')
+        ->and($script)->toContain('gpsh-keep');
+});
+
+it('fails cloneIntoService when github is only half linked', function () {
+    $environment = $this->project->environments()->where('name', 'production')->firstOrFail();
+    $this->project->odooProfile?->update([
+        'git_repository' => 'Arielmim97/odoogp20',
+        'github_app_id' => null,
+        'repository_id' => 1427635072,
+    ]);
+    $service = Service::factory()->create([
+        'environment_id' => $environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n  postgresql:\n    image: postgres:16-alpine\n",
+    ]);
+
+    expect(fn () => OdooGit::cloneIntoService($service))
+        ->toThrow(RuntimeException::class, 'GitHub is linked incompletely');
+});
+
+it('requires a non-empty addons volume after clone verification', function () {
+    $source = file_get_contents(app_path('Support/OdooGit.php'));
+
+    expect($source)
+        ->toContain('assertAddonsVolumeCloned')
+        ->toContain('produced no addon files')
+        ->and(file_get_contents(app_path('Jobs/LaunchOdooProjectJob.php')))
+        ->toContain('OdooGit::cloneIntoService($current)');
 });
 
 it('opens the working repository on github', function () {
