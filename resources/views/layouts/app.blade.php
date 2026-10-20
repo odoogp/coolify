@@ -23,8 +23,10 @@
                 this.collapsed = !this.collapsed;
                 localStorage.setItem('sidebarCollapsed', this.collapsed);
             }
-        }" @open-global-search.window="open = false" @page-width-changed.window="pageWidth = $event.detail" x-cloak
+        }" @open-global-search.window="open = false" @page-width-changed.window="pageWidth = $event.detail"
             class="dark:text-inherit text-black">
+            {{-- No x-cloak on this shell: Livewire morph / Alpine toast errors used to leave
+                 [x-cloak]{display:none} on the whole app (blank black Keys & Tokens page). --}}
             <livewire:deployments-indicator />
 
             {{-- ============ DESKTOP TOP BAR ============ --}}

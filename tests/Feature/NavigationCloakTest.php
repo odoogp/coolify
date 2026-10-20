@@ -5,6 +5,8 @@ it('strips leftover x-cloak after wire:navigate to prevent blank page', function
 
     expect($appJs)
         ->toContain("document.addEventListener('livewire:navigated'")
+        ->toContain("document.addEventListener('alpine:initialized'")
+        ->toContain('stripStaleXCloak')
         ->toContain("querySelectorAll('[x-cloak]')")
         ->toContain("removeAttribute('x-cloak')");
 });
@@ -17,8 +19,10 @@ it('keeps x-cloak on x-show elements after wire:navigate so closed helpers stay 
         ->toContain('return;');
 });
 
-it('keeps the initial-load x-cloak guard on the app wrapper', function () {
+it('does not cloak the authenticated app shell so Alpine errors cannot blank Keys pages', function () {
     $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
-    expect($layout)->toContain('x-cloak');
+    expect($layout)
+        ->toContain("x-data=\"{\n            open: false,")
+        ->not->toMatch('/x-data="\{[^"]*open: false[\s\S]*?\}\s*"[^>]*\bx-cloak\b/');
 });

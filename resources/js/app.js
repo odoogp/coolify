@@ -2,12 +2,10 @@ import { initializeHtmlEditor } from './html-editor.js';
 import { initializeTerminalComponent } from './terminal.js';
 
 // Livewire 3.5.19+ re-applies `x-cloak` to morphed elements during wire:navigate
-// (via replaceHtmlAttributes). With `[x-cloak]{display:none}` on the app wrapper,
-// this blanks the whole page on every navigation until Alpine re-processes it.
-// Strip leftover x-cloak after each navigation, but keep it on x-show-gated
-// nodes (helpers, menus, modals). Stripping those reveals every closed popup
-// when Alpine has not yet re-applied display:none after a morph.
-document.addEventListener('livewire:navigated', () => {
+// (via replaceHtmlAttributes). Strip leftover x-cloak after navigation / Alpine
+// init, but keep it on x-show-gated nodes (helpers, menus, modals). Stripping
+// those reveals every closed popup when Alpine has not yet re-applied display:none.
+const stripStaleXCloak = () => {
     document.querySelectorAll('[x-cloak]').forEach((el) => {
         if (el.hasAttribute('x-show')) {
             return;
@@ -15,7 +13,13 @@ document.addEventListener('livewire:navigated', () => {
 
         el.removeAttribute('x-cloak');
     });
-});
+};
+
+document.addEventListener('livewire:navigated', stripStaleXCloak);
+document.addEventListener('alpine:initialized', stripStaleXCloak);
+// Safety net if Alpine throws mid-init (e.g. notice-bell scope errors).
+window.setTimeout(stripStaleXCloak, 0);
+window.setTimeout(stripStaleXCloak, 250);
 
 // Register the terminal data provider before Alpine initializes the page.
 // Keeping this registration independent from the current route also makes it
