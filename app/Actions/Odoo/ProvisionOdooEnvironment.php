@@ -3,13 +3,11 @@
 namespace App\Actions\Odoo;
 
 use App\Domain\Odoo\OdooDomains;
-use App\Domain\Odoo\OdooVersion;
-use App\Models\Application;
 use App\Models\Environment;
-use App\Models\GithubApp;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\StandaloneDocker;
+use App\Support\OdooGit;
 use RuntimeException;
 
 class ProvisionOdooEnvironment
@@ -71,32 +69,13 @@ class ProvisionOdooEnvironment
             $odoo->update(['fqdn' => $fqdn, 'image' => 'odoo:'.$version]);
         }
 
-        $applicationId = $branch->addons_application_id;
-        if ($profile->github_app_id !== null && $profile->git_repository !== null && $applicationId === null) {
-            $application = Application::create([
-                'name' => 'odoo-addons-'.$environment->name,
-                'environment_id' => $environment->id,
-                'destination_id' => $destination->id,
-                'destination_type' => $destination->getMorphClass(),
-                'source_id' => $profile->github_app_id,
-                'source_type' => GithubApp::class,
-                'git_repository' => $profile->git_repository,
-                'git_branch' => $branch->git_branch,
-                'repository_project_id' => $profile->repository_id,
-                'build_pack' => 'dockerfile',
-                'ports_exposes' => '8069',
-                'is_odoo_addons' => true,
-            ]);
-            $applicationId = $application->id;
-        }
-
         $branch->update([
             'domain' => $fqdn,
             'odoo_version' => $version,
             'service_id' => $service->id,
-            'addons_application_id' => $applicationId,
             'addons_path' => $branch->addons_path ?: '/mnt/extra-addons',
         ]);
+        OdooGit::ensureAddonsApplication($environment->fresh() ?? $environment, $service);
 
         return $service;
     }

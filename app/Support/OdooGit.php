@@ -9,6 +9,7 @@ use App\Domain\Odoo\OdooMail;
 use App\Domain\Odoo\OdooStaging;
 use App\Enums\ProcessStatus;
 use App\Jobs\SyncOdooAddonsJob;
+use App\Models\Application;
 use App\Models\Environment;
 use App\Models\GithubApp;
 use App\Models\GpshNotice;
@@ -249,6 +250,71 @@ class OdooGit
                 ['git_branch' => $branch],
             );
         });
+
+        self::ensureAddonsApplication($environment->fresh() ?? $environment);
+    }
+
+    /**
+     * Coolify Application the GitHub webhook matches (repo + branch → SyncOdooAddonsJob).
+     * Launch / associate often set the profile without creating this row; pushes then do nothing
+     * in the Applications list. Create or refresh it when the Odoo service already exists.
+     */
+    public static function ensureAddonsApplication(Environment $environment, ?Service $service = null): ?Application
+    {
+        $environment->loadMissing('project.odooProfile', 'odooBranch', 'services');
+        $profile = $environment->project?->odooProfile;
+        $branch = $environment->odooBranch;
+        if ($profile === null || $branch === null || blank($profile->git_repository) || $profile->github_app_id === null || blank($branch->git_branch)) {
+            return null;
+        }
+
+        $service ??= $branch->service_id !== null
+            ? Service::query()->find($branch->service_id)
+            : null;
+        $service ??= $environment->services->first(
+            fn (Service $candidate): bool => $candidate->supportsOdooJupyter()
+        );
+        if (! $service instanceof Service) {
+            return null;
+        }
+
+        $service->loadMissing('destination');
+        $destination = $service->destination;
+        if ($destination === null) {
+            return null;
+        }
+
+        $application = $branch->addons_application_id !== null
+            ? Application::query()->find($branch->addons_application_id)
+            : null;
+
+        $attributes = [
+            'name' => 'odoo-addons-'.$environment->name,
+            'environment_id' => $environment->id,
+            'destination_id' => $destination->id,
+            'destination_type' => $destination->getMorphClass(),
+            'source_id' => $profile->github_app_id,
+            'source_type' => GithubApp::class,
+            'git_repository' => $profile->git_repository,
+            'git_branch' => $branch->git_branch,
+            'repository_project_id' => $profile->repository_id,
+            'build_pack' => 'dockerfile',
+            'ports_exposes' => '8069',
+            'is_odoo_addons' => true,
+        ];
+
+        if ($application instanceof Application) {
+            $application->fill($attributes)->save();
+        } else {
+            $application = Application::create($attributes);
+        }
+
+        $branch->forceFill([
+            'addons_application_id' => $application->id,
+            'service_id' => $branch->service_id ?: $service->id,
+        ])->save();
+
+        return $application;
     }
 
     public static function tracksBranch(Environment $environment): bool
@@ -286,7 +352,7 @@ class OdooGit
             $repository = self::ensureRepositoryAndBranch($githubApp, $project, $branch);
         }
 
-        return DB::transaction(function () use ($project, $profile, $githubApp, $repository, $branch, $createStaging, $environment): Environment {
+        $environment = DB::transaction(function () use ($project, $profile, $githubApp, $repository, $branch, $createStaging, $environment): Environment {
             $environment = self::persistLaunchTarget($project, $createStaging, $environment);
 
             $profile->update([
@@ -311,6 +377,10 @@ class OdooGit
 
             return $environment;
         });
+
+        self::ensureAddonsApplication($environment->fresh() ?? $environment);
+
+        return $environment;
     }
 
     /**
@@ -2488,9 +2558,13 @@ BASH;
                 $query->where('github_app_id', $githubApp->id)
                     ->where('repository_id', $repositoryId);
             })
+            ->with('environment')
             ->get();
 
         foreach ($rows as $row) {
+            if ($row->environment instanceof Environment) {
+                self::ensureAddonsApplication($row->environment);
+            }
             $row->update(['status' => 'updating']);
             SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
         }

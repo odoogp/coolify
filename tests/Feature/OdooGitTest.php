@@ -1291,6 +1291,41 @@ it('opens the working repository on github', function () {
         ->toThrow(InvalidArgumentException::class, 'Use the branch name from GitHub, not the environment name.');
 });
 
+it('creates an odoo addons application so github pushes can sync', function () {
+    $key = PrivateKey::factory()->create(['team_id' => $this->team->id]);
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'private_key_id' => $key->id,
+    ]);
+    $destination = StandaloneDocker::factory()->create(['server_id' => $server->id]);
+    $production = $this->project->environments()->where('name', 'production')->firstOrFail();
+    $service = Service::create([
+        'name' => 'odoo-production',
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'destination_id' => $destination->id,
+        'destination_type' => $destination->getMorphClass(),
+        'service_type' => 'odoo',
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n  postgresql:\n    image: postgres:16-alpine\n",
+        'docker_compose' => "services:\n  odoo:\n    image: odoo:20\n  postgresql:\n    image: postgres:16-alpine\n",
+        'jupyter_enabled' => true,
+    ]);
+
+    OdooGit::attachExisting($this->project, $this->githubApp, 'Arielmim97/odoogp20', 1427635072, ['main'], $production, 'main');
+
+    $application = Application::query()->where('is_odoo_addons', true)->first();
+    expect($application)->not->toBeNull()
+        ->and($application->git_repository)->toBe('Arielmim97/odoogp20')
+        ->and($application->git_branch)->toBe('main')
+        ->and($application->repository_project_id)->toBe(1427635072)
+        ->and($production->fresh()->odooBranch->addons_application_id)->toBe($application->id)
+        ->and($production->fresh()->odooBranch->service_id)->toBe($service->id);
+
+    Queue::fake();
+    expect(OdooGit::queueBranchUpdate($this->githubApp, 1427635072, 'main'))->toBe(1);
+    Queue::assertPushed(SyncOdooAddonsJob::class);
+});
+
 it('lets an admin change the github account and keeps members out', function () {
     $admin = User::factory()->create();
     $admin->teams()->attach($this->team, ['role' => 'admin']);
