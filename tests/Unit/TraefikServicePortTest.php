@@ -27,6 +27,19 @@ test('https redirect leaves the lets encrypt challenge on port 80', function () 
     expect($labels)->toContain('traefik.http.routers.http-0-odoo-service.middlewares=redirect-to-https');
 });
 
+test('omitting tls certresolver keeps tls enabled for mounted certificates', function () {
+    $labels = fqdnLabelsForTraefik(
+        uuid: 'odoo-service',
+        domains: collect(['https://odoo.example.com']),
+        onlyPort: '8069',
+        tlsCertResolver: null,
+    )->values()->all();
+
+    expect($labels)->toContain('traefik.http.routers.https-0-odoo-service.tls=true');
+    expect($labels)->toContain('traefik.http.routers.https-0-odoo-service.tls.domains[0].main=odoo.example.com');
+    expect($labels)->each(fn ($label) => $label->not->toContain('tls.certresolver='));
+});
+
 test('an explicit url port wins over the template port', function () {
     $labels = fqdnLabelsForTraefik(
         uuid: 'odoo-service',

@@ -1413,7 +1413,8 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                             service_name: $serviceName,
                             image: $image,
                             noindex_domains: $noindexDomains,
-                            redirect_direction: $redirectDirection
+                            redirect_direction: $redirectDirection,
+                            tlsCertResolver: $server,
                         ));
                         break;
                     case ProxyTypes::CADDY->value:
@@ -1445,8 +1446,9 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                     service_name: $serviceName,
                     image: $image,
                     noindex_domains: $noindexDomains,
-                    redirect_direction: $redirectDirection
-                ));
+                    redirect_direction: $redirectDirection,
+                            tlsCertResolver: $server,
+                        ));
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                     network: $labelNetwork,
                     uuid: $labelUuid,
@@ -2719,7 +2721,8 @@ function serviceParser(Service $resource): Collection
                             service_name: $serviceName,
                             image: $image,
                             noindex_domains: $noindexDomains,
-                            redirect_direction: $redirectDirection
+                            redirect_direction: $redirectDirection,
+                            tlsCertResolver: $server,
                         ));
                         break;
                     case ProxyTypes::CADDY->value:
@@ -2751,8 +2754,9 @@ function serviceParser(Service $resource): Collection
                     service_name: $serviceName,
                     image: $image,
                     noindex_domains: $noindexDomains,
-                    redirect_direction: $redirectDirection
-                ));
+                    redirect_direction: $redirectDirection,
+                            tlsCertResolver: $server,
+                        ));
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                     network: $network,
                     uuid: $uuid,

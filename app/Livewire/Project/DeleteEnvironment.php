@@ -53,11 +53,16 @@ class DeleteEnvironment extends Component
             $environment->deleteVolumesWithResources = $deleteVolumes;
             $environment->delete();
 
+            // Full page redirect (navigate: false). Nested Livewire + wire:navigate
+            // often keeps /environment/{uuid} after delete → Resource Index 404.
             if (! is_string($projectUuid) || $projectUuid === '') {
-                return redirectRoute($this, 'project.index');
+                return $this->redirect(route('project.index'), navigate: false);
             }
 
-            return redirectRoute($this, 'project.show', ['project_uuid' => $projectUuid]);
+            return $this->redirect(
+                route('project.show', ['project_uuid' => $projectUuid]),
+                navigate: false,
+            );
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -65,7 +70,13 @@ class DeleteEnvironment extends Component
 
     public function render()
     {
-        $environment = Environment::ownedByCurrentTeam()->with('project.environments')->findOrFail($this->environment_id);
+        $environment = Environment::ownedByCurrentTeam()->with('project.environments')->find($this->environment_id);
+        if ($environment === null) {
+            return view('livewire.project.delete-environment', [
+                'actions' => [],
+                'checkboxes' => [],
+            ]);
+        }
         $resources = $environment->resources();
         $actions = $resources->isEmpty()
             ? [__('This will delete the selected environment.')]

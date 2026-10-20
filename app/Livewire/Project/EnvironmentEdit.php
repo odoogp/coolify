@@ -37,15 +37,25 @@ class EnvironmentEdit extends Component
         return ValidationPatterns::combinedMessages();
     }
 
-    public function mount(string $project_uuid, string $environment_uuid)
+    public function mount(string $project_uuid, string $environment_uuid): mixed
     {
         try {
             $this->project = Project::ownedByCurrentTeam()->where('uuid', $project_uuid)->firstOrFail();
-            $this->environment = $this->project->environments()->where('uuid', $environment_uuid)->firstOrFail();
+            $environment = $this->project->environments()->where('uuid', $environment_uuid)->first();
+            if ($environment === null) {
+                // Deleted environment bookmark / stale wire:navigate → project page, not 404.
+                return $this->redirect(
+                    route('project.show', ['project_uuid' => $this->project->uuid]),
+                    navigate: false,
+                );
+            }
+            $this->environment = $environment;
             $this->syncData();
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+
+        return null;
     }
 
     public function syncData(bool $toModel = false)

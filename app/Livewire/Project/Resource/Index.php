@@ -49,7 +49,10 @@ class Index extends Component
 
     public function mount(): mixed
     {
-        $this->loadResources();
+        $missingEnvironment = $this->loadResources();
+        if ($missingEnvironment instanceof \Illuminate\Http\RedirectResponse) {
+            return $missingEnvironment;
+        }
         $this->defaultCatalogServerId($this->project, $this->environment);
         $this->skipGithubChoice = request()->query('github') === '0';
         if (request()->query('launch') === 'choose' && $this->project->odooProfile()->exists()) {
@@ -119,7 +122,7 @@ class Index extends Component
         return null;
     }
 
-    private function loadResources(): void
+    private function loadResources(): mixed
     {
         $this->applications = $this->postgresqls = $this->redis = $this->mongodbs = $this->mysqls = $this->mariadbs = $this->keydbs = $this->dragonflies = $this->clickhouses = $this->services = collect();
         if (! isset($this->project)) {
@@ -132,7 +135,10 @@ class Index extends Component
             $environment = $project->environments()
                 ->select('id', 'uuid', 'name', 'project_id')
                 ->where('uuid', request()->route('environment_uuid'))
-                ->firstOrFail();
+                ->first();
+            if ($environment === null) {
+                return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
+            }
 
             $this->project = $project;
 
@@ -231,6 +237,8 @@ class Index extends Component
 
             return $service;
         });
+
+        return null;
     }
 
     public function render()

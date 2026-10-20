@@ -581,6 +581,55 @@ class Server extends BaseModel
     }
 
     /**
+     * Traefik tls.certresolver for generated labels.
+     *
+     * Custom + external proxy (EasyPanel):
+     * - Explicit proxy.cert_resolver → always that ACME resolver.
+     * - Hosts like sslip.io / nip.io → ACME (`letsencrypt`) so the default
+     *   public URL still gets a real certificate without a project subdomain.
+     * - Other hosts → omit resolver so file-mounted / store certs match by SNI
+     *   (e.g. getcloud.sh). Forcing ACME on those names fights mounted certs.
+     *
+     * @return string|null Null means do not emit tls.certresolver=
+     */
+    public function traefikTlsCertResolver(?string $host = null): ?string
+    {
+        if (! $this->usesExternalProxyNetworkConnect()) {
+            return 'letsencrypt';
+        }
+
+        $configured = data_get($this->proxy, 'cert_resolver');
+        if (is_string($configured) && trim($configured) !== '') {
+            $name = trim($configured);
+            if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,63}\z/', $name) === 1) {
+                return $name;
+            }
+        }
+
+        if (is_string($host) && $host !== '' && self::hostNeedsAcmeOnExternalProxy($host)) {
+            return 'letsencrypt';
+        }
+
+        return null;
+    }
+
+    /**
+     * Default Coolify public hosts (no project subdomain) that need ACME on EasyPanel.
+     */
+    public static function hostNeedsAcmeOnExternalProxy(string $host): bool
+    {
+        $host = strtolower(trim($host));
+        if ($host === '') {
+            return false;
+        }
+
+        return str_ends_with($host, '.sslip.io')
+            || $host === 'sslip.io'
+            || str_ends_with($host, '.nip.io')
+            || $host === 'nip.io';
+    }
+
+    /**
      * Whether Coolify should attach a proxy container to coolify.managed networks.
      * Managed Traefik/Caddy use coolify-proxy; Custom uses external_proxy_name when set.
      */

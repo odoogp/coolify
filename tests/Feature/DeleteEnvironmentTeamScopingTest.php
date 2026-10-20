@@ -66,6 +66,15 @@ test('delete still removes an empty environment owned by the current team', func
     expect(Environment::find($this->environmentA->id))->toBeNull();
 });
 
+test('delete environment uses a full-page redirect so the deleted environment url does not 404', function () {
+    $source = file_get_contents(app_path('Livewire/Project/DeleteEnvironment.php'));
+
+    expect($source)
+        ->toContain('navigate: false')
+        ->toContain("route('project.show'")
+        ->not->toContain("redirectRoute(\$this, 'project.show'");
+});
+
 test('deleting an environment also deletes the resources it has', function () {
     Queue::fake();
     $application = Application::factory()->create([
