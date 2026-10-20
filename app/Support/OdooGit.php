@@ -62,7 +62,7 @@ class OdooGit
                 }
                 $message = (string) ($response->json('message') ?: 'GitHub repositories could not be loaded.');
                 if (githubRateLimited($message)) {
-                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'));
+                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'), $message);
                 }
                 throw new RuntimeException($message);
             }
@@ -108,7 +108,7 @@ class OdooGit
             if ($response->status() !== 200) {
                 $message = (string) ($response->json('message') ?: 'GitHub branches could not be loaded.');
                 if (githubRateLimited($message)) {
-                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'));
+                    throw githubRateLimitException($response->header('X-RateLimit-Remaining'), $message);
                 }
                 throw new RuntimeException($message);
             }
@@ -1660,18 +1660,21 @@ BASH;
         if ($id === 0 || $fullName === '') {
             $message = (string) data_get($created, 'data.message', '');
             if (githubRateLimited($message)) {
-                throw githubRateLimitException((string) data_get($created, 'rate_limit_remaining'));
+                throw githubRateLimitException((string) data_get($created, 'rate_limit_remaining'), $message);
             }
-            $message = strtolower($message);
-            if (str_contains($message, 'resource not accessible') || str_contains($message, 'upgrade')) {
-                throw new RuntimeException('This GitHub account cannot create repositories. Change the account and accept permission to create them.');
+            $lower = strtolower($message);
+            if (str_contains($lower, 'resource not accessible') || str_contains($lower, 'upgrade')) {
+                throw new RuntimeException(__('This GitHub account cannot create repositories. In the GitHub App permissions, Administration must be Read and write, then accept the new permissions on the installation.').(filled($message) ? ' '.__('GitHub said: :message', ['message' => $message]) : ''));
             }
             $existing = githubApi($githubApp, '/repos/'.rawurlencode($owner).'/'.rawurlencode($name), 'get', null, false);
             $id = (int) data_get($existing, 'data.id');
             $fullName = (string) data_get($existing, 'data.full_name');
         }
         if ($id === 0 || $fullName === '') {
-            throw new RuntimeException((string) data_get($created, 'data.message', 'GitHub could not create the repository.'));
+            $fallback = (string) data_get($created, 'data.message', '');
+            throw new RuntimeException($fallback !== ''
+                ? __('GitHub could not create the repository.').' '.__('GitHub said: :message', ['message' => $fallback])
+                : __('GitHub could not create the repository.'));
         }
 
         return ['full_name' => $fullName, 'id' => $id];

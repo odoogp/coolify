@@ -3,6 +3,7 @@
 namespace App\Livewire\Project\Service;
 
 use App\Domain\Odoo\OdooVersion;
+use App\Jobs\AssociateOdooGithubRepositoryJob;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\GithubApp;
@@ -74,6 +75,12 @@ class Configuration extends Component
     public bool $awaitingRepositoryChoice = false;
 
     public bool $associatingWithoutGithub = false;
+
+    public bool $associateRunning = false;
+
+    public ?string $associateKey = null;
+
+    public ?string $associateError = null;
 
     public string $ownerPackageBranch = '';
 
@@ -154,6 +161,13 @@ class Configuration extends Component
             }
             if ($this->associatingWithoutGithub) {
                 $this->odooRepoMode = 'new';
+                $this->associateKey = 'associate-odoo-'.$this->service->uuid;
+                $associateStatus = Cache::get($this->associateKey);
+                if (is_array($associateStatus) && ($associateStatus['done'] ?? false) !== true && blank($associateStatus['error'] ?? null)) {
+                    $this->associateRunning = true;
+                } elseif (is_array($associateStatus) && filled($associateStatus['error'] ?? null)) {
+                    $this->associateError = (string) $associateStatus['error'];
+                }
             }
             if (
                 $this->odooPanel === 'github'
@@ -580,13 +594,20 @@ class Configuration extends Component
             }
 
             if ($this->odooRepoMode === 'new') {
-                $this->odooGithubApp();
+                $githubApp = $this->odooGithubApp();
                 if ($this->associatingWithoutGithub || (! $this->awaitingRepositoryChoice && blank($this->project->odooProfile?->git_repository))) {
-                    OdooGit::associateNewRepository($this->service, $this->odooGithubApp());
-                    $this->syncOdooGithub();
-                    $this->associatingWithoutGithub = false;
-                    $this->awaitingRepositoryChoice = false;
-                    $this->dispatch('success', __('Repository created. Custom addons were pushed when present.'));
+                    // Create + push in a queue job (console can wait out secondary GitHub limits;
+                    // Livewire must not hold the request or the CSRF token expires → "Page expired").
+                    $this->associateKey = 'associate-odoo-'.$this->service->uuid;
+                    Cache::put($this->associateKey, ['step' => 1, 'done' => false, 'error' => null], now()->addMinutes(30));
+                    AssociateOdooGithubRepositoryJob::dispatch(
+                        $this->service->id,
+                        $this->associateKey,
+                        (int) auth()->id(),
+                        (int) $githubApp->id,
+                    );
+                    $this->associateRunning = true;
+                    $this->associateError = null;
 
                     return null;
                 }
@@ -638,6 +659,47 @@ class Configuration extends Component
             $parameters = is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
             $this->redirectRoute($redirect['name'], $parameters);
         }
+    }
+
+    public function refreshAssociateProgress(): void
+    {
+        if (! is_string($this->associateKey) || $this->associateKey === '') {
+            return;
+        }
+
+        $status = Cache::get($this->associateKey);
+        if (! is_array($status)) {
+            return;
+        }
+
+        $this->associateError = is_string($status['error'] ?? null) ? $status['error'] : null;
+        if (filled($this->associateError)) {
+            $this->associateRunning = false;
+
+            return;
+        }
+
+        if (($status['done'] ?? false) === true) {
+            $this->associateRunning = false;
+            $this->project->unsetRelation('odooProfile');
+            $this->project->load('odooProfile');
+            $this->syncOdooGithub();
+            $this->associatingWithoutGithub = false;
+            $this->awaitingRepositoryChoice = false;
+            Cache::forget($this->associateKey);
+            $this->associateKey = null;
+            $this->dispatch('success', __('Repository created. Custom addons were pushed when present.'));
+        }
+    }
+
+    public function dismissAssociateError(): void
+    {
+        $this->associateRunning = false;
+        $this->associateError = null;
+        if (is_string($this->associateKey) && $this->associateKey !== '') {
+            Cache::forget($this->associateKey);
+        }
+        $this->associateKey = null;
     }
 
     public function dismissLaunchError(): void

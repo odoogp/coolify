@@ -291,13 +291,21 @@ function githubWithRateLimit(callable $request, int $tries = 3): Response
     return $response;
 }
 
-function githubRateLimitException(?string $remaining = null): RuntimeException
+function githubRateLimitException(?string $remaining = null, ?string $githubMessage = null): RuntimeException
 {
     if ($remaining === '0') {
-        return new RuntimeException(__('GitHub hourly request limit was reached. Wait until it resets and try again.'));
+        $message = __('GitHub hourly request limit was reached. Wait until it resets and try again.');
+    } else {
+        // Secondary limit (abuse / burst), not the 5 000/hour primary quota.
+        $message = __('GitHub temporarily blocked this action (secondary rate limit). This is not the hourly quota — common right after installing an app. Wait about a minute and try again.');
     }
 
-    return new RuntimeException(__('GitHub asked to slow down. The hourly limit is still available. Wait a minute and try again.'));
+    $detail = is_string($githubMessage) ? trim($githubMessage) : '';
+    if ($detail !== '' && ! str_contains(strtolower($message), strtolower($detail))) {
+        $message .= ' '.__('GitHub said: :message', ['message' => $detail]);
+    }
+
+    return new RuntimeException($message);
 }
 
 function githubApi(?GithubApp $source, string $endpoint, string $method = 'get', ?array $data = null, bool $throwError = true)
@@ -325,7 +333,7 @@ function githubApi(?GithubApp $source, string $endpoint, string $method = 'get',
     if (! $response->successful() && $throwError) {
         $errorMessage = data_get($response->json(), 'message', 'no error message found');
         if (githubRateLimited((string) $errorMessage)) {
-            throw githubRateLimitException($response->header('X-RateLimit-Remaining'));
+            throw githubRateLimitException($response->header('X-RateLimit-Remaining'), (string) $errorMessage);
         }
         $remainingCalls = $response->header('X-RateLimit-Remaining');
         $detail = 'GitHub API call failed: '.$errorMessage;

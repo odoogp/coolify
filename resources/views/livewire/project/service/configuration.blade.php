@@ -348,8 +348,18 @@
                                             @endif
                                         </div>
                                     @endif
-                                    <div class="flex flex-wrap items-center gap-3">
-                                        <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted>
+                                    @if ($associateError)
+                                        <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100">
+                                            <p>{{ $associateError }}</p>
+                                            <button type="button" class="mt-2 text-[12px] underline" wire:click="dismissAssociateError">
+                                                {{ __('Dismiss') }}
+                                            </button>
+                                        </div>
+                                    @endif
+                                    <div class="flex flex-wrap items-center gap-3"
+                                        @if ($associateRunning) wire:poll.2s="refreshAssociateProgress" @endif>
+                                        <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted
+                                            :disabled="$associateRunning">
                                             {{ $associatingWithoutGithub
                                                 ? __('Create repository')
                                                 : ($odooRepoMode === 'new' ? __('Launch production') : __('Associate repository')) }}
@@ -359,9 +369,16 @@
                                             {{ __('Launch without GitHub') }}
                                         </x-forms.button>
                                         @endunless
-                                        <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
-                                            {{ $associatingWithoutGithub ? __('Creating the repository…') : __('Starting Odoo.') }}
-                                        </p>
+                                        @if ($associateRunning)
+                                            <p class="inline-flex items-center gap-1.5 text-[13px]">
+                                                <span class="size-1.5 animate-pulse rounded-full bg-sky-500"></span>
+                                                {{ __('Creating the repository…') }}
+                                            </p>
+                                        @else
+                                            <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
+                                                {{ $associatingWithoutGithub ? __('Creating the repository…') : __('Starting Odoo.') }}
+                                            </p>
+                                        @endif
                                     </div>
                                     @endif
                                 @endif

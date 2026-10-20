@@ -367,9 +367,18 @@ it('stops when github is rate limited instead of calling the api again', functio
     });
 
     expect(fn () => OdooGit::launchEnvironment($this->project, $this->githubApp, 'production'))
-        ->toThrow(RuntimeException::class, 'GitHub asked to slow down. The hourly limit is still available. Wait a minute and try again.');
+        ->toThrow(RuntimeException::class, 'GitHub temporarily blocked this action (secondary rate limit)');
 
     expect(collect($urls)->contains(fn (string $url): bool => str_contains($url, '/repos/acme/')))->toBeFalse();
+});
+
+it('queues associate-new-repository instead of creating it inside livewire', function () {
+    $source = file_get_contents(app_path('Livewire/Project/Service/Configuration.php'));
+
+    expect($source)
+        ->toContain('AssociateOdooGithubRepositoryJob::dispatch')
+        ->not->toContain('OdooGit::associateNewRepository($this->service')
+        ->and(file_exists(app_path('Jobs/AssociateOdooGithubRepositoryJob.php')))->toBeTrue();
 });
 
 it('creates the project repository and makes each environment its own branch', function () {
