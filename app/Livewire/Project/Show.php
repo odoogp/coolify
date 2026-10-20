@@ -771,6 +771,7 @@ class Show extends Component
             'activities' => $activities,
             'odooGithubReady' => $this->repositoryChoiceIsOpen(),
             'hasProduction' => $production instanceof Environment,
+            ...$this->catalogLaunchVersionViewData(),
             'serviceOptions' => $this->catalogServiceOptions(),
             'serverChoices' => OdooGit::launchChoices(),
             'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),

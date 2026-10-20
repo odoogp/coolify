@@ -95,5 +95,6 @@ test('project New modal only launches when Launch is clicked', function () {
     expect($view)
         ->toContain('id="selectedService"')
         ->toContain('wire:click="launchService"')
-        ->not->toMatch('/id="selectedService"[^>]*\blive\b/');
+        ->toContain('catalog-version-fields')
+        ->toMatch('/id="selectedService"[^>]*\blive\b/');
 });

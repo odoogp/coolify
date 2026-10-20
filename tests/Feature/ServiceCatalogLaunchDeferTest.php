@@ -21,6 +21,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+    seedOdooComposeVersions(['18', '20']);
 
     $this->user = User::factory()->create();
     $this->team = Team::factory()->create();
@@ -120,14 +121,46 @@ it('opens configuration without starting containers when Launch prepares a non-o
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);
 });
 
-it('keeps the empty-environment service picker deferred until Launch', function () {
+it('keeps Launch as the only action that creates services, with live service selection for version fields', function () {
     $blade = file_get_contents(resource_path('views/livewire/project/resource/index.blade.php'));
 
     expect($blade)->toContain('id="selectedService"')
         ->and($blade)->toContain('wire:click="launchService"')
         ->and($blade)->toContain("{{ __('New') }}")
         ->and($blade)->toContain('projectServerLocked')
-        ->and($blade)->not->toMatch('/id="selectedService"[^>]*\blive\b/');
+        ->and($blade)->toContain('catalog-version-fields')
+        ->and($blade)->toMatch('/id="selectedService"[^>]*\blive\b/');
+});
+
+it('asks for an Odoo version before enabling the profile on first catalog launch', function () {
+    Bus::fake();
+
+    Livewire::test(Index::class, [
+        'project' => $this->project,
+        'environment' => $this->environment,
+        'allProjects' => collect([$this->project]),
+        'allEnvironments' => collect([$this->environment]),
+    ])
+        ->assertSet('selectedService', 'odoo')
+        ->assertSee(__('Odoo version'))
+        ->assertSee(__('Choose carefully: the Odoo version cannot be changed later from the installation assistant or project settings. Staging uses the same version.'))
+        ->set('odooVersion', '20')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertHasNoErrors()
+        ->assertRedirect();
+
+    expect($this->project->fresh()->odooProfile?->odoo_version)->toBe('20');
+    Bus::assertDispatched(LaunchOdooProjectJob::class);
+});
+
+it('does not hardcode Odoo 18 when launching without a version choice in the trait', function () {
+    $source = file_get_contents(app_path('Livewire/Project/Concerns/LaunchesCatalogService.php'));
+
+    expect($source)
+        ->toContain('validateCatalogOdooVersion')
+        ->toContain('enableOdoo($this->odooVersion)')
+        ->not->toContain("enableOdoo('18')");
 });
 
 it('reuses the project server when launching another catalog service', function () {
@@ -179,6 +212,13 @@ it('asks for confirmation before removing a github collaborator on the service p
     expect(file_get_contents(resource_path('views/livewire/project/edit.blade.php')))
         ->toContain('Open GitHub on the service')
         ->not->toContain('wire:click="removeGithubUser(');
+});
+
+it('warns on the new-project form that the Odoo version cannot be changed later', function () {
+    Livewire::test(AddEmpty::class)
+        ->set('service', 'odoo')
+        ->assertSee(__('Odoo version'))
+        ->assertSee(__('Choose carefully: the Odoo version cannot be changed later from the installation assistant or project settings. Staging uses the same version.'));
 });
 
 it('creates a non-odoo service from the new-project form without starting containers', function () {

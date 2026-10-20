@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project\Concerns;
 
-use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\Environment;
 use App\Models\EnvironmentVariable;
@@ -17,6 +16,8 @@ use App\Services\GetOdoo\GetOdooAreaEntitlements;
 use App\Support\OdooGit;
 use App\Support\ServiceTemplateCatalog;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 /**
  * One-click catalog launch (Odoo job or compose service → configuration).
@@ -27,6 +28,11 @@ trait LaunchesCatalogService
     public ?string $serverId = null;
 
     public string $selectedService = 'odoo';
+
+    public string $odooVersion = '18';
+
+    /** Version for non-Odoo catalog services that expose more than one option. */
+    public string $serviceVersion = '';
 
     public bool $skipGithubChoice = false;
 
@@ -56,8 +62,11 @@ trait LaunchesCatalogService
 
             if ($name === 'odoo') {
                 if ($project->odooProfile === null) {
-                    $project->enableOdoo('18');
+                    $this->validateCatalogOdooVersion();
+                    $project->enableOdoo($this->odooVersion);
                     $project->refresh();
+                } else {
+                    $this->odooVersion = (string) ($project->odooProfile->odoo_version ?: $this->odooVersion);
                 }
                 $service = $this->existingOdooService($environment)
                     ?? $this->createOdooService($project, $environment, start: false, destination: $this->chosenDestination($project, $environment));
@@ -90,6 +99,7 @@ trait LaunchesCatalogService
             }
 
             GetOdooAreaEntitlements::assertServiceAllowed(currentTeam(), $name);
+            $this->assertCatalogServiceVersion($name);
             $service = $this->createCatalogService($name, $environment, $this->chosenDestination($project, $environment));
             if (! $service instanceof Service) {
                 return;
@@ -117,6 +127,101 @@ trait LaunchesCatalogService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * Version choices for the selected catalog service. Odoo always has 17–20.
+     * Other services only appear when the template exposes more than one version.
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    protected function catalogVersionOptions(?string $service = null): array
+    {
+        $service ??= $this->selectedService;
+
+        return ServiceTemplateCatalog::versionOptions($service);
+    }
+
+    protected function catalogNeedsVersionChoice(?string $service = null, ?Project $project = null): bool
+    {
+        $service ??= $this->selectedService;
+        $project ??= $this->catalogLaunchProject();
+
+        if ($service === 'odoo') {
+            // Always show the picker when enabling Odoo so the owner picks a
+            // configured Compose row — even if only one version exists.
+            return $project->odooProfile === null && $this->catalogVersionOptions('odoo') !== [];
+        }
+
+        return count($this->catalogVersionOptions($service)) > 1;
+    }
+
+    protected function catalogLockedOdooVersion(?Project $project = null): ?string
+    {
+        $project ??= $this->catalogLaunchProject();
+        $version = $project->odooProfile?->odoo_version;
+
+        return is_string($version) && $version !== '' ? $version : null;
+    }
+
+    protected function ensureDefaultOdooVersion(): void
+    {
+        $versions = OdooComposeTemplate::configuredVersions();
+        if ($versions === []) {
+            return;
+        }
+        if (! in_array($this->odooVersion, $versions, true)) {
+            $this->odooVersion = $versions[0];
+        }
+    }
+
+    /**
+     * @return array{versionOptions: list<array{value: string, label: string}>, needsVersionChoice: bool, lockedOdooVersion: ?string}
+     */
+    protected function catalogLaunchVersionViewData(): array
+    {
+        $this->ensureDefaultOdooVersion();
+
+        return [
+            'versionOptions' => $this->catalogVersionOptions(),
+            'needsVersionChoice' => $this->catalogNeedsVersionChoice(),
+            'lockedOdooVersion' => $this->catalogLockedOdooVersion(),
+        ];
+    }
+
+    protected function validateCatalogOdooVersion(): void
+    {
+        $allowed = OdooComposeTemplate::configuredVersions();
+        if ($allowed === []) {
+            throw ValidationException::withMessages([
+                'odooVersion' => [__('No Odoo Compose templates are configured. Add one in Settings → Odoo first.')],
+            ]);
+        }
+
+        $validator = validator(
+            ['odooVersion' => $this->odooVersion],
+            ['odooVersion' => ['required', Rule::in($allowed)]],
+        );
+        if ($validator->fails()) {
+            throw ValidationException::withMessages([
+                'odooVersion' => [__('Choose which Odoo version to install.')],
+            ]);
+        }
+    }
+
+    protected function assertCatalogServiceVersion(string $service): void
+    {
+        $options = $this->catalogVersionOptions($service);
+        if (count($options) <= 1) {
+            return;
+        }
+
+        $allowed = collect($options)->pluck('value')->all();
+        if (! in_array($this->serviceVersion, $allowed, true)) {
+            throw ValidationException::withMessages([
+                'serviceVersion' => [__('Choose which version to install.')],
+            ]);
+        }
     }
 
     protected function defaultCatalogServerId(Project $project, Environment $environment): void
@@ -211,14 +316,10 @@ trait LaunchesCatalogService
             return null;
         }
 
-        $version = (string) ($profile->odoo_version ?: '18');
-        $templates = get_service_templates();
-        $encoded = data_get($templates, 'odoo.compose');
-        $compose = is_string($encoded) && $encoded !== '' ? base64_decode($encoded) : OdooComposeTemplate::defaultCompose($version);
-        $saved = OdooComposeTemplate::composeFor($version);
-        $compose = $saved ?? (is_string($compose) ? OdooVersion::apply($compose, $version) : null);
+        $version = (string) ($profile->odoo_version ?: '');
+        $compose = $version !== '' ? OdooComposeTemplate::composeFor($version) : null;
         if (! is_string($compose) || $compose === '') {
-            $this->dispatch('error', __('Odoo has no compose template for this version.'));
+            $this->dispatch('error', __('Odoo has no compose template for this version. Configure it in Settings → Odoo.'));
 
             return null;
         }
@@ -239,7 +340,7 @@ trait LaunchesCatalogService
         $service->name = 'odoo-'.$service->uuid;
         $service->save();
 
-        $envs = data_get($templates, 'odoo.envs');
+        $envs = data_get(get_service_templates(), 'odoo.envs');
         if (is_string($envs) && $envs !== '') {
             collect(preg_split("/\r\n|\r|\n/", base64_decode($envs)))
                 ->filter(fn ($line): bool => is_string($line) && str_contains($line, '='))

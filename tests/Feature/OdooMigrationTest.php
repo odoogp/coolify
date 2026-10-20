@@ -24,6 +24,7 @@ uses(RefreshDatabase::class);
 
 beforeEach(function () {
     InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+    seedOdooComposeVersions();
 
     $this->owner = User::factory()->create();
     $this->plan = GetOdooPlan::query()->create([

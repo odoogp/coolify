@@ -35,6 +35,7 @@ beforeEach(function () {
     $settings = new InstanceSettings(['is_api_enabled' => true]);
     $settings->id = 0;
     $settings->save();
+    seedOdooComposeVersions();
 
     $this->team = Team::factory()->create();
     $this->owner = User::factory()->create();

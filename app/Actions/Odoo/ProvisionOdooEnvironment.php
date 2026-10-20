@@ -34,8 +34,9 @@ class ProvisionOdooEnvironment
         }
 
         $version = $branch->odoo_version ?: $profile->odoo_version;
-        if (! in_array($version, OdooVersion::SUPPORTED, true)) {
-            $version = '18';
+        if (! \App\Models\OdooComposeTemplate::isConfiguredVersion((string) $version)) {
+            $configured = \App\Models\OdooComposeTemplate::configuredVersions();
+            $version = $configured[0] ?? '18';
         }
 
         $workers = max(0, (int) $branch->workers);

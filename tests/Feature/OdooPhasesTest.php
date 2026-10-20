@@ -35,6 +35,7 @@ beforeEach(function () {
         'id' => 0,
         'is_api_enabled' => true,
     ]));
+    seedOdooComposeVersions();
 
     $this->owner = User::factory()->create();
     $this->team = Team::factory()->create();

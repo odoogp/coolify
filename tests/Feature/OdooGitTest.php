@@ -50,6 +50,7 @@ beforeEach(function () {
     InstanceSettings::unguarded(fn () => InstanceSettings::query()->create([
         'id' => 0,
     ]));
+    seedOdooComposeVersions();
 
     $this->user = User::factory()->create();
     $this->team = Team::factory()->create();

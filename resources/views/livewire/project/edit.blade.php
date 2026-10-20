@@ -131,7 +131,7 @@
                 @unless ($project->odooProfile)
                     <div class="max-w-sm">
                         <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
-                            :disabled="! auth()->user()->can('update', $project)" :options="collect(\App\Domain\Odoo\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+                            :disabled="! auth()->user()->can('update', $project)" :options="$odooVersionOptions" />
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>

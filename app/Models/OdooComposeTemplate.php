@@ -23,6 +23,44 @@ class OdooComposeTemplate extends Model
     }
 
     /**
+     * Versions that have a saved Compose row (Settings → Odoo). Launch pickers use only these.
+     *
+     * @return list<string>
+     */
+    public static function configuredVersions(): array
+    {
+        $versions = static::query()
+            ->whereNotNull('compose')
+            ->where('compose', '!=', '')
+            ->pluck('version')
+            ->map(fn (mixed $version): string => (string) $version)
+            ->all();
+
+        natsort($versions);
+
+        return array_values($versions);
+    }
+
+    public static function isConfiguredVersion(string $version): bool
+    {
+        return static::composeFor($version) !== null;
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    public static function versionOptions(): array
+    {
+        return collect(self::configuredVersions())
+            ->map(fn (string $version): array => [
+                'value' => $version,
+                'label' => 'Odoo '.$version,
+            ])
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return array{compose: string, postgresVersion: string}
      */
     public static function editorState(string $version): array

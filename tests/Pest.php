@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\OdooComposeTemplate;
 use App\Models\Server;
 use Illuminate\Support\Once;
 use Tests\TestCase;
@@ -26,6 +27,22 @@ uses(TestCase::class)->in('Feature', 'v4/Feature', 'v4/Browser', 'v5/Browser');
 */
 
 require_once __DIR__.'/Support/BrowserTestHelpers.php';
+
+/**
+ * Seed Settings → Odoo compose rows used by launch version pickers.
+ *
+ * @param  list<string>  $versions
+ */
+function seedOdooComposeVersions(array $versions = ['17', '18', '19', '20']): void
+{
+    foreach ($versions as $version) {
+        OdooComposeTemplate::saveFor(
+            (string) $version,
+            OdooComposeTemplate::defaultCompose((string) $version),
+            '16-alpine',
+        );
+    }
+}
 
 function remoteOutputSource(string $path): string
 {

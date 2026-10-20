@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use App\Domain\Odoo\OdooStaging;
-use App\Domain\Odoo\OdooVersion;
 use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
@@ -113,8 +112,8 @@ class Project extends BaseModel
      */
     public function enableOdoo(string $version, int $maxStagingEnvironments = 1, bool $unlimitedStagingEnvironments = false): OdooProfile
     {
-        if (! in_array($version, OdooVersion::SUPPORTED, true)) {
-            throw new InvalidArgumentException('Unsupported Odoo version.');
+        if (! OdooComposeTemplate::isConfiguredVersion($version)) {
+            throw new InvalidArgumentException('That Odoo version has no Compose template in Settings → Odoo.');
         }
         if ($maxStagingEnvironments < 0) {
             throw new InvalidArgumentException('Staging environment limit cannot be negative.');

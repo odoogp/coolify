@@ -32,6 +32,7 @@ beforeEach(function () {
     InstanceSettings::unguarded(fn () => InstanceSettings::query()->create([
         'id' => 0,
     ]));
+    seedOdooComposeVersions();
 
     $this->user = User::factory()->create();
     $this->team = Team::factory()->create();
@@ -199,9 +200,9 @@ it('rejects a negative staging limit and keeps it off the project page', functio
         ->assertHasErrors(['maxStagingBranches']);
 });
 
-it('rejects an unsupported odoo version', function () {
+it('rejects an odoo version that has no compose template row', function () {
     Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
-        ->set('odooVersion', '21')
+        ->set('odooVersion', '99')
         ->call('enableOdoo')
         ->assertHasErrors(['odooVersion']);
 

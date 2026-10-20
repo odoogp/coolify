@@ -44,12 +44,18 @@
                                     label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
                                     :options="$serverChoices" />
                             @endif
-                            <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal
+                            <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal
                                 searchPlaceholder="{{ __('Search the catalog') }}"
                                 emptyText="{{ __('No matching service') }}"
                                 :options="$serviceOptions" />
+                            @include('livewire.project.partials.catalog-version-fields', [
+                                'selectedService' => $selectedService,
+                                'versionOptions' => $versionOptions,
+                                'needsVersionChoice' => $needsVersionChoice,
+                                'lockedOdooVersion' => $lockedOdooVersion,
+                            ])
                             <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('Odoo asks for version and GitHub only when it is the service you launch. Other catalog services open configuration on this project’s server.') }}
+                                {{ __('Pick the service and version when asked. Odoo may also ask for GitHub. Other catalog services open configuration on this project’s server.') }}
                             </p>
                             <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                 <x-forms.button type="button" wire:click="launchService" wire:target="launchService" isHighlighted>
@@ -90,12 +96,18 @@
                                         label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
                                         :options="$serverChoices" />
                                 @endif
-                                {{-- Deferred entangle: selecting a template only updates the client value.
-                                     Containers start when Launch runs — not on selection alone. --}}
-                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal
+                                {{-- live: show version fields when the service needs them.
+                                     Containers still start only when Launch runs. --}}
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal
                                     searchPlaceholder="{{ __('Search the catalog') }}"
                                     emptyText="{{ __('No matching service') }}"
                                     :options="$serviceOptions" />
+                                @include('livewire.project.partials.catalog-version-fields', [
+                                    'selectedService' => $selectedService,
+                                    'versionOptions' => $versionOptions,
+                                    'needsVersionChoice' => $needsVersionChoice,
+                                    'lockedOdooVersion' => $lockedOdooVersion,
+                                ])
                             </div>
                             <button type="button" class="button button-highlighted" wire:click="launchService">
                                 {{ __('Launch') }}

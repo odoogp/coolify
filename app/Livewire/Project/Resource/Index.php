@@ -261,6 +261,7 @@ class Index extends Component
             'clickhousesJs' => $this->toSearchableArray($this->clickhouses, 'database', 'Database'),
             'servicesJs' => $this->toSearchableArray($this->services, 'service', 'Service'),
             'odooOnly' => $this->project->odooProfile()->exists(),
+            ...$this->catalogLaunchVersionViewData(),
             'serviceOptions' => $this->catalogServiceOptions(),
             'serverChoices' => OdooGit::launchChoices(),
             'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),

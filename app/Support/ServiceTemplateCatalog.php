@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\OdooComposeTemplate;
 use App\Models\ServiceTemplateOverride;
 use App\Models\Team;
 use App\Services\GetOdoo\GetOdooAreaEntitlements;
@@ -137,6 +138,55 @@ class ServiceTemplateCatalog
             ->sortBy('name', SORT_NATURAL)
             ->values()
             ->all();
+    }
+
+    /**
+     * Version picker for launch. Odoo lists rows from `odoo_compose_templates`
+     * (Settings → Odoo). Other templates only when their catalog entry has a
+     * non-empty `versions` list (more than one).
+     *
+     * @return list<array{value: string, label: string}>
+     */
+    public static function versionOptions(string $name): array
+    {
+        $name = self::normalizeName($name);
+        if ($name === '') {
+            return [];
+        }
+
+        if ($name === 'odoo') {
+            return OdooComposeTemplate::versionOptions();
+        }
+
+        $raw = data_get(get_service_templates(), $name.'.versions');
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $versions = collect($raw)
+            ->map(function (mixed $row): ?array {
+                if (is_string($row) && $row !== '') {
+                    return ['value' => $row, 'label' => $row];
+                }
+                if (! is_array($row)) {
+                    return null;
+                }
+                $value = data_get($row, 'value') ?? data_get($row, 'version') ?? data_get($row, 'tag');
+                if (! is_string($value) || $value === '') {
+                    return null;
+                }
+                $label = data_get($row, 'label');
+
+                return [
+                    'value' => $value,
+                    'label' => is_string($label) && $label !== '' ? $label : $value,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+
+        return count($versions) > 1 ? $versions : [];
     }
 
     /**

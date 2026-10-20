@@ -3,9 +3,9 @@
 namespace App\Livewire\Project;
 
 use App\Domain\Odoo\OdooStaging;
-use App\Domain\Odoo\OdooVersion;
 use App\Models\Environment;
 use App\Models\GithubApp;
+use App\Models\OdooComposeTemplate;
 use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Services\ProjectIconStorageService;
@@ -167,7 +167,7 @@ class Edit extends Component
             $validated = Validator::make([
                 'odooVersion' => $this->odooVersion,
             ], [
-                'odooVersion' => ['required', Rule::in(OdooVersion::SUPPORTED)],
+                'odooVersion' => ['required', Rule::in(OdooComposeTemplate::configuredVersions())],
             ])->validate();
 
             $this->project->enableOdoo($validated['odooVersion']);
@@ -443,6 +443,11 @@ class Edit extends Component
         $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
         $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
 
+        $versions = OdooComposeTemplate::configuredVersions();
+        if ($versions !== [] && ! in_array($this->odooVersion, $versions, true)) {
+            $this->odooVersion = $versions[0];
+        }
+
         return view('livewire.project.edit', [
             'planName' => filled($plan?->name) ? (string) $plan->name : null,
             'planBackupPolicy' => $planAllows
@@ -451,6 +456,7 @@ class Edit extends Component
             // On project settings only (not the project list/show header). Plan flag stays marketing on signup.
             'canMigrate' => (bool) $this->project->odooProfile
                 && auth()->user()?->can('update', $this->project),
+            'odooVersionOptions' => OdooComposeTemplate::versionOptions(),
         ]);
     }
 }

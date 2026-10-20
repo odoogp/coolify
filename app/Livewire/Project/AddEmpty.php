@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Project;
 
-use App\Domain\Odoo\OdooVersion;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Models\EnvironmentVariable;
 use App\Models\GithubApp;
@@ -57,7 +56,7 @@ class AddEmpty extends Component
             'name' => ValidationPatterns::nameRules(),
             'description' => ValidationPatterns::descriptionRules(),
             'service' => ['nullable', 'string'],
-            'odooVersion' => ['required', Rule::in(OdooVersion::SUPPORTED)],
+            'odooVersion' => ['required', Rule::in(OdooComposeTemplate::configuredVersions())],
             'connectGithub' => ['boolean'],
             'migrateFromOdoo' => ['boolean'],
         ];
@@ -80,6 +79,10 @@ class AddEmpty extends Component
         $server = OdooGit::allowedLaunchServers()->first();
         if ($server instanceof Server) {
             $this->serverId = (string) $server->id;
+        }
+        $versions = OdooComposeTemplate::configuredVersions();
+        if ($versions !== [] && ! in_array($this->odooVersion, $versions, true)) {
+            $this->odooVersion = $versions[0];
         }
     }
 
@@ -259,9 +262,15 @@ class AddEmpty extends Component
             ->values()
             ->all();
 
+        $versions = OdooComposeTemplate::configuredVersions();
+        if ($versions !== [] && ! in_array($this->odooVersion, $versions, true)) {
+            $this->odooVersion = $versions[0];
+        }
+
         return view('livewire.project.add-empty', [
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'serviceOptions' => $options,
+            'odooVersionOptions' => OdooComposeTemplate::versionOptions(),
             'serverChoices' => $this->serverChoices(),
             'hasOtherServers' => $this->launchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
             'needsServer' => $this->needsServerBeforeProject(),
@@ -325,15 +334,16 @@ class AddEmpty extends Component
         }
 
         $templates = get_service_templates();
-        $compose = ServiceTemplateCatalog::composeFor($this->service)
-            ?? ($this->service === 'odoo' ? OdooComposeTemplate::defaultCompose($this->odooVersion) : null);
-        if (! is_string($compose) || $compose === '') {
-            return null;
-        }
-
         if ($this->service === 'odoo') {
-            $saved = OdooComposeTemplate::composeFor($this->odooVersion);
-            $compose = $saved ?? OdooVersion::apply($compose, $this->odooVersion);
+            $compose = OdooComposeTemplate::composeFor($this->odooVersion);
+            if (! is_string($compose) || $compose === '') {
+                throw new RuntimeException(__('Odoo has no compose template for this version. Configure it in Settings → Odoo.'));
+            }
+        } else {
+            $compose = ServiceTemplateCatalog::composeFor($this->service);
+            if (! is_string($compose) || $compose === '') {
+                return null;
+            }
         }
 
         $service = new Service([

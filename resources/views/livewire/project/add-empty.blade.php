@@ -36,8 +36,17 @@
     @endif
 
     @if ($service === 'odoo')
-        <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal
-            :options="collect(\App\Domain\Odoo\OdooVersion::SUPPORTED)->map(fn (string $version) => ['value' => $version, 'label' => 'Odoo '.$version])->all()" />
+        @if ($odooVersionOptions === [])
+            <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                {{ __('No Odoo Compose templates are configured. Add one in Settings → Odoo first.') }}
+            </p>
+        @else
+            <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal required
+                :options="$odooVersionOptions" />
+            <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                {{ __('Choose carefully: the Odoo version cannot be changed later from the installation assistant or project settings. Staging uses the same version.') }}
+            </p>
+        @endif
         <x-forms.checkbox id="migrateFromOdoo" live label="{{ __('Migrate') }}"
             helper="{{ __('Creates the project, starts Odoo, then opens the assistant to upload dump, filestore, and optional modules zip. You can restore into production or staging.') }}" />
         @unless ($migrateFromOdoo)
