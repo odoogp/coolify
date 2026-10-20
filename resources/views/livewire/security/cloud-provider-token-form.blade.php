@@ -1,5 +1,5 @@
 <div class="w-full">
-    <form class="application-settings-form flex w-full flex-col gap-4" wire:submit="addToken"
+    <form class="application-settings-form flex w-full flex-col gap-4" wire:submit="addToken" novalidate
         x-data="{
             selectedProvider: $wire.entangle('provider'),
             get providerName() {
@@ -100,13 +100,13 @@
                 </p>
             </div>
             <div x-cloak x-show="needsAccount" style="display: none">
-                <x-forms.input required id="account" label="{{ __('Username or API key') }}" />
+                <x-forms.input required id="account" label="{{ __('Username or API key') }}" x-bind:disabled="!needsAccount" />
             </div>
             <div x-cloak x-show="needsProject" style="display: none">
-                <x-forms.input required id="project" label="{{ __('Project ID or client ID') }}" />
+                <x-forms.input required id="project" label="{{ __('Project ID or client ID') }}" x-bind:disabled="!needsProject" />
             </div>
             <div x-cloak x-show="needsSecret" style="display: none">
-                <x-forms.input required type="password" id="secret" label="{{ __('Client secret') }}" />
+                <x-forms.input required type="password" id="secret" label="{{ __('Client secret') }}" x-bind:disabled="!needsSecret" />
             </div>
             <x-forms.input required type="password" id="token" label="{{ __('API token') }}"
                 placeholder="{{ __('Paste the provider token') }}" />

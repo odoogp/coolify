@@ -71,6 +71,18 @@ test('security cloud token form lets users choose every supported provider', fun
         ->assertSee('Microsoft Azure');
 });
 
+test('hetzner token form does not let hidden credential fields block the browser submit', function () {
+    $html = Livewire::test(CloudProviderTokenForm::class, [
+        'provider' => 'hetzner',
+    ])->html();
+
+    expect($html)
+        ->toContain('novalidate')
+        ->toContain('x-bind:disabled="!needsAccount"')
+        ->toContain('x-bind:disabled="!needsProject"')
+        ->toContain('x-bind:disabled="!needsSecret"');
+});
+
 test('cloud provider help link reacts to provider selection without a live request', function () {
     $view = file_get_contents(resource_path('views/livewire/security/cloud-provider-token-form.blade.php'));
 
