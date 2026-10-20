@@ -50,6 +50,36 @@ class GpshNotices
         ]);
     }
 
+    /**
+     * Bell + toast for instance owners when a Coolify/getodoo update actually starts.
+     * Deduped so manual click + UpdateCoolify::update() only create one notice.
+     */
+    public static function announceUpgradeStarted(?string $targetVersion = null): ?GpshNotice
+    {
+        if (! GpshNoticeSetting::current()->allows('custom')) {
+            return null;
+        }
+
+        if (! Cache::add('gpsh:upgrade-started', true, now()->addHours(2))) {
+            return null;
+        }
+
+        $targetVersion = is_string($targetVersion) ? trim($targetVersion) : '';
+        $body = $targetVersion !== ''
+            ? __('An update to :version is in progress. Please wait until it finishes.', ['version' => $targetVersion])
+            : __('An update is in progress. Please wait until it finishes.');
+
+        return self::publish(
+            null,
+            'custom',
+            __('Update in progress'),
+            $body,
+            'owner',
+            null,
+            Auth::id(),
+        );
+    }
+
     public static function rememberUpgradeFailure(string $message): ?GpshNotice
     {
         if (! GpshNoticeSetting::current()->allows('custom')) {

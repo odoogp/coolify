@@ -108,6 +108,7 @@ class Upgrade extends Component
                 return;
             }
             $this->updateInProgress = true;
+            $this->announceUpgradeStarted();
             dispatch(function () {
                 try {
                     UpdateCoolify::run(manual_update: true);
@@ -121,6 +122,18 @@ class Upgrade extends Component
 
             return handleError($e, $this);
         }
+    }
+
+    private function announceUpgradeStarted(): void
+    {
+        $notice = GpshNotices::announceUpgradeStarted(
+            $this->latestVersion !== '' ? $this->latestVersion : get_latest_version_of_coolify(),
+        );
+        if (! $notice instanceof GpshNotice) {
+            return;
+        }
+
+        $this->dispatch('gpsh-toast', title: $notice->title, body: $notice->body, seconds: 8);
     }
 
     public function getUpgradeStatus(): array

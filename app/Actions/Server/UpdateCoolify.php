@@ -4,6 +4,7 @@ namespace App\Actions\Server;
 
 use App\Models\InstanceSettings;
 use App\Models\Server;
+use App\Support\GpshNotices;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -237,6 +238,11 @@ class UpdateCoolify
 
     private function update()
     {
+        $target = is_string($this->latestVersion) && $this->latestVersion !== ''
+            ? $this->latestVersion
+            : get_latest_version_of_coolify();
+        GpshNotices::announceUpgradeStarted($target);
+
         if (is_coolify_local_build()) {
             remote_process([
                 ...$this->localUpgradeScriptInstallCommands(),

@@ -3,6 +3,7 @@
 use App\Domain\Odoo\OdooMail;
 use App\Livewire\GpshNoticeBell;
 use App\Livewire\Notifications\Center;
+use App\Livewire\Upgrade;
 use App\Models\Environment;
 use App\Models\GpshNotice;
 use App\Models\GpshNoticeSetting;
@@ -14,6 +15,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Support\GpshNotices;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\ViewException;
 use Livewire\Livewire;
 
@@ -105,6 +107,43 @@ it('records an upgrade failure once for the owner notice list', function () {
 
     $this->actingAs($this->client);
     Livewire::test(GpshNoticeBell::class)->assertDontSee('The image pull failed.');
+});
+
+it('announces an upgrade start once for owners only via the notice bell', function () {
+    $this->actingAs($this->owner);
+
+    $first = GpshNotices::announceUpgradeStarted('4.0.0-beta.999');
+    $second = GpshNotices::announceUpgradeStarted('4.0.0-beta.999');
+
+    expect($first)->not->toBeNull()
+        ->and($second)->toBeNull()
+        ->and($first->audience)->toBe('owner')
+        ->and($first->team_id)->toBeNull()
+        ->and($first->title)->toBe(__('Update in progress'))
+        ->and($first->body)->toContain('4.0.0-beta.999')
+        ->and(GpshNotice::query()->where('title', __('Update in progress'))->count())->toBe(1);
+
+    Livewire::test(GpshNoticeBell::class)->assertSee(__('Update in progress'));
+
+    $this->actingAs($this->client);
+    Livewire::test(GpshNoticeBell::class)->assertDontSee(__('Update in progress'));
+});
+
+it('toasts when an instance admin starts an upgrade', function () {
+    $this->actingAs($this->owner);
+    InstanceSettings::query()->whereKey(0)->update(['new_version_available' => true]);
+    config(['constants.coolify.version' => '4.0.0-beta.998']);
+    Cache::put('coolify:versions:all', [
+        'coolify' => ['v4' => ['version' => '4.0.0-beta.999']],
+    ], 3600);
+
+    Livewire::test(Upgrade::class)
+        ->call('upgrade')
+        ->assertDispatched('gpsh-toast');
+
+    expect(GpshNotice::query()->where('title', __('Update in progress'))->exists())->toBeTrue()
+        ->and(file_get_contents(app_path('Actions/Server/UpdateCoolify.php')))
+        ->toContain('announceUpgradeStarted');
 });
 
 it('announces when the instance is up and when it can be opened', function () {
