@@ -64,10 +64,19 @@ it('sends a subscription plan to an n1co monthly plan and a one-time plan to a s
         'n1co_sandbox' => true,
         'n1co_charges' => true,
         'n1co_location_id' => 578,
+        'n1co_client_id' => 'client-n1co',
+        'n1co_client_secret' => 'client-secret-n1co',
         'is_registration_enabled' => false,
     ]);
     Http::preventStrayRequests();
     Http::fake(function ($request) {
+        if (str_contains($request->url(), '/api/v3/Token') && $request->method() === 'POST') {
+            return Http::response([
+                'accessToken' => 'access-n1co',
+                'expiresIn' => 3600,
+            ]);
+        }
+
         if (str_contains($request->url(), '/api/v3/Plans') && $request->method() === 'POST') {
             return Http::response([
                 'planId' => 1810,
@@ -136,8 +145,11 @@ it('sends a subscription plan to an n1co monthly plan and a one-time plan to a s
     Http::assertSent(function ($request) use ($signup) {
         $body = $request->data();
 
+        $authorization = $request->header('Authorization')[0] ?? '';
+
         return $request->method() === 'POST'
             && str_contains($request->url(), 'https://api-sandbox.n1co.shop/api/v3/Plans')
+            && $authorization === 'Bearer access-n1co'
             && ($body['billingCycleType'] ?? null) === 'Month'
             && (int) ($body['billingCyclesNumber'] ?? 0) === 1
             && (int) ($body['locationId'] ?? 0) === 578

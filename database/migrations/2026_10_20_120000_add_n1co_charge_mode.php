@@ -16,6 +16,18 @@ return new class extends Migration
             if (! Schema::hasColumn('instance_settings', 'n1co_server_charge_mode')) {
                 $table->string('n1co_server_charge_mode', 32)->default('once');
             }
+
+            if (! Schema::hasColumn('instance_settings', 'n1co_client_id')) {
+                $table->string('n1co_client_id')->nullable();
+            }
+
+            if (! Schema::hasColumn('instance_settings', 'n1co_client_secret')) {
+                $table->text('n1co_client_secret')->nullable();
+            }
+
+            if (! Schema::hasColumn('instance_settings', 'bank_transfer_instructions')) {
+                $table->text('bank_transfer_instructions')->nullable();
+            }
         });
 
         if (Schema::hasTable('get_odoo_plans') && ! Schema::hasColumn('get_odoo_plans', 'charge_mode')) {
@@ -46,7 +58,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('instance_settings', function (Blueprint $table) {
-            foreach (['n1co_location_id', 'n1co_server_charge_mode'] as $column) {
+            foreach (['n1co_location_id', 'n1co_server_charge_mode', 'n1co_client_id', 'n1co_client_secret', 'bank_transfer_instructions'] as $column) {
                 if (Schema::hasColumn('instance_settings', $column)) {
                     $table->dropColumn($column);
                 }

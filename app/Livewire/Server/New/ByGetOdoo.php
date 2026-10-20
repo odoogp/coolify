@@ -9,7 +9,6 @@ use App\Models\Server;
 use App\Models\Team;
 use App\Services\GetOdoo\GetOdooCheckout;
 use App\Services\GetOdoo\GetOdooServerCatalog;
-use App\Services\GetOdoo\ProvisionGetOdooServer;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 use Throwable;
@@ -62,7 +61,7 @@ class ByGetOdoo extends Component
         $this->location = $offer?->location;
     }
 
-    public function submit(GetOdooServerCatalog $catalog, GetOdooCheckout $checkout, ProvisionGetOdooServer $provisioner)
+    public function submit(GetOdooServerCatalog $catalog, GetOdooCheckout $checkout)
     {
         $this->authorize('create', Server::class);
 
@@ -92,26 +91,19 @@ class ByGetOdoo extends Component
 
         $price = $offer->sellPrice($this->location);
 
-        if ($checkout->provider() !== null) {
-            return $this->startPayment($checkout, $offer, $price);
+        $provider = $checkout->provider();
+
+        if ($provider === null) {
+            $this->addError('payment', __('No payment method is ready.'));
+
+            return null;
         }
 
-        try {
-            $server = $provisioner->launch(
-                $offer,
-                $this->server_name,
-                (string) $this->location,
-                (int) $this->private_key_id,
-                (int) currentTeam()->id,
-                $price,
-            );
-
-            return redirect()->route('server.show', ['server_uuid' => $server->uuid]);
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return $this->dispatch('error', __('The GetOdoo server could not be created.'));
+        if ($provider === 'transfer') {
+            return $this->startTransfer($offer, $price, (string) $checkout->bankTransfer());
         }
+
+        return $this->startPayment($checkout, $offer, $price);
     }
 
     public function render()
@@ -122,8 +114,30 @@ class ByGetOdoo extends Component
             'offers' => $this->offers(),
             'selectedOffer' => $offer,
             'paymentProvider' => app(GetOdooCheckout::class)->provider(),
+            'bankTransfer' => app(GetOdooCheckout::class)->bankTransfer(),
             'privateKeyOptions' => $this->private_keys->map(fn ($key) => ['value' => $key->id, 'label' => $key->name])->values()->all(),
         ]);
+    }
+
+    private function startTransfer(GetOdooServerOffer $offer, float $price, string $instructions): mixed
+    {
+        GetOdooServerOrder::query()->create([
+            'team_id' => currentTeam()->id,
+            'user_id' => auth()->id(),
+            'offer_id' => $offer->id,
+            'private_key_id' => $this->private_key_id,
+            'server_name' => $this->server_name,
+            'location' => $this->location,
+            'amount' => $price,
+            'status' => 'awaiting_transfer',
+            'purpose' => 'launch',
+            'payment_gateway' => 'transfer',
+            'charge_mode' => 'once',
+        ]);
+
+        $this->addError('payment', __('Transfer :amount USD using these details. The server is created after the transfer is confirmed.', ['amount' => number_format($price, 2)])."\n\n".$instructions);
+
+        return null;
     }
 
     private function startPayment(GetOdooCheckout $checkout, GetOdooServerOffer $offer, float $price): mixed
@@ -147,8 +161,10 @@ class ByGetOdoo extends Component
         } catch (Throwable $exception) {
             $order->delete();
             report($exception);
+            $message = trim($exception->getMessage());
+            $this->addError('payment', $message !== '' ? $message : __('The payment could not be started.'));
 
-            return $this->dispatch('error', __('The payment could not be started.'));
+            return null;
         }
 
         $order->update([

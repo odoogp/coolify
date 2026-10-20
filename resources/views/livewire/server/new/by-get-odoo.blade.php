@@ -95,15 +95,26 @@
                             <x-private-key.download :keys="$private_keys" :selected="$private_key_id" />
                         </div>
                     @endif
-                    @if ($paymentProvider)
+                    @if ($paymentProvider === 'transfer' && filled($bankTransfer))
+                        <div>
+                            <p class="mb-2 text-sm font-medium">{{ __('Bank transfer') }}</p>
+                            <p class="whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm dark:border-white/10 dark:bg-white/[0.03]">{{ $bankTransfer }}</p>
+                        </div>
+                    @elseif ($paymentProvider)
                         <div>
                             <p class="mb-2 text-sm font-medium">{{ __('Payment method') }}</p>
                             <x-getodoo.payment-methods :gateways="[$paymentProvider]" />
                         </div>
+                    @else
+                        <p class="text-sm text-error">{{ __('No payment method is ready.') }}</p>
                     @endif
+                    @error('payment')
+                        <p class="whitespace-pre-wrap text-sm text-error">{{ $message }}</p>
+                    @enderror
                     <div>
-                        <button type="submit" class="button button-highlighted" @disabled($limit_reached || ! $private_key_id)>
-                            {{ $paymentProvider === 'n1co' ? __('Pay with n1co') : ($paymentProvider === 'wompi' ? __('Pay with Wompi') : __('Buy and create')) }}
+                        <button type="submit" class="button button-highlighted" wire:loading.attr="disabled" wire:target="submit"
+                            @disabled($limit_reached || ! $private_key_id || $paymentProvider === null)>
+                            {{ $paymentProvider === 'n1co' ? __('Pay with n1co') : ($paymentProvider === 'wompi' ? __('Pay with Wompi') : ($paymentProvider === 'transfer' ? __('Register transfer') : __('Buy and create'))) }}
                         </button>
                     </div>
                 </div>

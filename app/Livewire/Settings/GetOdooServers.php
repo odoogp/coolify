@@ -53,6 +53,12 @@ class GetOdooServers extends Component
 
     public string $n1coServerChargeMode = 'once';
 
+    public string $n1coClientId = '';
+
+    public string $n1coClientSecret = '';
+
+    public string $bankTransferInstructions = '';
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -292,11 +298,15 @@ class GetOdooServers extends Component
             'n1coCharges' => 'boolean',
             'n1coLocationId' => ['nullable', 'regex:/^$|^[1-9][0-9]*$/'],
             'n1coServerChargeMode' => 'required|in:once,subscription',
+            'n1coClientId' => 'nullable|string|max:255',
+            'n1coClientSecret' => 'nullable|string|max:500',
+            'bankTransferInstructions' => 'nullable|string|max:2000',
         ]);
 
         $settings = instanceSettings();
         $secret = trim($this->n1coSecret);
         $webhook = trim($this->n1coWebhookSecret);
+        $clientSecret = trim($this->n1coClientSecret);
         $secret = $secret !== '' ? $secret : (string) ($settings->n1co_secret ?? '');
         $webhook = $webhook !== '' ? $webhook : (string) ($settings->n1co_webhook_secret ?? '');
 
@@ -304,6 +314,23 @@ class GetOdooServers extends Component
             $this->addError('n1coLocationId', __('The n1co branch id is required for a monthly subscription.'));
 
             return;
+        }
+
+        if ($this->n1coServerChargeMode === 'subscription') {
+            $clientId = trim($this->n1coClientId);
+            $storedSecret = trim((string) ($settings->n1co_client_secret ?? ''));
+
+            if ($clientId === '' || ($clientSecret === '' && $storedSecret === '')) {
+                if ($clientId === '') {
+                    $this->addError('n1coClientId', __('The API client id is required for a monthly subscription.'));
+                }
+
+                if ($clientSecret === '' && $storedSecret === '') {
+                    $this->addError('n1coClientSecret', __('The API client secret is required for a monthly subscription.'));
+                }
+
+                return;
+            }
         }
 
         if ($this->n1coCharges && ($secret === '' || $webhook === '')) {
@@ -325,10 +352,14 @@ class GetOdooServers extends Component
             'n1co_charges' => $this->n1coCharges,
             'n1co_location_id' => trim($this->n1coLocationId) === '' ? null : (int) $this->n1coLocationId,
             'n1co_server_charge_mode' => $this->n1coServerChargeMode === 'subscription' ? 'subscription' : 'once',
+            'n1co_client_id' => trim($this->n1coClientId) !== '' ? trim($this->n1coClientId) : null,
+            'n1co_client_secret' => $clientSecret !== '' ? $clientSecret : ($settings->n1co_client_secret ?: null),
+            'bank_transfer_instructions' => trim($this->bankTransferInstructions) !== '' ? trim($this->bankTransferInstructions) : null,
         ]);
 
         $this->n1coSecret = '';
         $this->n1coWebhookSecret = '';
+        $this->n1coClientSecret = '';
         $this->loadN1co();
         $this->dispatch('success', __('n1co saved.'));
     }
@@ -371,6 +402,9 @@ class GetOdooServers extends Component
         $this->n1coCharges = (bool) ($settings->n1co_charges ?? false);
         $this->n1coLocationId = $settings->n1co_location_id ? (string) $settings->n1co_location_id : '';
         $this->n1coServerChargeMode = $settings->n1co_server_charge_mode ?: 'once';
+        $this->n1coClientId = (string) ($settings->n1co_client_id ?? '');
+        $this->n1coClientSecret = '';
+        $this->bankTransferInstructions = (string) ($settings->bank_transfer_instructions ?? '');
         $this->n1coReady = app(N1coClient::class)->charges();
     }
 

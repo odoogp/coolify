@@ -112,6 +112,26 @@
                         </span>
                     </label>
                     <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API client id') }}</span>
+                        <input id="n1coClientId" type="text" wire:model="n1coClientId" autocomplete="off"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('From the n1co portal, Configuration, then API. A monthly subscription uses this client, not the checkout link secret.') }}
+                        </span>
+                        @error('n1coClientId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API client secret') }}</span>
+                        <input id="n1coClientSecret" type="password" wire:model="n1coClientSecret" autocomplete="new-password"
+                            placeholder="{{ filled($n1coClientId) ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('n1coClientSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
                         <span>{{ __('n1co branch id') }}</span>
                         <input id="n1coLocationId" type="number" min="1" wire:model="n1coLocationId"
                             class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
@@ -134,6 +154,24 @@
                             {{ __('Sandbox test card: Visa 4000056655665556, any CVC, any future date. A successful test payment creates the server or the account.') }}
                         </p>
                     @endif
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('Bank transfer') }}"
+                description="{{ __('Shown when Wompi and n1co are not ready. Without a payment method the server cannot be bought.') }}">
+                <form wire:submit="saveN1co" class="grid max-w-xl gap-4">
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Bank details') }}</span>
+                        <textarea id="bankTransferInstructions" wire:model="bankTransferInstructions" rows="5"
+                            class="rounded-md border border-neutral-300 bg-white px-2 py-2 text-sm dark:border-white/15 dark:bg-transparent"
+                            placeholder="{{ __('Bank, account number, account name') }}"></textarea>
+                        @error('bankTransferInstructions')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
                     <div>
                         <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
                     </div>

@@ -80,6 +80,9 @@ class InstanceSettings extends Model
         'n1co_charges',
         'n1co_location_id',
         'n1co_server_charge_mode',
+        'n1co_client_id',
+        'n1co_client_secret',
+        'bank_transfer_instructions',
     ];
 
     protected $hidden = [
@@ -95,6 +98,7 @@ class InstanceSettings extends Model
         'wompi_client_secret',
         'n1co_secret',
         'n1co_webhook_secret',
+        'n1co_client_secret',
     ];
 
     protected $casts = [
@@ -118,6 +122,7 @@ class InstanceSettings extends Model
         'n1co_charges' => 'boolean',
         'n1co_location_id' => 'integer',
         'n1co_server_charge_mode' => 'string',
+        'n1co_client_secret' => 'encrypted',
 
         'allowed_ip_ranges' => 'array',
         'is_auto_update_enabled' => 'boolean',

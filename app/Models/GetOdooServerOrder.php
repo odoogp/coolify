@@ -70,6 +70,7 @@ class GetOdooServerOrder extends BaseModel
     {
         return match ($this->status) {
             'awaiting_payment' => __('Pending payment'),
+            'awaiting_transfer' => __('Waiting for the transfer'),
             'provisioning' => __('Payment in progress'),
             'provisioned', 'paid' => __('Paid'),
             'failed' => __('Failed'),

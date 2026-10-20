@@ -152,6 +152,22 @@ class PlanSignup extends Component
             $provider = $this->gateway;
         }
 
+        if ($provider === 'transfer') {
+            $plan->signups()->create([
+                'pricing_area_id' => $country?->id,
+                'name' => trim($this->name),
+                'organization' => trim($this->organization),
+                'email' => strtolower($this->email),
+                'amount' => $amount,
+                'payment_gateway' => 'transfer',
+                'charge_mode' => 'once',
+                'status' => 'awaiting_transfer',
+            ]);
+            $this->addError('gateway', __('Transfer :amount USD using these details. The account opens after the transfer is confirmed.', ['amount' => $amount])."\n\n".$checkout->bankTransfer());
+
+            return null;
+        }
+
         $signup = GetOdooPlanSignup::query()
             ->where('plan_id', $plan->id)
             ->where('email', strtolower($this->email))
@@ -237,7 +253,8 @@ class PlanSignup extends Component
         }
 
         $quote = GetOdooPlanPricing::quote($plan, $country);
-        $gateways = app(GetOdooCheckout::class)->gateways();
+        $checkout = app(GetOdooCheckout::class);
+        $gateways = $checkout->gateways();
 
         if ($gateways !== [] && ! in_array($this->gateway, $gateways, true)) {
             $this->gateway = $gateways[0];
@@ -259,6 +276,7 @@ class PlanSignup extends Component
             'usesStandardPrice' => ! $locationLocked,
             'canRegister' => ! auth()->check() && User::query()->count() > 0,
             'gateways' => $gateways,
+            'bankTransfer' => $checkout->bankTransfer(),
         ])->layout('layouts.simple');
     }
 

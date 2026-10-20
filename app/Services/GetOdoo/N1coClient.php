@@ -7,6 +7,7 @@ use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 use Throwable;
@@ -422,7 +423,7 @@ class N1coClient
         }
 
         try {
-            $rows = $this->request()
+            $rows = $this->subscriptionRequest()
                 ->get($this->subscriptionsBaseUrl().'/Plans/'.rawurlencode($planId).'/Subscriptions')
                 ->throw()
                 ->json();
@@ -463,14 +464,14 @@ class N1coClient
         $locationId = (int) instanceSettings()->n1co_location_id;
 
         if ($locationId < 1) {
-            throw new RuntimeException('n1co needs a branch id before a subscription can start.');
+            throw new RuntimeException(__('n1co needs a branch id before a subscription can start.'));
         }
 
         $suffix = ' '.$reference;
         $label = mb_substr(trim($name), 0, max(1, 120 - mb_strlen($suffix))).$suffix;
 
         try {
-            $response = $this->request()->post($this->subscriptionsBaseUrl().'/Plans', [
+            $response = $this->subscriptionRequest()->post($this->subscriptionsBaseUrl().'/Plans', [
                 'name' => $label,
                 'description' => mb_substr($description !== '' ? $description : $name, 0, 500),
                 'amount' => round($amount, 2),
@@ -551,6 +552,55 @@ class N1coClient
         return Http::acceptJson()
             ->withToken($this->secret())
             ->timeout(20);
+    }
+
+    private function subscriptionRequest(): PendingRequest
+    {
+        return Http::acceptJson()
+            ->withToken($this->accessToken())
+            ->timeout(20);
+    }
+
+    private function accessToken(): string
+    {
+        $settings = instanceSettings();
+        $clientId = trim((string) ($settings->n1co_client_id ?? ''));
+        $clientSecret = trim((string) ($settings->n1co_client_secret ?? ''));
+
+        if ($clientId === '' || $clientSecret === '') {
+            throw new RuntimeException(__('n1co needs the API client id and the client secret for a monthly subscription.'));
+        }
+
+        $cacheKey = 'n1co-access-'.hash('sha256', $clientId.'|'.$clientSecret.'|'.($this->sandbox() ? 'sandbox' : 'live'));
+
+        $token = Cache::get($cacheKey);
+
+        if (is_string($token) && $token !== '') {
+            return $token;
+        }
+
+        try {
+            $response = Http::acceptJson()
+                ->timeout(20)
+                ->post($this->subscriptionsBaseUrl().'/Token', [
+                    'clientId' => $clientId,
+                    'clientSecret' => $clientSecret,
+                ])
+                ->throw();
+        } catch (RequestException $exception) {
+            throw new RuntimeException(__('n1co did not accept the API client.'), 0, $exception);
+        }
+
+        $token = $response->json('accessToken');
+
+        if (! is_string($token) || $token === '') {
+            throw new RuntimeException(__('n1co did not accept the API client.'));
+        }
+
+        $seconds = (int) $response->json('expiresIn');
+        Cache::put($cacheKey, $token, now()->addSeconds(max(60, $seconds - 60)));
+
+        return $token;
     }
 
     public function baseUrl(): string

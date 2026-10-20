@@ -143,11 +143,14 @@
                         <fieldset class="flex flex-col gap-2">
                             <legend class="text-[13px] font-medium text-neutral-800 dark:text-fg">{{ __('Payment method') }}</legend>
                             <x-getodoo.payment-methods :gateways="$gateways ?? []" model="gateway" />
+                            @if (in_array('transfer', $gateways ?? [], true) && filled($bankTransfer))
+                                <p class="whitespace-pre-wrap text-[13px] text-neutral-700 dark:text-fg">{{ $bankTransfer }}</p>
+                            @endif
                             @if (count($gateways ?? []) === 0)
                                 <p class="text-[12px] text-red-600 dark:text-red-400">{{ __('No payment method is ready.') }}</p>
                             @endif
                             @error('gateway')
-                                <p class="text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
+                                <p class="whitespace-pre-wrap text-[12px] text-red-600 dark:text-red-400">{{ $message }}</p>
                             @enderror
                         </fieldset>
                     @endif

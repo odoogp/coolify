@@ -23,7 +23,18 @@ class GetOdooCheckout
             return 'wompi';
         }
 
+        if ($this->bankTransfer() !== null) {
+            return 'transfer';
+        }
+
         return null;
+    }
+
+    public function bankTransfer(): ?string
+    {
+        $text = trim((string) (instanceSettings()->bank_transfer_instructions ?? ''));
+
+        return $text === '' ? null : $text;
     }
 
     /**
@@ -53,6 +64,10 @@ class GetOdooCheckout
 
         if ($this->n1co->canChargePlans()) {
             $gateways[] = 'n1co';
+        }
+
+        if ($gateways === [] && $this->bankTransfer() !== null) {
+            $gateways[] = 'transfer';
         }
 
         return $gateways;
