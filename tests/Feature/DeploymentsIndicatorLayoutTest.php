@@ -8,8 +8,11 @@ it('stacks the updates indicator on the right with notice toasts', function () {
     expect($layoutView)
         ->toContain('id="gpsh-activity-stack"')
         ->toContain('sm:right-4')
+        ->toContain('bottom-20')
+        ->toContain('flex-col-reverse')
         ->toContain('<livewire:deployments-indicator />')
-        ->toContain('<div x-data="{');
+        ->toContain('<div x-data="{')
+        ->not->toContain('top-16 z-[100]');
 
     expect(strpos($layoutView, 'id="gpsh-activity-stack"'))
         ->toBeLessThan(strpos($layoutView, '<livewire:deployments-indicator />'));
@@ -21,8 +24,7 @@ it('stacks the updates indicator on the right with notice toasts', function () {
         ->toContain('Updates in progress')
         ->not->toContain('Str::plural(\'deployment\'')
         ->not->toContain('transition-[left]')
-        ->not->toContain('lg:left-56')
-        ->not->toContain('fixed bottom-0');
+        ->not->toContain('lg:left-56');
 
     expect($noticeView)
         ->toContain('x-teleport="#gpsh-activity-stack"')

@@ -27,9 +27,9 @@
             class="dark:text-inherit text-black">
             {{-- No x-cloak on this shell: Livewire morph / Alpine toast errors used to leave
                  [x-cloak]{display:none} on the whole app (blank black Keys & Tokens page). --}}
-            {{-- Right activity stack: notice toasts teleport here above the updates pill. --}}
+            {{-- Bottom-right activity stack: updates pill at the corner; notice toasts stack above it. --}}
             <div id="gpsh-activity-stack"
-                class="pointer-events-none fixed inset-x-3 top-16 z-[100] mx-auto flex w-[min(22rem,calc(100%-2rem))] flex-col gap-2 sm:inset-x-auto sm:right-4 sm:left-auto sm:mx-0">
+                class="pointer-events-none fixed inset-x-3 bottom-20 z-[100] mx-auto flex w-[min(22rem,calc(100%-2rem))] flex-col-reverse gap-2 sm:inset-x-auto sm:right-4 sm:left-auto sm:mx-0">
                 <livewire:deployments-indicator />
             </div>
 

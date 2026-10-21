@@ -78,6 +78,7 @@
             @endif
         </div>
         <template x-teleport="#gpsh-activity-stack">
+            {{-- order-first + flex-col-reverse → toast sits above the updates pill --}}
             <div x-cloak x-show="show" x-transition.opacity.duration.200ms
                 class="pointer-events-auto order-first w-full rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-panel">
                 <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
