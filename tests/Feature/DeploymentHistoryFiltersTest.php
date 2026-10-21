@@ -18,6 +18,15 @@ it('moves deployment history pagination by one page per action', function () {
         ->and((new ReflectionMethod(Index::class, 'previousPage'))->getNumberOfParameters())->toBe(0);
 });
 
+it('shows a fallback reason when a failed deployment has no stderr log line', function () {
+    $show = file_get_contents(app_path('Livewire/Project/Application/Deployment/Show.php'));
+
+    expect($show)
+        ->toContain("\$status !== 'failed'")
+        ->toContain('no error detail was recorded')
+        ->toContain("'stderr' => true");
+});
+
 it('shows at most five deployments per page with pagination and no page-size control', function () {
     $component = file_get_contents(app_path('Livewire/Project/Application/Deployment/Index.php'));
     $view = file_get_contents(resource_path('views/livewire/project/application/deployment/index.blade.php'));

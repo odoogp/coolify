@@ -76,11 +76,16 @@ it('uses solid surfaces in every deployments indicator state', function () {
 
 it('announces and restarts odoo after a modules sync finishes', function () {
     $restart = file_get_contents(app_path('Jobs/RestartOdooBranchJob.php'));
+    $sync = file_get_contents(app_path('Jobs/SyncOdooAddonsJob.php'));
 
     expect($restart)
         ->toContain('GpshNotices::announceRestarting')
         ->toContain('RestartServiceApplication::run')
-        ->toContain('OdooGit::refreshAppsList');
+        ->toContain('OdooGit::refreshAppsList')
+        ->toContain('$restarted ? \'idle\' : \'failed\'')
+        ->and($sync)->toContain('markFinished')
+        ->and($sync)->toContain('Modules are on disk')
+        ->and($sync)->toContain('logsSayModulesSynced');
 });
 
 it('refreshes the odoo apps list after modules land in extra-addons', function () {

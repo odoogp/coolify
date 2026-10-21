@@ -27,6 +27,7 @@ use App\Support\OdooGit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
+use RuntimeException;
 
 uses(RefreshDatabase::class);
 
@@ -124,7 +125,47 @@ it('queues an odoo addon application on the addon job and keeps deployment statu
     expect($finished->status)->toBe(ApplicationDeploymentStatus::FINISHED->value)
         ->and($finished->finished_at)->not->toBeNull()
         ->and($finished->logs)->toContain($volume)
+        ->and($finished->logs)->toContain('Clone finished')
+        ->and($finished->logs)->toContain('Module update finished')
         ->and(decode_remote_command_output($finished))->not->toBeEmpty();
+});
+
+it('does not mark failed when the worker dies after modules are already on disk', function () {
+    Queue::fake();
+    $production = $this->project->environments()->where('name', 'production')->first();
+    ProvisionOdooEnvironment::run($production, $this->destination, 'erp.cliente.com');
+    $application = Application::query()->where('is_odoo_addons', true)->first();
+    queue_application_deployment($application, 'deploy-odoo-timeout-after-clone', commit: 'abc');
+    $deployment = ApplicationDeploymentQueue::query()->where('application_id', $application->id)->first();
+    $deployment->update([
+        'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
+        'logs' => 'Clone finished. Modules are on disk.',
+    ]);
+
+    (new SyncOdooAddonsJob($deployment->id))->failed(new RuntimeException('timeout'));
+
+    expect($deployment->fresh()->status)->toBe(ApplicationDeploymentStatus::FINISHED->value)
+        ->and($deployment->fresh()->logs)->toContain('already on disk');
+});
+
+it('records why an odoo module update failed in the deployment log', function () {
+    Queue::fake();
+    $production = $this->project->environments()->where('name', 'production')->first();
+    ProvisionOdooEnvironment::run($production, $this->destination, 'erp.cliente.com');
+    $application = Application::query()->where('is_odoo_addons', true)->first();
+    queue_application_deployment($application, 'deploy-odoo-fail-1', commit: 'abc');
+    $deployment = ApplicationDeploymentQueue::query()->where('application_id', $application->id)->first();
+
+    $production->services()->delete();
+
+    expect(fn () => (new SyncOdooAddonsJob($deployment->id))->handle())
+        ->toThrow(RuntimeException::class);
+
+    $failed = $deployment->fresh();
+    expect($failed->status)->toBe(ApplicationDeploymentStatus::FAILED->value)
+        ->and($failed->logs)->toContain('Update failed:')
+        ->and($failed->logs)->toContain('No Odoo service is linked')
+        ->and(decode_remote_command_output($failed)->contains(fn (array $line): bool => (bool) ($line['stderr'] ?? false)))->toBeTrue();
 });
 
 it('restores only from a complete odoo zip backup', function () {

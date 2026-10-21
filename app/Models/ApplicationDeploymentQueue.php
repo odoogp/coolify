@@ -202,17 +202,49 @@ class ApplicationDeploymentQueue extends Model
             // Reload the model to get the latest logs
             $this->refresh();
 
-            if ($this->logs) {
-                $previousLogs = json_decode($this->logs, associative: true, flags: JSON_THROW_ON_ERROR);
-                $newLogEntry['order'] = count($previousLogs) + 1;
-                $previousLogs[] = $newLogEntry;
-                $this->logs = json_encode($previousLogs, flags: JSON_THROW_ON_ERROR);
-            } else {
-                $this->logs = json_encode([$newLogEntry], flags: JSON_THROW_ON_ERROR);
-            }
+            $previousLogs = $this->decodedLogEntries();
+            $newLogEntry['order'] = count($previousLogs) + 1;
+            $previousLogs[] = $newLogEntry;
+            $this->logs = json_encode($previousLogs, flags: JSON_THROW_ON_ERROR);
 
             // Save without triggering events to prevent potential race conditions
             $this->saveQuietly();
         });
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function decodedLogEntries(): array
+    {
+        if (blank($this->logs)) {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($this->logs, associative: true, flags: JSON_THROW_ON_ERROR);
+
+            return is_array($decoded) ? array_values($decoded) : [];
+        } catch (\JsonException) {
+            // Older Odoo sync jobs stored plain text. Keep those lines when appending.
+            $plain = trim(sanitize_utf8_text((string) $this->logs));
+            if ($plain === '') {
+                return [];
+            }
+
+            return collect(preg_split("/\r\n|\n|\r/", $plain) ?: [])
+                ->filter(fn ($line) => trim((string) $line) !== '')
+                ->values()
+                ->map(fn ($line, int $index) => [
+                    'command' => null,
+                    'output' => $line,
+                    'type' => 'stdout',
+                    'timestamp' => Carbon::now('UTC'),
+                    'hidden' => false,
+                    'batch' => 1,
+                    'order' => $index + 1,
+                ])
+                ->all();
+        }
     }
 }

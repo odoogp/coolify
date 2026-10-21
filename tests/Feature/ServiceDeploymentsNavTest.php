@@ -17,6 +17,7 @@ it('puts deployments first in the odoo service navigation and entry routes', fun
         ->and($configuration)->toContain('project.service.deployments')
         ->and($show)->toContain('project.service.deployments')
         ->and($resourceIndex)->toContain('project.service.deployments')
-        ->and($syncJob)->toContain("addLogEntry(\$e->getMessage(), 'stderr')")
-        ->and($syncJob)->toContain("'finished_at' => now()");
+        ->and($syncJob)->toContain("addLogEntry('Update failed: '.$reason, 'stderr')")
+        ->and($syncJob)->toContain('function failed(')
+        ->and($syncJob)->toContain("'finished_at' => \$deployment->finished_at ?? now()");
 });

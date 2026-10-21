@@ -3358,6 +3358,7 @@
     "No environments available": "No hay entornos disponibles",
     "No links available": "No hay enlaces disponibles",
     "No logs yet.": "Aún no hay logs.",
+    "Update failed, but no error detail was recorded for this run. Push again to capture the reason, or check the queue worker logs.": "La actualización falló, pero este intento no guardó el detalle del error. Vuelve a hacer push para capturar el motivo, o revisa los logs del worker de colas.",
     "No matching environments": "No hay entornos coincidentes",
     "No matching projects": "No hay proyectos coincidentes",
     "No matching resources": "No hay recursos coincidentes",

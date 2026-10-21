@@ -33,6 +33,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 use RuntimeException;
+use Throwable;
 
 /**
  * GitHub is optional. Without a repository, JupyterLab is the file manager.
@@ -2092,23 +2093,28 @@ BASH;
             return;
         }
 
-        $service->loadMissing('destination.server');
-        $server = $service->destination?->server;
-        $database = self::databaseName($service);
-        if ($server === null || blank($database) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', (string) $service->uuid) !== 1) {
-            return;
+        try {
+            $service->loadMissing('destination.server');
+            $server = $service->destination?->server;
+            $database = self::databaseName($service);
+            if ($server === null || blank($database) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', (string) $service->uuid) !== 1) {
+                return;
+            }
+
+            $container = 'odoo-'.$service->uuid;
+            $script = "env['ir.module.module'].update_list()\n";
+            $encoded = base64_encode($script);
+            $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
+                .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '
+                .'-d '.escapeshellarg((string) $database);
+
+            // Best-effort only: a hung odoo shell must not fail a sync that already cloned modules.
+            instant_remote_process([
+                'docker exec '.escapeshellarg($container).' sh -c '.escapeshellarg($inner),
+            ], $server, false, false, 45);
+        } catch (Throwable) {
+            // Restart already applied the new addons; Apps → Update Apps List can be run manually.
         }
-
-        $container = 'odoo-'.$service->uuid;
-        $script = "env['ir.module.module'].update_list()\n";
-        $encoded = base64_encode($script);
-        $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
-            .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '
-            .'-d '.escapeshellarg((string) $database);
-
-        instant_remote_process([
-            'docker exec '.escapeshellarg($container).' sh -c '.escapeshellarg($inner),
-        ], $server, false);
     }
 
     /**
