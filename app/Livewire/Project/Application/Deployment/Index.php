@@ -20,11 +20,11 @@ class Index extends Component
 
     public int $skip = 0;
 
-    public int $defaultTake = 10;
+    public int $defaultTake = 5;
 
     public function updatedDefaultTake(): void
     {
-        $this->defaultTake = max(1, min(100, $this->defaultTake));
+        $this->defaultTake = max(1, min(5, $this->defaultTake));
 
         $this->skip = 0;
         $this->loadDeployments();
@@ -54,7 +54,13 @@ class Index extends Component
 
     public bool $embedded = false;
 
+    /** When true with embedded, keep `$defaultTake` (service deployments page) instead of the compact size of 3. */
+    public bool $forcePageSize = false;
+
     public ?string $selectedDeploymentUuid = null;
+
+    /** Optional uuid when the parent route has no application_uuid (service deployments). */
+    public ?string $applicationUuid = null;
 
     protected $queryString = ['pull_request_id'];
 
@@ -78,7 +84,8 @@ class Index extends Component
             abort(404);
         }
         $environment->load(['applications']);
-        $application = $environment->applications->where('uuid', request()->route('application_uuid'))->first();
+        $applicationUuid = $this->applicationUuid ?: request()->route('application_uuid');
+        $application = $environment->applications->where('uuid', $applicationUuid)->first();
         if (! $application) {
             return redirect()->route('dashboard');
         }
@@ -94,7 +101,7 @@ class Index extends Component
         }
 
         $this->application = $application;
-        if ($this->embedded) {
+        if ($this->embedded && ! $this->forcePageSize) {
             $this->defaultTake = 3;
         }
         $this->loadPullRequestOptions();

@@ -52,8 +52,8 @@ class SyncOdooAddonsJob implements ShouldQueue
             $volume = OdooAddons::extraAddonsVolume($service);
             $deployment?->update([
                 'status' => ApplicationDeploymentStatus::IN_PROGRESS->value,
-                'logs' => "Cloning into {$volume}",
             ]);
+            $deployment?->addLogEntry("Cloning into {$volume}");
 
             OdooGit::ensureAddonsApplication($environment, $service);
             OdooGit::cloneIntoService($service);
@@ -61,15 +61,20 @@ class SyncOdooAddonsJob implements ShouldQueue
 
             (new RestartOdooBranchJob($branch->id))->handle();
 
+            $deployment?->addLogEntry("Clone finished for {$volume}");
             $deployment?->update([
                 'status' => ApplicationDeploymentStatus::FINISHED->value,
-                'logs' => trim((string) ($deployment->logs ?? '')."\nClone finished for {$volume}"),
+                'finished_at' => now(),
             ]);
             $this->record($environment, 'odoo.addons.synced', 'finished', [
                 'volume' => $volume,
             ]);
         } catch (Throwable $e) {
-            $deployment?->update(['status' => ApplicationDeploymentStatus::FAILED->value]);
+            $deployment?->addLogEntry($e->getMessage(), 'stderr');
+            $deployment?->update([
+                'status' => ApplicationDeploymentStatus::FAILED->value,
+                'finished_at' => now(),
+            ]);
             $branch->update(['status' => 'failed']);
             $this->record($environment, 'odoo.addons.synced', 'failed', ['message' => $e->getMessage()]);
             throw $e;

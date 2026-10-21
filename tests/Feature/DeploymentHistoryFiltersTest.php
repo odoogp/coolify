@@ -18,6 +18,47 @@ it('moves deployment history pagination by one page per action', function () {
         ->and((new ReflectionMethod(Index::class, 'previousPage'))->getNumberOfParameters())->toBe(0);
 });
 
+it('shows at most five deployments per page with pagination and no page-size control', function () {
+    $component = file_get_contents(app_path('Livewire/Project/Application/Deployment/Index.php'));
+    $view = file_get_contents(resource_path('views/livewire/project/application/deployment/index.blade.php'));
+
+    expect($component)
+        ->toContain('public int $defaultTake = 5;')
+        ->toContain('max(1, min(5, $this->defaultTake))')
+        ->and($view)
+        ->toContain('<x-table-pagination')
+        ->not->toContain('x-page-size-select')
+        ->not->toContain('coolify.page-size.deployments');
+});
+
+it('returns at most five deployments when take defaults to five', function () {
+    $team = Team::factory()->create();
+    $project = Project::factory()->create(['team_id' => $team->id]);
+    $environment = Environment::factory()->create(['project_id' => $project->id]);
+    $server = Server::factory()->create(['team_id' => $team->id]);
+    $destination = StandaloneDocker::query()->where('server_id', $server->id)->firstOrFail();
+    $application = Application::factory()->create([
+        'environment_id' => $environment->id,
+        'destination_id' => $destination->id,
+        'destination_type' => $destination->getMorphClass(),
+    ]);
+
+    foreach (range(1, 6) as $index) {
+        ApplicationDeploymentQueue::query()->create([
+            'application_id' => $application->id,
+            'deployment_uuid' => "deployment-page-{$index}",
+            'server_id' => $server->id,
+            'server_name' => $server->name,
+            'status' => ApplicationDeploymentStatus::FINISHED->value,
+        ]);
+    }
+
+    $result = $application->deployments();
+
+    expect($result['count'])->toBe(6)
+        ->and($result['deployments'])->toHaveCount(5);
+});
+
 it('filters deployment history by server', function () {
     $team = Team::factory()->create();
     $project = Project::factory()->create(['team_id' => $team->id]);

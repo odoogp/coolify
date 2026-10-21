@@ -1121,7 +1121,7 @@ class Application extends BaseModel
      */
     public function deployments(
         int $skip = 0,
-        int $take = 10,
+        int $take = 5,
         ?string $pullRequestId = null,
         ?string $search = null,
         array $filters = [],

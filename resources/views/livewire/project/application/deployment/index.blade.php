@@ -253,13 +253,7 @@
                         :current-page="$currentPage" :last-page="$lastPage"
                         wire-target="goToPage,previousPage,nextPage" first-action="goToPage(1)"
                         previous-action="previousPage" next-action="nextPage"
-                        last-action="goToPage({{ $lastPage }})">
-                        @unless ($embedded)
-                            <x-slot:pageSize>
-                                <x-page-size-select model="defaultTake" livewire storage-key="coolify.page-size.deployments" />
-                            </x-slot:pageSize>
-                        @endunless
-                    </x-table-pagination>
+                        last-action="goToPage({{ $lastPage }})" />
                 </div>
             @else
                 <x-empty size="sm" title="{{ __('No deployments found') }}"

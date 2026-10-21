@@ -116,8 +116,15 @@ it('queues an odoo addon application on the addon job and keeps deployment statu
     $production->services()->first()->applications()->delete();
     (new SyncOdooAddonsJob($deployment->id))->handle();
 
-    expect($deployment->fresh()->status)->toBe(ApplicationDeploymentStatus::FINISHED->value)
-        ->and($deployment->fresh()->logs)->toContain($production->odooBranch->fresh()->service_id ? OdooAddons::extraAddonsVolume($production->services()->first()) : '');
+    $finished = $deployment->fresh();
+    $volume = $production->odooBranch->fresh()->service_id
+        ? OdooAddons::extraAddonsVolume($production->services()->first())
+        : '';
+
+    expect($finished->status)->toBe(ApplicationDeploymentStatus::FINISHED->value)
+        ->and($finished->finished_at)->not->toBeNull()
+        ->and($finished->logs)->toContain($volume)
+        ->and(decode_remote_command_output($finished))->not->toBeEmpty();
 });
 
 it('restores only from a complete odoo zip backup', function () {

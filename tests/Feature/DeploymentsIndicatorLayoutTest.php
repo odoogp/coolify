@@ -29,7 +29,13 @@ it('stacks the updates indicator on the right with notice toasts', function () {
     expect($noticeView)
         ->toContain('x-teleport="#gpsh-activity-stack"')
         ->toContain('order-first')
+        ->toContain('@if ($announce)')
         ->not->toContain('fixed inset-x-3 top-16');
+
+    expect($layoutView)
+        ->toContain('key="notice-bell-desktop" :announce="true"')
+        ->toContain('key="notice-bell-mobile"')
+        ->not->toContain('key="notice-bell-mobile" :announce');
 });
 
 it('uses the redesigned elevated surface and status badge patterns', function () {

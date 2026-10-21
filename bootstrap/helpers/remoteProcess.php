@@ -290,8 +290,25 @@ function decode_remote_command_output(?ApplicationDeploymentQueue $application_d
                 flags: JSON_THROW_ON_ERROR
             );
         } catch (JsonException $e) {
-            // If it still fails, return empty collection to prevent crashes
-            return collect([]);
+            // Legacy Odoo sync jobs stored plain text instead of JSON log lines.
+            $plain = trim(sanitize_utf8_text((string) $logs));
+            if ($plain === '') {
+                return collect([]);
+            }
+
+            $decoded = collect(preg_split("/\r\n|\n|\r/", $plain) ?: [])
+                ->filter(fn ($line) => trim((string) $line) !== '')
+                ->values()
+                ->map(fn ($line, int $index) => [
+                    'command' => null,
+                    'output' => $line,
+                    'type' => 'stdout',
+                    'timestamp' => data_get($application_deployment_queue, 'updated_at') ?? now('UTC'),
+                    'hidden' => false,
+                    'batch' => 1,
+                    'order' => $index + 1,
+                ])
+                ->all();
         }
     }
 

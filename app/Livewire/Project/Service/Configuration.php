@@ -164,6 +164,8 @@ class Configuration extends Component
                 || request()->query('odooPanel') === 'github'
             ) {
                 $this->odooPanel = 'github';
+            } elseif (request()->query('odooPanel') === 'owner-package' && isInstanceOwner()) {
+                $this->odooPanel = 'owner-package';
             }
             if ($this->associatingWithoutGithub) {
                 $this->odooRepoMode = $this->odooGithubIsPersonal ? 'existing' : 'new';

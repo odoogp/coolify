@@ -3150,13 +3150,16 @@ html:not(.dark) .auth-locale select {
         overflow-x: hidden;
         overflow-y: auto;
         overscroll-behavior: contain;
+        scrollbar-gutter: stable;
         scrollbar-width: thin;
     }
 
-    /* Resource pages have a second fixed header row below the main header. */
-    .application-settings-workspace > .application-settings-navigation {
-        top: 4rem;
-        max-height: calc(100dvh - 5rem);
+    /* Resource pages: nav is often nested in a grid under the workspace, not a
+       direct child. Leave room for the main header + resource heading so the
+       last items stay reachable by scrolling inside the sticky nav. */
+    .application-settings-workspace .application-settings-navigation {
+        top: 6.5rem;
+        max-height: calc(100dvh - 7.5rem);
     }
 
     .application-settings-navigation.is-flush {

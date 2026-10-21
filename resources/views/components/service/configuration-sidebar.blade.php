@@ -16,6 +16,7 @@
     $clientOdooNav = $odooIsOdoo && ! isInstanceOwner();
 
     $configurationItems = collect([
+        ['label' => __('Deployments'), 'route' => 'project.service.deployments', 'icon' => 'time-back', 'visible' => $odooIsOdoo],
         ['label' => __('General'), 'route' => 'project.service.configuration', 'icon' => 'settings'],
         ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
         ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
@@ -30,6 +31,7 @@
         ['label' => __('Danger Zone'), 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
     ])->filter(fn (array $item): bool => $item['visible'] ?? true)
         ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
+            'project.service.deployments',
             'project.service.configuration',
             'project.odoo.backups',
             'project.service.logs',
@@ -48,12 +50,14 @@
 
     $menuGroups = $clientOdooNav
         ? [
+            'Updates' => ['Deployments'],
             'Settings' => ['General'],
             'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
             'Automation' => ['Backups'],
             'Operations' => ['Danger Zone'],
         ]
         : [
+            'Updates' => ['Deployments'],
             'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
             'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
             'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
@@ -93,6 +97,30 @@
                     @endif
                 </a>
             @endforeach
+            @if ($odooIsOdoo && $groupLabel === 'Updates')
+                <a @class([
+                    'menu-item',
+                    'menu-item-active' => $currentRoute === 'project.service.configuration'
+                        && request()->query('odooPanel') === 'github',
+                ])
+                    {{ wireNavigate() }}
+                    href="{{ route('project.service.configuration', [...$serviceRouteParameters, 'odooPanel' => 'github']) }}">
+                    <x-reicon name="sources" class="menu-item-icon" />
+                    <span class="menu-item-label">{{ __('GitHub') }}</span>
+                </a>
+                @if (isInstanceOwner())
+                    <a @class([
+                        'menu-item',
+                        'menu-item-active' => $currentRoute === 'project.service.configuration'
+                            && request()->query('odooPanel') === 'owner-package',
+                    ])
+                        {{ wireNavigate() }}
+                        href="{{ route('project.service.configuration', [...$serviceRouteParameters, 'odooPanel' => 'owner-package']) }}">
+                        <x-reicon name="layers" class="menu-item-icon" />
+                        <span class="menu-item-label">{{ __('Owner package') }}</span>
+                    </a>
+                @endif
+            @endif
         @endforeach
     </nav>
 </aside>

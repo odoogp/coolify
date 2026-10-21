@@ -1197,6 +1197,7 @@ it('shows getodoo.sh branding and odoo row fields without coolify chrome for cli
         ->and($config)->not->toContain('| Coolify')
         ->and($index)->toContain('Odoo is not installed yet')
         ->and($index)->toContain('product_name()')
+        ->and($resourceIndex)->toContain('project.service.deployments')
         ->and($resourceIndex)->toContain("redirect()->route('project.service.configuration'");
 });
 

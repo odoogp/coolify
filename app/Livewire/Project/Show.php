@@ -656,7 +656,11 @@ class Show extends Component
             $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter())
                 ?? $environment->services->first();
             if ($service instanceof Service) {
-                return redirectRoute($this, 'project.service.configuration', [
+                $route = $service->supportsOdooJupyter()
+                    ? 'project.service.deployments'
+                    : 'project.service.configuration';
+
+                return redirectRoute($this, $route, [
                     'project_uuid' => $projectUuid,
                     'environment_uuid' => $environmentUuid,
                     'service_uuid' => $service->uuid,
@@ -831,11 +835,16 @@ class Show extends Component
             });
             $version = $odooOnly ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
             $serviceHref = $service instanceof Service
-                ? route('project.service.configuration', [
-                    'project_uuid' => $this->project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                    'service_uuid' => $service->uuid,
-                ])
+                ? route(
+                    $service->supportsOdooJupyter()
+                        ? 'project.service.deployments'
+                        : 'project.service.configuration',
+                    [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                    ]
+                )
                 : null;
             $enterHref = $odooOnly && $service instanceof Service && OdooGit::canOpen($service)
                 ? route('project.service.odoo.enter', [

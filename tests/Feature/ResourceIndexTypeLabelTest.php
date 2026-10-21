@@ -135,7 +135,7 @@ test('resource index redirects to the primary odoo service unless catalog is req
     $this->get(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $this->environment->uuid,
-    ]))->assertRedirect(route('project.service.configuration', [
+    ]))->assertRedirect(route('project.service.deployments', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $this->environment->uuid,
         'service_uuid' => $service->uuid,

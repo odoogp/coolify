@@ -470,9 +470,9 @@ it('keeps the application settings sidebar below the fixed header while scrollin
     $css = file_get_contents(resource_path('css/app.css'));
 
     expect($sidebar)->toContain('application-settings-navigation')
-        ->and($css)->toContain('.application-settings-workspace > .application-settings-navigation')
-        ->and($css)->toContain('top: 4rem;')
-        ->and($css)->toContain('max-height: calc(100dvh - 5rem);');
+        ->and($css)->toContain('.application-settings-workspace .application-settings-navigation')
+        ->and($css)->toContain('top: 6.5rem;')
+        ->and($css)->toContain('max-height: calc(100dvh - 7.5rem);');
 });
 
 it('builds application sidebar routes independently of the current request route', function () {

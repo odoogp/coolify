@@ -78,11 +78,15 @@ class Index extends Component
         }
 
         // Skip the resource list when the environment already has a primary service.
-        // New / catalog stays on this page via ?catalog=1.
+        // New / catalog stays on this page via ?catalog=1. Odoo opens Deployments first.
         if (! request()->boolean('catalog')) {
             $primary = $this->primaryServiceForEnvironment();
             if ($primary instanceof Service) {
-                return redirect()->route('project.service.configuration', [
+                $route = $primary->supportsOdooJupyter()
+                    ? 'project.service.deployments'
+                    : 'project.service.configuration';
+
+                return redirect()->route($route, [
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $this->environment->uuid,
                     'service_uuid' => $primary->uuid,

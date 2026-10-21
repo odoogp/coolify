@@ -13,6 +13,11 @@ it('uses one aligned sticky rule for all settings sidebars', function () {
         ->toContain('top: calc(3rem + 1.75rem)')
         ->toContain('max-height: calc(100dvh - 5.5rem)')
         ->toContain('overflow-y: auto');
+
+    expect($appCss)
+        ->toContain('.application-settings-workspace .application-settings-navigation')
+        ->toContain('max-height: calc(100dvh - 7.5rem)')
+        ->not->toContain('.application-settings-workspace > .application-settings-navigation');
 });
 
 it('aligns every settings sidebar with its content without per-view top offsets', function () {

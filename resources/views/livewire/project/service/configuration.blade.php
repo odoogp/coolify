@@ -14,6 +14,7 @@
 
         $clientOdooNav = $odooIsOdoo && ! isInstanceOwner();
         $configurationItems = collect([
+            ['label' => __('Deployments'), 'route' => 'project.service.deployments', 'icon' => 'time-back', 'visible' => $odooIsOdoo],
             ['label' => __('General'), 'route' => 'project.service.configuration', 'icon' => 'settings'],
             ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
             ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
@@ -28,6 +29,7 @@
             ['label' => __('Danger Zone'), 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
         ])->filter(fn (array $item): bool => $item['visible'] ?? true)
             ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
+                'project.service.deployments',
                 'project.service.configuration',
                 'project.odoo.backups',
                 'project.service.logs',
@@ -43,12 +45,14 @@
 
         $menuGroups = $clientOdooNav
             ? [
+                'Updates' => ['Deployments'],
                 'Settings' => ['General'],
                 'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
                 'Automation' => ['Backups'],
                 'Operations' => ['Danger Zone'],
             ]
             : [
+                'Updates' => ['Deployments'],
                 'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
                 'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
                 'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
@@ -77,6 +81,19 @@
                 <nav aria-label="{{ __('Service settings') }}"
                     class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
                     @if ($odooIsOdoo)
+                        @php
+                            $deploymentsItem = $configurationItems->firstWhere('route', 'project.service.deployments');
+                        @endphp
+                        @if ($deploymentsItem)
+                            <a @class(['menu-item', 'menu-item-active' => $deploymentsItem['active']])
+                                {{ wireNavigate() }}
+                                href="{{ route('project.service.deployments', $serviceRouteParameters) }}">
+                                <x-reicon name="time-back" class="menu-item-icon" />
+                                <span class="menu-item-label">{{ __('Deployments') }}</span>
+                            </a>
+                            <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]"
+                                aria-hidden="true"></div>
+                        @endif
                         <button type="button" wire:click="$set('odooPanel', 'github')" @class([
                             'menu-item',
                             'menu-item-active' => $currentRoute === 'project.service.configuration' && $odooPanel === 'github',
@@ -95,6 +112,8 @@
                         @endif
                     @endif
                     @foreach ($groupedItems as $groupLabel => $groupItems)
+                        {{-- Deployments is already rendered above GitHub for Odoo. --}}
+                        @continue($odooIsOdoo && $groupLabel === 'Updates')
                         @unless ($loop->first)
                             <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]"
                                 aria-hidden="true"></div>
