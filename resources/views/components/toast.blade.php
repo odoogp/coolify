@@ -6,7 +6,7 @@
                     type: options.type ?? 'default',
                     message,
                     description: options.description ?? '',
-                    position: options.position ?? 'bottom-right',
+                    position: options.position ?? 'top-right',
                     html: options.html ?? '',
                 },
             }));
@@ -17,9 +17,9 @@
     <template x-teleport="body">
         <ul x-data="{
             toasts: [],
-            position: 'bottom-right',
+            position: 'top-right',
             addToast(event) {
-                this.position = event.detail.position || 'bottom-right';
+                this.position = event.detail.position || 'top-right';
 
                 const toast = {
                     id: `toast-${Math.random().toString(16).slice(2)}`,

@@ -2881,7 +2881,6 @@
     "Task name": "Nombre de la tarea",
     "Team name": "Nombre del equipo",
     "Unmanaged": "No administrado",
-    "Updating…": "Actualizando…",
     "User name": "Nombre de usuario",
     "View docs": "Ver documentación",
     "View only": "Solo lectura",
@@ -4063,7 +4062,6 @@
     "Odoo is accessible": "Odoo ya se puede abrir",
     "Odoo is restarting": "Odoo se está reiniciando",
     "The instance :name started restarting.": "La instancia :name comenzó a reiniciarse.",
-    "The instance :name started restarting.": "La instancia :name comenzó a reiniciarse.",
     "The instance started restarting.": "La instancia comenzó a reiniciarse.",
     "The containers for :name are running.": "Los contenedores de :name están corriendo.",
     "You can open :name.": "Ya puedes abrir :name.",
@@ -4077,7 +4075,6 @@
     "Degraded": "Degradado",
     "healthy": "saludable",
     "unhealthy": "no saludable",
-    "unknown": "desconocido",
     "Exited": "Terminado",
     "excluded": "excluido",
     "Restarting": "Reiniciando",
@@ -4942,5 +4939,10 @@
     "Logo updated.": "Logo actualizado.",
     "Shown on the login screen and in the menu. PNG, JPG, or WebP. After you choose a file, click Save logo.": "Se ve en el inicio de sesión y en el menú. PNG, JPG o WebP. Cuando elijas el archivo, pulsa Guardar logo.",
     "Save logo": "Guardar logo",
-    "Accepted cards": "Tarjetas aceptadas"
+    "Accepted cards": "Tarjetas aceptadas",
+    "Retry this update with the same commit?": "¿Reintentar esta actualización con el mismo commit?",
+    "Only failed or cancelled updates can be retried.": "Solo se pueden reintentar actualizaciones fallidas o canceladas.",
+    "Retry queued.": "Reintento en cola.",
+    "Could not queue the retry.": "No se pudo encolar el reintento.",
+    "Could not resolve the project for this update.": "No se pudo resolver el proyecto de esta actualización."
 }

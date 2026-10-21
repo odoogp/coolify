@@ -61,6 +61,58 @@ class DeploymentNavbar extends Component
         }
     }
 
+    public function retry()
+    {
+        try {
+            $this->authorize('deploy', $this->application);
+            $status = (string) $this->application_deployment_queue->status;
+            if (! in_array($status, [
+                ApplicationDeploymentStatus::FAILED->value,
+                ApplicationDeploymentStatus::CANCELLED_BY_USER->value,
+            ], true)) {
+                $this->dispatch('error', __('Only failed or cancelled updates can be retried.'));
+
+                return null;
+            }
+
+            $this->application->loadMissing('environment.project');
+            $project = $this->application->environment?->project;
+            $environment = $this->application->environment;
+            if ($project === null || $environment === null) {
+                $this->dispatch('error', __('Could not resolve the project for this update.'));
+
+                return null;
+            }
+
+            $deploymentUuid = new_public_id();
+            $result = queue_application_deployment(
+                application: $this->application,
+                deployment_uuid: $deploymentUuid,
+                commit: $this->application_deployment_queue->commit ?: 'HEAD',
+                force_rebuild: true,
+                is_webhook: false,
+            );
+
+            if (in_array($result['status'] ?? null, ['error', 'queue_full'], true)) {
+                $this->dispatch('error', (string) ($result['message'] ?? __('Could not queue the retry.')));
+
+                return null;
+            }
+
+            $this->application_deployment_queue->addLogEntry('Retry queued as '.$deploymentUuid);
+            $this->dispatch('success', __('Retry queued.'));
+
+            return redirect()->route('project.application.deployment.show', [
+                'project_uuid' => $project->uuid,
+                'environment_uuid' => $environment->uuid,
+                'application_uuid' => $this->application->uuid,
+                'deployment_uuid' => $deploymentUuid,
+            ]);
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
     public function copyLogsToClipboard(): string
     {
         $logs = json_decode($this->application_deployment_queue->logs, associative: true, flags: JSON_THROW_ON_ERROR);

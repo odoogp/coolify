@@ -120,7 +120,10 @@ class SyncOdooAddonsJob implements ShouldQueue
         }
 
         $deployment->refresh();
-        if ($deployment->status === ApplicationDeploymentStatus::FINISHED->value) {
+        if (in_array($deployment->status, [
+            ApplicationDeploymentStatus::FINISHED->value,
+            ApplicationDeploymentStatus::FAILED->value,
+        ], true)) {
             return;
         }
 

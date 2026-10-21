@@ -1265,9 +1265,18 @@ it('clones the repository branch into the addon volume jupyter shows', function 
         ->and($script)->toContain('alpine/git')
         ->and($script)->toContain('/addons')
         ->and($script)->toContain('safe.directory')
+        ->and($script)->toContain('index.lock')
         ->and($script)->toContain('test -d /addons/.git')
         ->and($script)->toContain('rev-parse --verify HEAD')
         ->and($script)->toContain('gpsh-keep');
+});
+
+it('serializes addon clones and retries once after a stale index.lock', function () {
+    $source = file_get_contents(app_path('Support/OdooGit.php'));
+
+    expect($source)
+        ->toContain("Cache::lock('odoo-addons-clone:'")
+        ->toContain("str_contains(\$e->getMessage(), 'index.lock')");
 });
 
 it('fails cloneIntoService when github is only half linked', function () {

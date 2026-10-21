@@ -1,14 +1,19 @@
 <?php
 
-test('toast messages default to the bottom right while supporting position overrides', function () {
+test('toast messages default to the top right while the activity stack stays bottom right', function () {
     $toast = file_get_contents(resource_path('views/components/toast.blade.php'));
+    $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
     expect($toast)
-        ->toContain("position: options.position ?? 'bottom-right'")
-        ->toContain("position: 'bottom-right'")
-        ->toContain("this.position = event.detail.position || 'bottom-right'")
+        ->toContain("position: options.position ?? 'top-right'")
+        ->toContain("position: 'top-right'")
+        ->toContain("this.position = event.detail.position || 'top-right'")
+        ->toContain("'right-4 top-4 flex-col': position === 'top-right'")
         ->toContain("'right-4 bottom-4 flex-col-reverse': position === 'bottom-right'")
-        ->toContain("'left-1/2 top-4 -translate-x-1/2 flex-col': position === 'top-center'");
+        ->and($layout)
+        ->toContain('id="gpsh-activity-stack"')
+        ->toContain('bottom-20')
+        ->toContain('sm:right-4');
 });
 
 test('toast copy button shows temporary success feedback', function () {

@@ -1973,14 +1973,21 @@ BASH;
     {
         // Preserve .gpsh (logs / owner-package markers). A bare `git init` without a
         // working tree used to make the fetch path a no-op and leave Jupyter empty.
+        // Drop stale *.lock files — concurrent syncs / killed containers leave index.lock
+        // and make a good volume look like a failed update.
+        $clearLocks = 'rm -f /addons/.git/index.lock /addons/.git/HEAD.lock '
+            .'/addons/.git/refs/heads/*.lock /addons/.git/refs/remotes/*/HEAD.lock 2>/dev/null || true; ';
         $script = 'set -e; '
             .self::gitSafeDirectorySetup()
             .'mkdir -p /addons; '
+            .$clearLocks
             .'if [ -d /addons/.gpsh ]; then cp -a /addons/.gpsh /tmp/gpsh-keep; fi; '
             .'if [ -d /addons/.git ] && git -C /addons remote get-url origin >/dev/null 2>&1 '
             .'&& git -C /addons rev-parse --verify HEAD >/dev/null 2>&1; then '
             .'git -C /addons remote set-url origin '.escapeshellarg($cloneUrl).'; '
+            .$clearLocks
             .'git -C /addons fetch --depth 1 origin '.escapeshellarg($branch).'; '
+            .$clearLocks
             .'git -C /addons checkout -B '.escapeshellarg($branch).' FETCH_HEAD; '
             .'else '
             .'find /addons -mindepth 1 -maxdepth 1 ! -name .gpsh -exec rm -rf {} +; '
@@ -2034,8 +2041,32 @@ BASH;
         }
         $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
         $volume = OdooAddons::extraAddonsVolume($service);
-        instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
-        self::assertAddonsVolumeCloned($server, $volume, (string) $repository, (string) $branch);
+        $lock = Cache::lock('odoo-addons-clone:'.$volume, 180);
+        if (! $lock->get()) {
+            throw new RuntimeException(
+                "Another module update is already cloning {$volume}. Wait for it to finish, then retry."
+            );
+        }
+
+        try {
+            try {
+                instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
+            } catch (Throwable $e) {
+                // One automatic retry after clearing locks when a stale index.lock blocked git.
+                if (! str_contains($e->getMessage(), 'index.lock')) {
+                    throw $e;
+                }
+                instant_remote_process([
+                    'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine/git -c '.escapeshellarg(
+                        'rm -f /addons/.git/index.lock /addons/.git/HEAD.lock /addons/.git/refs/heads/*.lock 2>/dev/null || true'
+                    ),
+                ], $server, false);
+                instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
+            }
+            self::assertAddonsVolumeCloned($server, $volume, (string) $repository, (string) $branch);
+        } finally {
+            $lock->release();
+        }
     }
 
     /**

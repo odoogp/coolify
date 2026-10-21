@@ -268,6 +268,21 @@ it('places cancel deployment controls inside the deployment logs toolbar', funct
         ->and($content)->toContain('In progress');
 });
 
+it('offers a retry action for failed or cancelled deployments', function () {
+    $navbar = file_get_contents(resource_path('views/livewire/project/application/deployment-navbar.blade.php'));
+    $component = file_get_contents(app_path('Livewire/Project/Application/DeploymentNavbar.php'));
+
+    expect($navbar)
+        ->toContain('wire:click.prevent="retry"')
+        ->toContain("{{ __('Retry') }}")
+        ->toContain("'failed'")
+        ->toContain("'cancelled-by-user'")
+        ->and($component)
+        ->toContain('function retry()')
+        ->toContain('queue_application_deployment(')
+        ->toContain('force_rebuild: true');
+});
+
 it('uses the shared mobile logs layout for proxy and sentinel log pages', function () {
     $proxyLogsView = file_get_contents(resource_path('views/livewire/server/proxy/logs.blade.php'));
     $sentinelLogsView = file_get_contents(resource_path('views/livewire/server/sentinel/logs.blade.php'));
