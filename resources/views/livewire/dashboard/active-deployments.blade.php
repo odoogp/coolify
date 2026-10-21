@@ -19,8 +19,15 @@
         return [$label, $type];
     };
 
-    $hasActiveDeployments = $activeDeployments->isNotEmpty();
-    $hasRecentDeployments = $recentDeployments->isNotEmpty();
+    $perPage = \App\Livewire\Dashboard\ActiveDeployments::PER_PAGE;
+    $activeLastPage = max(1, (int) ceil($activeTotal / $perPage));
+    $recentLastPage = max(1, (int) ceil($recentTotal / $perPage));
+    $activeFrom = $activeTotal === 0 ? 0 : (($activePage - 1) * $perPage) + 1;
+    $activeTo = min($activePage * $perPage, $activeTotal);
+    $recentFrom = $recentTotal === 0 ? 0 : (($recentPage - 1) * $perPage) + 1;
+    $recentTo = min($recentPage * $perPage, $recentTotal);
+    $hasActiveDeployments = $activeTotal > 0;
+    $hasRecentDeployments = $recentTotal > 0;
     $hasAnyDeployments = $hasActiveDeployments || $hasRecentDeployments;
 @endphp
 
@@ -105,6 +112,11 @@
                                 </div>
                             </a>
                         @endforeach
+
+                        <x-table-pagination :from="$activeFrom" :to="$activeTo" :total="$activeTotal"
+                            :current-page="$activePage" :last-page="$activeLastPage"
+                            wire-target="previousActivePage,nextActivePage,refreshDeployments"
+                            previous-action="previousActivePage" next-action="nextActivePage" />
                     </div>
                 @endif
 
@@ -174,6 +186,11 @@
                                 </div>
                             </a>
                         @endforeach
+
+                        <x-table-pagination :from="$recentFrom" :to="$recentTo" :total="$recentTotal"
+                            :current-page="$recentPage" :last-page="$recentLastPage"
+                            wire-target="previousRecentPage,nextRecentPage,refreshDeployments"
+                            previous-action="previousRecentPage" next-action="nextRecentPage" />
                     </div>
                 @endif
             </div>

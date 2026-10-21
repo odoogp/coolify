@@ -103,7 +103,7 @@ it('shows only the recent section when there are recent deployments', function (
         ->assertDontSee('No recent deployments');
 });
 
-it('shows up to five active deployments above recent ones', function () {
+it('paginates active and recent deployments five per page', function () {
     foreach (range(1, 6) as $index) {
         createDashboardDeployment([
             'application_name' => "Active App {$index}",
@@ -123,15 +123,35 @@ it('shows up to five active deployments above recent ones', function () {
     $component = Livewire::test(ActiveDeployments::class);
 
     expect($component->get('activeDeployments'))->toHaveCount(5)
-        ->and($component->get('recentDeployments'))->toHaveCount(5);
+        ->and($component->get('recentDeployments'))->toHaveCount(5)
+        ->and($component->get('activeTotal'))->toBe(6)
+        ->and($component->get('recentTotal'))->toBe(6)
+        ->and($component->get('activePage'))->toBe(1)
+        ->and($component->get('recentPage'))->toBe(1);
 
     $component
+        ->assertSee('1–5 of 6')
         ->assertSee('Active App')
         ->assertSee('Recent App')
         ->assertSee('Success')
         ->assertSee('In progress')
         ->assertSee('Queued')
-        ->assertDontSee('Active App 6');
+        ->call('nextActivePage')
+        ->assertSet('activePage', 2);
+
+    expect($component->get('activeDeployments'))->toHaveCount(1);
+
+    $component
+        ->call('nextRecentPage')
+        ->assertSet('recentPage', 2);
+
+    expect($component->get('recentDeployments'))->toHaveCount(1);
+
+    $view = file_get_contents(resource_path('views/livewire/dashboard/active-deployments.blade.php'));
+    expect($view)
+        ->toContain('<x-table-pagination')
+        ->toContain('previousActivePage')
+        ->toContain('nextRecentPage');
 });
 
 it('does not include active deployments in the recent list', function () {
