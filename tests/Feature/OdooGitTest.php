@@ -1276,6 +1276,8 @@ it('serializes addon clones and retries once after a stale index.lock', function
 
     expect($source)
         ->toContain("Cache::lock('odoo-addons-clone:'")
+        ->toContain('->block(90,')
+        ->toContain('LockTimeoutException')
         ->toContain("str_contains(\$e->getMessage(), 'index.lock')");
 });
 

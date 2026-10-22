@@ -2041,31 +2041,33 @@ BASH;
         }
         $url = 'https://x-access-token:'.rawurlencode((string) $token).'@'.$host.'/'.$repository.'.git';
         $volume = OdooAddons::extraAddonsVolume($service);
-        $lock = Cache::lock('odoo-addons-clone:'.$volume, 180);
-        if (! $lock->get()) {
-            throw new RuntimeException(
-                "Another module update is already cloning {$volume}. Wait for it to finish, then retry."
-            );
-        }
+        // Wait for a concurrent clone (webhook + start/retry) instead of failing immediately.
+        // Owner auto-releases when the callback returns; TTL covers a crashed worker.
+        $lock = Cache::lock('odoo-addons-clone:'.$volume, 300);
 
         try {
-            try {
-                instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
-            } catch (Throwable $e) {
-                // One automatic retry after clearing locks when a stale index.lock blocked git.
-                if (! str_contains($e->getMessage(), 'index.lock')) {
-                    throw $e;
+            $lock->block(90, function () use ($volume, $url, $branch, $server, $repository): void {
+                try {
+                    instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
+                } catch (Throwable $e) {
+                    // One automatic retry after clearing locks when a stale index.lock blocked git.
+                    if (! str_contains($e->getMessage(), 'index.lock')) {
+                        throw $e;
+                    }
+                    instant_remote_process([
+                        'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine/git -c '.escapeshellarg(
+                            'rm -f /addons/.git/index.lock /addons/.git/HEAD.lock /addons/.git/refs/heads/*.lock 2>/dev/null || true'
+                        ),
+                    ], $server, false);
+                    instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
                 }
-                instant_remote_process([
-                    'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine/git -c '.escapeshellarg(
-                        'rm -f /addons/.git/index.lock /addons/.git/HEAD.lock /addons/.git/refs/heads/*.lock 2>/dev/null || true'
-                    ),
-                ], $server, false);
-                instant_remote_process(self::cloneCommands($volume, $url, (string) $branch), $server);
-            }
-            self::assertAddonsVolumeCloned($server, $volume, (string) $repository, (string) $branch);
-        } finally {
-            $lock->release();
+                self::assertAddonsVolumeCloned($server, $volume, (string) $repository, (string) $branch);
+            });
+        } catch (LockTimeoutException $e) {
+            throw new RuntimeException(
+                "Timed out waiting for another module update on {$volume} to finish. Retry in a moment.",
+                previous: $e,
+            );
         }
     }
 
