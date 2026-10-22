@@ -587,12 +587,14 @@ class Server extends BaseModel
      * - Explicit proxy.cert_resolver → always that ACME resolver.
      * - Hosts like sslip.io / nip.io → ACME (`letsencrypt`) so the default
      *   public URL still gets a real certificate without a project subdomain.
-     * - Other hosts → omit resolver so file-mounted / store certs match by SNI
-     *   (e.g. getcloud.sh). Forcing ACME on those names fights mounted certs.
+     * - Hosts under Settings → Odoo base domain (project subdomains) → ACME,
+     *   because EasyPanel rarely has a mounted cert per client subdomain.
+     * - Other custom hosts → omit resolver so file-mounted / store certs match
+     *   by SNI (e.g. a one-off domain you terminated in EasyPanel).
      *
      * @return string|null Null means do not emit tls.certresolver=
      */
-    public function traefikTlsCertResolver(?string $host = null): ?string
+    public function traefikTlsCertResolver(?string $host = null, ?string $odooBaseDomain = null): ?string
     {
         if (! $this->usesExternalProxyNetworkConnect()) {
             return 'letsencrypt';
@@ -606,7 +608,7 @@ class Server extends BaseModel
             }
         }
 
-        if (is_string($host) && $host !== '' && self::hostNeedsAcmeOnExternalProxy($host)) {
+        if (is_string($host) && $host !== '' && self::hostNeedsAcmeOnExternalProxy($host, $odooBaseDomain)) {
             return 'letsencrypt';
         }
 
@@ -614,19 +616,42 @@ class Server extends BaseModel
     }
 
     /**
-     * Default Coolify public hosts (no project subdomain) that need ACME on EasyPanel.
+     * Hosts that need ACME on EasyPanel when no explicit proxy.cert_resolver is set.
+     *
+     * @param  string|null  $odooBaseDomain  Override for tests; production reads InstanceSettings.
      */
-    public static function hostNeedsAcmeOnExternalProxy(string $host): bool
+    public static function hostNeedsAcmeOnExternalProxy(string $host, ?string $odooBaseDomain = null): bool
     {
         $host = strtolower(trim($host));
         if ($host === '') {
             return false;
         }
 
-        return str_ends_with($host, '.sslip.io')
+        if (
+            str_ends_with($host, '.sslip.io')
             || $host === 'sslip.io'
             || str_ends_with($host, '.nip.io')
-            || $host === 'nip.io';
+            || $host === 'nip.io'
+        ) {
+            return true;
+        }
+
+        // Project subdomains: {subdomain}.{odoo_base_domain} and staging variants.
+        $raw = $odooBaseDomain;
+        if ($raw === null) {
+            try {
+                $raw = (string) (instanceSettings()->odoo_base_domain ?? '');
+            } catch (\Throwable) {
+                $raw = '';
+            }
+        }
+
+        $base = \App\Domain\Odoo\OdooDomains::normalizedBaseDomain((string) $raw);
+        if ($base === '') {
+            return false;
+        }
+
+        return $host === $base || str_ends_with($host, '.'.$base);
     }
 
     /**

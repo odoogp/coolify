@@ -35,7 +35,7 @@ Expect: Coolify UI `:8000`, EasyPanel UI `:3000`, Traefik on `80`/`443`, Traefik
 | `external_proxy_name` | Still `easypanel-traefik` (or your filter) |
 | `docker ps -a --filter name=coolify-proxy` | Empty / not publishing 80/443 |
 | Traefik on managed networks | Reconnect via **Connect networks now** or wait for PushServerUpdate / ServerCheck |
-| Labels / entrypoints / certresolver | For Custom + `external_proxy_name`: Coolify omits `tls.certresolver` on **custom** Hosts so EasyPanel file-mounted certs match by SNI, and still sets `letsencrypt` on **sslip.io / nip.io** (default public URL without a project subdomain). Set `proxy.cert_resolver` to force ACME on every Host. Entrypoints stay `http`/`https` — EasyPanel must expose those names (or remap) and must have an ACME resolver named `letsencrypt` (or your override) for sslip HTTPS. |
+| Labels / entrypoints / certresolver | For Custom + `external_proxy_name`: Coolify sets `tls.certresolver=letsencrypt` on **sslip.io / nip.io** and on Hosts under **Settings → Odoo base domain** (project subdomains). Other custom Hosts omit the resolver so EasyPanel file-mounted certs can match by SNI. Set `proxy.cert_resolver` to force ACME on every Host. Entrypoints stay `http`/`https` — EasyPanel must expose those names (or remap) and must have an ACME resolver named `letsencrypt` (or your override). |
 
 ## Rollback
 

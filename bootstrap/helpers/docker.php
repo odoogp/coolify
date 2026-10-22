@@ -640,7 +640,7 @@ function proxyUrlFromDomain(string $domain): ?Url
 }
 
 /**
- * @param  string|\App\Models\Server|null  $tlsCertResolver  Resolver name, or a Server to pick per Host (sslip → ACME, custom → mounted store).
+ * @param  string|\App\Models\Server|null  $tlsCertResolver  Resolver name, or a Server to pick per Host (sslip / odoo_base_domain → ACME; other custom → mounted store).
  */
 function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_https_enabled = false, $onlyPort = null, ?Collection $serviceLabels = null, ?bool $is_gzip_enabled = true, ?bool $is_stripprefix_enabled = true, ?string $service_name = null, bool $generate_unique_uuid = false, ?string $image = null, string $redirect_direction = 'both', bool $is_http_basic_auth_enabled = false, ?string $http_basic_auth_username = null, ?string $http_basic_auth_password = null, ?Collection $noindex_domains = null, bool $escape_redirect_replacement_for_compose = true, string|\App\Models\Server|null $tlsCertResolver = 'letsencrypt')
 {
