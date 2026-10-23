@@ -23,7 +23,7 @@
         </div>
     @endif
     @if ($type === 'password')
-        <div class="relative" x-data="{ type: 'password' }" @success.window="type = 'password'">
+        <div class="relative auth-field-icon" x-data="{ type: 'password' }" @success.window="type = 'password'">
             <input autocomplete="{{ $autocomplete }}" value="{{ $value }}"
                 x-bind:type="type"
                 x-bind:class="{ 'truncate': type === 'text' && ! $el.disabled }"
@@ -47,16 +47,18 @@
 
         </div>
     @else
-        <input autocomplete="{{ $autocomplete }}" @if ($value) value="{{ $value }}" @endif
-            {{ $attributes->merge(['class' => $defaultClass]) }} @required($required) @readonly($readonly)
-            @if ($modelBinding !== 'null') wire:model={{ $modelBinding }} wire:dirty.class="[box-shadow:inset_4px_0_0_#6b16ed,inset_0_0_0_2px_#e5e5e5] dark:[box-shadow:inset_4px_0_0_#fcd452,inset_0_0_0_2px_#242424]" @endif
-            wire:loading.attr="disabled"
-            type="{{ $type }}" @disabled($disabled) min="{{ $attributes->get('min') }}"
-            max="{{ $attributes->get('max') }}" minlength="{{ $attributes->get('minlength') }}"
-            maxlength="{{ $attributes->get('maxlength') }}"
-            @if ($htmlId !== 'null') id={{ $htmlId }} @endif name="{{ $name }}"
-            placeholder="{{ $attributes->get('placeholder') }}"
-            @if ($autofocus) x-ref="autofocusInput" @endif>
+        <div class="relative auth-field-icon">
+            <input autocomplete="{{ $autocomplete }}" @if ($value) value="{{ $value }}" @endif
+                {{ $attributes->merge(['class' => $defaultClass]) }} @required($required) @readonly($readonly)
+                @if ($modelBinding !== 'null') wire:model={{ $modelBinding }} wire:dirty.class="[box-shadow:inset_4px_0_0_#6b16ed,inset_0_0_0_2px_#e5e5e5] dark:[box-shadow:inset_4px_0_0_#fcd452,inset_0_0_0_2px_#242424]" @endif
+                wire:loading.attr="disabled"
+                type="{{ $type }}" @disabled($disabled) min="{{ $attributes->get('min') }}"
+                max="{{ $attributes->get('max') }}" minlength="{{ $attributes->get('minlength') }}"
+                maxlength="{{ $attributes->get('maxlength') }}"
+                @if ($htmlId !== 'null') id={{ $htmlId }} @endif name="{{ $name }}"
+                placeholder="{{ $attributes->get('placeholder') }}"
+                @if ($autofocus) x-ref="autofocusInput" @endif>
+        </div>
     @endif
     @if (!$label && $helper)
         <x-helper :helper="$helper" />

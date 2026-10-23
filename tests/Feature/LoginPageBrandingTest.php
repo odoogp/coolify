@@ -131,26 +131,40 @@ test('team invitation page uses the shared auth shell', function () {
         ->not->toContain('!text-5xl font-extrabold');
 });
 
-test('auth field icons survive browser autofill and submit loading stays hidden until click', function () {
+test('auth field icons sit outside the input so browser autofill cannot remove them', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
-    $button = file_get_contents(resource_path('views/components/forms/button.blade.php'));
+    $input = file_get_contents(resource_path('views/components/forms/input.blade.php'));
+
+    expect($input)
+        ->toContain('auth-field-icon')
+        ->toContain('class="relative auth-field-icon"');
 
     expect($styles)
-        ->toContain("input[type='email']:-webkit-autofill")
-        ->toContain("input[type='text']:-webkit-autofill")
-        ->toContain('background-image: url("data:image/svg+xml')
-        ->toContain('box-shadow: inset 0 0 0 1000px');
+        ->toContain('.auth-shell .auth-card .auth-field-icon:has(> input[type=\'email\'])::before')
+        ->toContain('.auth-shell .auth-card .auth-field-icon:has(> input[type=\'text\'])::before')
+        ->toContain('.auth-shell .auth-card .auth-field-icon > input')
+        ->toContain('background-image: none !important')
+        ->toContain('pointer-events: none');
+});
+
+test('submit loading spinner stays hidden until the wire request runs', function () {
+    $button = file_get_contents(resource_path('views/components/forms/button.blade.php'));
+    $loading = file_get_contents(resource_path('views/components/loading-on-button.blade.php'));
+    $signup = file_get_contents(resource_path('views/livewire/getodoo/plan-signup.blade.php'));
 
     expect($button)
         ->toContain('wire:loading.class.remove="hidden"')
         ->toContain('wire:loading.class="inline-flex"')
         ->toContain('class="hidden"');
 
-    $loading = file_get_contents(resource_path('views/components/loading-on-button.blade.php'));
-
     expect($loading)
         ->toContain("\$attributes->class(['shrink-0', 'items-center', 'gap-1.5'])")
         ->not->toContain("merge(['class' => 'inline-flex");
+
+    expect($signup)
+        ->toContain('wire:submit="register"')
+        ->toContain('wire:target="register"')
+        ->not->toContain(':show-loading-indicator="false"');
 });
 
 test('plan signup keeps the crystal above the form and plans stay in one settings card', function () {
@@ -173,7 +187,9 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain("'name price'")
         ->toContain("'scope members'")
         ->toContain("'link link'")
-        ->toContain('.data-table-header.getodoo-plans-table-grid');
+        ->toContain('.data-table-header.getodoo-plans-table-grid')
+        ->toMatch('/\.getodoo-plans-row-actions\s*\{[^}]*width:\s*12\.5rem;/s')
+        ->toMatch('/\.getodoo-plans-link-cell\s*>\s*\.input\s*\{[^}]*flex:\s*1\s+1\s+0%;/s');
 
     expect($plans)
         ->toContain("{{ __('Members') }}")
@@ -182,11 +198,11 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain('archivePlan')
         ->toContain('getodoo-plans-link-cell')
         ->toContain('group/tool')
+        ->toContain('hover:max-w-32')
         ->toContain("{{ __('Copy') }}")
         ->toContain("{{ __('Archive plan') }}")
         ->toContain("{{ __('Archived') }}")
         ->toContain(':show-loading-indicator="false"')
-        ->toContain('size-7 shrink-0')
-        ->not->toContain('hover:max-w-32')
-        ->not->toContain('class="button" wire:click="editPlan');
+        ->not->toContain('class="button" wire:click="editPlan')
+        ->not->toContain('top-full z-20');
 });
