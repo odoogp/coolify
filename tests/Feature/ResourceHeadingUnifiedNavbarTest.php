@@ -99,18 +99,20 @@ it('places the account menu beside the desktop sidebar toggle while retaining it
     expect($layout)
         ->not->toContain("{{-- Right cluster --}}\n                    <x-top-user-menu />")
         ->toContain('<x-top-user-menu />')
-        ->toContain('flex grow min-w-0 flex-col overflow-visible');
+        ->toContain('flex h-full min-h-0 min-w-0 flex-col overflow-hidden')
+        ->toContain('lg:h-dvh lg:overflow-y-auto');
 
     expect(substr_count($layout, '<x-top-user-menu />'))->toBe(1);
 
     expect($navbar)
         ->toContain('<x-top-user-menu sidebar />')
         ->toContain('Toggle sidebar')
-        ->toContain("collapsed ? 'flex-col-reverse justify-center'");
+        ->toContain("collapsed ? 'flex-col-reverse justify-center'")
+        ->toContain('app-sidebar flex h-full min-h-0 flex-col flex-1');
 
     expect($accountMenu)
         ->toContain("'sidebar' => false")
-        ->toContain("'bottom-full! left-0! right-auto! top-auto! mb-1!' => \$sidebar");
+        ->toContain('max-h-[min(70dvh,28rem)]! min-w-0! overflow-x-hidden! overflow-y-auto! scrollbar');
 });
 
 it('keeps advanced operations in a dedicated Advanced dropdown', function () {

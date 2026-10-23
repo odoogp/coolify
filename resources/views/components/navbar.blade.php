@@ -1,4 +1,4 @@
-<nav class="app-sidebar flex flex-col flex-1 bg-white border-r border-neutral-200 dark:border-white/[0.06] dark:bg-panel pt-2"
+<nav class="app-sidebar flex h-full min-h-0 flex-col flex-1 bg-white border-r border-neutral-200 dark:border-white/[0.06] dark:bg-panel pt-2"
     :class="collapsed ? 'px-2 lg:px-3 sidebar-collapsed' : 'px-2 lg:px-3'"
     @mouseover="
         if (!collapsed) return;
