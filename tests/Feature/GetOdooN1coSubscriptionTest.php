@@ -222,7 +222,58 @@ it('keeps a subscription buyer on the return page with the n1co payment link', f
         ->assertOk()
         ->assertSee(__('Continue to n1co'))
         ->assertSee('https://pay-sandbox.n1co.shop/pl/SUB1', false)
-        ->assertSee(__('Pay with n1co in the other tab. This page opens your account when the payment is confirmed.'));
+        ->assertSee(__('Pay with n1co using the button below. Keep this page open — your account opens here when the payment is confirmed.'));
+});
+
+it('does not 500 on the subscription return page when the checkout secret is invalid', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'invalid-checkout-secret',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => true,
+        'n1co_location_id' => 578,
+        'n1co_client_id' => 'client-n1co',
+        'n1co_client_secret' => 'client-secret-n1co',
+        'is_registration_enabled' => false,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake([
+        '*/api/v3/Token' => Http::response(['accessToken' => 'access-n1co', 'expiresIn' => 3600]),
+        '*/api/v3/Plans/*/Subscriptions' => Http::response([]),
+        '*/paymentlink/order/*' => Http::response(['title' => 'Unauthorized', 'detail' => 'Invalid API Key'], 401),
+    ]);
+
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Mensual',
+        'price' => 25,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'charge_mode' => 'subscription',
+    ]);
+    $signup = $plan->signups()->create([
+        'name' => 'Ana',
+        'organization' => 'Acme',
+        'email' => 'ana-no-500@example.com',
+        'password' => 'password1',
+        'amount' => 25,
+        'payment_gateway' => 'n1co',
+        'charge_mode' => 'subscription',
+        'status' => 'awaiting_payment',
+        'n1co_plan_id' => '1810',
+        'wompi_link_id' => 'SUB1',
+        'wompi_link_url' => 'https://pay-sandbox.n1co.shop/pl/SUB1',
+    ]);
+
+    $this->get(route('getodoo.plan.return', [
+        'plan' => $plan->uuid,
+        'signup' => $signup->uuid,
+    ]))
+        ->assertOk()
+        ->assertSee(__('Continue to n1co'));
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'paymentlink/order'));
 });
 
 it('shows a clear error when n1co subscription credentials are missing', function () {

@@ -63,7 +63,7 @@ class PlanReturn extends Component
         try {
             $transaction = $wompi->transaction($transactionId);
         } catch (Throwable $exception) {
-            report($exception);
+            $this->safeReport($exception);
             $this->message = __('This payment could not be confirmed.');
 
             return;
@@ -80,7 +80,7 @@ class PlanReturn extends Component
         try {
             $user = $settle->settle($found, $transactionId);
         } catch (Throwable $exception) {
-            report($exception);
+            $this->safeReport($exception);
             $this->message = __('The account could not be created.');
 
             return;
@@ -117,38 +117,64 @@ class PlanReturn extends Component
 
     private function confirmN1co(GetOdooPlanSignup $signup, N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
     {
-        if (! $n1co->canChargePlans()) {
+        try {
+            $this->confirmN1coUnsafe($signup, $n1co, $settle);
+        } catch (Throwable $exception) {
+            $this->safeReport($exception);
+            $this->message = $this->waitingForN1coMessage($signup);
+        }
+    }
+
+    private function confirmN1coUnsafe(GetOdooPlanSignup $signup, N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
+    {
+        if (! $n1co->canChargePlans() && $signup->charge_mode !== GetOdooPlan::CHARGE_SUBSCRIPTION) {
             $this->message = $this->waitingForN1coMessage($signup);
 
             return;
         }
 
-        if (filled($signup->n1co_plan_id)) {
-            $subscription = $n1co->paidSubscription($signup->n1co_plan_id, $signup->amount);
-
-            if (is_array($subscription)) {
-                $subscriptionId = trim((string) ($subscription['subscriptionId'] ?? ''));
-
-                try {
-                    $user = $settle->settle($signup, $subscriptionId !== '' ? $subscriptionId : 'n1co-'.$signup->uuid);
-                    $signup->update([
-                        'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $signup->n1co_subscription_id,
-                        'n1co_subscription_status' => 'active',
-                    ]);
-                } catch (Throwable $exception) {
-                    try {
-                        report($exception);
-                    } catch (Throwable) {
-                    }
-                    $this->message = __('The account could not be created.');
-
-                    return;
-                }
-
-                $this->enter($user);
+        // Monthly subscriptions are confirmed only via the Plans API / webhooks.
+        // Do not call the checkout payment-link API here: a bad checkout secret
+        // (or report() failing on laravel.log) was turning "still waiting" into HTTP 500.
+        if ($signup->charge_mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+            if (! filled($signup->n1co_plan_id)) {
+                $this->message = $this->waitingForN1coMessage($signup);
 
                 return;
             }
+
+            $subscription = $n1co->paidSubscription($signup->n1co_plan_id, $signup->amount);
+
+            if (! is_array($subscription)) {
+                $this->message = $this->waitingForN1coMessage($signup);
+
+                return;
+            }
+
+            $subscriptionId = trim((string) ($subscription['subscriptionId'] ?? ''));
+
+            try {
+                $user = $settle->settle($signup, $subscriptionId !== '' ? $subscriptionId : 'n1co-'.$signup->uuid);
+                $signup->update([
+                    'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $signup->n1co_subscription_id,
+                    'n1co_subscription_status' => 'active',
+                ]);
+            } catch (Throwable $exception) {
+                $this->safeReport($exception);
+                $this->message = __('The account could not be created.');
+
+                return;
+            }
+
+            $this->enter($user);
+
+            return;
+        }
+
+        if (! $n1co->canChargePlans()) {
+            $this->message = $this->waitingForN1coMessage($signup);
+
+            return;
         }
 
         $codes = $n1co->candidateOrderCodes($signup->wompi_link_id, $signup->wompi_link_url, request()->query());
@@ -168,10 +194,7 @@ class PlanReturn extends Component
         try {
             $user = $settle->settle($signup, $transactionId !== '' ? $transactionId : 'n1co-'.$code);
         } catch (Throwable $exception) {
-            try {
-                report($exception);
-            } catch (Throwable) {
-            }
+            $this->safeReport($exception);
             $this->message = __('The account could not be created.');
 
             return;
@@ -183,7 +206,7 @@ class PlanReturn extends Component
     private function waitingForN1coMessage(GetOdooPlanSignup $signup): string
     {
         if ($signup->charge_mode === GetOdooPlan::CHARGE_SUBSCRIPTION && filled($signup->wompi_link_url)) {
-            return __('Pay with n1co in the other tab. This page opens your account when the payment is confirmed.');
+            return __('Pay with n1co using the button below. Keep this page open — your account opens here when the payment is confirmed.');
         }
 
         return __('n1co has not confirmed this payment yet.');
@@ -197,5 +220,14 @@ class PlanReturn extends Component
             ?? $user->teams()->first();
         session(['currentTeam' => $team]);
         $this->redirectRoute('dashboard');
+    }
+
+    private function safeReport(Throwable $exception): void
+    {
+        try {
+            report($exception);
+        } catch (Throwable) {
+            error_log('getodoo plan return: report failed: '.$exception->getMessage());
+        }
     }
 }
