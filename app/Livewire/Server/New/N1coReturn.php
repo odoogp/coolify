@@ -83,43 +83,66 @@ class N1coReturn extends Component
 
     private function confirm(GetOdooServerOrder $order, N1coClient $n1co, SettleGetOdooServerPayment $settle): void
     {
-        if (! $n1co->canChargePlans()) {
+        try {
+            $this->confirmUnsafe($order, $n1co, $settle);
+        } catch (Throwable $exception) {
+            try {
+                report($exception);
+            } catch (Throwable) {
+            }
             $this->message = $this->waitingForN1coMessage($order);
+        }
+    }
+
+    private function confirmUnsafe(GetOdooServerOrder $order, N1coClient $n1co, SettleGetOdooServerPayment $settle): void
+    {
+        if ($order->charge_mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+            if (! filled($order->n1co_plan_id)) {
+                $this->message = $this->waitingForN1coMessage($order);
+
+                return;
+            }
+
+            $subscription = $n1co->paidSubscription($order->n1co_plan_id, $order->amount);
+
+            if (! is_array($subscription)) {
+                $this->message = $this->waitingForN1coMessage($order);
+
+                return;
+            }
+
+            $subscriptionId = trim((string) ($subscription['subscriptionId'] ?? ''));
+
+            try {
+                $server = $settle->settle($order, $subscriptionId !== '' ? $subscriptionId : 'n1co-'.$order->uuid);
+                $order->update([
+                    'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $order->n1co_subscription_id,
+                    'n1co_subscription_status' => 'active',
+                ]);
+            } catch (Throwable $exception) {
+                try {
+                    report($exception);
+                } catch (Throwable) {
+                }
+                $this->message = $order->purpose === 'renewal'
+                    ? __('The monthly charge could not be applied.')
+                    : __('The GetOdoo server could not be created.');
+
+                return;
+            }
+
+            if ($server) {
+                $order->refresh();
+                $this->redirectAfterPayment($order);
+            }
 
             return;
         }
 
-        if (filled($order->n1co_plan_id)) {
-            $subscription = $n1co->paidSubscription($order->n1co_plan_id, $order->amount);
+        if (! $n1co->canChargePlans()) {
+            $this->message = $this->waitingForN1coMessage($order);
 
-            if (is_array($subscription)) {
-                $subscriptionId = trim((string) ($subscription['subscriptionId'] ?? ''));
-
-                try {
-                    $server = $settle->settle($order, $subscriptionId !== '' ? $subscriptionId : 'n1co-'.$order->uuid);
-                    $order->update([
-                        'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $order->n1co_subscription_id,
-                        'n1co_subscription_status' => 'active',
-                    ]);
-                } catch (Throwable $exception) {
-                    try {
-                        report($exception);
-                    } catch (Throwable) {
-                    }
-                    $this->message = $order->purpose === 'renewal'
-                        ? __('The monthly charge could not be applied.')
-                        : __('The GetOdoo server could not be created.');
-
-                    return;
-                }
-
-                if ($server) {
-                    $order->refresh();
-                    $this->redirectAfterPayment($order);
-
-                    return;
-                }
-            }
+            return;
         }
 
         $codes = $n1co->candidateOrderCodes($order->wompi_link_id, $order->wompi_link_url, request()->query());
@@ -137,7 +160,10 @@ class N1coReturn extends Component
         try {
             $server = $settle->settle($order, $transactionId !== '' ? $transactionId : 'n1co-'.$code);
         } catch (Throwable $exception) {
-            report($exception);
+            try {
+                report($exception);
+            } catch (Throwable) {
+            }
             $this->message = $order->purpose === 'renewal'
                 ? __('The monthly charge could not be applied.')
                 : __('The GetOdoo server could not be created.');

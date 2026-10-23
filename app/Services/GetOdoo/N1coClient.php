@@ -173,7 +173,7 @@ class N1coClient
             try {
                 $order = $this->order($code);
             } catch (Throwable $exception) {
-                report($exception);
+                $this->safeReport($exception);
 
                 continue;
             }
@@ -451,7 +451,7 @@ class N1coClient
                 ->throw()
                 ->json();
         } catch (Throwable $exception) {
-            report($exception);
+            $this->safeReport($exception);
 
             return null;
         }
@@ -749,7 +749,7 @@ class N1coClient
         $this->writeLog('n1co: '.$reason, $payload, 'error');
 
         if ($exception instanceof Throwable) {
-            report($exception);
+            $this->safeReport($exception);
         }
     }
 
@@ -764,6 +764,16 @@ class N1coClient
         try {
             Log::log($level, $message, $context);
         } catch (Throwable) {
+        }
+    }
+
+    private function safeReport(Throwable $exception): void
+    {
+        try {
+            report($exception);
+        } catch (Throwable) {
+            // laravel.log may be unwritable; never turn a handled n1co miss into HTTP 500.
+            error_log('n1co: report failed: '.$exception->getMessage());
         }
     }
 

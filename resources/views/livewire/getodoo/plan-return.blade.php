@@ -3,23 +3,13 @@
         ? (string) $signup->wompi_link_url
         : null;
 @endphp
-<div
-    @if (($signup?->payment_gateway) === 'n1co') wire:poll.5s="refreshStatus" @endif
-    @if ($paymentUrl)
-        x-data
-        x-init="
-            const key = 'n1co-pay-{{ $signup->uuid }}';
-            if (!sessionStorage.getItem(key)) {
-                sessionStorage.setItem(key, '1');
-                window.open(@js($paymentUrl), '_blank', 'noopener');
-            }
-        "
-    @endif
->
+<div @if (($signup?->payment_gateway) === 'n1co') wire:poll.5s="refreshStatus" @endif>
     <x-auth.shell :title="product_name()" :description="$signup?->plan?->name">
-        <x-auth.alert type="warning">
-            <p>{{ $message }}</p>
-        </x-auth.alert>
+        @if (filled($message))
+            <x-auth.alert type="warning">
+                <p>{{ $message }}</p>
+            </x-auth.alert>
+        @endif
         @if ($paymentUrl)
             <a href="{{ $paymentUrl }}" target="_blank" rel="noopener noreferrer"
                 class="button button-highlighted mt-4 w-full justify-center">

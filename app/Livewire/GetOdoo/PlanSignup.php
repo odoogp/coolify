@@ -64,7 +64,14 @@ class PlanSignup extends Component
 
         $plan = $this->plan();
 
-        if (auth()->check() || User::query()->count() === 0) {
+        if (auth()->check()) {
+            $this->addError('gateway', __('You already have an account.'));
+            $this->redirectRoute('dashboard');
+
+            return null;
+        }
+
+        if (User::query()->count() === 0) {
             return null;
         }
 
