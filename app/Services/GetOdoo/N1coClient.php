@@ -87,8 +87,7 @@ class N1coClient
             'checkout_base' => $this->baseUrl(),
             'subscriptions_base' => $this->subscriptionsBaseUrl(),
         ];
-        Log::stack(['single', 'stderr'])->info('n1co: createPlanLink starting', $startContext);
-        error_log('n1co: createPlanLink starting '.json_encode($startContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->writeLog('n1co: createPlanLink starting', $startContext, 'info');
 
         try {
             if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
@@ -747,13 +746,24 @@ class N1coClient
             $payload['exception'] = $exception->getMessage();
         }
 
-        $line = 'n1co: '.$reason;
-        // single = laravel.log; stderr = visible in `docker logs -f coolify`
-        Log::stack(['single', 'stderr'])->error($line, $payload);
-        error_log($line.' '.json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $this->writeLog('n1co: '.$reason, $payload, 'error');
 
         if ($exception instanceof Throwable) {
             report($exception);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function writeLog(string $message, array $context = [], string $level = 'error'): void
+    {
+        // PHP stderr always reaches `docker logs` even when config:cache is stale.
+        error_log($message.' '.json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        try {
+            Log::log($level, $message, $context);
+        } catch (Throwable) {
         }
     }
 

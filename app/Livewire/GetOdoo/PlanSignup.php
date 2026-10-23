@@ -56,12 +56,11 @@ class PlanSignup extends Component
 
     public function register(GetOdooCheckout $checkout, OpenGetOdooPlanAccount $accounts): mixed
     {
-        Log::stack(['single', 'stderr'])->info('getodoo plan register invoked', [
+        $this->logPayment('getodoo plan register invoked', [
             'plan_id' => $this->planId,
             'email' => strtolower(trim($this->email)),
             'gateway' => $this->gateway,
         ]);
-        error_log('getodoo plan register invoked plan_id='.$this->planId.' gateway='.$this->gateway);
 
         $plan = $this->plan();
 
@@ -232,13 +231,12 @@ class PlanSignup extends Component
         }
 
         try {
-            Log::stack(['single', 'stderr'])->info('getodoo plan payment starting', [
+            $this->logPayment('getodoo plan payment starting', [
                 'provider' => $provider,
                 'plan_uuid' => $plan->uuid,
                 'signup_uuid' => $signup->uuid,
                 'charge_mode' => $signup->charge_mode,
             ]);
-            error_log('getodoo plan payment starting provider='.$provider.' signup='.$signup->uuid);
 
             $link = $checkout->linkForPlan($signup, $provider);
             $url = trim((string) ($link['url'] ?? ''));
@@ -272,8 +270,7 @@ class PlanSignup extends Component
                 'exception' => $exception->getMessage(),
                 'exception_class' => $exception::class,
             ];
-            Log::stack(['single', 'stderr'])->error('getodoo plan payment link failed', $context);
-            error_log('getodoo plan payment link failed '.json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+            $this->logPayment('getodoo plan payment link failed', $context, level: 'error');
             report($exception);
 
             $message = trim($exception->getMessage());
@@ -295,6 +292,22 @@ class PlanSignup extends Component
         $this->redirect($url);
 
         return null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logPayment(string $message, array $context = [], string $level = 'info'): void
+    {
+        // Always write to PHP stderr so `docker logs -f coolify` shows it even if
+        // Laravel's config cache predates the stderr log channel.
+        error_log($message.' '.json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        try {
+            Log::log($level, $message, $context);
+        } catch (Throwable) {
+            // Ignore logging backend failures — payment flow must continue.
+        }
     }
 
     public function render(): View
