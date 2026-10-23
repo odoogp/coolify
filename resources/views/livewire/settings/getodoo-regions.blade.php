@@ -77,11 +77,29 @@
                                         <div class="min-w-0 text-[12px] text-neutral-500 dark:text-fg-dim">
                                             {{ $region->children->pluck('name')->implode(', ') ?: __('No countries') }}
                                         </div>
-                                        <div class="flex justify-end gap-2">
-                                            <button type="button" class="button"
-                                                wire:click="editRegion({{ $region->id }})">{{ __('Edit') }}</button>
-                                            <button type="button" class="button" wire:click="deleteRegion({{ $region->id }})"
-                                                wire:confirm="{{ __('Delete this region?') }}">{{ __('Delete') }}</button>
+                                        <div class="flex shrink-0 items-center justify-end gap-0.5">
+                                            <button type="button"
+                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                wire:click="editRegion({{ $region->id }})"
+                                                aria-label="{{ __('Edit') }}">
+                                                <span class="flex size-7 shrink-0 items-center justify-center">
+                                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                        <path d="M4.75 16.75v2.5h2.5l9.2-9.2-2.5-2.5-9.2 9.2Z" stroke-width="1.5" stroke-linejoin="round" />
+                                                        <path d="m13.2 7.3 2.5 2.5" stroke-width="1.5" stroke-linecap="round" />
+                                                    </svg>
+                                                </span>
+                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Edit') }}</span>
+                                            </button>
+                                            <button type="button"
+                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                wire:click="deleteRegion({{ $region->id }})"
+                                                wire:confirm="{{ __('Delete this region?') }}"
+                                                aria-label="{{ __('Delete') }}">
+                                                <span class="flex size-7 shrink-0 items-center justify-center">
+                                                    <x-reicon name="trash" class="size-3.5" />
+                                                </span>
+                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Delete') }}</span>
+                                            </button>
                                         </div>
                                     </div>
                                 @endforeach

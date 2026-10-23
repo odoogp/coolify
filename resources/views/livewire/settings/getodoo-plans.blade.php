@@ -281,7 +281,6 @@
                                 <span>{{ __('Scope') }}</span>
                                 <span>{{ __('Members') }}</span>
                                 <span>{{ __('Signup link') }}</span>
-                                <span></span>
                             </div>
                             @foreach ($plans as $plan)
                                 <div class="data-table-row getodoo-plans-table-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
@@ -295,10 +294,10 @@
                                             {{ $plan->chargesAsSubscription() ? __('Monthly subscription') : __('One-time payment') }}
                                         </div>
                                     </div>
-                                    <div class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    <div class="min-w-0 truncate text-[12px] text-neutral-500 dark:text-fg-dim">
                                         {{ $plan->scopeLabel() }}
                                     </div>
-                                    <div>
+                                    <div class="min-w-0">
                                         <button type="button"
                                             class="text-[13px] font-medium text-coollabs underline-offset-2 hover:underline dark:text-warning"
                                             wire:click="showPlanMembers({{ $plan->id }})"
@@ -309,34 +308,73 @@
                                             {{ trans_choice(':count organization|:count organizations', (int) $plan->teams_count, ['count' => (int) $plan->teams_count]) }}
                                         </div>
                                     </div>
-                                    <div class="min-w-0">
-                                        <input class="input w-full font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
-                                    </div>
-                                    <div class="flex shrink-0 flex-nowrap items-center justify-end gap-2">
-                                        <button type="button" class="button" wire:click="editPlan({{ $plan->id }})">{{ __('Edit') }}</button>
-                                        @if ($showArchived)
-                                            <button type="button" class="button" wire:click="restorePlan({{ $plan->id }})"
-                                                wire:confirm="{{ __('Restore this plan and offer it for signup again?') }}">
-                                                {{ __('Restore') }}
+                                    <div class="getodoo-plans-link-cell min-w-0">
+                                        <input class="input min-w-0 flex-1 font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
+                                        <div class="getodoo-plans-row-actions">
+                                            <button type="button"
+                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                x-on:click.prevent="await window.copyToClipboard({{ \Illuminate\Support\Js::from($plan->publicUrl()) }})"
+                                                aria-label="{{ __('Copy') }}">
+                                                <span class="flex size-7 shrink-0 items-center justify-center">
+                                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                        <path d="M8 8.75H6.5A2.25 2.25 0 0 0 4.25 11v6.5a2.25 2.25 0 0 0 2.25 2.25H13a2.25 2.25 0 0 0 2.25-2.25V16" stroke-width="1.5" stroke-linecap="round" />
+                                                        <rect x="8.75" y="4.25" width="11" height="11" rx="2.25" stroke-width="1.5" />
+                                                    </svg>
+                                                </span>
+                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Copy') }}</span>
                                             </button>
-                                            @if ((int) $plan->teams_count === 0)
-                                                <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
-                                                    wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}">
-                                                    {{ __('Delete') }}
+                                            <button type="button"
+                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                wire:click="editPlan({{ $plan->id }})"
+                                                aria-label="{{ __('Edit') }}">
+                                                <span class="flex size-7 shrink-0 items-center justify-center">
+                                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                        <path d="M4.75 16.75v2.5h2.5l9.2-9.2-2.5-2.5-9.2 9.2Z" stroke-width="1.5" stroke-linejoin="round" />
+                                                        <path d="m13.2 7.3 2.5 2.5" stroke-width="1.5" stroke-linecap="round" />
+                                                    </svg>
+                                                </span>
+                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Edit') }}</span>
+                                            </button>
+                                            @if ($showArchived)
+                                                <button type="button"
+                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-36 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    wire:click="restorePlan({{ $plan->id }})"
+                                                    wire:confirm="{{ __('Restore this plan and offer it for signup again?') }}"
+                                                    aria-label="{{ __('Restore') }}">
+                                                    <span class="flex size-7 shrink-0 items-center justify-center">
+                                                        <x-reicon name="refresh" class="size-3.5" />
+                                                    </span>
+                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Restore') }}</span>
+                                                </button>
+                                            @else
+                                                <button type="button"
+                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-36 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    wire:click="archivePlan({{ $plan->id }})"
+                                                    wire:confirm="{{ __('Archive this plan? It will stop appearing for new signups. Existing organizations keep their access.') }}"
+                                                    aria-label="{{ __('Archive') }}">
+                                                    <span class="flex size-7 shrink-0 items-center justify-center">
+                                                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                            <path d="M4.75 7.25h14.5v2.5H4.75v-2.5Z" stroke-width="1.5" stroke-linejoin="round" />
+                                                            <path d="M6.25 9.75v7.5h11.5v-7.5" stroke-width="1.5" stroke-linejoin="round" />
+                                                            <path d="M10 13.25h4" stroke-width="1.5" stroke-linecap="round" />
+                                                        </svg>
+                                                    </span>
+                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Archive') }}</span>
                                                 </button>
                                             @endif
-                                        @else
-                                            <button type="button" class="button" wire:click="archivePlan({{ $plan->id }})"
-                                                wire:confirm="{{ __('Archive this plan? It will stop appearing for new signups. Existing organizations keep their access.') }}">
-                                                {{ __('Archive plan') }}
-                                            </button>
                                             @if ((int) $plan->teams_count === 0)
-                                                <button type="button" class="button" wire:click="deletePlan({{ $plan->id }})"
-                                                    wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}">
-                                                    {{ __('Delete') }}
+                                                <button type="button"
+                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    wire:click="deletePlan({{ $plan->id }})"
+                                                    wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}"
+                                                    aria-label="{{ __('Delete') }}">
+                                                    <span class="flex size-7 shrink-0 items-center justify-center">
+                                                        <x-reicon name="trash" class="size-3.5" />
+                                                    </span>
+                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Delete') }}</span>
                                                 </button>
                                             @endif
-                                        @endif
+                                        </div>
                                     </div>
                                 </div>
                             @endforeach
