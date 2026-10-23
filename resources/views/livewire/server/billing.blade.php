@@ -6,13 +6,21 @@
             <div class="min-w-0">
                 <h1 class="text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('Billing') }}</h1>
                 <p class="mt-1 max-w-2xl text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
-                    {{ __('Each server is one subscription. Pay each invoice, or turn on recurring for the next invoice — never a second charge on the same day you already paid.') }}
+                    {{ __('Each server is one subscription. Pay each invoice, or turn on recurring for the next invoice. Never a second charge on the same day you already paid.') }}
                 </p>
             </div>
-            <a href="{{ route('server.index') }}" {{ wireNavigate() }} class="button w-fit shrink-0 whitespace-nowrap">
-                <x-reicon name="servers" class="size-3.5" />
-                {{ __('Servers') }}
-            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                @if (isInstanceOwner())
+                    <a href="{{ route('settings.getodoo-purchases') }}" {{ wireNavigate() }} class="button w-fit shrink-0 whitespace-nowrap">
+                        <x-reicon name="calendar" class="size-3.5" />
+                        {{ __('Billing center') }}
+                    </a>
+                @endif
+                <a href="{{ route('server.index') }}" {{ wireNavigate() }} class="button w-fit shrink-0 whitespace-nowrap">
+                    <x-reicon name="servers" class="size-3.5" />
+                    {{ __('Servers') }}
+                </a>
+            </div>
         </div>
 
         @if ($planTeam)

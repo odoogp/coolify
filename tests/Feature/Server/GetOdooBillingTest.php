@@ -113,9 +113,11 @@ it('shows the billing center to the instance owner and keeps the next charge at 
 
     Livewire::test(GetOdooPurchases::class)
         ->assertSee(__('Billing'))
-        ->assertSee(__('Organizations'))
-        ->assertSee(__('Servers'))
+        ->assertSee(__('Clients'))
+        ->assertSee(__('Purchases'))
         ->assertSee(__('Invoices'))
+        ->assertSee(__('Client monthly'))
+        ->call('setTab', 'purchases')
         ->assertSee('Cliente')
         ->assertSee('cliente-uno')
         ->assertSee('5 Nov 2026')
@@ -886,6 +888,7 @@ it('lets the owner make a sold server recurring without charging today', functio
     session(['currentTeam' => $this->root]);
 
     Livewire::test(GetOdooPurchases::class)
+        ->call('setTab', 'purchases')
         ->assertSee(__('Your cost'))
         ->assertSee(__('Client pays'))
         ->call('enableServerRecurring', $server->id)
@@ -945,10 +948,38 @@ it('shows instance-host occupancy for client teams with services on server 0', f
     session(['currentTeam' => $this->root]);
 
     Livewire::test(GetOdooPurchases::class)
+        ->call('setTab', 'purchases')
         ->assertSee(__('Instance host'))
         ->assertSee('Hosted Client')
         ->assertSee('Hosted Principal')
         ->assertSee('Shared');
+});
+
+it('lists client-connected servers on the purchases tab', function () {
+    $team = Team::factory()->create(['name' => 'Bring Own Box']);
+    $principal = User::factory()->create(['name' => 'Own Box Owner']);
+    $team->members()->attach($principal->id, ['role' => 'owner']);
+    $key = PrivateKey::factory()->create(['team_id' => $team->id]);
+    Server::factory()->create([
+        'name' => 'cliente-ssh',
+        'team_id' => $team->id,
+        'private_key_id' => $key->id,
+        'getodoo_offer_id' => null,
+        'ip' => '203.0.113.10',
+    ]);
+
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooPurchases::class)
+        ->call('setTab', 'purchases')
+        ->assertSee(__('Client-connected servers'))
+        ->assertSee('cliente-ssh')
+        ->assertSee('Bring Own Box')
+        ->assertSee('Own Box Owner')
+        ->assertSee(__('Connected'));
 });
 
 it('pays a due renewal with an n1co subscription after the client opted in', function () {

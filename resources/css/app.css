@@ -4504,6 +4504,30 @@ input[type="search"]::-webkit-search-results-decoration {
     min-width: 36rem;
 }
 
+.getodoo-owner-billing-orgs-grid {
+    display: grid;
+    align-items: center;
+    grid-template-columns: minmax(8rem, 1.1fr) minmax(8rem, 1.1fr) minmax(5rem, 0.8fr) 5.5rem 6.5rem 7rem max-content;
+    column-gap: 0.75rem;
+    min-width: 58rem;
+}
+
+.getodoo-owner-billing-servers-grid {
+    display: grid;
+    align-items: center;
+    grid-template-columns: minmax(8rem, 1.1fr) 5.5rem 6.5rem minmax(8rem, 1.1fr) 5.5rem 6.5rem max-content;
+    column-gap: 0.75rem;
+    min-width: 64rem;
+}
+
+.getodoo-owner-billing-invoices-grid {
+    display: grid;
+    align-items: center;
+    grid-template-columns: 7rem minmax(7rem, 1fr) minmax(8rem, 1.2fr) 7rem 5.5rem 6.5rem;
+    column-gap: 0.75rem;
+    min-width: 48rem;
+}
+
 .getodoo-plans-table-grid {
     display: grid;
     align-items: center;

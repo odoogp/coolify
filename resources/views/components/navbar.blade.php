@@ -109,11 +109,18 @@
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Servers') }}</span>
                 </a>
             </li>
-            @if (auth()->user()?->canAddServers() || (currentTeam()?->isGetOdooPlanTeam() && auth()->user()?->isAdmin()))
+            @if (isInstanceOwner() || auth()->user()?->canAddServers() || (currentTeam()?->isGetOdooPlanTeam() && auth()->user()?->isAdmin()))
                 <li>
+                    @php
+                        $ownerBillingHref = isInstanceOwner() && (int) currentTeam()?->id === 0
+                            ? route('settings.getodoo-purchases')
+                            : route('server.billing');
+                        $billingActive = request()->routeIs('server.billing')
+                            || (isInstanceOwner() && request()->routeIs('settings.getodoo-purchases'));
+                    @endphp
                     <a title="{{ __('Billing') }}" {{ wireNavigate() }}
-                        class="{{ request()->is('servers/billing') ? 'menu-item menu-item-active' : 'menu-item' }}"
-                        :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('server.billing') }}">
+                        class="{{ $billingActive ? 'menu-item menu-item-active' : 'menu-item' }}"
+                        :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ $ownerBillingHref }}">
                         <x-reicon name="calendar" class="menu-item-icon" />
                         <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Billing') }}</span>
                     </a>

@@ -44,6 +44,9 @@ class GetOdooPurchases extends Component
 
     public bool $invoiceChargeNow = true;
 
+    /** clients | purchases | invoices */
+    public string $activeTab = 'clients';
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -52,7 +55,22 @@ class GetOdooPurchases extends Component
             return;
         }
 
+        if (! in_array($this->activeTab, ['clients', 'purchases', 'invoices'], true)) {
+            $this->activeTab = 'clients';
+        }
+
         $this->loadPrices();
+    }
+
+    public function setTab(string $tab): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        if (! in_array($tab, ['clients', 'purchases', 'invoices'], true)) {
+            return;
+        }
+
+        $this->activeTab = $tab;
     }
 
     public function savePrice(int $serverId): void
@@ -92,6 +110,7 @@ class GetOdooPurchases extends Component
         $this->invoiceServerId = $server->id;
         $this->invoiceAmount = number_format((float) $server->getodoo_monthly_price, 2, '.', '');
         $this->showInvoiceForm = true;
+        $this->activeTab = 'invoices';
     }
 
     public function openPlanInvoiceForm(int $teamId): void
@@ -109,6 +128,7 @@ class GetOdooPurchases extends Component
         $this->invoiceTeamId = $team->id;
         $this->invoiceAmount = number_format($team->getodooPlanMonthlyAmount(), 2, '.', '');
         $this->showInvoiceForm = true;
+        $this->activeTab = 'invoices';
     }
 
     public function cancelInvoiceForm(): void
@@ -282,10 +302,18 @@ class GetOdooPurchases extends Component
             $currentMonthly = $invoiceSubject instanceof Team ? $invoiceSubject->getodooPlanMonthlyAmount() : null;
         }
 
-        $subscriptions = Server::query()
+        $soldServers = Server::query()
             ->with(['team.members', 'team.getodooPlan', 'getodooOffer'])
             ->where('id', '!=', 0)
             ->whereNotNull('getodoo_offer_id')
+            ->orderBy('name')
+            ->get();
+
+        $connectedServers = Server::query()
+            ->with(['team.members', 'team.getodooPlan'])
+            ->where('id', '!=', 0)
+            ->where('team_id', '!=', 0)
+            ->whereNull('getodoo_offer_id')
             ->orderBy('name')
             ->get();
 
@@ -299,47 +327,98 @@ class GetOdooPurchases extends Component
         $instanceHost = Server::query()->find(0);
         $instanceTeams = GetOdooBillingOccupancy::teamsOnInstanceHost();
 
+        $orders = GetOdooServerOrder::query()
+            ->with(['team', 'user', 'server'])
+            ->latest('id')
+            ->limit(100)
+            ->get();
+        $planOrders = GetOdooPlanOrder::query()
+            ->with(['team', 'plan'])
+            ->latest('id')
+            ->limit(100)
+            ->get();
+
         return view('livewire.settings.getodoo-purchases', [
-            'subscriptions' => $subscriptions,
-            'serverRows' => $this->serverRows($subscriptions),
+            'soldServerRows' => $this->serverRows($soldServers, kind: 'getodoo'),
+            'connectedServerRows' => $this->serverRows($connectedServers, kind: 'connected'),
             'planTeams' => $planTeams,
             'principals' => $this->principalsByTeam($planTeams),
             'instanceHost' => $instanceHost,
             'instanceTeams' => $instanceTeams,
             'instancePrincipals' => $this->principalsByTeam($instanceTeams),
-            'orders' => GetOdooServerOrder::query()
-                ->with(['team', 'user', 'server'])
-                ->latest('id')
-                ->limit(100)
-                ->get(),
-            'planOrders' => GetOdooPlanOrder::query()
-                ->with(['team', 'plan'])
-                ->latest('id')
-                ->limit(100)
-                ->get(),
+            'orders' => $orders,
+            'planOrders' => $planOrders,
+            'metrics' => $this->metrics($planTeams, $soldServers, $connectedServers, $instanceTeams, $orders, $planOrders),
             'invoiceSubject' => $invoiceSubject,
             'currentMonthly' => $currentMonthly,
         ]);
     }
 
     /**
-     * @param  Collection<int, Server>  $subscriptions
-     * @return Collection<int, array{server: Server, costUsd: ?float, members: Collection<int, User>, principal: ?User}>
+     * @param  Collection<int, Server>  $servers
+     * @return Collection<int, array{server: Server, costUsd: ?float, members: Collection<int, User>, principal: ?User, kind: string}>
      */
-    private function serverRows(Collection $subscriptions): Collection
+    private function serverRows(Collection $servers, string $kind): Collection
     {
-        return $subscriptions->map(function (Server $server) {
+        return $servers->map(function (Server $server) use ($kind) {
             $team = $server->team;
             $members = $team?->members ?? collect();
             $principal = $team instanceof Team ? GetOdooBillingOccupancy::principalFor($team) : null;
 
             return [
                 'server' => $server,
-                'costUsd' => GetOdooBillingOccupancy::ownerCostUsd($server),
+                'costUsd' => $kind === 'getodoo' ? GetOdooBillingOccupancy::ownerCostUsd($server) : null,
                 'members' => $members,
                 'principal' => $principal,
+                'kind' => $kind,
             ];
         });
+    }
+
+    /**
+     * @param  Collection<int, Team>  $planTeams
+     * @param  Collection<int, Server>  $soldServers
+     * @param  Collection<int, Server>  $connectedServers
+     * @param  Collection<int, Team>  $instanceTeams
+     * @param  Collection<int, GetOdooServerOrder>  $orders
+     * @param  Collection<int, GetOdooPlanOrder>  $planOrders
+     * @return array{
+     *     organizations: int,
+     *     recurring_orgs: int,
+     *     monthly_client_usd: float,
+     *     sold_servers: int,
+     *     connected_servers: int,
+     *     instance_clients: int,
+     *     owner_cost_usd: float,
+     *     pending_invoices: int
+     * }
+     */
+    private function metrics(
+        Collection $planTeams,
+        Collection $soldServers,
+        Collection $connectedServers,
+        Collection $instanceTeams,
+        Collection $orders,
+        Collection $planOrders,
+    ): array {
+        $monthlyClient = $planTeams->sum(fn (Team $team) => $team->getodooPlanMonthlyAmount())
+            + $soldServers->sum(fn (Server $server) => (float) $server->getodoo_monthly_price);
+
+        $ownerCost = $soldServers->sum(fn (Server $server) => (float) (GetOdooBillingOccupancy::ownerCostUsd($server) ?? 0));
+
+        $pending = $orders->where('status', 'awaiting_payment')->count()
+            + $planOrders->where('status', 'awaiting_payment')->count();
+
+        return [
+            'organizations' => $planTeams->count(),
+            'recurring_orgs' => $planTeams->filter(fn (Team $team) => $team->prefersPlanRecurringBilling())->count(),
+            'monthly_client_usd' => round((float) $monthlyClient, 2),
+            'sold_servers' => $soldServers->count(),
+            'connected_servers' => $connectedServers->count(),
+            'instance_clients' => $instanceTeams->count(),
+            'owner_cost_usd' => round((float) $ownerCost, 2),
+            'pending_invoices' => $pending,
+        ];
     }
 
     /**
