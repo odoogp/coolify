@@ -188,7 +188,6 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain("'scope members'")
         ->toContain("'link link'")
         ->toContain('.data-table-header.getodoo-plans-table-grid')
-        ->toMatch('/\.getodoo-plans-row-actions\s*\{[^}]*width:\s*12\.5rem;/s')
         ->toMatch('/\.getodoo-plans-link-cell\s*>\s*\.input\s*\{[^}]*flex:\s*1\s+1\s+0%;/s');
 
     expect($plans)
@@ -196,13 +195,17 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain('showPlanMembers')
         ->toContain('showArchivedPlans')
         ->toContain('archivePlan')
+        ->toContain('deletePlan')
         ->toContain('getodoo-plans-link-cell')
         ->toContain('group/tool')
-        ->toContain('hover:max-w-32')
+        ->toContain('hover:bg-neutral-100')
         ->toContain("{{ __('Copy') }}")
         ->toContain("{{ __('Archive plan') }}")
+        ->toContain("{{ __('Delete') }}")
         ->toContain("{{ __('Archived') }}")
         ->toContain(':show-loading-indicator="false"')
+        ->not->toContain('teams_count === 0')
+        ->not->toContain('hover:max-w-32')
         ->not->toContain('class="button" wire:click="editPlan')
         ->not->toContain('top-full z-20');
 });

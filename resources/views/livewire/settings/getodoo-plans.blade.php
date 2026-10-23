@@ -312,7 +312,7 @@
                                         <input class="input min-w-0 flex-1 font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
                                         <div class="getodoo-plans-row-actions">
                                             <button type="button"
-                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                class="group/tool flex h-7 items-center rounded-md text-neutral-400 transition-colors duration-200 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                 x-on:click.prevent="await window.copyToClipboard({{ \Illuminate\Support\Js::from($plan->publicUrl()) }})"
                                                 aria-label="{{ __('Copy') }}">
                                                 <span class="flex size-7 shrink-0 items-center justify-center">
@@ -321,10 +321,10 @@
                                                         <rect x="8.75" y="4.25" width="11" height="11" rx="2.25" stroke-width="1.5" />
                                                     </svg>
                                                 </span>
-                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Copy') }}</span>
+                                                <span class="pr-2 text-[11px] font-medium whitespace-nowrap">{{ __('Copy') }}</span>
                                             </button>
                                             <button type="button"
-                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                class="group/tool flex h-7 items-center rounded-md text-neutral-400 transition-colors duration-200 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                 wire:click="editPlan({{ $plan->id }})"
                                                 aria-label="{{ __('Edit') }}">
                                                 <span class="flex size-7 shrink-0 items-center justify-center">
@@ -333,22 +333,22 @@
                                                         <path d="m13.2 7.3 2.5 2.5" stroke-width="1.5" stroke-linecap="round" />
                                                     </svg>
                                                 </span>
-                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Edit') }}</span>
+                                                <span class="pr-2 text-[11px] font-medium whitespace-nowrap">{{ __('Edit') }}</span>
                                             </button>
                                             @if ($showArchived)
                                                 <button type="button"
-                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-36 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    class="group/tool flex h-7 items-center rounded-md text-neutral-400 transition-colors duration-200 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                     wire:click="restorePlan({{ $plan->id }})"
                                                     wire:confirm="{{ __('Restore this plan and offer it for signup again?') }}"
                                                     aria-label="{{ __('Restore') }}">
                                                     <span class="flex size-7 shrink-0 items-center justify-center">
                                                         <x-reicon name="refresh" class="size-3.5" />
                                                     </span>
-                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Restore') }}</span>
+                                                    <span class="pr-2 text-[11px] font-medium whitespace-nowrap">{{ __('Restore') }}</span>
                                                 </button>
                                             @else
                                                 <button type="button"
-                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-36 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    class="group/tool flex h-7 items-center rounded-md text-neutral-400 transition-colors duration-200 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                     wire:click="archivePlan({{ $plan->id }})"
                                                     wire:confirm="{{ __('Archive this plan? It will stop appearing for new signups. Existing organizations keep their access.') }}"
                                                     aria-label="{{ __('Archive plan') }}">
@@ -359,21 +359,19 @@
                                                             <path d="M10 13.25h4" stroke-width="1.5" stroke-linecap="round" />
                                                         </svg>
                                                     </span>
-                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Archive plan') }}</span>
+                                                    <span class="pr-2 text-[11px] font-medium whitespace-nowrap">{{ __('Archive plan') }}</span>
                                                 </button>
                                             @endif
-                                            @if ((int) $plan->teams_count === 0)
-                                                <button type="button"
-                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                                    wire:click="deletePlan({{ $plan->id }})"
-                                                    wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}"
-                                                    aria-label="{{ __('Delete') }}">
-                                                    <span class="flex size-7 shrink-0 items-center justify-center">
-                                                        <x-reicon name="trash" class="size-3.5" />
-                                                    </span>
-                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Delete') }}</span>
-                                                </button>
-                                            @endif
+                                            <button type="button"
+                                                class="group/tool flex h-7 items-center rounded-md text-neutral-400 transition-colors duration-200 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                wire:click="deletePlan({{ $plan->id }})"
+                                                wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}"
+                                                aria-label="{{ __('Delete') }}">
+                                                <span class="flex size-7 shrink-0 items-center justify-center">
+                                                    <x-reicon name="trash" class="size-3.5" />
+                                                </span>
+                                                <span class="pr-2 text-[11px] font-medium whitespace-nowrap">{{ __('Delete') }}</span>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
