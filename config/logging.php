@@ -53,7 +53,8 @@ return [
     'channels' => [
         'stack' => [
             'driver' => 'stack',
-            'channels' => ['single'],
+            // stderr makes Laravel/PHP errors visible in `docker logs -f coolify`
+            'channels' => ['single', 'stderr'],
             'ignore_exceptions' => false,
         ],
 

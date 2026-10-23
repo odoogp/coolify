@@ -223,19 +223,41 @@ class PlanSignup extends Component
 
         try {
             $link = $checkout->linkForPlan($signup, $provider);
+            $url = trim((string) ($link['url'] ?? ''));
+            if ($url === '') {
+                throw new \RuntimeException(
+                    $provider === 'n1co'
+                        ? __('n1co did not return a payment link.')
+                        : __('Wompi did not return a payment link.')
+                );
+            }
+
+            $signup->update([
+                'payment_gateway' => $provider,
+                'wompi_link_id' => $link['id'] ?? null,
+                'wompi_link_url' => $url,
+                'n1co_plan_id' => $link['plan_id'] ?? null,
+                'charge_mode' => $link['charge_mode'] ?? $signup->charge_mode,
+            ]);
+
+            return $this->redirectToPayment($url);
         } catch (Throwable $exception) {
-            Log::error('getodoo plan payment link failed', [
+            $context = [
                 'provider' => $provider,
                 'plan_id' => $plan->id,
                 'plan_uuid' => $plan->uuid,
                 'signup_id' => $signup->id,
                 'signup_uuid' => $signup->uuid,
                 'email' => $signup->email,
-                'amount' => $signup->amount,
+                'amount' => (string) $signup->amount,
                 'charge_mode' => $signup->charge_mode,
                 'exception' => $exception->getMessage(),
-            ]);
+                'exception_class' => $exception::class,
+            ];
+            Log::stack(['single', 'stderr'])->error('getodoo plan payment link failed', $context);
+            error_log('getodoo plan payment link failed '.json_encode($context, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
             report($exception);
+
             $message = trim($exception->getMessage());
             if ($message === '' || ! str_contains(strtolower($message), $provider === 'n1co' ? 'n1co' : 'wompi')) {
                 $message = $provider === 'n1co'
@@ -247,34 +269,6 @@ class PlanSignup extends Component
 
             return null;
         }
-
-        $url = trim((string) ($link['url'] ?? ''));
-        if ($url === '') {
-            $message = $provider === 'n1co'
-                ? __('n1co did not return a payment link.')
-                : __('Wompi did not return a payment link.');
-            Log::error('getodoo plan payment link empty', [
-                'provider' => $provider,
-                'plan_id' => $plan->id,
-                'signup_id' => $signup->id,
-                'signup_uuid' => $signup->uuid,
-                'link' => $link,
-            ]);
-            $this->addError('gateway', $message);
-            $this->dispatch('error', $message);
-
-            return null;
-        }
-
-        $signup->update([
-            'payment_gateway' => $provider,
-            'wompi_link_id' => $link['id'],
-            'wompi_link_url' => $url,
-            'n1co_plan_id' => $link['plan_id'] ?? null,
-            'charge_mode' => $link['charge_mode'] ?? $signup->charge_mode,
-        ]);
-
-        return $this->redirectToPayment($url);
     }
 
     private function redirectToPayment(string $url): mixed

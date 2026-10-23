@@ -707,23 +707,28 @@ class N1coClient
         ], $context);
 
         if ($exception instanceof RequestException) {
-            $payload['http_status'] = $exception->response?->status();
-            $uri = $exception->response?->effectiveUri();
-            $payload['http_url'] = $uri !== null ? (string) $uri : null;
-            $payload['response'] = $this->safeBody(
-                $exception->response?->json() ?? $exception->response?->body()
-            );
+            try {
+                $payload['http_status'] = $exception->response?->status();
+                $payload['response'] = $this->safeBody(
+                    $exception->response?->json() ?? $exception->response?->body()
+                );
+            } catch (Throwable) {
+                $payload['response'] = '[unreadable]';
+            }
         }
 
         if ($exception instanceof Throwable) {
             $payload['exception'] = $exception->getMessage();
-            Log::error('n1co: '.$reason, $payload);
-            report($exception);
-
-            return;
         }
 
-        Log::error('n1co: '.$reason, $payload);
+        $line = 'n1co: '.$reason;
+        // single = laravel.log; stderr = visible in `docker logs -f coolify`
+        Log::stack(['single', 'stderr'])->error($line, $payload);
+        error_log($line.' '.json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        if ($exception instanceof Throwable) {
+            report($exception);
+        }
     }
 
     private function safeBody(mixed $body): mixed
