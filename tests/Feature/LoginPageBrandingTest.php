@@ -131,6 +131,22 @@ test('team invitation page uses the shared auth shell', function () {
         ->not->toContain('!text-5xl font-extrabold');
 });
 
+test('auth field icons survive browser autofill and submit loading stays hidden until click', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+    $button = file_get_contents(resource_path('views/components/forms/button.blade.php'));
+
+    expect($styles)
+        ->toContain("input[type='email']:-webkit-autofill")
+        ->toContain("input[type='text']:-webkit-autofill")
+        ->toContain('background-image: url("data:image/svg+xml')
+        ->toContain('box-shadow: inset 0 0 0 1000px');
+
+    expect($button)
+        ->toContain('wire:loading.class.remove="hidden"')
+        ->toContain('class="hidden"')
+        ->not->toContain('wire:loading />');
+});
+
 test('plan signup keeps the crystal above the form and plans stay in one settings card', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
     $plans = file_get_contents(resource_path('views/livewire/settings/getodoo-plans.blade.php'));
@@ -146,9 +162,11 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->not->toContain('getodoo-plan-row');
 
     expect($styles)
-        ->toContain('max-content')
+        ->toContain('.getodoo-plans-link-cell')
+        ->toContain('.getodoo-plans-row-actions')
         ->toContain("'name price'")
         ->toContain("'scope members'")
+        ->toContain("'link link'")
         ->toContain('.data-table-header.getodoo-plans-table-grid');
 
     expect($plans)
@@ -156,5 +174,10 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain('showPlanMembers')
         ->toContain('showArchivedPlans')
         ->toContain('archivePlan')
-        ->toContain("{{ __('Archived') }}");
+        ->toContain('getodoo-plans-link-cell')
+        ->toContain('group/tool')
+        ->toContain("{{ __('Copy') }}")
+        ->toContain("{{ __('Archive') }}")
+        ->toContain("{{ __('Archived') }}")
+        ->not->toContain('class="button" wire:click="editPlan');
 });
