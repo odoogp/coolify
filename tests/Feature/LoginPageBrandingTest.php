@@ -143,8 +143,14 @@ test('auth field icons survive browser autofill and submit loading stays hidden 
 
     expect($button)
         ->toContain('wire:loading.class.remove="hidden"')
-        ->toContain('class="hidden"')
-        ->not->toContain('wire:loading />');
+        ->toContain('wire:loading.class="inline-flex"')
+        ->toContain('class="hidden"');
+
+    $loading = file_get_contents(resource_path('views/components/loading-on-button.blade.php'));
+
+    expect($loading)
+        ->toContain("\$attributes->class(['shrink-0', 'items-center', 'gap-1.5'])")
+        ->not->toContain("merge(['class' => 'inline-flex");
 });
 
 test('plan signup keeps the crystal above the form and plans stay in one settings card', function () {
@@ -177,7 +183,10 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
         ->toContain('getodoo-plans-link-cell')
         ->toContain('group/tool')
         ->toContain("{{ __('Copy') }}")
-        ->toContain("{{ __('Archive') }}")
+        ->toContain("{{ __('Archive plan') }}")
         ->toContain("{{ __('Archived') }}")
+        ->toContain(':show-loading-indicator="false"')
+        ->toContain('size-7 shrink-0')
+        ->not->toContain('hover:max-w-32')
         ->not->toContain('class="button" wire:click="editPlan');
 });

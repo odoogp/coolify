@@ -75,7 +75,7 @@
 
     @if (filled($loadingTarget))
         <x-loading-on-button class="hidden" wire:target="{{ $loadingTarget }}"
-            wire:loading.class.remove="hidden" />
+            wire:loading.class.remove="hidden" wire:loading.class="inline-flex" />
     @endif
     {{ $slot }}
 </button>

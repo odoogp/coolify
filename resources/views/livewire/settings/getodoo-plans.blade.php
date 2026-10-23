@@ -15,17 +15,17 @@
                 @unless ($showPlanEditor || $membersPlan)
                     <div class="flex flex-wrap items-center gap-2">
                         @if ($showArchived)
-                            <x-forms.button type="button" wire:click="showActivePlans">
+                            <x-forms.button type="button" :show-loading-indicator="false" wire:click="showActivePlans">
                                 {{ __('Back to plans') }}
                             </x-forms.button>
                         @else
-                            <x-forms.button type="button" wire:click="showArchivedPlans">
+                            <x-forms.button type="button" :show-loading-indicator="false" wire:click="showArchivedPlans">
                                 {{ __('Archived') }}
                                 @if ($archivedCount > 0)
                                     <span class="ml-1 text-[11px] opacity-70">({{ $archivedCount }})</span>
                                 @endif
                             </x-forms.button>
-                            <x-forms.button type="button" wire:click="newPlan" isHighlighted>
+                            <x-forms.button type="button" :show-loading-indicator="false" wire:click="newPlan" isHighlighted>
                                 {{ __('New') }}
                             </x-forms.button>
                         @endif
@@ -312,66 +312,56 @@
                                         <input class="input min-w-0 flex-1 font-mono text-[12px]" readonly value="{{ $plan->publicUrl() }}">
                                         <div class="getodoo-plans-row-actions">
                                             <button type="button"
-                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                class="group/tool relative flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                 x-on:click.prevent="await window.copyToClipboard({{ \Illuminate\Support\Js::from($plan->publicUrl()) }})"
                                                 aria-label="{{ __('Copy') }}">
-                                                <span class="flex size-7 shrink-0 items-center justify-center">
-                                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                                        <path d="M8 8.75H6.5A2.25 2.25 0 0 0 4.25 11v6.5a2.25 2.25 0 0 0 2.25 2.25H13a2.25 2.25 0 0 0 2.25-2.25V16" stroke-width="1.5" stroke-linecap="round" />
-                                                        <rect x="8.75" y="4.25" width="11" height="11" rx="2.25" stroke-width="1.5" />
-                                                    </svg>
-                                                </span>
-                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Copy') }}</span>
+                                                <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                    <path d="M8 8.75H6.5A2.25 2.25 0 0 0 4.25 11v6.5a2.25 2.25 0 0 0 2.25 2.25H13a2.25 2.25 0 0 0 2.25-2.25V16" stroke-width="1.5" stroke-linecap="round" />
+                                                    <rect x="8.75" y="4.25" width="11" height="11" rx="2.25" stroke-width="1.5" />
+                                                </svg>
+                                                <span class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tool:opacity-100 dark:bg-white dark:text-neutral-900">{{ __('Copy') }}</span>
                                             </button>
                                             <button type="button"
-                                                class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                class="group/tool relative flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                 wire:click="editPlan({{ $plan->id }})"
                                                 aria-label="{{ __('Edit') }}">
-                                                <span class="flex size-7 shrink-0 items-center justify-center">
-                                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                                        <path d="M4.75 16.75v2.5h2.5l9.2-9.2-2.5-2.5-9.2 9.2Z" stroke-width="1.5" stroke-linejoin="round" />
-                                                        <path d="m13.2 7.3 2.5 2.5" stroke-width="1.5" stroke-linecap="round" />
-                                                    </svg>
-                                                </span>
-                                                <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Edit') }}</span>
+                                                <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                    <path d="M4.75 16.75v2.5h2.5l9.2-9.2-2.5-2.5-9.2 9.2Z" stroke-width="1.5" stroke-linejoin="round" />
+                                                    <path d="m13.2 7.3 2.5 2.5" stroke-width="1.5" stroke-linecap="round" />
+                                                </svg>
+                                                <span class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tool:opacity-100 dark:bg-white dark:text-neutral-900">{{ __('Edit') }}</span>
                                             </button>
                                             @if ($showArchived)
                                                 <button type="button"
-                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-36 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    class="group/tool relative flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                     wire:click="restorePlan({{ $plan->id }})"
                                                     wire:confirm="{{ __('Restore this plan and offer it for signup again?') }}"
                                                     aria-label="{{ __('Restore') }}">
-                                                    <span class="flex size-7 shrink-0 items-center justify-center">
-                                                        <x-reicon name="refresh" class="size-3.5" />
-                                                    </span>
-                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Restore') }}</span>
+                                                    <x-reicon name="refresh" class="size-3.5" />
+                                                    <span class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tool:opacity-100 dark:bg-white dark:text-neutral-900">{{ __('Restore') }}</span>
                                                 </button>
                                             @else
                                                 <button type="button"
-                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-36 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    class="group/tool relative flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                     wire:click="archivePlan({{ $plan->id }})"
                                                     wire:confirm="{{ __('Archive this plan? It will stop appearing for new signups. Existing organizations keep their access.') }}"
-                                                    aria-label="{{ __('Archive') }}">
-                                                    <span class="flex size-7 shrink-0 items-center justify-center">
-                                                        <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
-                                                            <path d="M4.75 7.25h14.5v2.5H4.75v-2.5Z" stroke-width="1.5" stroke-linejoin="round" />
-                                                            <path d="M6.25 9.75v7.5h11.5v-7.5" stroke-width="1.5" stroke-linejoin="round" />
-                                                            <path d="M10 13.25h4" stroke-width="1.5" stroke-linecap="round" />
-                                                        </svg>
-                                                    </span>
-                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Archive') }}</span>
+                                                    aria-label="{{ __('Archive plan') }}">
+                                                    <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
+                                                        <path d="M4.75 7.25h14.5v2.5H4.75v-2.5Z" stroke-width="1.5" stroke-linejoin="round" />
+                                                        <path d="M6.25 9.75v7.5h11.5v-7.5" stroke-width="1.5" stroke-linejoin="round" />
+                                                        <path d="M10 13.25h4" stroke-width="1.5" stroke-linecap="round" />
+                                                    </svg>
+                                                    <span class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tool:opacity-100 dark:bg-white dark:text-neutral-900">{{ __('Archive plan') }}</span>
                                                 </button>
                                             @endif
                                             @if ((int) $plan->teams_count === 0)
                                                 <button type="button"
-                                                    class="group/tool flex h-7 max-w-7 items-center overflow-hidden rounded-md text-neutral-400 transition-all duration-200 hover:max-w-32 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                                    class="group/tool relative flex size-7 shrink-0 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                                                     wire:click="deletePlan({{ $plan->id }})"
                                                     wire:confirm="{{ __('Delete this plan? Pending signup rows for this plan are removed too.') }}"
                                                     aria-label="{{ __('Delete') }}">
-                                                    <span class="flex size-7 shrink-0 items-center justify-center">
-                                                        <x-reicon name="trash" class="size-3.5" />
-                                                    </span>
-                                                    <span class="overflow-hidden pr-2 text-[11px] font-medium whitespace-nowrap opacity-0 transition-opacity duration-200 group-hover/tool:opacity-100">{{ __('Delete') }}</span>
+                                                    <x-reicon name="trash" class="size-3.5" />
+                                                    <span class="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-neutral-900 px-1.5 py-0.5 text-[11px] font-medium text-white opacity-0 transition-opacity group-hover/tool:opacity-100 dark:bg-white dark:text-neutral-900">{{ __('Delete') }}</span>
                                                 </button>
                                             @endif
                                         </div>
