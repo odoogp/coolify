@@ -4,6 +4,7 @@ namespace App\Services\GetOdoo;
 
 use App\Models\GetOdooServerOrder;
 use App\Models\Server;
+use App\Support\GetOdooServerBilling;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -56,6 +57,7 @@ class SettleGetOdooServerPayment
             if ($order->purpose === 'renewal') {
                 $server = $this->renew($order);
                 $order->update(['status' => 'paid']);
+                GetOdooServerBilling::syncSubscriptionFromOrder($server, $order->fresh());
 
                 return $server;
             }
@@ -76,10 +78,12 @@ class SettleGetOdooServerPayment
                 (float) $order->amount,
             );
             $this->extendPaidUntil($server);
+            GetOdooServerBilling::stampPreference($server, forceInitial: true);
             $order->update([
                 'server_id' => $server->id,
                 'status' => 'provisioned',
             ]);
+            GetOdooServerBilling::syncSubscriptionFromOrder($server, $order->fresh());
 
             return $server;
         } catch (Throwable $exception) {
@@ -99,6 +103,8 @@ class SettleGetOdooServerPayment
 
         if ($server instanceof Server) {
             $this->extendPaidUntil($server);
+            GetOdooServerBilling::stampPreference($server);
+            GetOdooServerBilling::syncSubscriptionFromOrder($server, $order);
         }
     }
 
@@ -111,6 +117,9 @@ class SettleGetOdooServerPayment
         }
 
         $this->extendPaidUntil($server);
+        // Never reset a client recurring choice on renewal.
+        GetOdooServerBilling::stampPreference($server);
+        GetOdooServerBilling::syncSubscriptionFromOrder($server, $order);
 
         return $server;
     }

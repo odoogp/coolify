@@ -5,12 +5,17 @@ namespace App\Livewire\Server;
 use App\Actions\Server\DeleteServer;
 use App\Jobs\DeleteResourceJob;
 use App\Models\GetOdooPlan;
+use App\Models\GetOdooPlanOrder;
 use App\Models\GetOdooServerOffer;
 use App\Models\GetOdooServerOrder;
 use App\Models\Server;
+use App\Models\Team;
 use App\Services\GetOdoo\GetOdooCheckout;
 use App\Services\GetOdoo\GetOdooServerCatalog;
+use App\Services\GetOdoo\N1coClient;
 use App\Services\HetznerService;
+use App\Support\GetOdooPlanBilling;
+use App\Support\GetOdooServerBilling;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -21,8 +26,8 @@ class Billing extends Component
 {
     public function mount(): void
     {
-        if (! auth()->user()?->canAddServers()) {
-            $this->redirectRoute('server.index');
+        if (! $this->canAccessBilling()) {
+            $this->redirectRoute('dashboard');
         }
     }
 
@@ -49,6 +54,11 @@ class Billing extends Component
             return $this->dispatch('error', __('This server has no monthly price.'));
         }
 
+        $expectedChargeMode = GetOdooServerBilling::chargeModeForOrder(
+            new GetOdooServerOrder(['purpose' => 'renewal']),
+            $server,
+        );
+
         $pending = GetOdooServerOrder::query()
             ->where('server_id', $server->id)
             ->where('team_id', $team->id)
@@ -58,8 +68,17 @@ class Billing extends Component
             ->latest('id')
             ->first();
 
-        if ($pending instanceof GetOdooServerOrder && ($pending->payment_gateway ?: 'wompi') === $checkout->provider() && $checkout->sameMoney($pending->amount, $amount)) {
+        if (
+            $pending instanceof GetOdooServerOrder
+            && ($pending->payment_gateway ?: 'wompi') === $checkout->provider()
+            && $checkout->sameMoney($pending->amount, $amount)
+            && ($pending->charge_mode ?: 'once') === $expectedChargeMode
+        ) {
             return $this->redirectToServerPayment($pending, (string) $pending->wompi_link_url, (string) ($pending->charge_mode ?: 'once'));
+        }
+
+        if ($pending instanceof GetOdooServerOrder) {
+            GetOdooServerBilling::invalidatePendingRenewals($server);
         }
 
         $offer = GetOdooServerOffer::query()->find($server->getodoo_offer_id);
@@ -86,6 +105,7 @@ class Billing extends Component
             'status' => 'awaiting_payment',
             'purpose' => 'renewal',
             'payment_gateway' => $checkout->provider(),
+            'charge_mode' => $expectedChargeMode,
         ]);
 
         try {
@@ -101,7 +121,7 @@ class Billing extends Component
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
             'n1co_plan_id' => $link['plan_id'] ?? null,
-            'charge_mode' => $link['charge_mode'] ?? 'once',
+            'charge_mode' => $link['charge_mode'] ?? GetOdooServerBilling::chargeModeForOrder($order, $server),
         ]);
 
         return $this->redirectToServerPayment($order->fresh(), $link['url'], $link['charge_mode'] ?? 'once');
@@ -140,15 +160,18 @@ class Billing extends Component
             return $this->dispatch('error', __('The payment could not be started.'));
         }
 
+        $chargeMode = $link['charge_mode']
+            ?? GetOdooServerBilling::chargeModeForOrder($order, $order->server);
+
         $order->update([
             'status' => 'awaiting_payment',
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
             'n1co_plan_id' => $link['plan_id'] ?? null,
-            'charge_mode' => $link['charge_mode'] ?? 'once',
+            'charge_mode' => $chargeMode,
         ]);
 
-        return $this->redirectToServerPayment($order->fresh(), $link['url'], $link['charge_mode'] ?? 'once');
+        return $this->redirectToServerPayment($order->fresh(), $link['url'], $chargeMode);
     }
 
     public function cancelOrder(int $orderId): void
@@ -195,6 +218,10 @@ class Billing extends Component
             ->findOrFail($serverId);
 
         try {
+            $subscriptionId = (string) ($server->n1co_subscription_id ?: '');
+            if ($subscriptionId !== '') {
+                app(N1coClient::class)->cancelSubscription($subscriptionId);
+            }
             $this->removePlan($server);
         } catch (Throwable $exception) {
             report($exception);
@@ -206,9 +233,235 @@ class Billing extends Component
         $this->dispatch('success', __('The plan was cancelled and the server was deleted.'));
     }
 
+    /**
+     * Opt into recurring billing. If the period is still paid, only stores the preference
+     * (no charge today). If overdue, opens the n1co subscription checkout immediately.
+     */
+    public function enableRecurring(int $serverId, GetOdooCheckout $checkout): mixed
+    {
+        abort_unless(auth()->user()?->canAddServers(), 403);
+
+        $team = currentTeam();
+        abort_unless($team, 403);
+
+        $server = Server::query()
+            ->where('team_id', $team->id)
+            ->where('id', '!=', 0)
+            ->whereNotNull('getodoo_offer_id')
+            ->findOrFail($serverId);
+
+        $paidUntil = $server->getodoo_paid_until?->copy()->startOfDay();
+        $stillCovered = $paidUntil !== null && $paidUntil->copy()->endOfDay()->isFuture();
+
+        if ($stillCovered) {
+            $startsAt = $paidUntil;
+            $server->update([
+                'getodoo_billing_preference' => 'recurring',
+                'getodoo_recurring_starts_at' => $startsAt->toDateString(),
+            ]);
+            GetOdooServerBilling::invalidatePendingRenewals($server, GetOdooPlan::CHARGE_SUBSCRIPTION);
+
+            $this->dispatch('success', __('Recurring billing will start on the next invoice (:date). No charge was made today.', [
+                'date' => $startsAt->isoFormat('D MMM YYYY'),
+            ]));
+
+            return null;
+        }
+
+        // Overdue (or never billed): enroll now via n1co subscription when available.
+        $startsAt = now()->startOfDay();
+        $server->update([
+            'getodoo_billing_preference' => 'recurring',
+            'getodoo_recurring_starts_at' => $startsAt->toDateString(),
+        ]);
+        GetOdooServerBilling::invalidatePendingRenewals($server);
+
+        if ($checkout->provider() === 'n1co') {
+            return $this->pay($server->id, $checkout);
+        }
+
+        $this->dispatch('success', __('Recurring billing is on. Pay the overdue invoice to finish enrollment.'));
+
+        return null;
+    }
+
+    public function disableRecurring(int $serverId, N1coClient $n1co): void
+    {
+        abort_unless(auth()->user()?->canAddServers(), 403);
+
+        $team = currentTeam();
+        abort_unless($team, 403);
+
+        $server = Server::query()
+            ->where('team_id', $team->id)
+            ->where('id', '!=', 0)
+            ->whereNotNull('getodoo_offer_id')
+            ->findOrFail($serverId);
+
+        $subscriptionId = (string) ($server->n1co_subscription_id ?: '');
+
+        if ($subscriptionId !== '') {
+            $n1co->cancelSubscription($subscriptionId);
+        }
+
+        GetOdooServerOrder::query()
+            ->where('server_id', $server->id)
+            ->whereNotNull('n1co_subscription_id')
+            ->where('n1co_subscription_status', 'active')
+            ->update(['n1co_subscription_status' => 'cancelled']);
+
+        $server->update([
+            'getodoo_billing_preference' => 'once',
+            'getodoo_recurring_starts_at' => null,
+            'n1co_subscription_status' => $subscriptionId !== '' ? 'cancelled' : null,
+        ]);
+        GetOdooServerBilling::invalidatePendingRenewals($server, GetOdooPlan::CHARGE_ONCE);
+
+        $this->dispatch('success', __('Recurring billing was turned off. Future invoices can be paid one by one.'));
+    }
+
+    public function payPlan(GetOdooCheckout $checkout): mixed
+    {
+        abort_unless($this->canAccessBilling(), 403);
+
+        $team = currentTeam();
+        abort_unless($team instanceof Team && $team->isGetOdooPlanTeam(), 403);
+
+        $plan = $team->getodooPlan;
+        abort_unless($plan instanceof GetOdooPlan, 403);
+
+        if ($checkout->provider() === null) {
+            return $this->dispatch('error', __('Wompi is not ready for charges.'));
+        }
+
+        $amount = $team->getodooPlanMonthlyAmount();
+        if ($amount <= 0) {
+            return $this->dispatch('error', __('This plan has no monthly price.'));
+        }
+
+        $expectedChargeMode = GetOdooPlanBilling::chargeModeForRenewal($team, $plan);
+        $pending = GetOdooPlanOrder::query()
+            ->where('team_id', $team->id)
+            ->where('purpose', 'renewal')
+            ->where('status', 'awaiting_payment')
+            ->whereNotNull('wompi_link_url')
+            ->latest('id')
+            ->first();
+
+        if (
+            $pending instanceof GetOdooPlanOrder
+            && ($pending->payment_gateway ?: 'wompi') === $checkout->provider()
+            && $checkout->sameMoney($pending->amount, $amount)
+            && ($pending->charge_mode ?: 'once') === $expectedChargeMode
+        ) {
+            return $this->redirectToPlanPayment($pending, (string) $pending->wompi_link_url, (string) ($pending->charge_mode ?: 'once'));
+        }
+
+        if ($pending instanceof GetOdooPlanOrder) {
+            GetOdooPlanBilling::invalidatePendingRenewals($team);
+        }
+
+        $order = GetOdooPlanOrder::query()->create([
+            'team_id' => $team->id,
+            'user_id' => auth()->id(),
+            'plan_id' => $plan->id,
+            'amount' => $amount,
+            'status' => 'awaiting_payment',
+            'purpose' => 'renewal',
+            'payment_gateway' => $checkout->provider(),
+            'charge_mode' => $expectedChargeMode,
+        ]);
+
+        try {
+            $link = $checkout->linkForPlanOrder($order);
+        } catch (Throwable $exception) {
+            $order->delete();
+            report($exception);
+
+            return $this->dispatch('error', __('The payment could not be started.'));
+        }
+
+        $chargeMode = $link['charge_mode'] ?? $expectedChargeMode;
+        $order->update([
+            'wompi_link_id' => $link['id'],
+            'wompi_link_url' => $link['url'],
+            'n1co_plan_id' => $link['plan_id'] ?? null,
+            'charge_mode' => $chargeMode,
+        ]);
+
+        return $this->redirectToPlanPayment($order->fresh(), $link['url'], $chargeMode);
+    }
+
+    public function enablePlanRecurring(GetOdooCheckout $checkout): mixed
+    {
+        abort_unless($this->canAccessBilling(), 403);
+
+        $team = currentTeam();
+        abort_unless($team instanceof Team && $team->isGetOdooPlanTeam(), 403);
+
+        $paidUntil = $team->getodoo_plan_paid_until?->copy()->startOfDay();
+        $stillCovered = $paidUntil !== null && $paidUntil->copy()->endOfDay()->isFuture();
+
+        if ($stillCovered) {
+            $team->update([
+                'getodoo_plan_billing_preference' => 'recurring',
+                'getodoo_plan_recurring_starts_at' => $paidUntil->toDateString(),
+            ]);
+            GetOdooPlanBilling::invalidatePendingRenewals($team, GetOdooPlan::CHARGE_SUBSCRIPTION);
+            $this->dispatch('success', __('Recurring billing will start on the next invoice (:date). No charge was made today.', [
+                'date' => $paidUntil->isoFormat('D MMM YYYY'),
+            ]));
+
+            return null;
+        }
+
+        $team->update([
+            'getodoo_plan_billing_preference' => 'recurring',
+            'getodoo_plan_recurring_starts_at' => now()->startOfDay()->toDateString(),
+        ]);
+        GetOdooPlanBilling::invalidatePendingRenewals($team);
+
+        if ($checkout->provider() === 'n1co') {
+            return $this->payPlan($checkout);
+        }
+
+        $this->dispatch('success', __('Recurring billing is on. Pay the overdue invoice to finish enrollment.'));
+
+        return null;
+    }
+
+    public function disablePlanRecurring(N1coClient $n1co): void
+    {
+        abort_unless($this->canAccessBilling(), 403);
+
+        $team = currentTeam();
+        abort_unless($team instanceof Team && $team->isGetOdooPlanTeam(), 403);
+
+        $subscriptionId = (string) ($team->n1co_subscription_id ?: '');
+        if ($subscriptionId !== '') {
+            $n1co->cancelSubscription($subscriptionId);
+        }
+
+        GetOdooPlanOrder::query()
+            ->where('team_id', $team->id)
+            ->whereNotNull('n1co_subscription_id')
+            ->where('n1co_subscription_status', 'active')
+            ->update(['n1co_subscription_status' => 'cancelled']);
+
+        $team->update([
+            'getodoo_plan_billing_preference' => 'once',
+            'getodoo_plan_recurring_starts_at' => null,
+            'n1co_subscription_status' => $subscriptionId !== '' ? 'cancelled' : null,
+        ]);
+        GetOdooPlanBilling::invalidatePendingRenewals($team, GetOdooPlan::CHARGE_ONCE);
+
+        $this->dispatch('success', __('Recurring billing was turned off. Future invoices can be paid one by one.'));
+    }
+
     public function render(): View
     {
-        $teamId = currentTeam()?->id;
+        $team = currentTeam();
+        $teamId = $team?->id;
 
         $servers = Server::query()
             ->with('getodooOffer')
@@ -223,9 +476,40 @@ class Billing extends Component
             ->latest('id')
             ->get();
 
+        $planOrders = $team instanceof Team && $team->isGetOdooPlanTeam()
+            ? GetOdooPlanOrder::query()->where('team_id', $team->id)->latest('id')->get()
+            : collect();
+
         return view('livewire.server.billing', [
             'groups' => $this->subscriptionGroups($servers, $orders),
+            'planTeam' => $team instanceof Team && $team->isGetOdooPlanTeam() ? $team->loadMissing('getodooPlan') : null,
+            'planOrders' => $planOrders,
         ]);
+    }
+
+    private function canAccessBilling(): bool
+    {
+        $user = auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        if ($user->canAddServers()) {
+            return true;
+        }
+
+        $team = currentTeam();
+
+        return $team instanceof Team && $team->isGetOdooPlanTeam() && $user->isAdmin();
+    }
+
+    private function redirectToPlanPayment(GetOdooPlanOrder $order, string $paymentUrl, string $chargeMode): mixed
+    {
+        if ($chargeMode === GetOdooPlan::CHARGE_SUBSCRIPTION && ($order->payment_gateway ?: '') === 'n1co') {
+            return redirect()->route('getodoo.plan.order.return', ['order' => $order->uuid]);
+        }
+
+        return redirect()->away($paymentUrl);
     }
 
     /**

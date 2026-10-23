@@ -17,6 +17,8 @@ class GpshNotice extends Model
         'team_id',
         'service_id',
         'created_by',
+        'action_url',
+        'action_label',
     ];
 
     public function reads(): HasMany
@@ -31,6 +33,10 @@ class GpshNotice extends Model
 
     public function href(): ?string
     {
+        if (filled($this->action_url)) {
+            return (string) $this->action_url;
+        }
+
         $service = $this->service;
         $environment = $service?->environment;
         $project = $environment?->project;
@@ -49,6 +55,19 @@ class GpshNotice extends Model
             'project_uuid' => $project->uuid,
             'environment' => $environment->uuid,
         ]);
+    }
+
+    public function actionLabel(): ?string
+    {
+        if (filled($this->action_label)) {
+            return (string) $this->action_label;
+        }
+
+        if ($this->kind === 'accessible' && is_string($this->href()) && ! str_starts_with((string) $this->href(), url('/'))) {
+            return __('Open Odoo');
+        }
+
+        return filled($this->action_url) ? __('Open') : null;
     }
 
     public function audienceLabel(): string

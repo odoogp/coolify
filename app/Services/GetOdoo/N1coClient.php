@@ -3,8 +3,11 @@
 namespace App\Services\GetOdoo;
 
 use App\Models\GetOdooPlan;
+use App\Models\GetOdooPlanOrder;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
+use App\Support\GetOdooPlanBilling;
+use App\Support\GetOdooServerBilling;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
@@ -46,14 +49,21 @@ class N1coClient
         $name = trim((string) ($offer?->description ?: $offer?->name ?: product_name()));
 
         $label = product_name().' '.$name;
-        $description = $name.' · '.$order->location.' · '.__('per month');
-        $mode = $order->charge_mode ?: (instanceSettings()->n1co_server_charge_mode ?: GetOdooPlan::CHARGE_ONCE);
+        $description = filled($order->description)
+            ? (string) $order->description
+            : ($name.' · '.$order->location.' · '.__('per month'));
+        $mode = in_array((string) $order->charge_mode, [GetOdooPlan::CHARGE_ONCE, GetOdooPlan::CHARGE_SUBSCRIPTION], true)
+            ? (string) $order->charge_mode
+            : GetOdooServerBilling::chargeModeForOrder($order);
 
         if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
-            return $this->subscriptionLink($order->uuid, (float) $order->amount, $label, $description);
+            $link = $this->subscriptionLink($order->uuid, (float) $order->amount, $label, $description);
+            $link['charge_mode'] = GetOdooPlan::CHARGE_SUBSCRIPTION;
+
+            return $link;
         }
 
-        return $this->checkout(
+        $link = $this->checkout(
             $order->uuid,
             (float) $order->amount,
             $label,
@@ -61,6 +71,9 @@ class N1coClient
             route('getodoo.n1co.return', ['order' => $order->uuid]),
             route('getodoo.n1co.return', ['order' => $order->uuid, 'cancelled' => 1]),
         );
+        $link['charge_mode'] = GetOdooPlan::CHARGE_ONCE;
+
+        return $link;
     }
 
     /**
@@ -76,7 +89,7 @@ class N1coClient
         }
 
         $name = trim((string) ($plan->name ?: product_name()));
-        $mode = $signup->charge_mode ?: ($plan->charge_mode ?: GetOdooPlan::CHARGE_ONCE);
+        $mode = $signup->charge_mode ?: GetOdooPlanBilling::chargeModeForSignup($plan);
 
         $startContext = [
             'signup_uuid' => $signup->uuid,
@@ -116,6 +129,47 @@ class N1coClient
 
             throw new RuntimeException(__('n1co did not respond in time. Check sandbox credentials and that the server can reach n1co.'), 0, $exception);
         }
+    }
+
+    /**
+     * @return array{id: string, url: string, plan_id: ?string, charge_mode: string}
+     */
+    public function createPlanOrderLink(GetOdooPlanOrder $order): array
+    {
+        $order->loadMissing(['plan', 'team']);
+        $plan = $order->plan;
+
+        if ($plan === null) {
+            throw new RuntimeException('This order has no plan.');
+        }
+
+        $name = trim((string) ($plan->name ?: product_name()));
+        $mode = in_array((string) $order->charge_mode, [GetOdooPlan::CHARGE_ONCE, GetOdooPlan::CHARGE_SUBSCRIPTION], true)
+            ? (string) $order->charge_mode
+            : GetOdooPlanBilling::chargeModeForRenewal($order->team, $plan);
+        $label = product_name().' '.$name;
+        $description = filled($order->description)
+            ? (string) $order->description
+            : (trim((string) ($plan->summary ?: $name)).' · '.__('renewal'));
+
+        if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+            $link = $this->subscriptionLink($order->uuid, (float) $order->amount, $label, $description);
+            $link['charge_mode'] = GetOdooPlan::CHARGE_SUBSCRIPTION;
+
+            return $link;
+        }
+
+        $link = $this->checkout(
+            $order->uuid,
+            (float) $order->amount,
+            $label,
+            $description,
+            route('getodoo.plan.order.return', ['order' => $order->uuid]),
+            route('getodoo.plan.order.return', ['order' => $order->uuid, 'cancelled' => 1]),
+        );
+        $link['charge_mode'] = GetOdooPlan::CHARGE_ONCE;
+
+        return $link;
     }
 
     /**
@@ -477,6 +531,39 @@ class N1coClient
         }
 
         return null;
+    }
+
+    /**
+     * Best-effort cancel. n1co docs are thin here — try DELETE then a Cancel action.
+     */
+    public function cancelSubscription(?string $subscriptionId): bool
+    {
+        $subscriptionId = trim((string) $subscriptionId);
+
+        if ($subscriptionId === '') {
+            return false;
+        }
+
+        $base = $this->subscriptionsBaseUrl().'/Subscriptions/'.rawurlencode($subscriptionId);
+
+        try {
+            $this->subscriptionRequest()->delete($base)->throw();
+
+            return true;
+        } catch (Throwable $deleteException) {
+            try {
+                $this->subscriptionRequest()->post($base.'/Cancel')->throw();
+
+                return true;
+            } catch (Throwable $cancelException) {
+                $this->logFailure('subscription cancel failed', $cancelException, [
+                    'subscription_id' => $subscriptionId,
+                    'delete_error' => $deleteException->getMessage(),
+                ]);
+
+                return false;
+            }
+        }
     }
 
     /**

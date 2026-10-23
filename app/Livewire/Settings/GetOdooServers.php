@@ -297,7 +297,7 @@ class GetOdooServers extends Component
             'n1coSandbox' => 'boolean',
             'n1coCharges' => 'boolean',
             'n1coLocationId' => ['nullable', 'regex:/^$|^[1-9][0-9]*$/'],
-            'n1coServerChargeMode' => 'required|in:once,subscription',
+            'n1coServerChargeMode' => 'required|in:once,subscription,hybrid',
             'n1coClientId' => 'nullable|string|max:255',
             'n1coClientSecret' => 'nullable|string|max:500',
             'bankTransferInstructions' => 'nullable|string|max:2000',
@@ -309,14 +309,15 @@ class GetOdooServers extends Component
         $clientSecret = trim($this->n1coClientSecret);
         $secret = $secret !== '' ? $secret : (string) ($settings->n1co_secret ?? '');
         $webhook = $webhook !== '' ? $webhook : (string) ($settings->n1co_webhook_secret ?? '');
+        $needsSubscriptionCredentials = in_array($this->n1coServerChargeMode, ['subscription', 'hybrid'], true);
 
-        if ($this->n1coServerChargeMode === 'subscription' && trim($this->n1coLocationId) === '') {
+        if ($needsSubscriptionCredentials && trim($this->n1coLocationId) === '') {
             $this->addError('n1coLocationId', __('The n1co branch id is required for a monthly subscription.'));
 
             return;
         }
 
-        if ($this->n1coServerChargeMode === 'subscription') {
+        if ($needsSubscriptionCredentials) {
             $clientId = trim($this->n1coClientId);
             $storedSecret = trim((string) ($settings->n1co_client_secret ?? ''));
 
@@ -345,13 +346,19 @@ class GetOdooServers extends Component
             return;
         }
 
+        $chargeMode = match ($this->n1coServerChargeMode) {
+            'subscription' => 'subscription',
+            'hybrid' => 'hybrid',
+            default => 'once',
+        };
+
         $settings->update([
             'n1co_secret' => $secret !== '' ? $secret : null,
             'n1co_webhook_secret' => $webhook !== '' ? $webhook : null,
             'n1co_sandbox' => $this->n1coSandbox,
             'n1co_charges' => $this->n1coCharges,
             'n1co_location_id' => trim($this->n1coLocationId) === '' ? null : (int) $this->n1coLocationId,
-            'n1co_server_charge_mode' => $this->n1coServerChargeMode === 'subscription' ? 'subscription' : 'once',
+            'n1co_server_charge_mode' => $chargeMode,
             'n1co_client_id' => trim($this->n1coClientId) !== '' ? trim($this->n1coClientId) : null,
             'n1co_client_secret' => $clientSecret !== '' ? $clientSecret : ($settings->n1co_client_secret ?: null),
             'bank_transfer_instructions' => trim($this->bankTransferInstructions) !== '' ? trim($this->bankTransferInstructions) : null,

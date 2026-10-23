@@ -109,7 +109,7 @@
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Servers') }}</span>
                 </a>
             </li>
-            @if (auth()->user()?->canAddServers())
+            @if (auth()->user()?->canAddServers() || (currentTeam()?->isGetOdooPlanTeam() && auth()->user()?->isAdmin()))
                 <li>
                     <a title="{{ __('Billing') }}" {{ wireNavigate() }}
                         class="{{ request()->is('servers/billing') ? 'menu-item menu-item-active' : 'menu-item' }}"

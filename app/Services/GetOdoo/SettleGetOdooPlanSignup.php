@@ -3,7 +3,9 @@
 namespace App\Services\GetOdoo;
 
 use App\Models\GetOdooPlanSignup;
+use App\Models\Team;
 use App\Models\User;
+use App\Support\GetOdooPlanBilling;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -21,6 +23,8 @@ class SettleGetOdooPlanSignup
                 $signup->load('user');
 
                 if ($signup->user instanceof User) {
+                    $this->stampTeamBilling($signup, $signup->user);
+
                     return $signup->user;
                 }
             }
@@ -47,7 +51,35 @@ class SettleGetOdooPlanSignup
                 'wompi_link_url' => null,
             ]);
 
+            $this->stampTeamBilling($signup->fresh(), $user);
+
             return $user;
         });
+    }
+
+    private function stampTeamBilling(GetOdooPlanSignup $signup, User $user): void
+    {
+        $plan = $signup->plan;
+        if ($plan === null) {
+            return;
+        }
+
+        $team = $user->teams()->where('getodoo_plan_id', $plan->id)->first();
+        if (! $team instanceof Team) {
+            return;
+        }
+
+        if ($team->getodoo_plan_paid_until === null) {
+            $anchor = now()->startOfDay();
+            $next = $anchor->copy()->startOfMonth()->addMonthsNoOverflow(1);
+            $next = $next->day(min($anchor->day, $next->daysInMonth))->startOfDay();
+            $team->forceFill([
+                'getodoo_plan_billing_anchor' => $anchor->toDateString(),
+                'getodoo_plan_paid_until' => $next->toDateString(),
+            ])->save();
+        }
+
+        GetOdooPlanBilling::stampPreference($team, $plan, forceInitial: true);
+        GetOdooPlanBilling::syncSubscriptionFromSignup($team, $signup);
     }
 }

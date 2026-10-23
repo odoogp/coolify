@@ -50,13 +50,20 @@
                             helper="{{ __('Standard USD price for this plan. Rest of the world always charges this amount. A country or region promo can replace it for that coverage.') }}" />
                         <label class="flex flex-col gap-1 text-sm">
                             <span>{{ __('How this plan is charged') }}</span>
-                            <select id="chargeMode" wire:model="chargeMode"
+                            <select id="chargeMode" wire:model.live="chargeMode"
                                 class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
                                 <option value="once">{{ __('One-time payment') }}</option>
                                 <option value="subscription">{{ __('Monthly subscription') }}</option>
+                                <option value="hybrid">{{ __('Hybrid (first payment once, then optional recurring)') }}</option>
                             </select>
                             <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
-                                {{ __('A subscription asks n1co to charge this price again every month. A one-time payment is a single charge with Wompi or n1co.') }}
+                                @if ($chargeMode === 'hybrid')
+                                    {{ __('The first signup charge is always a one-time payment. On Billing, the organization can turn on recurring for the next invoice without being charged again that day.') }}
+                                @elseif ($chargeMode === 'subscription')
+                                    {{ __('A subscription asks n1co to charge this price again every month from the first payment.') }}
+                                @else
+                                    {{ __('Every invoice is a one-time payment. The organization can still opt into recurring later from Billing.') }}
+                                @endif
                             </span>
                             @error('chargeMode')
                                 <p class="text-sm text-red-500">{{ $message }}</p>

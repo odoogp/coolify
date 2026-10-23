@@ -6,6 +6,7 @@ use App\Models\GetOdooPlan;
 use App\Models\GetOdooServerOrder;
 use App\Services\GetOdoo\N1coClient;
 use App\Services\GetOdoo\SettleGetOdooServerPayment;
+use App\Support\GetOdooServerBilling;
 use Illuminate\Contracts\View\View;
 use Livewire\Attributes\Locked;
 use Livewire\Component;
@@ -119,6 +120,9 @@ class N1coReturn extends Component
                     'n1co_subscription_id' => $subscriptionId !== '' ? $subscriptionId : $order->n1co_subscription_id,
                     'n1co_subscription_status' => 'active',
                 ]);
+                if ($server) {
+                    GetOdooServerBilling::syncSubscriptionFromOrder($server, $order->fresh());
+                }
             } catch (Throwable $exception) {
                 try {
                     report($exception);

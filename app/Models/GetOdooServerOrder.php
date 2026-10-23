@@ -15,6 +15,7 @@ class GetOdooServerOrder extends BaseModel
         'private_key_id',
         'server_id',
         'server_name',
+        'description',
         'location',
         'amount',
         'status',

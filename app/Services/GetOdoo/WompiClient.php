@@ -2,8 +2,10 @@
 
 namespace App\Services\GetOdoo;
 
+use App\Models\GetOdooPlanOrder;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
@@ -54,6 +56,31 @@ class WompiClient
             trim((string) ($plan->summary ?: $name)),
             route('getodoo.plan.return', ['plan' => $plan->uuid, 'signup' => $signup->uuid]),
         );
+    }
+
+    /**
+     * @return array{id: string, url: string, charge_mode: string}
+     */
+    public function createPlanOrderLink(GetOdooPlanOrder $order): array
+    {
+        $order->loadMissing('plan');
+        $plan = $order->plan;
+
+        if ($plan === null) {
+            throw new RuntimeException('This order has no plan.');
+        }
+
+        $name = trim((string) ($plan->name ?: product_name()));
+        $link = $this->enlace(
+            $order->uuid,
+            (float) $order->amount,
+            product_name().' '.$name,
+            trim((string) ($plan->summary ?: $name)).' · '.__('renewal'),
+            route('getodoo.plan.order.return', ['order' => $order->uuid]),
+        );
+        $link['charge_mode'] = 'once';
+
+        return $link;
     }
 
     /**
@@ -166,7 +193,7 @@ class WompiClient
         return number_format((float) $paid, 2, '.', '') === number_format((float) $expected, 2, '.', '');
     }
 
-    private function request(): \Illuminate\Http\Client\PendingRequest
+    private function request(): PendingRequest
     {
         return Http::acceptJson()
             ->withToken($this->accessToken())

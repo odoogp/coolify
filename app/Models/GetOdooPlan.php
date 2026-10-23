@@ -13,6 +13,8 @@ class GetOdooPlan extends BaseModel
 
     public const CHARGE_SUBSCRIPTION = 'subscription';
 
+    public const CHARGE_HYBRID = 'hybrid';
+
     protected $fillable = [
         'name',
         'summary',

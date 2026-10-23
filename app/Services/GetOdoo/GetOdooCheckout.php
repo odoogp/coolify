@@ -2,6 +2,7 @@
 
 namespace App\Services\GetOdoo;
 
+use App\Models\GetOdooPlanOrder;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
 use RuntimeException;
@@ -87,6 +88,18 @@ class GetOdooCheckout
             'wompi' => $this->wompi->configured()
                 ? $this->wompi->createPlanLink($signup)
                 : throw new RuntimeException('The payment gateway is not ready.'),
+            default => throw new RuntimeException('The payment gateway is not ready.'),
+        };
+    }
+
+    /**
+     * @return array{id: string, url: string, plan_id?: ?string, charge_mode?: string}
+     */
+    public function linkForPlanOrder(GetOdooPlanOrder $order): array
+    {
+        return match ($this->provider()) {
+            'n1co' => $this->n1co->createPlanOrderLink($order),
+            'wompi' => $this->wompi->createPlanOrderLink($order),
             default => throw new RuntimeException('The payment gateway is not ready.'),
         };
     }

@@ -11,6 +11,7 @@ use App\Services\GetOdoo\GetOdooPlanPricing;
 use App\Services\GetOdoo\OpenGetOdooPlanAccount;
 use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use App\Support\DetectRequestCountry;
+use App\Support\GetOdooPlanBilling;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -203,13 +204,13 @@ class PlanSignup extends Component
                 'password' => $this->password,
                 'amount' => $amount,
                 'payment_gateway' => $provider,
-                'charge_mode' => $plan->charge_mode ?: 'once',
+                'charge_mode' => GetOdooPlanBilling::chargeModeForSignup($plan),
                 'status' => 'awaiting_payment',
             ]);
         } else {
             $previousGateway = $signup->payment_gateway;
             $previousChargeMode = $signup->charge_mode;
-            $chargeMode = $plan->charge_mode ?: 'once';
+            $chargeMode = GetOdooPlanBilling::chargeModeForSignup($plan);
             $signup->fill([
                 'pricing_area_id' => $country?->id,
                 'name' => trim($this->name),

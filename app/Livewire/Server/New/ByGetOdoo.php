@@ -10,6 +10,7 @@ use App\Models\Server;
 use App\Models\Team;
 use App\Services\GetOdoo\GetOdooCheckout;
 use App\Services\GetOdoo\GetOdooServerCatalog;
+use App\Support\GetOdooServerBilling;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 use Throwable;
@@ -155,6 +156,9 @@ class ByGetOdoo extends Component
             'status' => 'awaiting_payment',
             'purpose' => 'launch',
             'payment_gateway' => $provider,
+            'charge_mode' => GetOdooServerBilling::chargeModeForOrder(
+                new GetOdooServerOrder(['purpose' => 'launch']),
+            ),
         ]);
 
         try {
@@ -172,10 +176,10 @@ class ByGetOdoo extends Component
             'wompi_link_id' => $link['id'],
             'wompi_link_url' => $link['url'],
             'n1co_plan_id' => $link['plan_id'] ?? null,
-            'charge_mode' => $link['charge_mode'] ?? 'once',
+            'charge_mode' => $link['charge_mode'] ?? GetOdooServerBilling::chargeModeForOrder($order),
         ]);
 
-        $chargeMode = $link['charge_mode'] ?? 'once';
+        $chargeMode = $link['charge_mode'] ?? GetOdooServerBilling::chargeModeForOrder($order);
         if ($chargeMode === GetOdooPlan::CHARGE_SUBSCRIPTION && ($order->payment_gateway ?: '') === 'n1co') {
             return redirect()->route('getodoo.n1co.return', ['order' => $order->uuid]);
         }

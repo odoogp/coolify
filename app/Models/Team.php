@@ -10,6 +10,7 @@ use App\Notifications\Channels\SendsPushover;
 use App\Notifications\Channels\SendsSlack;
 use App\Traits\HasNotificationSettings;
 use App\Traits\HasSafeStringAttribute;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -50,6 +51,14 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
         'is_mcp_server_enabled',
         'getodoo_plan_id',
         'getodoo_pricing_area_id',
+        'getodoo_plan_paid_until',
+        'getodoo_plan_billing_anchor',
+        'getodoo_plan_billing_preference',
+        'getodoo_plan_monthly_extra',
+        'getodoo_plan_recurring_starts_at',
+        'n1co_plan_id',
+        'n1co_subscription_id',
+        'n1co_subscription_status',
     ];
 
     protected $attributes = [
@@ -59,6 +68,10 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
     protected $casts = [
         'personal_team' => 'boolean',
         'is_mcp_server_enabled' => 'boolean',
+        'getodoo_plan_paid_until' => 'date',
+        'getodoo_plan_billing_anchor' => 'date',
+        'getodoo_plan_recurring_starts_at' => 'date',
+        'getodoo_plan_monthly_extra' => 'decimal:2',
     ];
 
     protected static function booted()
@@ -299,9 +312,39 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
         return filled($this->getodoo_plan_id);
     }
 
+    public function prefersPlanRecurringBilling(): bool
+    {
+        return ($this->getodoo_plan_billing_preference ?: 'once') === 'recurring';
+    }
+
+    /**
+     * Catalog plan price plus any owner-added recurring extras for this organization.
+     */
+    public function getodooPlanMonthlyAmount(): float
+    {
+        $base = (float) ($this->getodooPlan?->price ?: 0);
+        $extra = (float) ($this->getodoo_plan_monthly_extra ?: 0);
+
+        return round($base + $extra, 2);
+    }
+
+    public function planRecurringBillingStartsAt(): ?CarbonInterface
+    {
+        if (! $this->prefersPlanRecurringBilling()) {
+            return null;
+        }
+
+        return $this->getodoo_plan_recurring_starts_at ?? $this->getodoo_plan_paid_until;
+    }
+
     public function getodooPricingArea()
     {
         return $this->belongsTo(GetOdooPricingArea::class, 'getodoo_pricing_area_id');
+    }
+
+    public function getodooPlanOrders()
+    {
+        return $this->hasMany(GetOdooPlanOrder::class);
     }
 
     public function projects()

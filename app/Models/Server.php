@@ -7,6 +7,7 @@ use App\Actions\Server\InstallDocker;
 use App\Actions\Server\InstallPrerequisites;
 use App\Actions\Server\StartSentinel;
 use App\Actions\Server\ValidatePrerequisites;
+use App\Domain\Odoo\OdooDomains;
 use App\Enums\ProxyTypes;
 use App\Events\ServerReachabilityChanged;
 use App\Helpers\SslHelper;
@@ -24,6 +25,7 @@ use App\Support\ValidationPatterns;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasMetrics;
 use App\Traits\HasSafeStringAttribute;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -266,6 +268,7 @@ class Server extends BaseModel
         'force_disabled' => 'boolean',
         'getodoo_paid_until' => 'date',
         'getodoo_billing_anchor' => 'date',
+        'getodoo_recurring_starts_at' => 'date',
     ];
 
     /**
@@ -303,6 +306,11 @@ class Server extends BaseModel
         'getodoo_monthly_price',
         'getodoo_paid_until',
         'getodoo_billing_anchor',
+        'getodoo_billing_preference',
+        'getodoo_recurring_starts_at',
+        'n1co_plan_id',
+        'n1co_subscription_id',
+        'n1co_subscription_status',
         'is_validating',
         'validation_logs',
         'detected_traefik_version',
@@ -646,7 +654,7 @@ class Server extends BaseModel
             }
         }
 
-        $base = \App\Domain\Odoo\OdooDomains::normalizedBaseDomain((string) $raw);
+        $base = OdooDomains::normalizedBaseDomain((string) $raw);
         if ($base === '') {
             return false;
         }
@@ -1364,6 +1372,23 @@ $siteAddress {
     public function getodooOffer()
     {
         return $this->belongsTo(GetOdooServerOffer::class, 'getodoo_offer_id');
+    }
+
+    public function prefersRecurringBilling(): bool
+    {
+        return ($this->getodoo_billing_preference ?: 'once') === 'recurring';
+    }
+
+    /**
+     * First day a recurring charge may run — never earlier than the current paid period end.
+     */
+    public function recurringBillingStartsAt(): ?CarbonInterface
+    {
+        if (! $this->prefersRecurringBilling()) {
+            return null;
+        }
+
+        return $this->getodoo_recurring_starts_at ?? $this->getodoo_paid_until;
     }
 
     /**

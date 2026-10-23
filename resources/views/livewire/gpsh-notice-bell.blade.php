@@ -62,8 +62,8 @@
                         </span>
                         <span class="mt-0.5 block break-words text-[13px] font-medium text-black dark:text-white">{{ $notice->title }}</span>
                         <span class="mt-0.5 block break-words text-[12px] leading-5 text-neutral-600 dark:text-fg-dim">{{ str($notice->body)->limit(140) }}</span>
-                        @if ($notice->kind === 'accessible' && is_string($notice->href()) && ! str_starts_with((string) $notice->href(), url('/')))
-                            <span class="mt-1 block text-[12px] font-medium text-coollabs dark:text-warning">{{ __('Open Odoo') }}</span>
+                        @if (filled($notice->actionLabel()))
+                            <span class="mt-1 block text-[12px] font-medium text-coollabs dark:text-warning">{{ $notice->actionLabel() }}</span>
                         @endif
                     </button>
                 @empty

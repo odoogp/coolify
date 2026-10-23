@@ -21,7 +21,7 @@
             'icon' => 'servers',
         ];
         $settingsMenuSections['Configuration'][] = [
-            'label' => __('Purchases'),
+            'label' => __('Billing'),
             'route' => 'settings.getodoo-purchases',
             'icon' => 'calendar',
         ];

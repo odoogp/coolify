@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OauthController;
 use App\Http\Controllers\OdooEnterController;
-use App\Http\Controllers\PrivateKeyDownloadController;
 use App\Http\Controllers\OwnerJupyterController;
+use App\Http\Controllers\PrivateKeyDownloadController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProjectIconController;
 use App\Http\Controllers\UpgradeWatchController;
@@ -19,6 +19,10 @@ use App\Livewire\Destination\Index as DestinationIndex;
 use App\Livewire\Destination\Resources as DestinationResources;
 use App\Livewire\Destination\Show as DestinationShow;
 use App\Livewire\ForcePasswordReset;
+use App\Livewire\GetOdoo\PlanOrderReturn;
+use App\Livewire\GetOdoo\PlanReturn;
+use App\Livewire\GetOdoo\PlanSignup;
+use App\Livewire\GetOdoo\Terms as GetOdooTerms;
 use App\Livewire\Notifications\Center as NotificationCenter;
 use App\Livewire\Notifications\Discord as NotificationDiscord;
 use App\Livewire\Notifications\Email as NotificationEmail;
@@ -60,20 +64,20 @@ use App\Livewire\Security\CloudProviderToken\Show as SecurityCloudProviderTokenS
 use App\Livewire\Security\CloudTokens;
 use App\Livewire\Security\PrivateKey\Index as SecurityPrivateKeyIndex;
 use App\Livewire\Security\PrivateKey\Show as SecurityPrivateKeyShow;
-use App\Livewire\Server\Billing as ServerBilling;
 use App\Livewire\Server\Advanced as ServerAdvanced;
+use App\Livewire\Server\Billing as ServerBilling;
 use App\Livewire\Server\CaCertificate\Show as CaCertificateShow;
 use App\Livewire\Server\Charts as ServerCharts;
 use App\Livewire\Server\CloudflareTunnel;
 use App\Livewire\Server\CloudProviderToken\Show as CloudProviderTokenShow;
 use App\Livewire\Server\CreatePage as ServerCreatePage;
-use App\Livewire\Server\New\N1coReturn;
-use App\Livewire\Server\New\WompiReturn;
 use App\Livewire\Server\Delete as DeleteServer;
 use App\Livewire\Server\Destinations as ServerDestinations;
 use App\Livewire\Server\DockerCleanup;
 use App\Livewire\Server\Index as ServerIndex;
 use App\Livewire\Server\LogDrains;
+use App\Livewire\Server\New\N1coReturn;
+use App\Livewire\Server\New\WompiReturn;
 use App\Livewire\Server\PrivateKey\Show as PrivateKeyShow;
 use App\Livewire\Server\Proxy\DynamicConfigurations as ProxyDynamicConfigurations;
 use App\Livewire\Server\Proxy\Logs as ProxyLogs;
@@ -88,9 +92,6 @@ use App\Livewire\Server\Swarm as ServerSwarm;
 use App\Livewire\Server\Transfer as ServerTransfer;
 use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
-use App\Livewire\GetOdoo\PlanReturn;
-use App\Livewire\GetOdoo\PlanSignup;
-use App\Livewire\GetOdoo\Terms as GetOdooTerms;
 use App\Livewire\Settings\GetOdooPlans as SettingsGetOdooPlans;
 use App\Livewire\Settings\GetOdooPurchases as SettingsGetOdooPurchases;
 use App\Livewire\Settings\GetOdooRegions as SettingsGetOdooRegions;
@@ -125,6 +126,7 @@ use App\Livewire\Team\DangerZone as TeamDangerZone;
 use App\Livewire\Team\Index as TeamIndex;
 use App\Livewire\Team\Member\Index as TeamMemberIndex;
 use App\Livewire\Terminal\Index as TerminalIndex;
+use App\Models\OdooBackup;
 use App\Models\ScheduledDatabaseBackupExecution;
 use App\Models\ScheduledVolumeBackupExecution;
 use App\Models\Server;
@@ -442,6 +444,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs()));
     Route::get('/servers/getodoo/orders/{order}', WompiReturn::class)->name('getodoo.wompi.return');
     Route::get('/servers/getodoo/n1co/{order}', N1coReturn::class)->name('getodoo.n1co.return');
+    Route::get('/servers/getodoo/plan-orders/{order}', PlanOrderReturn::class)->name('getodoo.plan.order.return');
 
     Route::prefix('server/{server_uuid}')->group(function () {
         Route::get('/', ServerShow::class)->name('server.show');
@@ -602,7 +605,7 @@ Route::middleware(['auth'])->group(function () {
             if (is_null($team)) {
                 return response()->json(['message' => 'Team not found.'], 404);
             }
-            $backup = \App\Models\OdooBackup::query()
+            $backup = OdooBackup::query()
                 ->with(['environment.project.team', 'environment.services.destination.server'])
                 ->findOrFail(request()->route('backupId'));
             if (! $backup->hasZip()) {

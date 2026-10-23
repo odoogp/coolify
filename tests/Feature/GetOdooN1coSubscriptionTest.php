@@ -5,6 +5,7 @@ use App\Livewire\Settings\GetOdooPlans;
 use App\Livewire\Settings\GetOdooServers;
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
+use App\Models\GetOdooPricingArea;
 use App\Models\GetOdooServerOffer;
 use App\Models\GetOdooServerOrder;
 use App\Models\InstanceSettings;
@@ -13,7 +14,6 @@ use App\Models\Team;
 use App\Models\User;
 use App\Services\GetOdoo\N1coClient;
 use App\Support\GetOdooCountries;
-use App\Models\GetOdooPricingArea;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
@@ -445,6 +445,44 @@ it('requires the n1co branch id before servers are sold as a subscription', func
         ->set('n1coCharges', true)
         ->set('n1coServerChargeMode', 'subscription')
         ->set('n1coLocationId', '')
+        ->call('saveN1co')
+        ->assertHasErrors(['n1coLocationId']);
+});
+
+it('saves hybrid charge mode when subscription credentials are present', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooServers::class)
+        ->set('n1coSecret', 'secret-n1co')
+        ->set('n1coWebhookSecret', 'whsec-n1co')
+        ->set('n1coCharges', true)
+        ->set('n1coServerChargeMode', 'hybrid')
+        ->set('n1coLocationId', '578')
+        ->set('n1coClientId', 'client-id')
+        ->set('n1coClientSecret', 'client-secret')
+        ->call('saveN1co')
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
+    expect(instanceSettings()->fresh()->n1co_server_charge_mode)->toBe('hybrid');
+});
+
+it('requires subscription credentials for hybrid mode', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooServers::class)
+        ->set('n1coSecret', 'secret-n1co')
+        ->set('n1coWebhookSecret', 'whsec-n1co')
+        ->set('n1coCharges', true)
+        ->set('n1coServerChargeMode', 'hybrid')
+        ->set('n1coLocationId', '')
+        ->set('n1coClientId', '')
         ->call('saveN1co')
         ->assertHasErrors(['n1coLocationId']);
 });

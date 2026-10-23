@@ -102,13 +102,20 @@
                     </label>
                     <label class="flex flex-col gap-1 text-sm">
                         <span>{{ __('How servers are charged') }}</span>
-                        <select id="n1coServerChargeMode" wire:model="n1coServerChargeMode"
+                        <select id="n1coServerChargeMode" wire:model.live="n1coServerChargeMode"
                             class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
                             <option value="once">{{ __('One-time payment') }}</option>
                             <option value="subscription">{{ __('Monthly subscription') }}</option>
+                            <option value="hybrid">{{ __('Hybrid (first payment once, then optional recurring)') }}</option>
                         </select>
                         <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
-                            {{ __('A subscription asks n1co to charge the server again every month. A one-time payment creates the server after a single charge.') }}
+                            @if ($n1coServerChargeMode === 'hybrid')
+                                {{ __('The first charge is always a one-time payment. On Billing, the client can turn on recurring for the next invoice without being charged again that day. That choice is kept on the server.') }}
+                            @elseif ($n1coServerChargeMode === 'subscription')
+                                {{ __('A subscription asks n1co to charge the server again every month from the first payment.') }}
+                            @else
+                                {{ __('Every invoice is a one-time payment link. The client can still opt into recurring later from Billing.') }}
+                            @endif
                         </span>
                     </label>
                     <label class="flex flex-col gap-1 text-sm">

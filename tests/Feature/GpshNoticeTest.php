@@ -1,14 +1,18 @@
 <?php
 
 use App\Domain\Odoo\OdooMail;
+use App\Jobs\NotifyGetOdooServerInvoicesJob;
 use App\Livewire\GpshNoticeBell;
 use App\Livewire\Notifications\Center;
 use App\Livewire\Upgrade;
 use App\Models\Environment;
+use App\Models\GetOdooServerOffer;
 use App\Models\GpshNotice;
 use App\Models\GpshNoticeSetting;
 use App\Models\InstanceSettings;
+use App\Models\PrivateKey;
 use App\Models\Project;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\Team;
@@ -318,6 +322,90 @@ it('saves how long a new notice stays on screen', function () {
 
     expect(GpshNoticeSetting::current()->toast)->toBeFalse()
         ->and(GpshNoticeSetting::current()->toast_seconds)->toBe(12);
+});
+
+it('notifies the client team about an overdue server invoice with a billing link', function () {
+    Cache::flush();
+    GpshNoticeSetting::current();
+
+    $offer = GetOdooServerOffer::query()->create([
+        'hetzner_type_id' => 22,
+        'name' => 'cx22',
+        'description' => 'CX22',
+        'cores' => 2,
+        'memory' => 4,
+        'disk' => 40,
+        'architecture' => 'x86',
+        'monthly_price' => 10,
+        'location' => 'fsn1',
+        'locations' => [['location' => 'fsn1', 'monthly' => 10]],
+        'available_for_admins' => true,
+        'in_stock' => true,
+    ]);
+    $key = PrivateKey::factory()->create(['team_id' => $this->clientTeam->id]);
+    $server = Server::factory()->create([
+        'name' => 'cliente-factura',
+        'team_id' => $this->clientTeam->id,
+        'private_key_id' => $key->id,
+        'getodoo_offer_id' => $offer->id,
+        'getodoo_monthly_price' => 10,
+        'getodoo_paid_until' => now()->subDay()->toDateString(),
+    ]);
+
+    $notice = GpshNotices::announceServerInvoice($server, 'overdue');
+
+    expect($notice)->toBeInstanceOf(GpshNotice::class)
+        ->and($notice->href())->toBe(route('server.billing'))
+        ->and($notice->actionLabel())->toBe(__('View my invoices'));
+
+    $this->actingAs($this->client);
+    Livewire::test(GpshNoticeBell::class)
+        ->assertSee(__('Invoice overdue'))
+        ->assertSee(__('View my invoices'))
+        ->call('openNotice', $notice->id)
+        ->assertRedirect(route('server.billing'));
+});
+
+it('sends due-soon and overdue invoice notices from the daily job', function () {
+    Cache::flush();
+    GpshNoticeSetting::current();
+
+    $offer = GetOdooServerOffer::query()->create([
+        'hetzner_type_id' => 22,
+        'name' => 'cx22',
+        'description' => 'CX22',
+        'cores' => 2,
+        'memory' => 4,
+        'disk' => 40,
+        'architecture' => 'x86',
+        'monthly_price' => 10,
+        'location' => 'fsn1',
+        'locations' => [['location' => 'fsn1', 'monthly' => 10]],
+        'available_for_admins' => true,
+        'in_stock' => true,
+    ]);
+    $key = PrivateKey::factory()->create(['team_id' => $this->clientTeam->id]);
+    Server::factory()->create([
+        'name' => 'por-vencer',
+        'team_id' => $this->clientTeam->id,
+        'private_key_id' => $key->id,
+        'getodoo_offer_id' => $offer->id,
+        'getodoo_monthly_price' => 10,
+        'getodoo_paid_until' => now()->addDays(3)->toDateString(),
+    ]);
+    Server::factory()->create([
+        'name' => 'vencida',
+        'team_id' => $this->clientTeam->id,
+        'private_key_id' => $key->id,
+        'getodoo_offer_id' => $offer->id,
+        'getodoo_monthly_price' => 10,
+        'getodoo_paid_until' => now()->subDays(2)->toDateString(),
+    ]);
+
+    (new NotifyGetOdooServerInvoicesJob)->handle();
+
+    expect(GpshNotice::query()->where('title', __('Invoice due soon'))->count())->toBe(1)
+        ->and(GpshNotice::query()->where('title', __('Invoice overdue'))->count())->toBe(1);
 });
 
 it('allows twenty emails a day for one team and refuses a neutralized send path', function () {

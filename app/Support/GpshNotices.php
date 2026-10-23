@@ -6,6 +6,7 @@ use App\Actions\CoolifyTask\RunRemoteProcess;
 use App\Enums\ProcessStatus;
 use App\Models\GpshNotice;
 use App\Models\GpshNoticeSetting;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +32,8 @@ class GpshNotices
         string $audience = 'clients',
         ?int $teamId = null,
         ?int $userId = null,
+        ?string $actionUrl = null,
+        ?string $actionLabel = null,
     ): ?GpshNotice {
         if (! GpshNoticeSetting::current()->allows($kind)) {
             return null;
@@ -47,7 +50,65 @@ class GpshNotices
             'team_id' => $audience === 'clients' ? $teamId : null,
             'service_id' => $service?->id,
             'created_by' => $userId,
+            'action_url' => $actionUrl,
+            'action_label' => $actionLabel,
         ]);
+    }
+
+    /**
+     * Invoice reminders for GetOdoo servers (due soon / overdue). Uses kind "expiration".
+     *
+     * @param  'due_soon'|'overdue'  $state
+     */
+    public static function announceServerInvoice(Server $server, string $state): ?GpshNotice
+    {
+        if (! in_array($state, ['due_soon', 'overdue'], true)) {
+            return null;
+        }
+
+        if ($server->getodoo_offer_id === null || (int) $server->id === 0 || $server->team_id === null) {
+            return null;
+        }
+
+        $paidUntil = $server->getodoo_paid_until;
+        if ($paidUntil === null) {
+            return null;
+        }
+
+        $dayKey = $paidUntil->toDateString();
+        $cacheKey = 'gpsh:server-invoice:'.$server->id.':'.$state.':'.$dayKey;
+        if (! Cache::add($cacheKey, true, now()->addDays(2))) {
+            return null;
+        }
+
+        $name = $server->name;
+        $date = $paidUntil->isoFormat('D MMM YYYY');
+
+        if ($state === 'overdue') {
+            $title = __('Invoice overdue');
+            $body = __('The invoice for :name was due on :date. Open Billing to pay or manage the plan.', [
+                'name' => $name,
+                'date' => $date,
+            ]);
+        } else {
+            $title = __('Invoice due soon');
+            $body = __('The invoice for :name is due on :date. Open Billing to review your invoices.', [
+                'name' => $name,
+                'date' => $date,
+            ]);
+        }
+
+        return self::publish(
+            null,
+            'expiration',
+            $title,
+            $body,
+            'clients',
+            (int) $server->team_id,
+            null,
+            route('server.billing'),
+            __('View my invoices'),
+        );
     }
 
     /**

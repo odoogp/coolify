@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Webhook;
 
 use App\Http\Controllers\Controller;
+use App\Models\GetOdooPlanOrder;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
+use App\Services\GetOdoo\SettleGetOdooPlanPayment;
 use App\Services\GetOdoo\SettleGetOdooPlanSignup;
 use App\Services\GetOdoo\SettleGetOdooServerPayment;
 use App\Services\GetOdoo\WompiClient;
@@ -14,8 +16,14 @@ use Throwable;
 
 class Wompi extends Controller
 {
-    public function __invoke(Request $request, WompiClient $wompi, SettleGetOdooServerPayment $settle, SettleGetOdooPlanSignup $plans): Response
-    {
+    public function __invoke(
+        Request $request,
+        WompiClient $wompi,
+        SettleGetOdooServerPayment $settle,
+        SettleGetOdooPlanSignup $plans,
+        SettleGetOdooPlanPayment $planOrders,
+    ): Response {
+
         if (! $wompi->configured()) {
             return response('Wompi is not configured.', 404);
         }
@@ -51,6 +59,24 @@ class Wompi extends Controller
                 report($exception);
 
                 return response('The server could not be created.', 500);
+            }
+
+            return response('ok', 200);
+        }
+
+        $planOrder = GetOdooPlanOrder::query()->where('uuid', $identificador)->first();
+
+        if ($planOrder instanceof GetOdooPlanOrder) {
+            if (! $approved || ! $live || ! $wompi->sameMoney(data_get($payload, 'Monto'), $planOrder->amount)) {
+                return response('ok', 200);
+            }
+
+            try {
+                $planOrders->settle($planOrder, $transactionId);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return response('The plan renewal could not be applied.', 500);
             }
 
             return response('ok', 200);
