@@ -84,7 +84,7 @@ it('does not separate the desktop sidebar controls with a top border', function 
     $navbar = file_get_contents(resource_path('views/components/navbar.blade.php'));
 
     expect($navbar)
-        ->toContain('sticky bottom-0 mt-auto -mx-2 hidden items-center gap-1 bg-white')
+        ->toContain('relative z-[110] sticky bottom-0 mt-auto -mx-2 hidden items-center gap-1 bg-white')
         ->not->toContain('sticky bottom-0 mt-auto -mx-2 hidden items-center gap-1 border-t');
 });
 

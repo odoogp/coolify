@@ -3162,6 +3162,13 @@ html:not(.dark) .auth-locale select {
         max-height: calc(100dvh - 7.5rem);
     }
 
+    /* Instance settings has no resource heading above the workspace — keep the
+       Configuration column flush with the main content top padding. */
+    .application-settings-workspace:not(.server-settings-workspace):not(.mt-4) .application-settings-navigation {
+        top: calc(3rem + 1.75rem);
+        max-height: calc(100dvh - 5.5rem);
+    }
+
     .application-settings-navigation.is-flush {
         position: static;
         max-height: none;

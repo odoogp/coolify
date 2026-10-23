@@ -113,9 +113,11 @@
             </div>
 
             {{-- ============ DESKTOP SIDEBAR (below top bar) ============ --}}
-            <div class="hidden lg:fixed lg:top-12 lg:bottom-0 lg:left-0 lg:z-40 lg:flex lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:flex-col min-w-0"
+            {{-- overflow-visible: listbox panels (account menu) must escape the sidebar (DESIGN.md).
+                 Nav list scroll lives on the ul inside <x-navbar>. z-50 keeps the menu above main. --}}
+            <div class="hidden lg:fixed lg:top-12 lg:bottom-0 lg:left-0 lg:z-50 lg:flex lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:flex-col min-w-0"
                 :class="[collapsed ? 'lg:w-16' : 'lg:w-56', sidebarReady ? 'transition-[width] duration-200' : '']">
-                <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
+                <div class="flex h-full min-h-0 min-w-0 flex-col overflow-visible">
                     <x-navbar />
                 </div>
             </div>
@@ -153,8 +155,9 @@
             </div>
 
             {{-- ============ MAIN ============ --}}
+            {{-- Body scrolls (not main): sticky settings nav top offsets stay viewport-relative. --}}
             <main
-                class="min-h-screen bg-white dark:bg-panel px-5 py-6 sm:px-8 lg:min-h-0 lg:h-dvh lg:overflow-y-auto lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10 scrollbar"
+                class="min-h-screen bg-white dark:bg-panel px-5 py-6 sm:px-8 lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10"
                 :class="[collapsed ? 'lg:ml-16' : 'lg:ml-56', sidebarReady ? 'transition-[margin] duration-200' : '']">
                 <div class="w-full" :class="pageWidth === 'centered' ? 'mx-auto max-w-[1400px]' : 'max-w-none'">
                     {{-- components.layout forwards Livewire/<x-layout> via @section('page');

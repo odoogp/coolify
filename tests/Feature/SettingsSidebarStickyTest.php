@@ -17,6 +17,8 @@ it('uses one aligned sticky rule for all settings sidebars', function () {
     expect($appCss)
         ->toContain('.application-settings-workspace .application-settings-navigation')
         ->toContain('max-height: calc(100dvh - 7.5rem)')
+        ->toContain('.application-settings-workspace:not(.server-settings-workspace):not(.mt-4) .application-settings-navigation')
+        ->toContain('top: calc(3rem + 1.75rem)')
         ->not->toContain('.application-settings-workspace > .application-settings-navigation');
 });
 

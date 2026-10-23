@@ -99,8 +99,9 @@ it('places the account menu beside the desktop sidebar toggle while retaining it
     expect($layout)
         ->not->toContain("{{-- Right cluster --}}\n                    <x-top-user-menu />")
         ->toContain('<x-top-user-menu />')
-        ->toContain('flex h-full min-h-0 min-w-0 flex-col overflow-hidden')
-        ->toContain('lg:h-dvh lg:overflow-y-auto');
+        ->toContain('flex h-full min-h-0 min-w-0 flex-col overflow-visible')
+        ->toContain('lg:z-50')
+        ->not->toContain('lg:h-dvh lg:overflow-y-auto');
 
     expect(substr_count($layout, '<x-top-user-menu />'))->toBe(1);
 
@@ -108,10 +109,12 @@ it('places the account menu beside the desktop sidebar toggle while retaining it
         ->toContain('<x-top-user-menu sidebar />')
         ->toContain('Toggle sidebar')
         ->toContain("collapsed ? 'flex-col-reverse justify-center'")
-        ->toContain('app-sidebar flex h-full min-h-0 flex-col flex-1');
+        ->toContain('app-sidebar flex h-full min-h-0 flex-col flex-1')
+        ->toContain('relative z-[110] sticky bottom-0');
 
     expect($accountMenu)
         ->toContain("'sidebar' => false")
+        ->toContain("'z-[120]!' => \$sidebar")
         ->toContain('max-h-[min(70dvh,28rem)]! min-w-0! overflow-x-hidden! overflow-y-auto! scrollbar');
 });
 
