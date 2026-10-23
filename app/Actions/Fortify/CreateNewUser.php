@@ -38,6 +38,8 @@ class CreateNewUser implements CreatesNewUsers
 
         $this->ensureRegistrationIsNotRateLimited($input);
 
+        User::releaseEmailForRegistration((string) ($input['email'] ?? ''));
+
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => [

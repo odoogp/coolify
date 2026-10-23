@@ -91,6 +91,11 @@
                 </x-auth.alert>
             @else
                 <form class="flex flex-col gap-4" wire:submit="register">
+                    @error('gateway')
+                        <x-auth.alert type="error">
+                            <p class="whitespace-pre-wrap">{{ $message }}</p>
+                        </x-auth.alert>
+                    @enderror
                     <x-forms.input id="name" required type="text" autocomplete="name" autofocus
                         label="{{ __('input.name') }}" />
                     <x-forms.input id="organization" required type="text" autocomplete="organization"
@@ -155,7 +160,8 @@
                         </fieldset>
                     @endif
 
-                    <x-forms.button class="w-full justify-center" type="submit" isHighlighted>
+                    <x-forms.button class="w-full justify-center" type="submit" isHighlighted
+                        wire:target="register" wire:loading.attr="disabled">
                         {{ $quote['amount'] <= 0 ? __('Create account') : __('Continue to payment') }}
                     </x-forms.button>
                 </form>

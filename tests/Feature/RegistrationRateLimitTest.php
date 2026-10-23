@@ -16,6 +16,33 @@ beforeEach(function () {
     User::factory()->create(['id' => 0, 'email' => 'root@example.com']);
 });
 
+it('allows registration after an invite-only stub reserved the email', function () {
+    RateLimiter::clear('registration:ip:'.sha1('203.0.113.55'));
+    RateLimiter::clear('registration:email-identity:'.sha1(normalize_email_identity('reclaim@example.com')));
+
+    User::withoutPersonalTeam(fn () => User::query()->create([
+        'name' => 'invitee',
+        'email' => 'reclaim@example.com',
+        'password' => bcrypt('temporary'),
+        'force_password_reset' => true,
+        'email_verified_at' => null,
+    ]));
+
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.55'])
+        ->post('/register', [
+            'name' => 'Reclaimed User',
+            'email' => 'reclaim@example.com',
+            'password' => 'Password1!@',
+            'password_confirmation' => 'Password1!@',
+        ])
+        ->assertRedirect();
+
+    $user = User::query()->where('email', 'reclaim@example.com')->first();
+    expect($user)->not->toBeNull()
+        ->and($user->force_password_reset)->toBeFalse()
+        ->and($user->name)->toBe('Reclaimed User');
+});
+
 it('rate limits repeated registration attempts from the same ip', function () {
     foreach (range(1, 3) as $attempt) {
         $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.10'])

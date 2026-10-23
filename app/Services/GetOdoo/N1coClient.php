@@ -9,6 +9,7 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -464,6 +465,11 @@ class N1coClient
         $locationId = (int) instanceSettings()->n1co_location_id;
 
         if ($locationId < 1) {
+            $this->logFailure('subscription branch id missing', null, [
+                'reference' => $reference,
+                'amount' => $amount,
+            ]);
+
             throw new RuntimeException(__('n1co needs a branch id before a subscription can start.'));
         }
 
@@ -485,15 +491,31 @@ class N1coClient
                 'locationId' => $locationId,
             ])->throw();
         } catch (RequestException $exception) {
-            throw new RuntimeException('n1co did not accept the subscription.', 0, $exception);
+            $message = $this->httpErrorMessage($exception, __('n1co did not accept the subscription.'));
+            $this->logFailure('subscription plan create failed', $exception, [
+                'reference' => $reference,
+                'amount' => $amount,
+                'location_id' => $locationId,
+            ]);
+
+            throw new RuntimeException($message, 0, $exception);
         }
 
-        $planId = $response->json('planId');
-        $url = $response->json('paymentLink.linkUrl');
-        $code = $response->json('paymentLink.code');
+        $payload = $response->json();
+        $payload = is_array($payload) ? $payload : [];
+        $paymentLink = is_array($payload['paymentLink'] ?? null) ? $payload['paymentLink'] : [];
+        $planId = $payload['planId'] ?? $payload['plan_id'] ?? null;
+        $url = $paymentLink['linkUrl'] ?? $paymentLink['link_url'] ?? $paymentLink['url'] ?? null;
+        $code = $paymentLink['code'] ?? null;
 
         if (! is_numeric($planId) || ! is_string($url) || $url === '' || ! is_string($code) || $code === '') {
-            throw new RuntimeException('n1co did not return a subscription link.');
+            $this->logFailure('subscription plan response missing link', null, [
+                'reference' => $reference,
+                'amount' => $amount,
+                'response' => $this->safeBody($payload),
+            ]);
+
+            throw new RuntimeException(__('n1co did not return a subscription link.'));
         }
 
         return [
@@ -529,14 +551,28 @@ class N1coClient
                 ],
             ])->throw();
         } catch (RequestException $exception) {
-            throw new RuntimeException('n1co did not accept the secret key.', 0, $exception);
+            $message = $this->httpErrorMessage($exception, __('n1co did not accept the secret key.'));
+            $this->logFailure('payment link checkout failed', $exception, [
+                'reference' => $reference,
+                'amount' => $amount,
+            ]);
+
+            throw new RuntimeException($message, 0, $exception);
         }
 
-        $url = $response->json('paymentLinkUrl');
-        $code = $response->json('orderCode');
+        $payload = $response->json();
+        $payload = is_array($payload) ? $payload : [];
+        $url = $payload['paymentLinkUrl'] ?? $payload['payment_link_url'] ?? $payload['url'] ?? null;
+        $code = $payload['orderCode'] ?? $payload['order_code'] ?? $payload['code'] ?? null;
 
         if (! is_string($url) || $url === '' || ! is_string($code) || $code === '') {
-            throw new RuntimeException('n1co did not return a payment link.');
+            $this->logFailure('payment link response missing url/code', null, [
+                'reference' => $reference,
+                'amount' => $amount,
+                'response' => $this->safeBody($payload),
+            ]);
+
+            throw new RuntimeException(__('n1co did not return a payment link.'));
         }
 
         return [
@@ -568,6 +604,12 @@ class N1coClient
         $clientSecret = trim((string) ($settings->n1co_client_secret ?? ''));
 
         if ($clientId === '' || $clientSecret === '') {
+            $this->logFailure('subscription credentials missing', null, [
+                'has_client_id' => $clientId !== '',
+                'has_client_secret' => $clientSecret !== '',
+                'has_location_id' => (int) ($settings->n1co_location_id ?? 0) > 0,
+            ]);
+
             throw new RuntimeException(__('n1co needs the API client id and the client secret for a monthly subscription.'));
         }
 
@@ -588,12 +630,18 @@ class N1coClient
                 ])
                 ->throw();
         } catch (RequestException $exception) {
+            $this->logFailure('API client token request failed', $exception);
+
             throw new RuntimeException(__('n1co did not accept the API client.'), 0, $exception);
         }
 
         $token = $response->json('accessToken');
 
         if (! is_string($token) || $token === '') {
+            $this->logFailure('API client token missing in response', null, [
+                'response' => $this->safeBody($response->json()),
+            ]);
+
             throw new RuntimeException(__('n1co did not accept the API client.'));
         }
 
@@ -615,7 +663,7 @@ class N1coClient
         $secret = instanceSettings()->n1co_secret;
 
         if (! is_string($secret) || $secret === '') {
-            throw new RuntimeException('n1co is not configured.');
+            throw new RuntimeException(__('n1co is not configured.'));
         }
 
         return $secret;
@@ -626,9 +674,80 @@ class N1coClient
         $secret = instanceSettings()->n1co_webhook_secret;
 
         if (! is_string($secret) || $secret === '') {
-            throw new RuntimeException('n1co is not configured.');
+            throw new RuntimeException(__('n1co is not configured.'));
         }
 
         return $secret;
+    }
+
+    private function httpErrorMessage(RequestException $exception, string $fallback): string
+    {
+        $body = $exception->response?->json();
+        if (! is_array($body)) {
+            return $fallback;
+        }
+
+        foreach (['message', 'Message', 'error', 'Error', 'title', 'Title', 'detail', 'Detail'] as $key) {
+            $value = $body[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return 'n1co: '.trim($value);
+            }
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * @param  array<string, mixed>  $context
+     */
+    private function logFailure(string $reason, ?Throwable $exception = null, array $context = []): void
+    {
+        $payload = array_merge([
+            'sandbox' => $this->sandbox(),
+        ], $context);
+
+        if ($exception instanceof RequestException) {
+            $payload['http_status'] = $exception->response?->status();
+            $uri = $exception->response?->effectiveUri();
+            $payload['http_url'] = $uri !== null ? (string) $uri : null;
+            $payload['response'] = $this->safeBody(
+                $exception->response?->json() ?? $exception->response?->body()
+            );
+        }
+
+        if ($exception instanceof Throwable) {
+            $payload['exception'] = $exception->getMessage();
+            Log::error('n1co: '.$reason, $payload);
+            report($exception);
+
+            return;
+        }
+
+        Log::error('n1co: '.$reason, $payload);
+    }
+
+    private function safeBody(mixed $body): mixed
+    {
+        if (is_string($body)) {
+            return mb_substr($body, 0, 2000);
+        }
+
+        if (! is_array($body)) {
+            return $body;
+        }
+
+        $redacted = $body;
+        array_walk_recursive($redacted, function (mixed &$value, mixed $key): void {
+            if (! is_string($key)) {
+                return;
+            }
+
+            $name = strtolower($key);
+            if (str_contains($name, 'secret') || str_contains($name, 'token') || str_contains($name, 'password') || str_contains($name, 'authorization')) {
+                $value = '[redacted]';
+            }
+        });
+
+        return $redacted;
     }
 }

@@ -819,6 +819,77 @@ it('frees the email for plan signup after the customer user is deleted', functio
         ->and($again->fresh()->canLaunchOnInstanceServer())->toBeFalse();
 });
 
+it('lets plan signup reclaim an invite-only user stub that never joined a team', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    $stubId = User::withoutPersonalTeam(fn () => User::query()->create([
+        'name' => 'invitee',
+        'email' => 'stub@example.com',
+        'password' => bcrypt('temporary'),
+        'force_password_reset' => true,
+        'email_verified_at' => null,
+    ]))->id;
+
+    expect(User::query()->find($stubId)?->teams()->exists())->toBeFalse();
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'stub@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('dashboard'));
+
+    expect(User::query()->find($stubId))->toBeNull()
+        ->and(User::query()->where('email', 'stub@example.com')->exists())->toBeTrue()
+        ->and(User::query()->where('email', 'stub@example.com')->first()?->teams()->exists())->toBeTrue();
+});
+
+it('does not reclaim a real registered account during plan signup', function () {
+    User::factory()->create();
+    User::factory()->create(['email' => 'taken@example.com']);
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'taken@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertHasErrors(['email']);
+
+    expect(User::query()->where('email', 'taken@example.com')->count())->toBe(1);
+});
+
+it('keeps unpaid plan signup drafts when releasing an email with no user', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 49, 'payment_gateway' => 'wompi']);
+    getOdooPlanWompi();
+
+    GetOdooPlanSignup::query()->create([
+        'plan_id' => $plan->id,
+        'name' => 'Ana',
+        'organization' => 'Draft Org',
+        'email' => 'draft@example.com',
+        'password' => 'password1',
+        'amount' => 49,
+        'payment_gateway' => 'wompi',
+        'status' => 'awaiting_payment',
+    ]);
+
+    User::releaseEmailForRegistration('draft@example.com');
+
+    expect(GetOdooPlanSignup::query()->where('email', 'draft@example.com')->exists())->toBeTrue();
+});
+
 it('applies country service and project limits to the new team', function () {
     User::factory()->create();
     $plan = getOdooPlan([

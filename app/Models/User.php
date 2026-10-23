@@ -253,11 +253,61 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
      * Delete the user if they are not verified and have a force password reset.
      * This is used to clean up users that have been invited, did not accept the invitation (and did not verify their email and have a force password reset).
      */
-    public function deleteIfNotVerifiedAndForcePasswordReset()
+    public function deleteIfNotVerifiedAndForcePasswordReset(): void
     {
-        if ($this->hasVerifiedEmail() === false && $this->force_password_reset === true) {
+        if ($this->isUnclaimedInvitationAccount()) {
             $this->delete();
         }
+    }
+
+    /**
+     * Invite flow creates a users row before the person joins any team.
+     * Those stubs must not permanently reserve the email for plan signup / register.
+     */
+    public function isUnclaimedInvitationAccount(): bool
+    {
+        if ((int) $this->id === 0) {
+            return false;
+        }
+
+        if ($this->force_password_reset !== true) {
+            return false;
+        }
+
+        if ($this->hasVerifiedEmail()) {
+            return false;
+        }
+
+        return ! $this->teams()->exists();
+    }
+
+    /**
+     * Free an email for public registration: remove invite-only stubs and unpaid
+     * plan-signup drafts. Real accounts (verified or on a team) are left alone.
+     */
+    public static function releaseEmailForRegistration(string $email): void
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' || ! str_contains($email, '@')) {
+            return;
+        }
+
+        \DB::transaction(function () use ($email): void {
+            $user = static::query()->where('email', $email)->first();
+
+            if ($user instanceof self && $user->isUnclaimedInvitationAccount()) {
+                $user->delete();
+
+                return;
+            }
+
+            if ($user instanceof self) {
+                return;
+            }
+
+            // Invite rows without a user left behind after a failed invite cleanup.
+            TeamInvitation::whereEmail($email)->delete();
+        });
     }
 
     public function recreate_personal_team()

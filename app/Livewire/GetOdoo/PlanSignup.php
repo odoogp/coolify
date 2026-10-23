@@ -13,6 +13,7 @@ use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
 use App\Support\DetectRequestCountry;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -72,6 +73,8 @@ class PlanSignup extends Component
 
         $lockedCountry = $this->lockedBuyerCountry($plan);
 
+        User::releaseEmailForRegistration($this->email);
+
         $termsRules = [
             'acceptedTerms' => ['accepted'],
         ];
@@ -90,7 +93,7 @@ class PlanSignup extends Component
                 'pricingAreaId' => ['required', 'integer', Rule::in([(int) $country->id])],
             ], $termsRules), [
                 'acceptedTerms.accepted' => __('You must accept the terms and conditions.'),
-                'email.unique' => __('This email is already registered. If you deleted that account, ask an advisor to remove it completely, or use another email.'),
+                'email.unique' => __('This email is already registered.'),
             ]);
         } else {
             // Unknown location, or country not on this plan: standard plan price.
@@ -100,7 +103,7 @@ class PlanSignup extends Component
                 'pricingAreaId' => ['nullable'],
             ], $termsRules), [
                 'acceptedTerms.accepted' => __('You must accept the terms and conditions.'),
-                'email.unique' => __('This email is already registered. If you deleted that account, ask an advisor to remove it completely, or use another email.'),
+                'email.unique' => __('This email is already registered.'),
             ]);
         }
 
@@ -215,14 +218,50 @@ class PlanSignup extends Component
         }
 
         if (filled($signup->wompi_link_url) && $signup->payment_gateway === $provider) {
-            return redirect()->away($signup->wompi_link_url);
+            return $this->redirectToPayment((string) $signup->wompi_link_url);
         }
 
         try {
             $link = $checkout->linkForPlan($signup, $provider);
         } catch (Throwable $exception) {
+            Log::error('getodoo plan payment link failed', [
+                'provider' => $provider,
+                'plan_id' => $plan->id,
+                'plan_uuid' => $plan->uuid,
+                'signup_id' => $signup->id,
+                'signup_uuid' => $signup->uuid,
+                'email' => $signup->email,
+                'amount' => $signup->amount,
+                'charge_mode' => $signup->charge_mode,
+                'exception' => $exception->getMessage(),
+            ]);
             report($exception);
-            $this->addError('gateway', $provider === 'n1co' ? __('n1co is not ready for charges.') : __('Wompi is not ready for charges.'));
+            $message = trim($exception->getMessage());
+            if ($message === '' || ! str_contains(strtolower($message), $provider === 'n1co' ? 'n1co' : 'wompi')) {
+                $message = $provider === 'n1co'
+                    ? __('n1co is not ready for charges.')
+                    : __('Wompi is not ready for charges.');
+            }
+            $this->addError('gateway', $message);
+            $this->dispatch('error', $message);
+
+            return null;
+        }
+
+        $url = trim((string) ($link['url'] ?? ''));
+        if ($url === '') {
+            $message = $provider === 'n1co'
+                ? __('n1co did not return a payment link.')
+                : __('Wompi did not return a payment link.');
+            Log::error('getodoo plan payment link empty', [
+                'provider' => $provider,
+                'plan_id' => $plan->id,
+                'signup_id' => $signup->id,
+                'signup_uuid' => $signup->uuid,
+                'link' => $link,
+            ]);
+            $this->addError('gateway', $message);
+            $this->dispatch('error', $message);
 
             return null;
         }
@@ -230,12 +269,20 @@ class PlanSignup extends Component
         $signup->update([
             'payment_gateway' => $provider,
             'wompi_link_id' => $link['id'],
-            'wompi_link_url' => $link['url'],
+            'wompi_link_url' => $url,
             'n1co_plan_id' => $link['plan_id'] ?? null,
             'charge_mode' => $link['charge_mode'] ?? $signup->charge_mode,
         ]);
 
-        return redirect()->away($link['url']);
+        return $this->redirectToPayment($url);
+    }
+
+    private function redirectToPayment(string $url): mixed
+    {
+        // Livewire needs $this->redirect() so the browser actually leaves the page.
+        $this->redirect($url);
+
+        return null;
     }
 
     public function render(): View
@@ -257,7 +304,8 @@ class PlanSignup extends Component
         $gateways = $checkout->gateways();
 
         if ($gateways !== [] && ! in_array($this->gateway, $gateways, true)) {
-            $this->gateway = $gateways[0];
+            // Prefer n1co when it is available so "Continue to payment" does not keep a dead Wompi default.
+            $this->gateway = in_array('n1co', $gateways, true) ? 'n1co' : $gateways[0];
         }
 
         $region = $lockedCountry?->region();

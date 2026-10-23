@@ -171,6 +171,40 @@ it('sends a subscription plan to an n1co monthly plan and a one-time plan to a s
     Http::assertSent(fn ($request) => str_contains($request->url(), 'paymentlink/checkout'));
 });
 
+it('shows a clear error when n1co subscription credentials are missing', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => true,
+        'n1co_location_id' => 578,
+        'n1co_client_id' => null,
+        'n1co_client_secret' => null,
+        'is_registration_enabled' => false,
+    ]);
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Mensual',
+        'price' => 25,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'charge_mode' => 'subscription',
+    ]);
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme')
+        ->set('email', 'ana-sub-missing@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->set('gateway', 'n1co')
+        ->call('register')
+        ->assertHasErrors(['gateway'])
+        ->assertSee(__('n1co needs the API client id and the client secret for a monthly subscription.'));
+});
+
 it('opens the account on the first subscription notice and does not open another on the renewal', function () {
     User::factory()->create();
     instanceSettings()->update([
