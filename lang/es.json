@@ -4937,6 +4937,7 @@
     "n1co did not accept the secret key.": "n1co no aceptó la clave secreta.",
     "n1co did not accept the subscription.": "n1co no aceptó la suscripción.",
     "n1co is not configured.": "n1co no está configurado.",
+    "n1co did not respond in time. Check sandbox credentials and that the server can reach n1co.": "n1co no respondió a tiempo. Revisa las credenciales de sandbox y que el servidor pueda llegar a n1co.",
     "Wompi did not return a payment link.": "Wompi no devolvió un enlace de pago.",
     "The payment was cancelled.": "El pago fue cancelado.",
     "Platform name": "Nombre de la plataforma",

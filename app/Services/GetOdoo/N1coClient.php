@@ -5,6 +5,7 @@ namespace App\Services\GetOdoo;
 use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\GetOdooServerOrder;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -77,23 +78,45 @@ class N1coClient
         $name = trim((string) ($plan->name ?: product_name()));
         $mode = $signup->charge_mode ?: ($plan->charge_mode ?: GetOdooPlan::CHARGE_ONCE);
 
-        if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
-            return $this->subscriptionLink(
+        $startContext = [
+            'signup_uuid' => $signup->uuid,
+            'plan_id' => $plan->id,
+            'amount' => (float) $signup->amount,
+            'charge_mode' => $mode,
+            'sandbox' => $this->sandbox(),
+            'checkout_base' => $this->baseUrl(),
+            'subscriptions_base' => $this->subscriptionsBaseUrl(),
+        ];
+        Log::stack(['single', 'stderr'])->info('n1co: createPlanLink starting', $startContext);
+        error_log('n1co: createPlanLink starting '.json_encode($startContext, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        try {
+            if ($mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+                return $this->subscriptionLink(
+                    $signup->uuid,
+                    (float) $signup->amount,
+                    product_name().' '.$name,
+                    trim((string) ($plan->summary ?: $name)),
+                );
+            }
+
+            return $this->checkout(
                 $signup->uuid,
                 (float) $signup->amount,
                 product_name().' '.$name,
                 trim((string) ($plan->summary ?: $name)),
+                route('getodoo.plan.return', ['plan' => $plan->uuid, 'signup' => $signup->uuid]),
+                $plan->publicUrl(),
             );
-        }
+        } catch (ConnectionException $exception) {
+            $this->logFailure('API connection timed out or unreachable', $exception, [
+                'signup_uuid' => $signup->uuid,
+                'charge_mode' => $mode,
+                'checkout_base' => $this->baseUrl(),
+            ]);
 
-        return $this->checkout(
-            $signup->uuid,
-            (float) $signup->amount,
-            product_name().' '.$name,
-            trim((string) ($plan->summary ?: $name)),
-            route('getodoo.plan.return', ['plan' => $plan->uuid, 'signup' => $signup->uuid]),
-            $plan->publicUrl(),
-        );
+            throw new RuntimeException(__('n1co did not respond in time. Check sandbox credentials and that the server can reach n1co.'), 0, $exception);
+        }
     }
 
     /**
@@ -585,16 +608,19 @@ class N1coClient
 
     private function request(): PendingRequest
     {
+        // Short connect timeout so a blackholed sandbox host cannot leave Livewire spinning forever.
         return Http::acceptJson()
             ->withToken($this->secret())
-            ->timeout(20);
+            ->connectTimeout(5)
+            ->timeout(15);
     }
 
     private function subscriptionRequest(): PendingRequest
     {
         return Http::acceptJson()
             ->withToken($this->accessToken())
-            ->timeout(20);
+            ->connectTimeout(5)
+            ->timeout(15);
     }
 
     private function accessToken(): string

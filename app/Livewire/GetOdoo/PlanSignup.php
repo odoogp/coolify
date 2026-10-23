@@ -56,6 +56,13 @@ class PlanSignup extends Component
 
     public function register(GetOdooCheckout $checkout, OpenGetOdooPlanAccount $accounts): mixed
     {
+        Log::stack(['single', 'stderr'])->info('getodoo plan register invoked', [
+            'plan_id' => $this->planId,
+            'email' => strtolower(trim($this->email)),
+            'gateway' => $this->gateway,
+        ]);
+        error_log('getodoo plan register invoked plan_id='.$this->planId.' gateway='.$this->gateway);
+
         $plan = $this->plan();
 
         if (auth()->check() || User::query()->count() === 0) {
@@ -79,11 +86,14 @@ class PlanSignup extends Component
             'acceptedTerms' => ['accepted'],
         ];
 
+        // Do not use Password::defaults() here: in production that includes
+        // uncompromised() (Have I Been Pwned). If that API is slow/blocked, the
+        // Livewire button spins forever and n1co is never called — no n1co logs.
         $accountRules = [
             'name' => ['required', 'string', 'max:255'],
             'organization' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
-            'password' => ['required', Password::defaults(), 'confirmed'],
+            'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->letters()->numbers()->symbols()],
         ];
 
         if ($lockedCountry instanceof GetOdooPricingArea) {
@@ -222,6 +232,14 @@ class PlanSignup extends Component
         }
 
         try {
+            Log::stack(['single', 'stderr'])->info('getodoo plan payment starting', [
+                'provider' => $provider,
+                'plan_uuid' => $plan->uuid,
+                'signup_uuid' => $signup->uuid,
+                'charge_mode' => $signup->charge_mode,
+            ]);
+            error_log('getodoo plan payment starting provider='.$provider.' signup='.$signup->uuid);
+
             $link = $checkout->linkForPlan($signup, $provider);
             $url = trim((string) ($link['url'] ?? ''));
             if ($url === '') {
