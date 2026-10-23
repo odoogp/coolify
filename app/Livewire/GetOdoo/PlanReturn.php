@@ -2,6 +2,7 @@
 
 namespace App\Livewire\GetOdoo;
 
+use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanSignup;
 use App\Models\User;
 use App\Services\GetOdoo\N1coClient;
@@ -117,7 +118,7 @@ class PlanReturn extends Component
     private function confirmN1co(GetOdooPlanSignup $signup, N1coClient $n1co, SettleGetOdooPlanSignup $settle): void
     {
         if (! $n1co->canChargePlans()) {
-            $this->message = __('n1co has not confirmed this payment yet.');
+            $this->message = $this->waitingForN1coMessage($signup);
 
             return;
         }
@@ -135,7 +136,10 @@ class PlanReturn extends Component
                         'n1co_subscription_status' => 'active',
                     ]);
                 } catch (Throwable $exception) {
-                    report($exception);
+                    try {
+                        report($exception);
+                    } catch (Throwable) {
+                    }
                     $this->message = __('The account could not be created.');
 
                     return;
@@ -151,7 +155,7 @@ class PlanReturn extends Component
         $remote = $n1co->paidOrder($codes, $signup->amount, $signup->uuid);
 
         if (! is_array($remote)) {
-            $this->message = __('n1co has not confirmed this payment yet.');
+            $this->message = $this->waitingForN1coMessage($signup);
 
             return;
         }
@@ -164,13 +168,25 @@ class PlanReturn extends Component
         try {
             $user = $settle->settle($signup, $transactionId !== '' ? $transactionId : 'n1co-'.$code);
         } catch (Throwable $exception) {
-            report($exception);
+            try {
+                report($exception);
+            } catch (Throwable) {
+            }
             $this->message = __('The account could not be created.');
 
             return;
         }
 
         $this->enter($user);
+    }
+
+    private function waitingForN1coMessage(GetOdooPlanSignup $signup): string
+    {
+        if ($signup->charge_mode === GetOdooPlan::CHARGE_SUBSCRIPTION && filled($signup->wompi_link_url)) {
+            return __('Pay with n1co in the other tab. This page opens your account when the payment is confirmed.');
+        }
+
+        return __('n1co has not confirmed this payment yet.');
     }
 
     private function enter(User $user): void

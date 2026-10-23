@@ -227,7 +227,7 @@ class PlanSignup extends Component
         }
 
         if (filled($signup->wompi_link_url) && $signup->payment_gateway === $provider) {
-            return $this->redirectToPayment((string) $signup->wompi_link_url);
+            return $this->redirectAfterPaymentLink($signup, (string) $signup->wompi_link_url);
         }
 
         try {
@@ -256,7 +256,7 @@ class PlanSignup extends Component
                 'charge_mode' => $link['charge_mode'] ?? $signup->charge_mode,
             ]);
 
-            return $this->redirectToPayment($url);
+            return $this->redirectAfterPaymentLink($signup->fresh(), $url);
         } catch (Throwable $exception) {
             $context = [
                 'provider' => $provider,
@@ -271,7 +271,11 @@ class PlanSignup extends Component
                 'exception_class' => $exception::class,
             ];
             $this->logPayment('getodoo plan payment link failed', $context, level: 'error');
-            report($exception);
+            try {
+                report($exception);
+            } catch (Throwable) {
+                // laravel.log may be unwritable; payment error must still reach the UI.
+            }
 
             $message = trim($exception->getMessage());
             if ($message === '' || ! str_contains(strtolower($message), $provider === 'n1co' ? 'n1co' : 'wompi')) {
@@ -286,10 +290,25 @@ class PlanSignup extends Component
         }
     }
 
-    private function redirectToPayment(string $url): mixed
+    private function redirectAfterPaymentLink(GetOdooPlanSignup $signup, string $paymentUrl): mixed
     {
+        // n1co subscription payment links do not support successUrl. Keep the buyer
+        // on our return page (poll + CTA) so the account opens after the webhook/API confirms.
+        if ($signup->charge_mode === GetOdooPlan::CHARGE_SUBSCRIPTION) {
+            $signup->loadMissing('plan');
+            $planUuid = $signup->plan?->uuid;
+            if (is_string($planUuid) && $planUuid !== '') {
+                $this->redirect(route('getodoo.plan.return', [
+                    'plan' => $planUuid,
+                    'signup' => $signup->uuid,
+                ]));
+
+                return null;
+            }
+        }
+
         // Livewire needs $this->redirect() so the browser actually leaves the page.
-        $this->redirect($url);
+        $this->redirect($paymentUrl);
 
         return null;
     }

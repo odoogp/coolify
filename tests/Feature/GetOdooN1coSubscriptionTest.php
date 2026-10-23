@@ -134,13 +134,17 @@ it('sends a subscription plan to an n1co monthly plan and a one-time plan to a s
         ->set('acceptedTerms', true)
         ->set('gateway', 'n1co')
         ->call('register')
-        ->assertRedirect('https://pay-sandbox.n1co.shop/pl/SUB1');
+        ->assertRedirect(route('getodoo.plan.return', [
+            'plan' => $subscription->uuid,
+            'signup' => GetOdooPlanSignup::query()->where('email', 'ana-sub@example.com')->value('uuid'),
+        ]));
 
     $signup = GetOdooPlanSignup::query()->where('email', 'ana-sub@example.com')->first();
 
     expect($signup->charge_mode)->toBe('subscription')
         ->and($signup->n1co_plan_id)->toBe('1810')
-        ->and($signup->wompi_link_id)->toBe('SUB1');
+        ->and($signup->wompi_link_id)->toBe('SUB1')
+        ->and($signup->wompi_link_url)->toBe('https://pay-sandbox.n1co.shop/pl/SUB1');
 
     Http::assertSent(function ($request) use ($signup) {
         $body = $request->data();
@@ -169,6 +173,56 @@ it('sends a subscription plan to an n1co monthly plan and a one-time plan to a s
 
     expect(GetOdooPlanSignup::query()->where('email', 'ana-once@example.com')->value('charge_mode'))->toBe('once');
     Http::assertSent(fn ($request) => str_contains($request->url(), 'paymentlink/checkout'));
+});
+
+it('keeps a subscription buyer on the return page with the n1co payment link', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => true,
+        'n1co_location_id' => 578,
+        'n1co_client_id' => 'client-n1co',
+        'n1co_client_secret' => 'client-secret-n1co',
+        'is_registration_enabled' => false,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake([
+        '*/api/v3/Token' => Http::response(['accessToken' => 'access-n1co', 'expiresIn' => 3600]),
+        '*/api/v3/Plans/*/Subscriptions' => Http::response([]),
+    ]);
+
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Mensual',
+        'price' => 25,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'charge_mode' => 'subscription',
+    ]);
+    $signup = $plan->signups()->create([
+        'name' => 'Ana',
+        'organization' => 'Acme',
+        'email' => 'ana-wait@example.com',
+        'password' => 'password1',
+        'amount' => 25,
+        'payment_gateway' => 'n1co',
+        'charge_mode' => 'subscription',
+        'status' => 'awaiting_payment',
+        'n1co_plan_id' => '1810',
+        'wompi_link_id' => 'SUB1',
+        'wompi_link_url' => 'https://pay-sandbox.n1co.shop/pl/SUB1',
+    ]);
+
+    $this->get(route('getodoo.plan.return', [
+        'plan' => $plan->uuid,
+        'signup' => $signup->uuid,
+    ]))
+        ->assertOk()
+        ->assertSee(__('Continue to n1co'))
+        ->assertSee('https://pay-sandbox.n1co.shop/pl/SUB1', false)
+        ->assertSee(__('Pay with n1co in the other tab. This page opens your account when the payment is confirmed.'));
 });
 
 it('shows a clear error when n1co subscription credentials are missing', function () {

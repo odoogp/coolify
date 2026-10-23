@@ -4,6 +4,7 @@ namespace App\Livewire\Server;
 
 use App\Actions\Server\DeleteServer;
 use App\Jobs\DeleteResourceJob;
+use App\Models\GetOdooPlan;
 use App\Models\GetOdooServerOffer;
 use App\Models\GetOdooServerOrder;
 use App\Models\Server;
@@ -58,7 +59,7 @@ class Billing extends Component
             ->first();
 
         if ($pending instanceof GetOdooServerOrder && ($pending->payment_gateway ?: 'wompi') === $checkout->provider() && $checkout->sameMoney($pending->amount, $amount)) {
-            return redirect()->away($pending->wompi_link_url);
+            return $this->redirectToServerPayment($pending, (string) $pending->wompi_link_url, (string) ($pending->charge_mode ?: 'once'));
         }
 
         $offer = GetOdooServerOffer::query()->find($server->getodoo_offer_id);
@@ -103,7 +104,7 @@ class Billing extends Component
             'charge_mode' => $link['charge_mode'] ?? 'once',
         ]);
 
-        return redirect()->away($link['url']);
+        return $this->redirectToServerPayment($order->fresh(), $link['url'], $link['charge_mode'] ?? 'once');
     }
 
     public function payOrder(int $orderId, GetOdooCheckout $checkout): mixed
@@ -126,7 +127,7 @@ class Billing extends Component
         }
 
         if ($order->status === 'awaiting_payment' && filled($order->wompi_link_url) && ($order->payment_gateway ?: 'wompi') === $checkout->provider()) {
-            return redirect()->away($order->wompi_link_url);
+            return $this->redirectToServerPayment($order, (string) $order->wompi_link_url, (string) ($order->charge_mode ?: 'once'));
         }
 
         $order->forceFill(['uuid' => new_public_id(), 'payment_gateway' => $checkout->provider()])->save();
@@ -147,7 +148,7 @@ class Billing extends Component
             'charge_mode' => $link['charge_mode'] ?? 'once',
         ]);
 
-        return redirect()->away($link['url']);
+        return $this->redirectToServerPayment($order->fresh(), $link['url'], $link['charge_mode'] ?? 'once');
     }
 
     public function cancelOrder(int $orderId): void
@@ -310,5 +311,15 @@ class Billing extends Component
         $teamId = $server->team_id;
         $server->delete();
         DeleteServer::dispatch($serverId, false, null, null, $teamId, false, null, false, null);
+    }
+
+    private function redirectToServerPayment(GetOdooServerOrder $order, string $paymentUrl, string $chargeMode): mixed
+    {
+        // Subscription payment links from n1co do not redirect back. Wait on our return page.
+        if ($chargeMode === GetOdooPlan::CHARGE_SUBSCRIPTION && ($order->payment_gateway ?: '') === 'n1co') {
+            return redirect()->route('getodoo.n1co.return', ['order' => $order->uuid]);
+        }
+
+        return redirect()->away($paymentUrl);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Server\New;
 
+use App\Models\GetOdooPlan;
 use App\Models\GetOdooServerOrder;
 use App\Services\GetOdoo\N1coClient;
 use App\Services\GetOdoo\SettleGetOdooServerPayment;
@@ -68,13 +69,22 @@ class N1coReturn extends Component
 
     public function render(): View
     {
-        return view('livewire.server.new.wompi-return');
+        $order = GetOdooServerOrder::query()->find($this->orderId);
+
+        return view('livewire.server.new.wompi-return', [
+            'order' => $order,
+            'paymentUrl' => $order instanceof GetOdooServerOrder
+                && $order->status === 'awaiting_payment'
+                && filled($order->wompi_link_url)
+                ? (string) $order->wompi_link_url
+                : null,
+        ]);
     }
 
     private function confirm(GetOdooServerOrder $order, N1coClient $n1co, SettleGetOdooServerPayment $settle): void
     {
         if (! $n1co->canChargePlans()) {
-            $this->message = __('n1co has not confirmed this payment yet.');
+            $this->message = $this->waitingForN1coMessage($order);
 
             return;
         }
@@ -92,7 +102,10 @@ class N1coReturn extends Component
                         'n1co_subscription_status' => 'active',
                     ]);
                 } catch (Throwable $exception) {
-                    report($exception);
+                    try {
+                        report($exception);
+                    } catch (Throwable) {
+                    }
                     $this->message = $order->purpose === 'renewal'
                         ? __('The monthly charge could not be applied.')
                         : __('The GetOdoo server could not be created.');
@@ -113,7 +126,7 @@ class N1coReturn extends Component
         $remote = $n1co->paidOrder($codes, $order->amount, $order->uuid);
 
         if (! is_array($remote)) {
-            $this->message = __('n1co has not confirmed this payment yet.');
+            $this->message = $this->waitingForN1coMessage($order);
 
             return;
         }
@@ -153,5 +166,14 @@ class N1coReturn extends Component
         }
 
         $this->redirectRoute('server.show', ['server_uuid' => $order->server->uuid]);
+    }
+
+    private function waitingForN1coMessage(GetOdooServerOrder $order): string
+    {
+        if ($order->charge_mode === GetOdooPlan::CHARGE_SUBSCRIPTION && filled($order->wompi_link_url)) {
+            return __('Pay with n1co in the other tab. This page continues when the payment is confirmed.');
+        }
+
+        return __('n1co has not confirmed this payment yet.');
     }
 }

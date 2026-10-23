@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Server\New;
 
+use App\Models\GetOdooPlan;
 use App\Models\GetOdooServerOffer;
 use App\Models\GetOdooServerOrder;
 use App\Models\PrivateKey;
@@ -173,6 +174,11 @@ class ByGetOdoo extends Component
             'n1co_plan_id' => $link['plan_id'] ?? null,
             'charge_mode' => $link['charge_mode'] ?? 'once',
         ]);
+
+        $chargeMode = $link['charge_mode'] ?? 'once';
+        if ($chargeMode === GetOdooPlan::CHARGE_SUBSCRIPTION && ($order->payment_gateway ?: '') === 'n1co') {
+            return redirect()->route('getodoo.n1co.return', ['order' => $order->uuid]);
+        }
 
         return redirect()->away($link['url']);
     }
