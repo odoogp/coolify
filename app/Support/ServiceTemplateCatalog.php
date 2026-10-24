@@ -190,6 +190,26 @@ class ServiceTemplateCatalog
     }
 
     /**
+     * Public asset URL for a catalog logo path (same rules as the full Coolify catalog).
+     */
+    public static function logoUrl(?string $logo): string
+    {
+        $default = 'svgs/default.webp';
+        if (is_string($logo) && str_starts_with($logo, 'svg/')) {
+            $normalized = 'svgs/'.Str::after($logo, 'svg/');
+            if (file_exists(public_path($normalized))) {
+                $logo = $normalized;
+            }
+        }
+
+        if (! is_string($logo) || $logo === '' || ! file_exists(public_path($logo))) {
+            $logo = $default;
+        }
+
+        return asset($logo);
+    }
+
+    /**
      * Picker rows: Odoo first, then the rest of the launchable catalog.
      *
      * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string}>
@@ -205,13 +225,14 @@ class ServiceTemplateCatalog
                 if (! is_string($label) || $label === '') {
                     $label = $name === 'odoo' ? 'Odoo' : Str::headline($name);
                 }
+                $logo = data_get($template, 'logo');
 
                 return [
                     'value' => $name,
                     'label' => $label,
                     'description' => is_string(data_get($template, 'description')) ? data_get($template, 'description') : null,
                     'category' => is_string(data_get($template, 'category')) ? data_get($template, 'category') : null,
-                    'logo' => is_string(data_get($template, 'logo')) ? data_get($template, 'logo') : null,
+                    'logo' => self::logoUrl(is_string($logo) ? $logo : null),
                 ];
             })
             ->sortBy(fn (array $row): array => [$row['value'] === 'odoo' ? 0 : 1, strtolower($row['label'])])

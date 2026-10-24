@@ -3838,6 +3838,20 @@ input[type="search"]::-webkit-search-results-decoration {
     color: var(--color-fg-dim, #737373);
 }
 
+.searchable-listbox-option {
+    align-items: flex-start;
+    white-space: normal;
+    min-height: 2.5rem;
+    height: auto;
+}
+
+.searchable-listbox-preview {
+    padding: 0.75rem;
+    border-radius: 10px;
+    border: 1px solid var(--coollabs-line);
+    background: var(--coollabs-recessed);
+}
+
 /* Flush layer-card body (tables and other full-bleed content) */
 .application-settings-section-body.is-flush {
     padding: 0;

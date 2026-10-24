@@ -60,10 +60,35 @@ test('searchable listbox serializes change handlers', function () {
     expect($listbox)
         ->toContain('saving: false')
         ->toContain('async choose(option)')
-        ->toContain('if (this.saving || option.disabled)')
+        ->toContain('if (this.saving || option?.disabled)')
         ->toContain('await this.$wire.')
         ->toContain("'pointer-events-none opacity-70': saving")
-        ->toContain('@elseif ($live && ! $onChange) @entangle($id).live');
+        ->toContain('@elseif ($live && ! $onChange) @entangle($id).live')
+        ->toContain('@mousedown.prevent="choose(option)"')
+        ->toContain('searchable-listbox-preview');
+});
+
+test('searchable listbox renders catalog logo name and description for rich options', function () {
+    $html = Blade::render(<<<'BLADE'
+        <x-forms.searchable-listbox id="selectedService" label="Service"
+            searchPlaceholder="Search" emptyText="None"
+            :options="[
+                [
+                    'value' => 'obsidian',
+                    'label' => 'Obsidian',
+                    'category' => 'productivity',
+                    'description' => 'Notes that stick.',
+                    'logo' => 'https://example.test/obsidian.png',
+                ],
+            ]" :wire="false" value="obsidian" />
+    BLADE);
+
+    expect($html)
+        ->toContain('searchable-listbox-preview')
+        ->toContain('example.test')
+        ->toContain('obsidian.png')
+        ->toContain('selected?.description')
+        ->toContain('@mousedown.prevent="choose(option)"');
 });
 
 test('portaled searchable listbox stays inside focus traps so search stays editable', function () {

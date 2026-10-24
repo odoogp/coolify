@@ -44,8 +44,7 @@ test('listbox component uses shared trigger label truncation', function () {
         ->toContain('relative min-w-0')
         ->toContain('listbox-trigger')
         ->toContain('listbox-trigger-label')
-        ->toContain(':title="{{ __(\'current\') }}"')
-        ->not->toContain('class="truncate" x-text="current"');
+        ->toContain(':title="current"');
 });
 
 test('listboxes stay in their local Alpine scope by default', function () {

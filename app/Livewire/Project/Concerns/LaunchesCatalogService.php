@@ -129,14 +129,17 @@ trait LaunchesCatalogService
     }
 
     /**
-     * @return list<array{value: string, label: string}>
+     * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string}>
      */
     protected function catalogServiceOptions(): array
     {
         return collect(ServiceTemplateCatalog::launchOptionsForTeam())
             ->map(fn (array $row): array => [
                 'value' => $row['value'],
-                'label' => $row['label'].(filled($row['category']) ? ' · '.$row['category'] : ''),
+                'label' => $row['label'],
+                'description' => $row['description'] ?? null,
+                'category' => $row['category'] ?? null,
+                'logo' => $row['logo'] ?? null,
             ])
             ->values()
             ->all();

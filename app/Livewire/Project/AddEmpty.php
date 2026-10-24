@@ -250,7 +250,10 @@ class AddEmpty extends Component
         $options = collect(ServiceTemplateCatalog::launchOptionsForTeam())
             ->map(fn (array $row): array => [
                 'value' => $row['value'],
-                'label' => $row['label'].(filled($row['category']) ? ' · '.$row['category'] : ''),
+                'label' => $row['label'],
+                'description' => $row['description'] ?? null,
+                'category' => $row['category'] ?? null,
+                'logo' => $row['logo'] ?? null,
             ])
             ->prepend(['value' => '', 'label' => __('No service yet')])
             ->values()

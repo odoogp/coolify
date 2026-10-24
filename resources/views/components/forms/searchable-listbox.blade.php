@@ -3,7 +3,7 @@
     'label' => null,
     'helper' => null,
     'required' => false,
-    'options' => [], // list of ['value' => ..., 'label' => ..., 'disabled' => bool]
+    'options' => [], // list of ['value' => ..., 'label' => ..., 'disabled' => bool, 'description' => ?, 'logo' => ?, 'category' => ?]
     'placeholder' => __('Select…'),
     'searchPlaceholder' => 'Search…',
     'emptyText' => 'No matching options',
@@ -14,6 +14,13 @@
     'disabled' => false,
     'portal' => false,
 ])
+
+@php
+    $hasRichOptions = collect($options)->contains(
+        fn (mixed $option): bool => is_array($option)
+            && (filled($option['logo'] ?? null) || filled($option['description'] ?? null))
+    );
+@endphp
 
 <div class="w-full min-w-0">
     @if ($label)
@@ -42,9 +49,17 @@
         positioned: false,
         options: @js(array_values($options)),
         value: @if (!$wire) @js($value) @elseif ($live && ! $onChange) @entangle($id).live @else @entangle($id) @endif,
+        get selected() {
+            return this.options.find((option) => String(option.value) === String(this.value)) ?? null;
+        },
         get current() {
-            const found = this.options.find((option) => String(option.value) === String(this.value));
-            return found ? found.label : @js($placeholder);
+            const found = this.selected;
+            if (! found) {
+                return @js($placeholder);
+            }
+            const category = found.category ? ` · ${found.category}` : '';
+
+            return `${found.label ?? ''}${category}`;
         },
         get filtered() {
             const query = this.query.toLowerCase().trim();
@@ -53,10 +68,14 @@
             }
 
             return this.options.filter((option) => {
-                const label = String(option.label ?? '').toLowerCase();
-                const value = String(option.value ?? '').toLowerCase();
+                const haystack = [
+                    option.label,
+                    option.value,
+                    option.category,
+                    option.description,
+                ].map((part) => String(part ?? '').toLowerCase()).join(' ');
 
-                return label.includes(query) || value.includes(query);
+                return haystack.includes(query);
             });
         },
         portalHost() {
@@ -181,16 +200,17 @@
             return Boolean(target?.closest?.('[data-searchable-listbox-panel]'));
         },
         async choose(option) {
-            if (this.saving || option.disabled) {
+            if (this.saving || option?.disabled) {
                 return;
             }
 
+            const next = option?.value;
             this.close();
-            if (String(option.value) === String(this.value)) {
+            if (String(next) === String(this.value)) {
                 return;
             }
 
-            this.value = option.value;
+            this.value = next;
             @if ($onChange)
                 this.saving = true;
                 try {
@@ -210,21 +230,55 @@
             @disabled($disabled)
             {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
             :aria-expanded="open" :title="current">
-            <span class="listbox-trigger-label" x-text="current"></span>
+            <span class="listbox-trigger-label flex min-w-0 items-center gap-2">
+                <template x-if="selected?.logo">
+                    <img :src="selected.logo" alt="" class="size-5 shrink-0 rounded object-contain" />
+                </template>
+                <span class="truncate" x-text="current"></span>
+            </span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
                 stroke="currentColor" class="size-3.5 shrink-0 opacity-60">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8 9 4-4 4 4m0 6-4 4-4-4" />
             </svg>
         </button>
+        @if ($hasRichOptions)
+            <div x-show="selected && (selected.description || selected.logo)" x-cloak
+                class="searchable-listbox-preview mt-2">
+                <div class="flex min-w-0 items-start gap-3">
+                    <div
+                        class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
+                        <template x-if="selected?.logo">
+                            <img :src="selected.logo" alt="" class="size-full object-contain p-2" />
+                        </template>
+                        <template x-if="!selected?.logo">
+                            <span class="text-[11px] font-medium text-neutral-400 dark:text-fg-faint"
+                                x-text="(selected?.label || '?').slice(0, 1)"></span>
+                        </template>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <p class="truncate text-[13px] font-semibold text-black dark:text-fg"
+                                x-text="selected?.label"></p>
+                            <p x-show="selected?.category"
+                                class="truncate text-[11px] text-neutral-500 dark:text-fg-faint"
+                                x-text="selected?.category"></p>
+                        </div>
+                        <p x-show="selected?.description"
+                            class="mt-1 line-clamp-2 text-[12px] leading-5 text-neutral-600 dark:text-fg-dim"
+                            x-text="selected?.description"></p>
+                    </div>
+                </div>
+            </div>
+        @endif
         <div x-ref="panel" data-searchable-listbox-panel
             @if ($portal)
-                style="position: fixed; z-index: 9999; visibility: hidden"
-                :style="{ position: 'fixed', zIndex: 9999, visibility: open && positioned ? 'visible' : 'hidden' }"
+                style="position: absolute; z-index: 9999; visibility: hidden; pointer-events: auto"
+                :style="{ zIndex: 9999, visibility: open && positioned ? 'visible' : 'hidden', pointerEvents: open ? 'auto' : 'none' }"
                 x-effect="if (open) requestAnimationFrame(() => positionPanel($el))"
                 @resize.window="open && positionPanel($el)"
                 @scroll.window.capture="open && positionPanel($el)"
             @endif
-            class="listbox-panel searchable-listbox-panel" x-show="open" x-cloak role="listbox"
+            class="listbox-panel searchable-listbox-panel pointer-events-auto" x-show="open" x-cloak role="listbox"
             @mousedown.stop @click.stop>
             <div class="searchable-listbox-search">
                 <x-reicon name="search"
@@ -237,13 +291,31 @@
             </div>
             <div class="searchable-listbox-options">
                 <template x-for="option in filtered" :key="String(option.value)">
-                    <button type="button" class="listbox-option" role="option"
+                    {{-- mousedown: select before outside/trap handlers can steal the click --}}
+                    <button type="button" class="listbox-option searchable-listbox-option" role="option"
                         :class="{ 'listbox-option-disabled': option.disabled }"
-                        :aria-selected="String(option.value) === String(value)" @click="choose(option)">
-                        <span class="truncate" x-text="option.label"></span>
+                        :aria-selected="String(option.value) === String(value)"
+                        @mousedown.prevent="choose(option)">
+                        <span class="flex min-w-0 flex-1 items-start gap-2.5">
+                            <template x-if="option.logo">
+                                <img :src="option.logo" alt=""
+                                    class="mt-0.5 size-7 shrink-0 rounded-md object-contain" />
+                            </template>
+                            <span class="min-w-0 flex-1">
+                                <span class="flex min-w-0 items-baseline gap-1.5">
+                                    <span class="truncate font-medium" x-text="option.label"></span>
+                                    <span x-show="option.category"
+                                        class="truncate text-[11px] font-normal text-neutral-500 dark:text-fg-faint"
+                                        x-text="option.category"></span>
+                                </span>
+                                <span x-show="option.description"
+                                    class="mt-0.5 line-clamp-2 text-[11px] leading-4 font-normal whitespace-normal text-neutral-500 dark:text-fg-dim"
+                                    x-text="option.description"></span>
+                            </span>
+                        </span>
                         <svg x-show="String(option.value) === String(value)" xmlns="http://www.w3.org/2000/svg"
                             fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"
-                            class="size-3.5 shrink-0">
+                            class="mt-1 size-3.5 shrink-0">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
                     </button>
