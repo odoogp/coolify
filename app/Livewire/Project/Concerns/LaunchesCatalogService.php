@@ -305,6 +305,13 @@ trait LaunchesCatalogService
 
         $service->parse(isNew: true);
         applyServiceApplicationPrerequisites($service);
+        // HTTPS FQDNs before the user opens Start — Traefik needs https:// for ACME labels.
+        OdooGit::useHttps($service->fresh([
+            'applications',
+            'server',
+            'environment.project.odooProfile',
+            'environment.odooBranch',
+        ]) ?? $service);
 
         return $service;
     }

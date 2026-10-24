@@ -51,11 +51,15 @@ class AddEmpty extends Component
 
     protected function rules(): array
     {
+        $odooVersion = $this->service === 'odoo'
+            ? ['required', Rule::in(OdooComposeTemplate::configuredVersions())]
+            : ['nullable', 'string'];
+
         return [
             'name' => ValidationPatterns::nameRules(),
             'description' => ValidationPatterns::descriptionRules(),
             'service' => ['nullable', 'string'],
-            'odooVersion' => ['required', Rule::in(OdooComposeTemplate::configuredVersions())],
+            'odooVersion' => $odooVersion,
             'connectGithub' => ['boolean'],
             'migrateFromOdoo' => ['boolean'],
         ];
@@ -373,6 +377,12 @@ class AddEmpty extends Component
 
         $service->parse(isNew: true);
         applyServiceApplicationPrerequisites($service);
+        OdooGit::useHttps($service->fresh([
+            'applications',
+            'server',
+            'environment.project.odooProfile',
+            'environment.odooBranch',
+        ]) ?? $service);
 
         return $service;
     }

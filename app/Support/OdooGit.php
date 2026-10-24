@@ -574,7 +574,7 @@ class OdooGit
             $status = data_get($service->latestProcessActivity(), 'properties.status');
 
             return (string) $status === ProcessStatus::FINISHED->value;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
     }
@@ -651,7 +651,7 @@ class OdooGit
 
         try {
             $output = instant_remote_process([$command], $server, false);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
 
@@ -1014,7 +1014,7 @@ BASH;
 
         try {
             $output = instant_remote_process(['bash -c '.escapeshellarg($script)], $server, false);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
 
@@ -1036,7 +1036,7 @@ BASH;
             $response = Http::timeout(8)->withOptions(['verify' => false])->get($base.'/_odoo/paas/users', [
                 'token' => $token,
             ]);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return [];
         }
         $rows = $response->ok() ? $response->json() : null;
@@ -1114,28 +1114,43 @@ BASH;
         if (! $environment instanceof Environment || ! $project instanceof Project) {
             return false;
         }
-        $host = self::hostFor($project, $environment);
-        $url = $host !== '' ? 'https://'.$host : self::coolifyPublicUrl($service);
-        if ($url === null) {
-            return false;
+
+        // Project subdomain is Odoo branding only. Catalog services keep their
+        // own HTTPS host so Traefik Host/ACME never collide with Odoo.
+        if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+            return self::upgradeServiceApplicationsToHttps($service, isOdoo: false);
         }
+
+        $host = self::hostFor($project, $environment);
+        $projectUrl = $host !== '' ? 'https://'.$host : null;
+        $fallbackUrl = self::coolifyPublicUrl($service);
         $changed = false;
+
         foreach ($service->applications()->get() as $application) {
-            if (! $application instanceof ServiceApplication || ! self::isOdooApplication($application)) {
+            if (! $application instanceof ServiceApplication) {
+                continue;
+            }
+            if (! self::isOdooApplication($application)) {
                 continue;
             }
             if ($host === '' && ! self::usesBaseDomain((string) $application->fqdn)) {
                 continue;
             }
-            if ((string) $application->fqdn !== $url || ! $application->is_force_https_enabled) {
-                $application->fqdn = $url;
+            $target = $projectUrl ?? $fallbackUrl;
+            if ($target === null || $target === '') {
+                continue;
+            }
+            if ((string) $application->fqdn !== $target || ! $application->is_force_https_enabled) {
+                $application->fqdn = $target;
                 $application->is_force_https_enabled = true;
                 $application->save();
                 $changed = true;
             }
         }
+
         $branch = $environment->odooBranch;
-        if ($branch instanceof OdooEnvironmentBranch && ($host !== '' || self::usesBaseDomain((string) ($branch->domain ?? ''))) && $branch->domain !== $url) {
+        $url = $projectUrl ?? $fallbackUrl;
+        if ($url !== null && $branch instanceof OdooEnvironmentBranch && ($host !== '' || self::usesBaseDomain((string) ($branch->domain ?? ''))) && $branch->domain !== $url) {
             $branch->forceFill(['domain' => $url])->save();
             $changed = true;
         }
@@ -1156,7 +1171,10 @@ BASH;
         if (preg_match('/\A[A-Za-z0-9]+\z/', (string) $service->uuid) !== 1) {
             return null;
         }
-        $url = self::httpsUrl(generateUrl($server, 'odoo-'.$service->uuid, true));
+        $prefix = OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)
+            ? 'odoo'
+            : (str((string) ($service->service_type ?: $service->name))->slug('-')->toString() ?: 'svc');
+        $url = self::httpsUrl(generateUrl($server, $prefix.'-'.$service->uuid, true));
 
         return $url === '' ? null : $url;
     }
@@ -1189,7 +1207,7 @@ BASH;
         $command = 'docker exec '.escapeshellarg('postgresql-'.$service->uuid).' sh -c '.escapeshellarg('psql -U "$POSTGRES_USER" -d postgres -tAc "SELECT datname || \'|\' || datallowconn FROM pg_database WHERE NOT datistemplate AND datname <> \'postgres\' ORDER BY 1"');
         try {
             $output = instant_remote_process([$command], $server, false);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return $fallback;
         }
 
@@ -1215,23 +1233,52 @@ BASH;
 
     public static function useHttps(Service $service): bool
     {
-        if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
-            return false;
-        }
+        $isOdoo = OdooJupyter::isOdooCompose((string) $service->docker_compose_raw);
         $project = $service->environment?->project;
-        if ($project instanceof Project && self::hostFor($project, $service->environment) !== '') {
+
+        // Project subdomain applies to Odoo only. Non-Odoo must keep a distinct
+        // HTTPS FQDN or Traefik has no Host rule / no certresolver for them.
+        if ($isOdoo && $project instanceof Project && self::hostFor($project, $service->environment) !== '') {
             return self::applyProjectHost($service);
         }
 
+        return self::upgradeServiceApplicationsToHttps($service, $isOdoo);
+    }
+
+    /**
+     * Force https:// on public apps (scheme-less Coolify hosts included) and
+     * assign a Coolify/sslip URL when the app has no FQDN yet.
+     */
+    private static function upgradeServiceApplicationsToHttps(Service $service, bool $isOdoo): bool
+    {
         $changed = false;
+        $fallbackAssigned = false;
+
         foreach ($service->applications()->get() as $application) {
-            if (! $application instanceof ServiceApplication || ! self::isOdooApplication($application)) {
+            if (! $application instanceof ServiceApplication) {
                 continue;
             }
+            if ($isOdoo && ! self::isOdooApplication($application)) {
+                continue;
+            }
+
             $fqdn = collect(explode(',', (string) $application->fqdn))
                 ->map(fn (string $domain): string => self::httpsUrl(trim($domain)))
                 ->filter()
                 ->implode(',');
+
+            if ($fqdn === '') {
+                if ($fallbackAssigned) {
+                    continue;
+                }
+                $fallback = self::coolifyPublicUrl($service);
+                if ($fallback === null) {
+                    continue;
+                }
+                $fqdn = $fallback;
+                $fallbackAssigned = true;
+            }
+
             if ($fqdn !== (string) $application->fqdn) {
                 $application->fqdn = $fqdn;
                 $changed = true;
@@ -1355,7 +1402,7 @@ BASH;
             $output = instant_remote_process([
                 "PROXY={$proxy}; if [ -n \"\$PROXY\" ] && docker exec \"\$PROXY\" grep -F -e {$needle} -e {$needleSpaced} /traefik/acme.json >/dev/null 2>&1; then echo applied; else echo pending; fi",
             ], $server, false);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return false;
         }
 
@@ -1612,7 +1659,7 @@ BASH;
 
             try {
                 self::inviteCollaborator($app, $repository, $email);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 // The team invite still stands when GitHub cannot add the collaborator.
             }
         }
@@ -2291,7 +2338,7 @@ BASH;
             if ($login !== '') {
                 return $login;
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Fall back to the Coolify app name when GitHub is unreachable.
         }
 

@@ -177,6 +177,44 @@ class Project extends BaseModel
     }
 
     /**
+     * Whether any production environment already hosts this catalog service type.
+     */
+    public function hasProductionOfService(string $serviceType): bool
+    {
+        $serviceType = trim($serviceType);
+        if ($serviceType === '') {
+            return false;
+        }
+
+        return $this->environments()
+            ->where('role', Environment::ROLE_PRODUCTION)
+            ->whereHas('services', fn ($query) => $query->where('service_type', $serviceType))
+            ->exists();
+    }
+
+    /**
+     * First environment for a distinct catalog service (production role).
+     * Display name prefers the service slug when "production" is already taken.
+     */
+    public function createNextProductionEnvironment(string $serviceType): Environment
+    {
+        $slug = str($serviceType)->slug('-')->toString() ?: 'service';
+        $name = $this->environments()->where('name', 'production')->exists() ? $slug : 'production';
+        $suffix = 2;
+        while ($this->environments()->where('name', $name)->exists()) {
+            $name = $slug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return Environment::create([
+            'name' => $name,
+            'role' => Environment::ROLE_PRODUCTION,
+            'project_id' => $this->id,
+            'created_by' => auth()->id() ?? $this->created_by,
+        ]);
+    }
+
+    /**
      * One new staging environment from the project's production environment.
      * Does not create a second production, services, or a deployment.
      */

@@ -12,7 +12,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
-use RuntimeException;
 
 uses(RefreshDatabase::class);
 
@@ -47,20 +46,18 @@ it('keeps production identity when the display name is renamed', function () {
         ->and($this->project->fresh()->productionEnvironment()?->name)->toBe('main');
 });
 
-it('creates staging with role staging and refuses a second production', function () {
+it('creates staging with role staging and allows another production for a different service', function () {
     $staging = $this->project->cloneProductionAsStaging();
 
     expect($staging->isStaging())->toBeTrue()
         ->and($staging->role)->toBe(Environment::ROLE_STAGING)
         ->and($staging->name)->toStartWith('staging');
 
-    expect(fn () => Environment::create([
-        'name' => 'also-production',
-        'role' => Environment::ROLE_PRODUCTION,
-        'project_id' => $this->project->id,
-        'uuid' => new_public_id(),
-        'created_by' => $this->user->id,
-    ]))->toThrow(RuntimeException::class, 'This project already has a production environment.');
+    $secondProduction = $this->project->createNextProductionEnvironment('demo-worker');
+
+    expect($secondProduction->isProduction())->toBeTrue()
+        ->and($secondProduction->name)->toBe('demo-worker')
+        ->and($this->project->fresh()->environments()->where('role', Environment::ROLE_PRODUCTION)->count())->toBe(2);
 });
 
 it('clones non-odoo production services into a new staging environment', function () {

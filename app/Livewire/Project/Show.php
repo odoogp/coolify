@@ -139,6 +139,8 @@ class Show extends Component
             abort(403);
         }
 
+        $serviceType = trim((string) $this->selectedService);
+
         $production = $this->project->productionEnvironment();
         if (! $production instanceof Environment) {
             return app(AdminCreationQuota::class)->createEnvironment($user, $this->project, [
@@ -148,10 +150,19 @@ class Show extends Component
             ]);
         }
 
-        // First catalog launch may fill an empty production shell from project create.
-        // Every later New gets a brand-new staging environment — never stacks into an occupied one.
+        // Empty production shell from project create: first launch of any service.
         if ($production->isEmpty()) {
             return $production;
+        }
+
+        // A later branch of the same service type is staging.
+        if ($serviceType !== '' && $this->project->hasProductionOfService($serviceType)) {
+            return $this->project->createNextStagingEnvironment();
+        }
+
+        // First environment for a different service is another production.
+        if ($serviceType !== '') {
+            return $this->project->createNextProductionEnvironment($serviceType);
         }
 
         return $this->project->createNextStagingEnvironment();

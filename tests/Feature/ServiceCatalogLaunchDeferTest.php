@@ -202,12 +202,14 @@ it('reuses the project server when launching another catalog service', function 
         'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:18\n",
     ]);
 
-    Livewire::test(Index::class, [
-        'project' => $this->project->fresh(),
-        'environment' => $this->environment->fresh(),
-        'allProjects' => collect([$this->project]),
-        'allEnvironments' => collect([$this->environment]),
-    ])
+    // Occupied environments redirect to the primary service unless ?catalog=1.
+    Livewire::withQueryParams(['catalog' => '1'])
+        ->test(Index::class, [
+            'project' => $this->project->fresh(),
+            'environment' => $this->environment->fresh(),
+            'allProjects' => collect([$this->project]),
+            'allEnvironments' => collect([$this->environment]),
+        ])
         ->assertSet('serverId', (string) $this->server->id)
         ->set('selectedService', 'demo-worker')
         ->call('launchService')
@@ -323,7 +325,7 @@ it('fills empty production on the first project New launch', function () {
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);
 });
 
-it('creates a new staging environment when New launches another catalog service', function () {
+it('creates a new production environment when New launches a different catalog service', function () {
     Bus::fake();
 
     Service::factory()->create([
@@ -350,10 +352,40 @@ it('creates a new staging environment when New launches another catalog service'
     expect($created)->not->toBeNull()
         ->and($this->project->fresh()->environments()->count())->toBe($before + 1)
         ->and($newEnvironment)->not->toBeNull()
-        ->and($newEnvironment->isStaging())->toBeTrue()
+        ->and($newEnvironment->isProduction())->toBeTrue()
         ->and((int) $newEnvironment->id)->not->toBe((int) $this->environment->id)
         ->and(Service::query()->where('environment_id', $this->environment->id)->where('service_type', 'demo-worker')->exists())->toBeFalse();
 
     Bus::assertNotDispatched(StartService::class);
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);
+});
+
+it('creates staging when New launches a second instance of the same catalog service', function () {
+    Bus::fake();
+
+    Service::factory()->create([
+        'name' => 'seed-worker',
+        'environment_id' => $this->environment->id,
+        'service_type' => 'demo-worker',
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'docker_compose_raw' => "services:\n  worker:\n    image: alpine\n",
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->set('selectedService', 'demo-worker')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertRedirect();
+
+    $created = Service::query()
+        ->where('service_type', 'demo-worker')
+        ->where('environment_id', '!=', $this->environment->id)
+        ->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->environment?->isStaging())->toBeTrue();
+
+    Bus::assertNotDispatched(StartService::class);
 });

@@ -67,15 +67,9 @@ class Environment extends BaseModel
             }
             $environment->role = $role;
 
-            if ($environment->isProduction() && $environment->project_id !== null) {
-                $exists = static::query()
-                    ->where('project_id', $environment->project_id)
-                    ->where('role', self::ROLE_PRODUCTION)
-                    ->exists();
-                if ($exists) {
-                    throw new \RuntimeException('This project already has a production environment.');
-                }
-            }
+            // Multiple production environments are allowed: one per catalog
+            // service type (first launch of each service). Staging is only for
+            // a second branch of a service that already has production.
 
             app(AdminCreationQuota::class)->guardEnvironment($environment);
         });

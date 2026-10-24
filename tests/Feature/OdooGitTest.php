@@ -2035,6 +2035,101 @@ it('turns an existing odoo link into https', function () {
     ]))->assertRedirect(OdooGit::enterUrl($service->fresh()));
 });
 
+it('turns a non-odoo catalog service fqdn into https so Traefik can terminate TLS', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'service_type' => 'demo-worker',
+        'docker_compose_raw' => "services:\n  worker:\n    image: alpine\n    ports:\n      - 8080\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'worker',
+        'image' => 'alpine',
+        'fqdn' => 'http://worker.127.0.0.1.sslip.io',
+    ]);
+
+    expect(OdooGit::useHttps($service))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://worker.127.0.0.1.sslip.io')
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
+});
+
+it('upgrades scheme-less Coolify hosts to https for non-odoo Traefik ACME labels', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'service_type' => 'demo-worker',
+        'docker_compose_raw' => "services:\n  worker:\n    image: alpine\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'worker',
+        'image' => 'alpine',
+        'fqdn' => 'worker.127.0.0.1.sslip.io',
+        'is_force_https_enabled' => false,
+    ]);
+
+    expect(OdooGit::useHttps($service))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://worker.127.0.0.1.sslip.io')
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
+});
+
+it('keeps non-odoo services off the project odoo subdomain so Traefik Host rules do not collide', function () {
+    instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
+    $this->project->odooProfile->update(['subdomain' => 'acme']);
+
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '203.0.113.55',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'demo-worker',
+        'uuid' => 'abcd1234ef',
+        'docker_compose_raw' => "services:\n  worker:\n    image: alpine\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'worker',
+        'image' => 'alpine',
+        'fqdn' => 'http://worker.203.0.113.55.sslip.io',
+    ]);
+
+    expect(OdooGit::hostFor($this->project->fresh(), $production))->toBe('acme.getodoo.sh')
+        ->and(OdooGit::useHttps($service->fresh(['applications', 'server', 'environment.project.odooProfile'])))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://worker.203.0.113.55.sslip.io')
+        ->and($application->fresh()->fqdn)->not->toContain('acme.getodoo.sh')
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
+});
+
+it('assigns a coolify https url when a non-odoo app has no fqdn yet', function () {
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '198.51.100.20',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'demo-worker',
+        'uuid' => 'svcpublic01',
+        'docker_compose_raw' => "services:\n  worker:\n    image: alpine\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'worker',
+        'image' => 'alpine',
+        'fqdn' => null,
+    ]);
+
+    expect(OdooGit::useHttps($service->fresh(['applications', 'server'])))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toStartWith('https://')
+        ->and($application->fresh()->fqdn)->toContain('demo-worker-svcpublic01')
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
+});
+
 it('restarts odoo when the project subdomain changes so the proxy gets the address', function () {
     Bus::fake();
     instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
