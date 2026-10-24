@@ -205,7 +205,10 @@
             this.positioned = false;
         },
         isInsidePanel(target) {
-            return Boolean(target?.closest?.('[data-searchable-listbox-panel]'));
+            // Clicks on option labels often target a Text node (no .closest).
+            const el = target?.nodeType === Node.ELEMENT_NODE ? target : target?.parentElement;
+
+            return Boolean(el?.closest?.('[data-searchable-listbox-panel]'));
         },
         async choose(option) {
             if (this.saving || option?.disabled) {
@@ -214,9 +217,11 @@
 
             const next = option?.value;
             // Set value before close so live entangle commits even if morph races the panel.
-            if (String(next) !== String(this.value)) {
-                this.value = next;
-            }
+            this.value = next;
+            @if ($wire)
+                // wire:ignore can leave @entangle.live visually stuck; force the LW property.
+                this.$wire.set(@js($id), next);
+            @endif
             this.close();
             @if ($onChange)
                 this.saving = true;
@@ -231,7 +236,7 @@
         @if ($ignoreMorph) wire:ignore @endif
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
-        @mousedown.outside="if (!isInsidePanel($event.target)) close()"
+        @click.outside="if (!isInsidePanel($event.target)) close()"
         @keydown.escape.window="open && close()"
         x-effect="if (!open && $refs.panel && @js((bool) $portal)) $refs.panel.style.visibility = 'hidden'">
         <button x-ref="trigger" id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
@@ -301,11 +306,11 @@
             </div>
             <div class="searchable-listbox-options">
                 <template x-for="option in filtered" :key="String(option.value)">
-                    {{-- mousedown: select before outside/trap handlers can steal the click --}}
+                    {{-- mousedown+stop: select before click.outside; Text-node clicks need isInsidePanel parent walk --}}
                     <button type="button" class="listbox-option searchable-listbox-option" role="option"
                         :class="{ 'listbox-option-disabled': option.disabled }"
                         :aria-selected="String(option.value) === String(value)"
-                        @mousedown.prevent="choose(option)">
+                        @mousedown.prevent.stop="choose(option)">
                         <span class="flex min-w-0 flex-1 items-start gap-2.5">
                             <template x-if="option.logo">
                                 <img :src="option.logo" alt=""

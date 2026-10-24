@@ -78,8 +78,9 @@
                         style="-webkit-overflow-scrolling: touch;">
                         {{ $slot }}
                     </div>
-                    {{-- Listbox panels mount here (inside x-trap) without joining the flex column or inheriting min-width:100%. --}}
-                    <div data-listbox-portal-surface class="pointer-events-none absolute inset-0 z-50 overflow-visible"></div>
+                    {{-- Listbox panels mount here (inside x-trap). Surface is pointer-events-none so empty
+                         overlay does not steal clicks; panels set pointer-events:auto when open. --}}
+                    <div data-listbox-portal-surface class="pointer-events-none absolute inset-0 z-50 overflow-visible" aria-hidden="true"></div>
                 </div>
             </div>
         </div>

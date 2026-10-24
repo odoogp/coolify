@@ -65,7 +65,7 @@ test('searchable listbox serializes change handlers', function () {
         ->toContain("'pointer-events-none opacity-70': saving")
         ->toContain('@elseif ($live && ! $onChange)')
         ->toContain('@entangle($id).live')
-        ->toContain('@mousedown.prevent="choose(option)"')
+        ->toContain('@mousedown.prevent.stop="choose(option)"')
         ->toContain('searchable-listbox-preview');
 });
 
@@ -89,7 +89,7 @@ test('searchable listbox renders catalog logo name and description for rich opti
         ->toContain('example.test')
         ->toContain('obsidian.png')
         ->toContain('selected?.description')
-        ->toContain('@mousedown.prevent="choose(option)"');
+        ->toContain('@mousedown.prevent.stop="choose(option)"');
 });
 
 test('portaled searchable listbox stays inside focus traps so search stays editable', function () {
@@ -103,9 +103,11 @@ test('portaled searchable listbox stays inside focus traps so search stays edita
         ->toContain('[data-listbox-portal-surface]')
         ->toContain("attr.name.startsWith('x-trap.')")
         ->toContain("setProperty('min-width', width, 'important')")
-        ->toContain('@mousedown.outside')
+        ->toContain('@click.outside')
         ->toContain('isInsidePanel')
+        ->toContain('Node.ELEMENT_NODE')
         ->toContain('data-searchable-listbox-panel')
+        ->toContain('$wire.set(@js($id), next)')
         ->not->toContain('x-teleport="body"');
 
     // Trap shell keeps the root; panels mount on a non-flex surface so they stay clickable.
