@@ -121,5 +121,15 @@ test('project New modal only launches when Launch is clicked', function () {
         ->toContain('id="selectedService"')
         ->toContain('wire:click="launchService"')
         ->toContain('catalog-version-fields')
-        ->toMatch('/id="selectedService"[^>]*\blive\b/');
+        ->toMatch('/id="selectedService"[^>]*\blive\b/')
+        ->toContain('ignoreMorph');
+});
+
+test('catalog service listbox keeps Alpine across Livewire morphs', function () {
+    $listbox = file_get_contents(resource_path('views/components/forms/searchable-listbox.blade.php'));
+
+    expect($listbox)
+        ->toContain("'ignoreMorph' => false")
+        ->toContain('@if ($ignoreMorph) wire:ignore @endif')
+        ->toContain('Set value before close');
 });

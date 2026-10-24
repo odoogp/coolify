@@ -13,6 +13,8 @@
     'value' => null, // initial value when wire=false
     'disabled' => false,
     'portal' => false,
+    // Keep Alpine state across Livewire morphs (catalog pickers with live + modal).
+    'ignoreMorph' => false,
 ])
 
 @php
@@ -205,12 +207,11 @@
             }
 
             const next = option?.value;
-            this.close();
-            if (String(next) === String(this.value)) {
-                return;
+            // Set value before close so live entangle commits even if morph races the panel.
+            if (String(next) !== String(this.value)) {
+                this.value = next;
             }
-
-            this.value = next;
+            this.close();
             @if ($onChange)
                 this.saving = true;
                 try {
@@ -221,6 +222,7 @@
             @endif
         }
     }" x-modelable="value" :class="{ 'pointer-events-none opacity-70': saving }"
+        @if ($ignoreMorph) wire:ignore @endif
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
         @mousedown.outside="if (!isInsidePanel($event.target)) close()"
@@ -232,7 +234,8 @@
             :aria-expanded="open" :title="current">
             <span class="listbox-trigger-label flex min-w-0 items-center gap-2">
                 <template x-if="selected?.logo">
-                    <img :src="selected.logo" alt="" class="size-5 shrink-0 rounded object-contain" />
+                    <img :src="selected.logo" alt="" class="size-5 shrink-0 rounded object-contain"
+                        x-on:error="$el.style.display='none'" />
                 </template>
                 <span class="truncate" x-text="current"></span>
             </span>
@@ -248,7 +251,8 @@
                     <div
                         class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
                         <template x-if="selected?.logo">
-                            <img :src="selected.logo" alt="" class="size-full object-contain p-2" />
+                            <img :src="selected.logo" alt="" class="size-full object-contain p-2"
+                                x-on:error="$el.src=@js(asset('svgs/default.webp'))" />
                         </template>
                         <template x-if="!selected?.logo">
                             <span class="text-[11px] font-medium text-neutral-400 dark:text-fg-faint"
@@ -299,7 +303,8 @@
                         <span class="flex min-w-0 flex-1 items-start gap-2.5">
                             <template x-if="option.logo">
                                 <img :src="option.logo" alt=""
-                                    class="mt-0.5 size-7 shrink-0 rounded-md object-contain" />
+                                    class="mt-0.5 size-7 shrink-0 rounded-md object-contain"
+                                    x-on:error="$el.src=@js(asset('svgs/default.webp'))" />
                             </template>
                             <span class="min-w-0 flex-1">
                                 <span class="flex min-w-0 items-baseline gap-1.5">

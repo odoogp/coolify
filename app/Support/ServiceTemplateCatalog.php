@@ -191,22 +191,31 @@ class ServiceTemplateCatalog
 
     /**
      * Public asset URL for a catalog logo path (same rules as the full Coolify catalog).
+     * Missing local files fall back to the Coolify GitHub raw URL, then default.webp.
      */
     public static function logoUrl(?string $logo): string
     {
         $default = 'svgs/default.webp';
-        if (is_string($logo) && str_starts_with($logo, 'svg/')) {
-            $normalized = 'svgs/'.Str::after($logo, 'svg/');
+        $path = is_string($logo) ? trim($logo) : '';
+
+        if ($path !== '' && str_starts_with($path, 'svg/')) {
+            $normalized = 'svgs/'.Str::after($path, 'svg/');
             if (file_exists(public_path($normalized))) {
-                $logo = $normalized;
+                $path = $normalized;
             }
         }
 
-        if (! is_string($logo) || $logo === '' || ! file_exists(public_path($logo))) {
-            $logo = $default;
+        if ($path !== '' && file_exists(public_path($path))) {
+            return asset($path);
         }
 
-        return asset($logo);
+        if ($path !== '' && preg_match('#\A(?:svgs?)/[A-Za-z0-9._/-]+\z#', $path) === 1) {
+            $githubPath = str_starts_with($path, 'svg/') ? 'svgs/'.Str::after($path, 'svg/') : $path;
+
+            return 'https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/public/'.$githubPath;
+        }
+
+        return asset($default);
     }
 
     /**
