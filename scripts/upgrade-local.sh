@@ -275,6 +275,20 @@ assert_local_image_config() {
     fi
 }
 
+# /data/coolify/source often still has the CDN compose (coollabsio/coolify:latest).
+# The fork image only works when source uses COOLIFY_IMAGE / coolify-custom:local.
+sync_compose_from_checkout() {
+    local file
+
+    for file in docker-compose.yml docker-compose.prod.yml; do
+        if [ ! -f "${CONTEXT}/${file}" ]; then
+            fail "Missing ${CONTEXT}/${file}. Cannot sync compose into ${SOURCE_DIR}."
+        fi
+        cp "${CONTEXT}/${file}" "${SOURCE_DIR}/${file}" || fail "Could not copy ${file} to ${SOURCE_DIR}."
+        log "Synced ${file} from ${CONTEXT} → ${SOURCE_DIR}"
+    done
+}
+
 compose() {
     COOLIFY_IMAGE="$IMAGE" \
         COOLIFY_PULL_POLICY="never" \
@@ -302,7 +316,7 @@ assert_compose_image() {
 }
 
 recreate_coolify() {
-    compose up -d --no-deps --force-recreate --wait --wait-timeout 180 coolify
+    compose up -d --no-deps --force-recreate --pull never --wait --wait-timeout 180 coolify
 }
 
 wait_for_health() {
@@ -344,6 +358,9 @@ restore_previous_image() {
 restart_new_image() {
     write_status "4" "Restarting coolify"
     log "Recreating the coolify service"
+
+    sync_compose_from_checkout
+    assert_compose_image
 
     if ! recreate_coolify >>"$LOGFILE" 2>&1; then
         restore_previous_image "The new container did not start."
@@ -457,6 +474,8 @@ if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
     fail "Image build did not produce ${IMAGE}. The running container was not replaced."
 fi
 
+write_status "3b" "Syncing compose files for ${IMAGE}"
+sync_compose_from_checkout
 assert_compose_image
 
 log "Starting container recreate in the background"
