@@ -65,6 +65,7 @@ test('searchable listbox serializes change handlers', function () {
         ->toContain("'pointer-events-none opacity-70': saving")
         ->toContain('@elseif ($live && ! $onChange) @entangle($id).live')
         ->toContain('@mousedown.prevent.stop="choose(option)"')
+        ->toContain("this.\$wire.set('{{ \$id }}', next)")
         ->toContain('searchable-listbox-preview');
 });
 
@@ -104,9 +105,9 @@ test('portaled searchable listbox stays inside focus traps so search stays edita
         ->toContain("setProperty('min-width', width, 'important')")
         ->toContain('@click.outside')
         ->toContain('isInsidePanel')
-        ->toContain('Node.ELEMENT_NODE')
+        ->toContain('nodeType === 1')
         ->toContain('data-searchable-listbox-panel')
-        ->toContain('$wire.set({{ \Illuminate\Support\Js::from($listboxId) }}, next)')
+        ->toContain("this.\$wire.set('{{ \$id }}', next)")
         ->not->toContain('x-teleport="body"');
 
     // Trap shell keeps the root; panels mount on a non-flex surface so they stay clickable.

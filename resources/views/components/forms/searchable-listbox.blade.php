@@ -22,10 +22,6 @@
         fn (mixed $option): bool => is_array($option)
             && (filled($option['logo'] ?? null) || filled($option['description'] ?? null))
     );
-    $portalEnabled = (bool) $portal;
-    $disabledEnabled = (bool) $disabled;
-    $useWire = (bool) $wire;
-    $listboxId = (string) $id;
 @endphp
 
 <div class="w-full min-w-0">
@@ -53,15 +49,15 @@
         query: '',
         saving: false,
         positioned: false,
-        options: {{ \Illuminate\Support\Js::from(array_values($options)) }},
-        value: @if (!$useWire) {{ \Illuminate\Support\Js::from($value) }} @elseif ($live && ! $onChange) @entangle($id).live @else @entangle($id) @endif,
+        options: @js(array_values($options)),
+        value: @if (!$wire) @js($value) @elseif ($live && ! $onChange) @entangle($id).live @else @entangle($id) @endif,
         get selected() {
             return this.options.find((option) => String(option.value) === String(this.value)) ?? null;
         },
         get current() {
             const found = this.selected;
             if (! found) {
-                return {{ \Illuminate\Support\Js::from($placeholder) }};
+                return @js($placeholder);
             }
             const category = found.category ? ` · ${found.category}` : '';
 
@@ -85,7 +81,7 @@
             });
         },
         portalHost() {
-            if (! {{ $portalEnabled ? 'true' : 'false' }}) {
+            if (! @js((bool) $portal)) {
                 return null;
             }
 
@@ -114,7 +110,7 @@
             return document.body;
         },
         toggle() {
-            if ({{ $disabledEnabled ? 'true' : 'false' }}) {
+            if (@js((bool) $disabled)) {
                 return;
             }
 
@@ -151,7 +147,7 @@
                 surface.appendChild(panel);
             }
 
-            if ({{ $portalEnabled ? 'true' : 'false' }}) {
+            if (@js((bool) $portal)) {
                 const gap = 4;
                 const edge = 12;
                 const triggerRect = trigger.getBoundingClientRect();
@@ -203,10 +199,10 @@
             this.positioned = false;
         },
         isInsidePanel(target) {
-            // Clicks on option labels often target a Text node (no .closest).
-            const el = target?.nodeType === Node.ELEMENT_NODE ? target : target?.parentElement;
+            // Label text clicks hit a Text node (no .closest) — walk up to an Element.
+            const el = target && target.nodeType === 1 ? target : target && target.parentElement;
 
-            return Boolean(el?.closest?.('[data-searchable-listbox-panel]'));
+            return Boolean(el && el.closest && el.closest('[data-searchable-listbox-panel]'));
         },
         async choose(option) {
             if (this.saving || option?.disabled) {
@@ -216,9 +212,8 @@
             const next = option?.value;
             // Set value before close so live entangle commits even if morph races the panel.
             this.value = next;
-            @if ($useWire)
-                // wire:ignore can leave @entangle.live visually stuck; force the LW property.
-                this.$wire.set({{ \Illuminate\Support\Js::from($listboxId) }}, next);
+            @if ($wire)
+                this.$wire.set('{{ $id }}', next);
             @endif
             this.close();
             @if ($onChange)
@@ -236,7 +231,7 @@
         {{ $attributes->whereStartsWith('x-effect') }}
         @click.outside="if (!isInsidePanel($event.target)) close()"
         @keydown.escape.window="open && close()"
-        x-effect="if (!open && $refs.panel && {{ $portalEnabled ? 'true' : 'false' }}) $refs.panel.style.visibility = 'hidden'">
+        x-effect="if (!open && $refs.panel && @js((bool) $portal)) $refs.panel.style.visibility = 'hidden'">
         <button x-ref="trigger" id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
             @disabled($disabled)
             {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
@@ -261,7 +256,7 @@
                         class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
                         <template x-if="selected?.logo">
                             <img :src="selected.logo" alt="" class="size-full object-contain p-2"
-                                x-on:error="$el.src={{ \Illuminate\Support\Js::from(asset('svgs/default.webp')) }}" />
+                                x-on:error="$el.src=@js(asset('svgs/default.webp'))" />
                         </template>
                         <template x-if="!selected?.logo">
                             <span class="text-[11px] font-medium text-neutral-400 dark:text-fg-faint"
@@ -304,7 +299,7 @@
             </div>
             <div class="searchable-listbox-options">
                 <template x-for="option in filtered" :key="String(option.value)">
-                    {{-- mousedown+stop: select before click.outside; Text-node clicks need isInsidePanel parent walk --}}
+                    {{-- mousedown+stop: fire before click.outside; Text nodes handled in isInsidePanel --}}
                     <button type="button" class="listbox-option searchable-listbox-option" role="option"
                         :class="{ 'listbox-option-disabled': option.disabled }"
                         :aria-selected="String(option.value) === String(value)"
@@ -313,7 +308,7 @@
                             <template x-if="option.logo">
                                 <img :src="option.logo" alt=""
                                     class="mt-0.5 size-7 shrink-0 rounded-md object-contain"
-                                    x-on:error="$el.src={{ \Illuminate\Support\Js::from(asset('svgs/default.webp')) }}" />
+                                    x-on:error="$el.src=@js(asset('svgs/default.webp'))" />
                             </template>
                             <span class="min-w-0 flex-1">
                                 <span class="flex min-w-0 items-baseline gap-1.5">
