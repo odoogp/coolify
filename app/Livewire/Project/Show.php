@@ -641,6 +641,8 @@ class Show extends Component
             'odoo' => true,
             'serviceHref' => null,
             'enterHref' => null,
+            'enterLabel' => null,
+            'isOdooService' => false,
             'jupyterHref' => null,
             'monitorHref' => null,
             'logsHref' => null,
@@ -823,15 +825,23 @@ class Show extends Component
                 $environment->mariadbs_count,
             ])->sum();
 
-            $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+            $service = $environment->services->first(fn (Service $candidate): bool => $candidate->supportsOdooJupyter())
+                ?? $environment->services->first();
+            $isOdooService = $service instanceof Service && $service->supportsOdooJupyter();
             $domain = $odooOnly
                 ? (string) ($environment->odooBranch?->domain
-                    ?: ($service instanceof Service ? OdooGit::publicHttpsUrl($service) : ''))
-                : '';
+                    ?: ($service instanceof Service ? $service->publicHttpsUrl() : ''))
+                : (string) ($service instanceof Service ? $service->publicHttpsUrl() : '');
             $statusKey = $odooOnly
                 ? (string) ($environment->odooBranch?->status
-                    ?: ($service instanceof Service && $service->isStarting() ? 'starting' : ($service instanceof Service ? 'ready' : 'empty')))
-                : '';
+                    ?: ($service instanceof Service
+                        ? ($service->isStarting()
+                            ? 'starting'
+                            : ($service->isRunning() ? 'ready' : 'empty'))
+                        : 'empty'))
+                : ($service instanceof Service
+                    ? ($service->isStarting() ? 'starting' : ($service->isRunning() ? 'ready' : ''))
+                    : '');
             $statusLabel = $statusKey === '' ? null : (string) __(match ($statusKey) {
                 'idle' => 'Idle',
                 'updating' => 'Updating',
@@ -844,10 +854,10 @@ class Show extends Component
                 'finished' => 'Finished',
                 default => $statusKey,
             });
-            $version = $odooOnly ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
+            $version = $isOdooService ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
             $serviceHref = $service instanceof Service
                 ? route(
-                    $service->supportsOdooJupyter()
+                    $isOdooService
                         ? 'project.service.deployments'
                         : 'project.service.configuration',
                     [
@@ -857,30 +867,38 @@ class Show extends Component
                     ]
                 )
                 : null;
-            $enterHref = $odooOnly && $service instanceof Service && OdooGit::canOpen($service)
-                ? route('project.service.odoo.enter', [
+            $enterHref = null;
+            $enterLabel = null;
+            if ($service instanceof Service && $service->canOpenPublicSite()) {
+                if ($isOdooService) {
+                    $enterHref = route('project.service.odoo.enter', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $service->uuid,
+                    ]);
+                    $enterLabel = (string) __('Open Odoo');
+                } else {
+                    $enterHref = $service->publicHttpsUrl();
+                    $enterLabel = (string) __('Open');
+                }
+            }
+            $jupyterHref = $isOdooService ? OdooJupyter::sessionUrl($service) : null;
+            $monitorHref = $isOdooService ? OdooMonitor::urlFor($service) : null;
+            $logsHref = $service instanceof Service
+                ? route('project.service.logs', array_filter([
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $environment->uuid,
                     'service_uuid' => $service->uuid,
-                ])
+                    'only' => $isOdooService ? 'odoo' : null,
+                ]))
                 : null;
-            $jupyterHref = $odooOnly && $service instanceof Service ? OdooJupyter::sessionUrl($service) : null;
-            $monitorHref = $odooOnly && $service instanceof Service ? OdooMonitor::urlFor($service) : null;
-            $logsHref = $odooOnly && $service instanceof Service
-                ? route('project.service.logs', [
+            $terminalHref = $service instanceof Service && auth()->user()?->canOpenTerminal($service)
+                ? route('project.service.command', array_filter([
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $environment->uuid,
                     'service_uuid' => $service->uuid,
-                    'only' => 'odoo',
-                ])
-                : null;
-            $terminalHref = $odooOnly && $service instanceof Service && auth()->user()?->canOpenTerminal($service)
-                ? route('project.service.command', [
-                    'project_uuid' => $this->project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                    'service_uuid' => $service->uuid,
-                    'shell' => 'odoo',
-                ])
+                    'shell' => $isOdooService ? 'odoo' : null,
+                ]))
                 : null;
 
             return [
@@ -895,8 +913,10 @@ class Show extends Component
                 'status' => $statusKey !== '' ? $statusKey : null,
                 'statusLabel' => $statusLabel,
                 'odoo' => $odooOnly,
+                'isOdooService' => $isOdooService,
                 'serviceHref' => $serviceHref,
                 'enterHref' => $enterHref,
+                'enterLabel' => $enterLabel,
                 'serviceUuid' => $service instanceof Service ? $service->uuid : null,
                 'jupyterHref' => $jupyterHref,
                 'monitorHref' => $monitorHref,

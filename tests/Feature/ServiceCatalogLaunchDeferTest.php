@@ -9,6 +9,7 @@ use App\Models\InstanceSettings;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Service;
+use App\Models\ServiceApplication;
 use App\Models\StandaloneDocker;
 use App\Models\Team;
 use App\Models\User;
@@ -388,4 +389,54 @@ it('creates staging when New launches a second instance of the same catalog serv
         ->and($created->environment?->isStaging())->toBeTrue();
 
     Bus::assertNotDispatched(StartService::class);
+});
+
+it('exposes open logs and terminal shortcuts for non-odoo catalog environments', function () {
+    $service = Service::factory()->create([
+        'name' => 'obsidian',
+        'environment_id' => $this->environment->id,
+        'service_type' => 'obsidian',
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'docker_compose_raw' => "services:\n  app:\n    image: nginx:alpine\n",
+        'status' => 'running:healthy',
+    ]);
+    ServiceApplication::query()->create([
+        'name' => 'app',
+        'service_id' => $service->id,
+        'fqdn' => 'https://obsidian.example.test',
+    ]);
+
+    expect($service->fresh()->publicHttpsUrl())->toBe('https://obsidian.example.test')
+        ->and($service->fresh()->canOpenPublicSite())->toBeTrue()
+        ->and($service->supportsOdooJupyter())->toBeFalse();
+
+    $payload = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->get('environmentPayload');
+    $row = collect($payload)->firstWhere('uuid', $this->environment->uuid);
+
+    expect($row)->not->toBeNull()
+        ->and($row['isOdooService'])->toBeFalse()
+        ->and($row['enterHref'])->toBe('https://obsidian.example.test')
+        ->and($row['enterLabel'])->toBe(__('Open'))
+        ->and($row['logsHref'])->toContain('/logs')
+        ->and($row['logsHref'])->not->toContain('only=odoo')
+        ->and($row['jupyterHref'])->toBeNull()
+        ->and($row['monitorHref'])->toBeNull()
+        ->and($row['terminalHref'])->not->toBeNull()
+        ->and($row['terminalHref'])->not->toContain('shell=odoo');
+});
+
+it('keeps catalog service heading open and logs controls in the blade', function () {
+    $heading = file_get_contents(resource_path('views/livewire/project/service/heading.blade.php'));
+    $open = file_get_contents(resource_path('views/livewire/project/odoo-open.blade.php'));
+
+    expect($heading)
+        ->toContain('$serviceOpenUrl')
+        ->toContain('$serviceLogsUrl')
+        ->toContain('canOpenPublicSite()')
+        ->and($open)
+        ->toContain('environment.isOdooService')
+        ->toContain('!environment.isOdooService');
 });

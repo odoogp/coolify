@@ -1,4 +1,5 @@
-<div x-show="environment.enterHref" class="relative inline-flex" x-data="{
+{{-- Odoo: Open Odoo + Connect as. Other catalog services: plain Open when enterHref is set. --}}
+<div x-show="environment.enterHref && environment.isOdooService" class="relative inline-flex" x-data="{
     menu: false,
     panelStyle: 'position: fixed; visibility: hidden;',
     toggle() {
@@ -28,7 +29,8 @@
 }" @click.stop @click.outside="menu = false" @keydown.escape.window="menu = false"
     x-on:resize.window="if (menu) place()" x-on:scroll.window="if (menu) place()">
     <a :href="environment.enterHref" target="_blank" rel="noopener noreferrer" class="button button-highlighted"
-        style="height:1.75rem;min-height:1.75rem;border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0;padding-left:0.5rem;padding-right:0.5rem;font-size:11px">{{ __('Open Odoo') }}</a>
+        style="height:1.75rem;min-height:1.75rem;border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0;padding-left:0.5rem;padding-right:0.5rem;font-size:11px"
+        x-text="environment.enterLabel || @js(__('Open Odoo'))"></a>
     <button type="button" class="button button-highlighted" @click="toggle()" :aria-expanded="menu"
         aria-label="{{ __('Connect as') }}" aria-haspopup="menu"
         style="height:1.75rem;min-height:1.75rem;border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0.3rem;padding-right:0.35rem">
@@ -41,3 +43,7 @@
             @click="menu = false; $wire.openOdooUsers(environment.serviceUuid)">{{ __('Connect as') }}</button>
     </div>
 </div>
+<a x-show="environment.enterHref && !environment.isOdooService" :href="environment.enterHref" target="_blank"
+    rel="noopener noreferrer" @click.stop class="button button-highlighted"
+    style="height:1.75rem;min-height:1.75rem;padding-left:0.5rem;padding-right:0.5rem;font-size:11px"
+    x-text="environment.enterLabel || @js(__('Open'))"></a>

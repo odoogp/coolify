@@ -414,7 +414,8 @@
                                 <div class="compact-actions relative z-10 flex w-full items-center justify-end gap-0.5" x-show="!environment.activity">
                                     @include('livewire.project.environment-shortcuts')
                                     @include('livewire.project.odoo-open')
-                                    <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref"
+                                    <a x-show="environment.serviceHref && !environment.odoo && !environment.enterHref"
+                                        :href="environment.serviceHref"
                                         {{ wireNavigate() }}
                                         class="button h-7 px-2 text-[11px]"
                                         title="{{ __('Open') }}">{{ __('Open') }}</a>
@@ -505,7 +506,8 @@
                         <div class="compact-actions relative flex items-center justify-end gap-0.5" x-show="!environment.activity">
                             @include('livewire.project.environment-shortcuts')
                             @include('livewire.project.odoo-open')
-                            <a x-show="environment.serviceHref && !environment.odoo" :href="environment.serviceHref" {{ wireNavigate() }}
+                            <a x-show="environment.serviceHref && !environment.odoo && !environment.enterHref"
+                                :href="environment.serviceHref" {{ wireNavigate() }}
                                 class="button h-7 px-2 text-[11px]">{{ __('Open') }}</a>
                             <a x-show="environment.addResourceHref" :href="environment.addResourceHref"
                                 {{ wireNavigate() }}

@@ -1543,6 +1543,37 @@ class Service extends BaseModel
         return OdooJupyter::isOdooCompose((string) $this->docker_compose_raw);
     }
 
+    /**
+     * Public HTTPS URL for the primary app (Odoo when present, otherwise the first FQDN).
+     */
+    public function publicHttpsUrl(): string
+    {
+        if ($this->supportsOdooJupyter()) {
+            return OdooGit::publicHttpsUrl($this);
+        }
+
+        foreach ($this->applications as $application) {
+            $fqdn = firstDomainFromList((string) $application->fqdn);
+            if ($fqdn !== '') {
+                return OdooGit::httpsUrl($fqdn);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Whether the project row / heading may show an Open control for this service.
+     */
+    public function canOpenPublicSite(): bool
+    {
+        if ($this->supportsOdooJupyter()) {
+            return OdooGit::canOpen($this);
+        }
+
+        return $this->publicHttpsUrl() !== '';
+    }
+
     public function applications()
     {
         return $this->hasMany(ServiceApplication::class);

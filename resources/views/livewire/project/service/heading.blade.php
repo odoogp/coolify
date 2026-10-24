@@ -50,15 +50,20 @@
                 'service_uuid' => $service->uuid,
             ])
             : null;
+        $serviceOpenUrl = (! $odooHeading && $service->canOpenPublicSite())
+            ? $service->publicHttpsUrl()
+            : null;
         $jupyterUrl = $odooHeading ? \App\Support\OdooJupyter::sessionUrl($service) : null;
         $ownerJupyterUrl = $odooHeading && isInstanceAdmin() ? route('gpsh.owner-jupyter') : null;
-        $odooLogsUrl = $odooHeading && $service->environment?->project
-            ? route('project.service.logs', [
+        $serviceLogsUrl = $service->environment?->project
+            ? route('project.service.logs', array_filter([
                 'project_uuid' => $service->environment->project->uuid,
                 'environment_uuid' => $service->environment->uuid,
                 'service_uuid' => $service->uuid,
-            ])
+                'only' => $odooHeading ? 'odoo' : null,
+            ]))
             : null;
+        $odooLogsUrl = $odooHeading ? $serviceLogsUrl : null;
         $monitorUrl = $odooHeading ? \App\Support\OdooMonitor::urlFor($service) : null;
         $serviceStatus = str($service->status ?? 'exited');
         $githubBranch = $service->environment?->odooBranch?->git_branch;
@@ -98,12 +103,17 @@
         </div>
 
         <div class="w-full xl:hidden">
-            @if ($odooEnterUrl || $jupyterUrl || $ownerJupyterUrl || $odooLogsUrl || $monitorUrl)
+            @if ($odooEnterUrl || $serviceOpenUrl || $jupyterUrl || $ownerJupyterUrl || $serviceLogsUrl || $monitorUrl)
                 <div class="application-heading-actions mb-3 flex flex-wrap gap-2">
                     @if ($odooEnterUrl)
                         <livewire:project.odoo-connect :project-uuid="$service->environment->project->uuid"
                             :environment-uuid="$service->environment->uuid" :service-uuid="$service->uuid"
                             :key="'odoo-connect-mobile-'.$service->uuid" />
+                    @elseif ($serviceOpenUrl)
+                        <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $serviceOpenUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Open') }}
+                        </a>
                     @endif
                     @if ($jupyterUrl)
                         <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
@@ -117,8 +127,8 @@
                             {{ __('Owner Jupyter') }}
                         </a>
                     @endif
-                    @if ($odooLogsUrl)
-                        <a class="button" href="{{ $odooLogsUrl }}">
+                    @if ($serviceLogsUrl)
+                        <a class="button" href="{{ $serviceLogsUrl }}">
                             <x-reicon name="file-content" class="size-3.5 opacity-70" />
                             {{ __('Logs') }}
                         </a>
@@ -244,6 +254,11 @@
                         <livewire:project.odoo-connect :project-uuid="$service->environment->project->uuid"
                             :environment-uuid="$service->environment->uuid" :service-uuid="$service->uuid"
                             :key="'odoo-connect-desktop-'.$service->uuid" />
+                    @elseif ($serviceOpenUrl)
+                        <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $serviceOpenUrl }}">
+                            <x-reicon name="external-link" class="size-3.5 opacity-70" />
+                            {{ __('Open') }}
+                        </a>
                     @endif
                     @if ($jupyterUrl)
                         <a class="button" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
@@ -257,8 +272,8 @@
                             {{ __('Owner Jupyter') }}
                         </a>
                     @endif
-                    @if ($odooLogsUrl)
-                        <a class="button" href="{{ $odooLogsUrl }}">
+                    @if ($serviceLogsUrl)
+                        <a class="button" href="{{ $serviceLogsUrl }}">
                             <x-reicon name="file-content" class="size-3.5 opacity-70" />
                             {{ __('Logs') }}
                         </a>
