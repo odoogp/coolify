@@ -231,9 +231,8 @@
             {{ $attributes->whereStartsWith('x-bind:disabled') }} aria-haspopup="listbox"
             :aria-expanded="open" :title="current">
             <span class="listbox-trigger-label flex min-w-0 items-center gap-2">
-                <template x-if="selected?.logo">
-                    <img :src="selected.logo" alt="" class="size-5 shrink-0 rounded object-contain" />
-                </template>
+                <img x-show="selected?.logo" :src="selected?.logo" alt=""
+                    class="size-5 shrink-0 rounded object-contain" />
                 <span class="truncate" x-text="current"></span>
             </span>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
@@ -247,13 +246,11 @@
                 <div class="flex min-w-0 items-start gap-3">
                     <div
                         class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
-                        <template x-if="selected?.logo">
-                            <img :src="selected.logo" alt="" class="size-full object-contain p-2" />
-                        </template>
-                        <template x-if="!selected?.logo">
-                            <span class="text-[11px] font-medium text-neutral-400 dark:text-fg-faint"
-                                x-text="(selected?.label || '?').slice(0, 1)"></span>
-                        </template>
+                        <img x-show="selected?.logo" :src="selected?.logo" alt=""
+                            class="size-full object-contain p-2" />
+                        <span x-show="!selected?.logo"
+                            class="text-[11px] font-medium text-neutral-400 dark:text-fg-faint"
+                            x-text="(selected?.label || '?').slice(0, 1)"></span>
                     </div>
                     <div class="min-w-0 flex-1">
                         <div class="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -295,12 +292,12 @@
                     <button type="button" class="listbox-option searchable-listbox-option" role="option"
                         :class="{ 'listbox-option-disabled': option.disabled }"
                         :aria-selected="String(option.value) === String(value)"
-                        @mousedown.prevent="choose(option)">
+                        @mousedown.prevent.stop="choose(option)"
+                        @click.prevent.stop="choose(option)">
                         <span class="flex min-w-0 flex-1 items-start gap-2.5">
-                            <template x-if="option.logo">
-                                <img :src="option.logo" alt=""
-                                    class="mt-0.5 size-7 shrink-0 rounded-md object-contain" />
-                            </template>
+                            <img x-show="option.logo" :src="option.logo" alt=""
+                                class="mt-0.5 size-7 shrink-0 rounded-md object-contain"
+                                @error="$el.style.display='none'" />
                             <span class="min-w-0 flex-1">
                                 <span class="flex min-w-0 items-baseline gap-1.5">
                                     <span class="truncate font-medium" x-text="option.label"></span>
