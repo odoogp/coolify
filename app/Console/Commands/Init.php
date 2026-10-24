@@ -32,6 +32,8 @@ class Init extends Command
 
     public function handle()
     {
+        $this->ensureStorageDirectories();
+
         Artisan::call('optimize:clear');
         Artisan::call('optimize');
 
@@ -285,6 +287,25 @@ class Init extends Command
                     $environment->name = str_replace('/', '-', $environment->name);
                     $environment->save();
                 }
+            }
+        }
+    }
+
+    /**
+     * File cache (HTMLPurifier / Purify) needs storage/framework/cache/data.
+     * Empty dirs are not always present in the image when gitignored.
+     */
+    private function ensureStorageDirectories(): void
+    {
+        foreach ([
+            storage_path('framework/cache/data'),
+            storage_path('framework/sessions'),
+            storage_path('framework/views'),
+            storage_path('logs'),
+            base_path('bootstrap/cache'),
+        ] as $path) {
+            if (! is_dir($path) && ! mkdir($path, 0775, true) && ! is_dir($path)) {
+                echo "Could not create storage directory: {$path}\n";
             }
         }
     }
