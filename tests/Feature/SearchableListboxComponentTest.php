@@ -63,7 +63,8 @@ test('searchable listbox serializes change handlers', function () {
         ->toContain('if (this.saving || option?.disabled)')
         ->toContain('await this.$wire.')
         ->toContain("'pointer-events-none opacity-70': saving")
-        ->toContain('@elseif ($live && ! $onChange) @entangle($id).live')
+        ->toContain('@elseif ($live && ! $onChange)')
+        ->toContain('@entangle($id).live')
         ->toContain('@mousedown.prevent="choose(option)"')
         ->toContain('searchable-listbox-preview');
 });

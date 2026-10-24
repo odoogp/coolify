@@ -50,7 +50,13 @@
         saving: false,
         positioned: false,
         options: @js(array_values($options)),
-        value: @if (!$wire) @js($value) @elseif ($live && ! $onChange) @entangle($id).live @else @entangle($id) @endif,
+        value: @if (!$wire)
+            @js($value)
+        @elseif ($live && ! $onChange)
+            @entangle($id).live
+        @else
+            @entangle($id)
+        @endif,
         get selected() {
             return this.options.find((option) => String(option.value) === String(this.value)) ?? null;
         },
