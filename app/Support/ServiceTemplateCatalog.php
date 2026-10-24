@@ -191,7 +191,6 @@ class ServiceTemplateCatalog
 
     /**
      * Public asset URL for a catalog logo path (same rules as the full Coolify catalog).
-     * Missing local files fall back to the Coolify GitHub raw copy, then default.webp.
      */
     public static function logoUrl(?string $logo): string
     {
@@ -203,16 +202,11 @@ class ServiceTemplateCatalog
             }
         }
 
-        if (! is_string($logo) || $logo === '') {
-            return asset($default);
+        if (! is_string($logo) || $logo === '' || ! file_exists(public_path($logo))) {
+            $logo = $default;
         }
 
-        if (file_exists(public_path($logo))) {
-            return asset($logo);
-        }
-
-        // CDN / older template rows may reference logos not yet vendored locally.
-        return 'https://raw.githubusercontent.com/coollabsio/coolify/refs/heads/main/public/'.$logo;
+        return asset($logo);
     }
 
     /**
