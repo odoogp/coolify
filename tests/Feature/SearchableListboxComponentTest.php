@@ -60,12 +60,15 @@ test('searchable listbox serializes change handlers', function () {
     expect($listbox)
         ->toContain('saving: false')
         ->toContain('async choose(option)')
-        ->toContain('if (this.saving || option?.disabled)')
+        ->toContain('if (this.saving || this.picking || option?.disabled)')
         ->toContain('await this.$wire.')
         ->toContain("'pointer-events-none opacity-70': saving")
         ->toContain('@elseif ($live && ! $onChange) @entangle($id).live')
+        ->toContain('@pointerdown.prevent.stop="choose(option)"')
         ->toContain('@mousedown.prevent.stop="choose(option)"')
-        ->toContain("this.\$wire.set('{{ \$id }}', next)")
+        ->toContain('picking: false')
+        ->toContain('shouldIgnoreOutside')
+        ->toContain("this.\$wire.set('{{ \$id }}', next")
         ->toContain('searchable-listbox-preview');
 });
 
@@ -89,7 +92,7 @@ test('searchable listbox renders catalog logo name and description for rich opti
         ->toContain('example.test')
         ->toContain('obsidian.png')
         ->toContain('selected?.description')
-        ->toContain('@mousedown.prevent.stop="choose(option)"');
+        ->toContain('@pointerdown.prevent.stop="choose(option)"');
 });
 
 test('portaled searchable listbox stays inside focus traps so search stays editable', function () {
@@ -104,10 +107,11 @@ test('portaled searchable listbox stays inside focus traps so search stays edita
         ->toContain("attr.name.startsWith('x-trap.')")
         ->toContain("setProperty('min-width', width, 'important')")
         ->toContain('@click.outside')
+        ->toContain('@mousedown.outside')
         ->toContain('isInsidePanel')
-        ->toContain('nodeType === 1')
+        ->toContain('nodeType !== 1')
         ->toContain('data-searchable-listbox-panel')
-        ->toContain("this.\$wire.set('{{ \$id }}', next)")
+        ->toContain("this.\$wire.set('{{ \$id }}', next")
         ->not->toContain('x-teleport="body"');
 
     // Trap shell keeps the root; panels mount on a non-flex surface so they stay clickable.
