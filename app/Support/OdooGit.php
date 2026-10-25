@@ -1357,6 +1357,30 @@ BASH;
                 continue;
             }
 
+            // Capture :port from the FQDN before httpsUrl() strips it — Traefik
+            // needs that listen port via ServiceApplication.ports / onlyPort.
+            if (blank($application->ports)) {
+                $listenPort = collect(explode(',', (string) $application->fqdn))
+                    ->map(function (string $domain): ?string {
+                        $domain = trim($domain);
+                        if ($domain === '') {
+                            return null;
+                        }
+                        if (! str_contains($domain, '://')) {
+                            $domain = 'http://'.$domain;
+                        }
+                        $port = parse_url($domain, PHP_URL_PORT);
+
+                        return is_numeric($port) ? (string) (int) $port : null;
+                    })
+                    ->filter()
+                    ->first();
+                if ($listenPort) {
+                    $application->ports = $listenPort;
+                    $changed = true;
+                }
+            }
+
             $fqdn = collect(explode(',', (string) $application->fqdn))
                 ->map(fn (string $domain): string => self::httpsUrl(trim($domain)))
                 ->filter()

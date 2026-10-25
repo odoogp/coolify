@@ -1395,7 +1395,12 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
             $redirectDirection = in_array($composeRedirect, ['www', 'non-www', 'both'], true)
                 ? $composeRedirect
                 : 'both';
-            $proxyPort = $predefinedPort ?: containerListenPort($ports, data_get($service, 'expose'));
+            $proxyPort = resolveComposeProxyPort(
+                composePorts: $ports,
+                composeExpose: data_get($service, 'expose'),
+                environment: $environment,
+                catalogPort: $predefinedPort,
+            );
             if (! $use_network_mode && (! $shouldGenerateLabelsExactly || $server->proxyType() === ProxyTypes::TRAEFIK->value)) {
                 $serviceLabels = addTraefikDockerNetworkLabel($serviceLabels, $baseNetwork->first());
             }
@@ -1447,8 +1452,8 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                     image: $image,
                     noindex_domains: $noindexDomains,
                     redirect_direction: $redirectDirection,
-                            tlsCertResolver: $server,
-                        ));
+                    tlsCertResolver: $server,
+                ));
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                     network: $labelNetwork,
                     uuid: $labelUuid,
@@ -1754,8 +1759,14 @@ function serviceParser(Service $resource): Collection
             $tempServiceName = 'supabase';
         }
         $serviceDefinition = data_get($allServices, $tempServiceName);
-        $predefinedPort = data_get($serviceDefinition, 'port');
-        if ($serviceName === 'plausible') {
+        // Prefer stack service_type (catalog key) over compose service name so
+        // authentik-server / similar sidecars resolve the template port without aliases.
+        $predefinedPort = catalogTemplatePort(
+            serviceType: $resource instanceof Service ? ($resource->service_type ?: null) : null,
+            composeServiceName: $tempServiceName,
+            templates: $allServices,
+        );
+        if ($serviceName === 'plausible' && blank($predefinedPort)) {
             $predefinedPort = '8000';
         }
 
@@ -1916,6 +1927,13 @@ function serviceParser(Service $resource): Collection
                     } else {
                         $savedService->fqdn = $urlWithPort;
                     }
+                }
+                // Persist SERVICE_URL_*_<port> so Traefik keeps loadbalancer.server.port
+                // after useHttps() strips :port from the public FQDN.
+                if ($isServiceApplication && $port && blank($savedService->ports)) {
+                    $savedService->ports = (string) $port;
+                }
+                if ($isServiceApplication && $savedService->isDirty()) {
                     $savedService->save();
                 }
 
@@ -2155,8 +2173,12 @@ function serviceParser(Service $resource): Collection
             $tempServiceName = 'supabase';
         }
         $serviceDefinition = data_get($allServices, $tempServiceName);
-        $predefinedPort = data_get($serviceDefinition, 'port');
-        if ($serviceName === 'plausible') {
+        $predefinedPort = catalogTemplatePort(
+            serviceType: $resource instanceof Service ? ($resource->service_type ?: null) : null,
+            composeServiceName: $tempServiceName,
+            templates: $allServices,
+        );
+        if ($serviceName === 'plausible' && blank($predefinedPort)) {
             $predefinedPort = '8000';
         }
 
@@ -2397,8 +2419,22 @@ function serviceParser(Service $resource): Collection
                 }
             }
         }
-        $originalResource->ports = $collectedPorts->implode(',');
-        $originalResource->save();
+        if ($collectedPorts->count() > 0) {
+            $originalResource->ports = $collectedPorts->implode(',');
+        } elseif (blank($originalResource->ports)) {
+            // Magic SERVICE_URL_*_<port> / catalog port when compose has no ports:.
+            $fallbackPort = resolveComposeProxyPort(
+                composeExpose: data_get($service, 'expose'),
+                environment: $environment,
+                catalogPort: $predefinedPort,
+            );
+            if ($fallbackPort) {
+                $originalResource->ports = $fallbackPort;
+            }
+        }
+        if ($originalResource->isDirty('ports')) {
+            $originalResource->save();
+        }
 
         $networks_temp = collect();
 
@@ -2697,7 +2733,13 @@ function serviceParser(Service $resource): Collection
             $shouldGenerateLabelsExactly = $resource->server->settings->generate_exact_labels;
             $proxyPort = OdooJupyter::proxyPort(
                 (string) $serviceName,
-                $predefinedPort ?: containerListenPort(data_get($service, 'ports'), data_get($service, 'expose')),
+                resolveComposeProxyPort(
+                    composePorts: data_get($service, 'ports'),
+                    composeExpose: data_get($service, 'expose'),
+                    environment: $environment,
+                    storedPorts: $originalResource->ports ?? null,
+                    catalogPort: $predefinedPort,
+                ),
             );
             $uuid = $resource->uuid;
             $network = data_get($resource, 'destination.network');
@@ -2755,8 +2797,8 @@ function serviceParser(Service $resource): Collection
                     image: $image,
                     noindex_domains: $noindexDomains,
                     redirect_direction: $redirectDirection,
-                            tlsCertResolver: $server,
-                        ));
+                    tlsCertResolver: $server,
+                ));
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                     network: $network,
                     uuid: $uuid,

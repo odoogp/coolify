@@ -2178,6 +2178,34 @@ it('keeps https on the primary catalog app and clears coolify-generated sidecar 
         ->and($service->fresh(['applications'])->publicHttpsUrl())->toBe('https://authentikserver-f78wytbvbxylmlqen49utpld.159.69.56.112.sslip.io');
 });
 
+it('keeps the container listen port when upgrading a catalog https fqdn', function () {
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '159.69.56.112',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'authentik',
+        'uuid' => 'authentikport9000',
+        'docker_compose_raw' => "services:\n  authentik-server:\n    image: ghcr.io/goauthentik/server\n",
+    ]);
+    $serverApp = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-server',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => 'http://authentikserver-authentikport9000.159.69.56.112.sslip.io:9000',
+        'ports' => null,
+        'is_force_https_enabled' => false,
+    ]);
+
+    expect(OdooGit::useHttps($service->fresh(['applications', 'server'])))->toBeTrue()
+        ->and($serverApp->fresh()->fqdn)->toBe('https://authentikserver-authentikport9000.159.69.56.112.sslip.io')
+        ->and($serverApp->fresh()->ports)->toBe('9000')
+        ->and($serverApp->fresh()->is_force_https_enabled)->toBeTrue();
+});
+
 it('assigns the coolify https url to the primary app when a sidecar is empty', function () {
     $server = Server::factory()->create([
         'team_id' => $this->team->id,
