@@ -48,7 +48,6 @@
         open: false,
         query: '',
         saving: false,
-        picking: false,
         positioned: false,
         options: @js(array_values($options)),
         value: @if (!$wire) @js($value) @elseif ($live && ! $onChange) @entangle($id).live @else @entangle($id) @endif,
@@ -159,9 +158,9 @@
                 panel.style.setProperty('min-width', width, 'important');
                 panel.style.setProperty('width', width, 'important');
                 panel.style.setProperty('max-width', width, 'important');
-                panel.style.setProperty('pointer-events', 'auto', 'important');
                 panel.style.right = 'auto';
                 panel.style.flex = 'none';
+                panel.style.pointerEvents = 'auto';
                 panel.style.zIndex = '9999';
 
                 if (surface && surface !== document.body) {
@@ -201,34 +200,20 @@
         },
         isInsidePanel(target) {
             // Label text clicks hit a Text node (no .closest) — walk up to an Element.
-            let el = target;
-            while (el && el.nodeType !== 1) {
-                el = el.parentElement;
-            }
+            const el = target && target.nodeType === 1 ? target : target && target.parentElement;
 
-            return Boolean(el && el.closest && (
-                el.closest('[data-searchable-listbox-panel]')
-                || el.closest('[data-listbox-portal-surface]')
-            ));
-        },
-        shouldIgnoreOutside() {
-            return this.picking || this.saving;
+            return Boolean(el && el.closest && el.closest('[data-searchable-listbox-panel]'));
         },
         async choose(option) {
-            if (this.saving || this.picking || option?.disabled) {
+            if (this.saving || option?.disabled) {
                 return;
             }
 
-            this.picking = true;
             const next = option?.value;
             // Set value before close so live entangle commits even if morph races the panel.
             this.value = next;
             @if ($wire)
-                try {
-                    this.$wire.set('{{ $id }}', next@if ($live), true@endif);
-                } catch (e) {
-                    console.error('searchable-listbox set failed', e);
-                }
+                this.$wire.set('{{ $id }}', next);
             @endif
             this.close();
             @if ($onChange)
@@ -239,18 +224,12 @@
                     this.saving = false;
                 }
             @endif
-            this.$nextTick(() => {
-                requestAnimationFrame(() => {
-                    this.picking = false;
-                });
-            });
         }
     }" x-modelable="value" :class="{ 'pointer-events-none opacity-70': saving }"
         @if ($ignoreMorph) wire:ignore @endif
         {{ $attributes->whereStartsWith('x-model') }}
         {{ $attributes->whereStartsWith('x-effect') }}
-        @mousedown.outside="if (!shouldIgnoreOutside() && !isInsidePanel($event.target)) close()"
-        @click.outside="if (!shouldIgnoreOutside() && !isInsidePanel($event.target)) close()"
+        @click.outside="if (!isInsidePanel($event.target)) close()"
         @keydown.escape.window="open && close()"
         x-effect="if (!open && $refs.panel && @js((bool) $portal)) $refs.panel.style.visibility = 'hidden'">
         <button x-ref="trigger" id="{{ $id }}-trigger" type="button" class="listbox-trigger" @click="toggle()"
@@ -307,8 +286,8 @@
                 @resize.window="open && positionPanel($el)"
                 @scroll.window.capture="open && positionPanel($el)"
             @endif
-            class="listbox-panel searchable-listbox-panel pointer-events-auto!" x-show="open" x-cloak role="listbox"
-            @pointerdown.stop @mousedown.stop @click.stop>
+            class="listbox-panel searchable-listbox-panel pointer-events-auto" x-show="open" x-cloak role="listbox"
+            @mousedown.stop @click.stop>
             <div class="searchable-listbox-search">
                 <x-reicon name="search"
                     class="pointer-events-none absolute top-1/2 left-3 size-3 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
@@ -320,13 +299,11 @@
             </div>
             <div class="searchable-listbox-options">
                 <template x-for="option in filtered" :key="String(option.value)">
-                    {{-- pointerdown before outside/click; picking lock ignores outside while committing --}}
+                    {{-- mousedown+stop: fire before click.outside; Text nodes handled in isInsidePanel --}}
                     <button type="button" class="listbox-option searchable-listbox-option" role="option"
                         :class="{ 'listbox-option-disabled': option.disabled }"
                         :aria-selected="String(option.value) === String(value)"
-                        @pointerdown.prevent.stop="choose(option)"
-                        @mousedown.prevent.stop="choose(option)"
-                        @click.prevent.stop="choose(option)">
+                        @mousedown.prevent.stop="choose(option)">
                         <span class="flex min-w-0 flex-1 items-start gap-2.5">
                             <template x-if="option.logo">
                                 <img :src="option.logo" alt=""

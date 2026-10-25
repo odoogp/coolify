@@ -44,10 +44,10 @@
                                     label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
                                     :options="$serverChoices" />
                             @endif
-                            <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal ignoreMorph
-                                searchPlaceholder="{{ __('Search the catalog') }}"
-                                emptyText="{{ __('No matching service') }}"
-                                :options="$serviceOptions" />
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal ignoreMorph
+                                    searchPlaceholder="{{ __('Search the catalog') }}"
+                                    emptyText="{{ __('No matching service') }}"
+                                    :options="$serviceOptions" />
                             @include('livewire.project.partials.catalog-version-fields', [
                                 'selectedService' => $selectedService,
                                 'versionOptions' => $versionOptions,
@@ -98,7 +98,7 @@
                                 @endif
                                 {{-- live: show version fields when the service needs them.
                                      Containers still start only when Launch runs. --}}
-                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal ignoreMorph
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal ignoreMorph
                                     searchPlaceholder="{{ __('Search the catalog') }}"
                                     emptyText="{{ __('No matching service') }}"
                                     :options="$serviceOptions" />

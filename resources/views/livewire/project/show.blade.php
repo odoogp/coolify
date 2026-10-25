@@ -64,7 +64,8 @@
                                         label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
                                         :options="$serverChoices" />
                                 @endif
-                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" live portal ignoreMorph
+                                {{-- Deferred (no live): GPSH — selecting only updates client value until Launch. --}}
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal ignoreMorph
                                     searchPlaceholder="{{ __('Search the catalog') }}"
                                     emptyText="{{ __('No matching service') }}"
                                     :options="$serviceOptions" />
