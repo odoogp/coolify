@@ -227,6 +227,49 @@ class Project extends BaseModel
         return $this->createNextStagingEnvironment();
     }
 
+    /**
+     * New environment for a catalog Launch. Role is chosen by the user —
+     * staging may exist before any production (independent branches).
+     */
+    public function createCatalogLaunchEnvironment(string $role, string $serviceType = ''): Environment
+    {
+        $role = $role === Environment::ROLE_STAGING
+            ? Environment::ROLE_STAGING
+            : Environment::ROLE_PRODUCTION;
+
+        if ($role === Environment::ROLE_STAGING) {
+            return $this->createNextStagingEnvironment();
+        }
+
+        $this->loadMissing('environments');
+        $emptyProduction = $this->environments
+            ->filter(fn (Environment $environment): bool => $environment->isProduction() && $environment->isEmpty())
+            ->sortBy('id')
+            ->first();
+        if ($emptyProduction instanceof Environment) {
+            return $emptyProduction;
+        }
+
+        return $this->createNextProductionEnvironment($serviceType !== '' ? $serviceType : 'service');
+    }
+
+    /**
+     * Target environment for Clone. Same independence as Launch: the copy may
+     * be production or staging regardless of the source role.
+     */
+    public function createCloneTargetEnvironment(string $role, string $serviceType = ''): Environment
+    {
+        $role = $role === Environment::ROLE_PRODUCTION
+            ? Environment::ROLE_PRODUCTION
+            : Environment::ROLE_STAGING;
+
+        if ($role === Environment::ROLE_PRODUCTION) {
+            return $this->createNextProductionEnvironment($serviceType !== '' ? $serviceType : 'clone');
+        }
+
+        return $this->createNextStagingEnvironment();
+    }
+
     public function team()
     {
         return $this->belongsTo(Team::class);

@@ -30,6 +30,9 @@ trait LaunchesCatalogService
 
     public string $selectedService = 'odoo';
 
+    /** production|staging — chosen on Project New (new environment). Index launches into the current environment. */
+    public string $environmentRole = Environment::ROLE_PRODUCTION;
+
     public string $odooVersion = '';
 
     /** Version for non-Odoo catalog services that expose more than one option. */
@@ -57,6 +60,7 @@ trait LaunchesCatalogService
             if ($name === '') {
                 throw new \RuntimeException(__('Choose a service to launch.'));
             }
+            $this->assertCatalogEnvironmentRole();
 
             $project = $this->catalogLaunchProject();
             $environment = $this->catalogLaunchEnvironment();
@@ -143,6 +147,26 @@ trait LaunchesCatalogService
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    protected function catalogEnvironmentRoleOptions(): array
+    {
+        return [
+            ['value' => Environment::ROLE_PRODUCTION, 'label' => __('Production')],
+            ['value' => Environment::ROLE_STAGING, 'label' => __('Staging')],
+        ];
+    }
+
+    protected function assertCatalogEnvironmentRole(): void
+    {
+        if (! in_array($this->environmentRole, [Environment::ROLE_PRODUCTION, Environment::ROLE_STAGING], true)) {
+            throw ValidationException::withMessages([
+                'environmentRole' => [__('Choose Production or Staging for this launch.')],
+            ]);
+        }
     }
 
     /**

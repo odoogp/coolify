@@ -3,6 +3,8 @@
 namespace App\View\Components\Services;
 
 use App\Models\Service;
+use App\Models\ServiceApplication;
+use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use Closure;
 use Illuminate\Contracts\View\View;
@@ -17,40 +19,47 @@ class Links extends Component
 
     public function __construct(public Service $service, public bool $fullWidth = false, public bool $compact = false)
     {
-        $this->links = collect([]);
-        $applications = $service->applications()->get();
         $this->jupyterUrl = OdooJupyter::sessionUrl($service);
-        $applications->each(function ($application) {
-            if ($this->jupyterUrl && $application->name === OdooJupyter::SERVICE_NAME) {
-                return;
-            }
-            $type = $application->serviceType();
+        $this->links = $this->publicOpenLinks($service);
+    }
+
+    /**
+     * One open URL for the service entrypoint — not every compose app, and never
+     * Coolify instance host:port guesses (those look like getcloud.sh:9000).
+     *
+     * @return Collection<int, string>
+     */
+    private function publicOpenLinks(Service $service): Collection
+    {
+        $preferred = OdooGit::preferredPublicHttpApplication($service);
+        if ($preferred instanceof ServiceApplication) {
+            $type = $preferred->serviceType();
             if ($type) {
-                $links = generateServiceSpecificFqdns($application);
-                $links = $links->map(function ($link) {
-                    return getFqdnWithoutPort($link);
-                });
-                $this->links = $this->links->merge($links);
-            } else {
-                if ($application->fqdn) {
-                    $fqdns = collect(str($application->fqdn)->explode(','));
-                    $fqdns->map(function ($fqdn) {
-                        $this->links->push(getFqdnWithoutPort($fqdn));
-                    });
-                }
-                if ($application->ports) {
-                    $portsCollection = collect(str($application->ports)->explode(','));
-                    $portsCollection->map(function ($port) {
-                        if (str($port)->contains(':')) {
-                            $hostPort = str($port)->before(':');
-                        } else {
-                            $hostPort = $port;
-                        }
-                        $this->links->push(base_url(withPort: false).":{$hostPort}");
-                    });
+                $specific = generateServiceSpecificFqdns($preferred)
+                    ->map(fn ($link): string => getFqdnWithoutPort((string) $link))
+                    ->filter(fn (string $link): bool => $link !== '')
+                    ->unique()
+                    ->values();
+                if ($specific->isNotEmpty()) {
+                    return $specific;
                 }
             }
-        });
+        }
+
+        $primary = OdooGit::publicHttpsUrl($service);
+        if ($primary !== '') {
+            return collect([getFqdnWithoutPort($primary)])->filter()->values();
+        }
+
+        if (! $preferred instanceof ServiceApplication || blank($preferred->fqdn)) {
+            return collect([]);
+        }
+
+        return collect(str($preferred->fqdn)->explode(','))
+            ->map(fn ($fqdn): string => getFqdnWithoutPort(trim((string) $fqdn)))
+            ->filter(fn (string $fqdn): bool => $fqdn !== '')
+            ->unique()
+            ->values();
     }
 
     /**

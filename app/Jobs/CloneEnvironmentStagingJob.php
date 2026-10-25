@@ -21,7 +21,7 @@ use Spatie\Activitylog\Models\Activity;
 use Throwable;
 
 /**
- * Clone every service from production into a new staging environment.
+ * Clone every service from a source environment into a new production or staging environment.
  * Odoo/GitHub/neutralize stays on {@see CloneOdooStagingJob}.
  */
 class CloneEnvironmentStagingJob implements ShouldQueue
@@ -37,6 +37,7 @@ class CloneEnvironmentStagingJob implements ShouldQueue
         public string $productionUuid,
         public string $cacheKey,
         public int $userId,
+        public string $targetRole = Environment::ROLE_STAGING,
     ) {
         $this->onQueue('high');
     }
@@ -48,33 +49,40 @@ class CloneEnvironmentStagingJob implements ShouldQueue
         if (! $alreadyAuthenticated) {
             $user = User::query()->whereKey($this->userId)->first();
             if (! $user instanceof User) {
-                $this->progress(1, error: 'Clone starts from the production environment.');
+                $this->progress(1, error: 'Clone starts from an environment that already has at least one service.');
 
                 return;
             }
             Auth::setUser($user);
         }
 
-        $staging = null;
+        $target = null;
         $started = false;
 
         try {
             $project = Project::query()->with('environments.services')->find($this->projectId);
-            $production = $project?->environments->firstWhere('uuid', $this->productionUuid);
-            if (! $project instanceof Project || ! $production instanceof Environment || ! $production->isProduction()) {
-                $this->progress(1, error: 'Clone starts from the production environment.');
+            $source = $project?->environments->firstWhere('uuid', $this->productionUuid);
+            if (! $project instanceof Project || ! $source instanceof Environment) {
+                $this->progress(1, error: 'Clone starts from an environment that already has at least one service.');
+
+                return;
+            }
+            if ($source->services()->count() === 0) {
+                $this->progress(1, error: 'Clone starts from an environment that already has at least one service.');
 
                 return;
             }
 
+            $serviceType = (string) ($source->services->sortBy('id')->first()?->service_type ?: 'clone');
+
             $this->progress(1);
-            $staging = $project->cloneProductionAsStaging();
-            $this->progress(1, environment: $staging->uuid);
+            $target = $project->createCloneTargetEnvironment($this->targetRole, $serviceType);
+            $this->progress(1, environment: $target->uuid);
 
             $this->progress(2);
-            $copies = $this->copyProductionServices($production, $staging);
+            $copies = $this->copyProductionServices($source, $target);
             if ($copies === []) {
-                throw new RuntimeException('Production has no services to clone.');
+                throw new RuntimeException('The source environment has no services to clone.');
             }
 
             $this->progress(3);
@@ -90,19 +98,19 @@ class CloneEnvironmentStagingJob implements ShouldQueue
                 'name' => 'project.show',
                 'parameters' => [
                     'project_uuid' => $project->uuid,
-                    'environment' => $staging->uuid,
+                    'environment' => $target->uuid,
                 ],
             ]);
         } catch (Throwable $exception) {
-            if ($staging instanceof Environment && ! $started) {
+            if ($target instanceof Environment && ! $started) {
                 try {
-                    $staging->services()->each(function (Service $service): void {
+                    $target->services()->each(function (Service $service): void {
                         $service->environment_variables()->delete();
                         $service->delete();
                     });
-                    $staging->unsetRelation('services');
-                    if (! $staging->services()->exists() && ! $staging->applications()->exists()) {
-                        $staging->delete();
+                    $target->unsetRelation('services');
+                    if (! $target->services()->exists() && ! $target->applications()->exists()) {
+                        $target->delete();
                     }
                 } catch (Throwable) {
                     // Keep the clone error on the screen if cleanup fails.

@@ -40,6 +40,7 @@ class CloneOdooStagingJob implements ShouldQueue
         public bool $createBranch,
         public string $cacheKey,
         public int $userId,
+        public string $targetRole = Environment::ROLE_STAGING,
     ) {
         $this->onQueue('high');
     }
@@ -51,21 +52,26 @@ class CloneOdooStagingJob implements ShouldQueue
         if (! $alreadyAuthenticated) {
             $user = User::query()->whereKey($this->userId)->first();
             if (! $user instanceof User) {
-                $this->progress(1, error: 'Clone starts from the production environment.');
+                $this->progress(1, error: 'Clone starts from an environment that already has at least one service.');
 
                 return;
             }
             Auth::setUser($user);
         }
 
-        $staging = null;
+        $target = null;
         $started = false;
 
         try {
             $project = Project::query()->with('odooProfile.githubApp', 'environments.odooBranch')->find($this->projectId);
-            $production = $project?->environments->firstWhere('uuid', $this->productionUuid);
-            if (! $project instanceof Project || ! $production instanceof Environment || ! $production->isProduction()) {
-                $this->progress(1, error: 'Clone starts from the production environment.');
+            $source = $project?->environments->firstWhere('uuid', $this->productionUuid);
+            if (! $project instanceof Project || ! $source instanceof Environment) {
+                $this->progress(1, error: 'Clone starts from an environment that already has at least one service.');
+
+                return;
+            }
+            if ($source->services()->count() === 0) {
+                $this->progress(1, error: 'Clone starts from an environment that already has at least one service.');
 
                 return;
             }
@@ -74,31 +80,32 @@ class CloneOdooStagingJob implements ShouldQueue
             $repository = $profile?->git_repository;
             $app = $profile?->githubApp;
             $used = $this->usedBranches($project);
+            $serviceType = (string) ($source->services()->orderBy('id')->value('service_type') ?: 'odoo');
 
             $this->progress(1);
-            $staging = $project->cloneProductionAsStaging();
-            $this->progress(1, environment: $staging->uuid);
+            $target = $project->createCloneTargetEnvironment($this->targetRole, $serviceType);
+            $this->progress(1, environment: $target->uuid);
             if (filled($repository) && $app instanceof GithubApp) {
                 OdooEnvironmentBranch::query()->updateOrCreate(
-                    ['environment_id' => $staging->id],
+                    ['environment_id' => $target->id],
                     ['git_branch' => $this->branch],
                 );
             }
 
             $this->progress(2);
-            $copied = $this->copyProductionService($production, $staging);
+            $copied = $this->copyProductionService($source, $target);
 
             $this->progress(3);
             if (filled($repository) && $app instanceof GithubApp) {
-                $productionBranch = (string) ($production->odooBranch?->git_branch ?: '');
+                $sourceBranch = (string) ($source->odooBranch?->git_branch ?: '');
                 if ($this->createBranch) {
-                    // New branch must not already exist: fork from production (copy) or the repo default (empty).
-                    $source = $this->cloneAddons === 'copy' && $productionBranch !== ''
-                        ? $productionBranch
+                    // New branch must not already exist: fork from source (copy) or the repo default (empty).
+                    $forkFrom = $this->cloneAddons === 'copy' && $sourceBranch !== ''
+                        ? $sourceBranch
                         : '';
-                    OdooGit::createStagingBranch($app, (string) $repository, $source, $this->branch, $used);
+                    OdooGit::createStagingBranch($app, (string) $repository, $forkFrom, $this->branch, $used);
                 } else {
-                    // Reuse an unused existing tip — do not recreate it from production.
+                    // Reuse an unused existing tip — do not recreate it from the source.
                     OdooGit::prepareStagingBranch($app, (string) $repository, '', $this->branch, $used);
                 }
             }
@@ -115,11 +122,11 @@ class CloneOdooStagingJob implements ShouldQueue
             $this->progress(4);
             $started = true;
             if ($copied instanceof Service && $copied->server?->isFunctional()) {
-                OdooGit::whileServerIsFree($copied->server, function () use ($copied, $production): void {
+                OdooGit::whileServerIsFree($copied->server, function () use ($copied, $source): void {
                     OdooGit::useHttps($copied);
                     $activity = StartService::run($copied, pullLatestImages: false);
                     $this->waitForServiceStart($activity, $copied);
-                    $original = $production->services()->get()->first(
+                    $original = $source->services()->get()->first(
                         fn (Service $service): bool => $service->supportsOdooJupyter()
                     );
                     if ($original instanceof Service) {
@@ -143,7 +150,7 @@ class CloneOdooStagingJob implements ShouldQueue
                     'name' => 'project.show',
                     'parameters' => [
                         'project_uuid' => $project->uuid,
-                        'environment' => $staging->uuid,
+                        'environment' => $target->uuid,
                     ],
                 ]
                 : [
@@ -151,15 +158,15 @@ class CloneOdooStagingJob implements ShouldQueue
                     'parameters' => ['project_uuid' => $project->uuid],
                 ]);
         } catch (Throwable $exception) {
-            if ($staging instanceof Environment && ! $started) {
+            if ($target instanceof Environment && ! $started) {
                 try {
-                    $staging->services()->each(function (Service $service): void {
+                    $target->services()->each(function (Service $service): void {
                         $service->environment_variables()->delete();
                         $service->delete();
                     });
-                    $staging->unsetRelation('services');
-                    if (! $staging->services()->exists() && ! $staging->applications()->exists()) {
-                        $staging->delete();
+                    $target->unsetRelation('services');
+                    if (! $target->services()->exists() && ! $target->applications()->exists()) {
+                        $target->delete();
                     }
                 } catch (Throwable) {
                     // Keep the clone error on the screen if cleanup fails.

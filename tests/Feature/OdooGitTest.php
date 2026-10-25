@@ -33,6 +33,7 @@ use App\Models\User;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
+use App\View\Components\Services\Links;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Cache;
@@ -2176,6 +2177,44 @@ it('keeps https on the primary catalog app and clears coolify-generated sidecar 
         ->and($serverApp->fresh()->is_force_https_enabled)->toBeTrue()
         ->and($worker->fresh()->fqdn)->toBeNull()
         ->and($service->fresh(['applications'])->publicHttpsUrl())->toBe('https://authentikserver-f78wytbvbxylmlqen49utpld.159.69.56.112.sslip.io');
+});
+
+it('shows only the primary public url in service links not instance host ports', function () {
+    instanceSettings()->update(['fqdn' => 'https://getcloud.sh']);
+
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '159.69.56.112',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'authentik',
+        'uuid' => 'riiakz1kw8zxdt4t600phtcn',
+        'docker_compose_raw' => "services:\n  authentik-server:\n    image: ghcr.io/goauthentik/server\n  authentik-worker:\n    image: ghcr.io/goauthentik/server\n",
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-worker',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => null,
+        'ports' => '9000',
+    ]);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-server',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => 'https://authentikserver-riiakz1kw8zxdt4t600phtcn.159.69.56.112.sslip.io',
+        'ports' => '9000',
+        'is_force_https_enabled' => true,
+    ]);
+
+    $links = (new Links($service->fresh(['applications'])))->links;
+
+    expect($links)->toHaveCount(1)
+        ->and($links->first())->toBe('https://authentikserver-riiakz1kw8zxdt4t600phtcn.159.69.56.112.sslip.io')
+        ->and($links->all())->not->toContain('https://getcloud.sh:9000');
 });
 
 it('keeps the container listen port when upgrading a catalog https fqdn', function () {

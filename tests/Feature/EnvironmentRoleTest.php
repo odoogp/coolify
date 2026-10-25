@@ -60,6 +60,26 @@ it('creates staging with role staging and allows another production for a differ
         ->and($this->project->fresh()->environments()->where('role', Environment::ROLE_PRODUCTION)->count())->toBe(2);
 });
 
+it('creates a staging catalog launch environment before any production service', function () {
+    $empty = $this->project->productionEnvironment();
+    expect($empty->isEmpty())->toBeTrue();
+
+    $staging = $this->project->createCatalogLaunchEnvironment(Environment::ROLE_STAGING, 'n8n');
+
+    expect($staging->isStaging())->toBeTrue()
+        ->and($this->project->fresh()->environments()->where('role', Environment::ROLE_STAGING)->count())->toBe(1)
+        ->and($this->project->fresh()->productionEnvironment()?->isEmpty())->toBeTrue();
+});
+
+it('reuses the empty production shell when catalog launch asks for production', function () {
+    $empty = $this->project->productionEnvironment();
+
+    $target = $this->project->createCatalogLaunchEnvironment(Environment::ROLE_PRODUCTION, 'n8n');
+
+    expect($target->is($empty))->toBeTrue()
+        ->and($target->isProduction())->toBeTrue();
+});
+
 it('clones non-odoo production services into a new staging environment', function () {
     $production = $this->project->productionEnvironment();
     Service::factory()->create([
@@ -67,6 +87,7 @@ it('clones non-odoo production services into a new staging environment', functio
         'name' => 'n8n-production',
         'docker_compose_raw' => "services:\n  n8n:\n    image: n8nio/n8n\n",
         'server_id' => null,
+        'service_type' => 'n8n',
     ]);
 
     Auth::logout();
@@ -76,6 +97,7 @@ it('clones non-odoo production services into a new staging environment', functio
         $production->uuid,
         'env-clone-generic',
         $this->user->id,
+        Environment::ROLE_STAGING,
     ))->handle();
 
     $status = Cache::get('env-clone-generic');
@@ -89,13 +111,41 @@ it('clones non-odoo production services into a new staging environment', functio
         ->and($staging->services()->first()->docker_compose_raw)->toContain('n8nio/n8n');
 });
 
-it('shows clone on production with services for non-odoo projects', function () {
+it('clones into a second production when the clone target role is production', function () {
+    $production = $this->project->productionEnvironment();
+    Service::factory()->create([
+        'environment_id' => $production->id,
+        'name' => 'n8n-production',
+        'docker_compose_raw' => "services:\n  n8n:\n    image: n8nio/n8n\n",
+        'server_id' => null,
+        'service_type' => 'n8n',
+    ]);
+
+    (new CloneEnvironmentStagingJob(
+        $this->project->id,
+        $production->uuid,
+        'env-clone-as-production',
+        $this->user->id,
+        Environment::ROLE_PRODUCTION,
+    ))->handle();
+
+    $status = Cache::get('env-clone-as-production');
+    $productions = $this->project->fresh()->environments()->where('role', Environment::ROLE_PRODUCTION)->get();
+
+    expect($status['error'] ?? null)->toBeNull()
+        ->and($status['done'] ?? false)->toBeTrue()
+        ->and($productions)->toHaveCount(2)
+        ->and($this->project->environments()->where('role', Environment::ROLE_STAGING)->exists())->toBeFalse();
+});
+
+it('shows clone on any environment with services and asks for the next role', function () {
     $production = $this->project->productionEnvironment();
     Service::factory()->create([
         'environment_id' => $production->id,
         'name' => 'app-production',
         'docker_compose_raw' => "services:\n  web:\n    image: nginx\n",
         'server_id' => null,
+        'service_type' => 'nginx',
     ]);
 
     $html = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
@@ -108,7 +158,17 @@ it('shows clone on production with services for non-odoo projects', function () 
         ->call('selectEnvironment', $production->uuid)
         ->call('openCloneWizard')
         ->assertSet('showCloneWizard', true)
+        ->assertSet('cloneEnvironmentRole', Environment::ROLE_STAGING)
+        ->set('cloneEnvironmentRole', Environment::ROLE_STAGING)
         ->call('cloneToStaging');
 
     expect($this->project->fresh()->environments()->where('role', Environment::ROLE_STAGING)->exists())->toBeTrue();
+});
+
+it('asks production or staging on project catalog new', function () {
+    $html = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])->html();
+
+    expect($html)->toContain(__('Environment type'))
+        ->and($html)->toContain(__('Production'))
+        ->and($html)->toContain(__('Staging'));
 });

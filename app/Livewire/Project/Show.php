@@ -41,6 +41,9 @@ class Show extends Component
 
     public string $cloneAddons = 'copy';
 
+    /** production|staging — role of the environment created by Clone */
+    public string $cloneEnvironmentRole = Environment::ROLE_STAGING;
+
     /** create = new GitHub branch from production (or default); existing = unused branch on the same repo */
     public string $cloneBranchMode = 'create';
 
@@ -139,33 +142,12 @@ class Show extends Component
             abort(403);
         }
 
-        $serviceType = trim((string) $this->selectedService);
+        $this->assertCatalogEnvironmentRole();
 
-        $production = $this->project->productionEnvironment();
-        if (! $production instanceof Environment) {
-            return app(AdminCreationQuota::class)->createEnvironment($user, $this->project, [
-                'name' => 'production',
-                'role' => Environment::ROLE_PRODUCTION,
-                'uuid' => new_public_id(),
-            ]);
-        }
-
-        // Empty production shell from project create: first launch of any service.
-        if ($production->isEmpty()) {
-            return $production;
-        }
-
-        // A later branch of the same service type is staging.
-        if ($serviceType !== '' && $this->project->hasProductionOfService($serviceType)) {
-            return $this->project->createNextStagingEnvironment();
-        }
-
-        // First environment for a different service is another production.
-        if ($serviceType !== '') {
-            return $this->project->createNextProductionEnvironment($serviceType);
-        }
-
-        return $this->project->createNextStagingEnvironment();
+        return $this->project->createCatalogLaunchEnvironment(
+            $this->environmentRole,
+            trim((string) $this->selectedService),
+        );
     }
 
     public function submit()
@@ -189,13 +171,15 @@ class Show extends Component
 
     public function openCloneWizard(): void
     {
-        $production = $this->project->productionEnvironment();
-        if ($production instanceof Environment) {
-            $this->selectedEnvironmentUuid = $production->uuid;
-            $production->loadMissing('odooBranch');
-            $this->productionGitBranch = (string) ($production->odooBranch?->git_branch ?: '');
+        $source = $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid)
+            ?? $this->project->productionEnvironment();
+        if ($source instanceof Environment) {
+            $this->selectedEnvironmentUuid = $source->uuid;
+            $source->loadMissing('odooBranch');
+            $this->productionGitBranch = (string) ($source->odooBranch?->git_branch ?: '');
         }
         $this->cloneAddons = 'copy';
+        $this->cloneEnvironmentRole = Environment::ROLE_STAGING;
         $this->cloneBranchMode = 'create';
         $this->cloneBranches = [];
         $this->stagingBranch = OdooStaging::nextName($this->project);
@@ -279,15 +263,18 @@ class Show extends Component
             $this->authorize('update', $this->project);
             $this->project->load('odooProfile.githubApp', 'environments.odooBranch');
             $selected = $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid);
-            if (! $selected instanceof Environment || ! $selected->isProduction()) {
-                throw new RuntimeException('Clone starts from the production environment.');
+            if (! $selected instanceof Environment) {
+                throw new RuntimeException('Clone starts from a selected environment.');
+            }
+            if (! in_array($this->cloneEnvironmentRole, [Environment::ROLE_PRODUCTION, Environment::ROLE_STAGING], true)) {
+                throw new RuntimeException('Choose Production or Staging for the clone.');
             }
 
             $profile = $this->project->odooProfile;
             $isOdoo = $profile !== null;
 
-            if (! $isOdoo && $selected->services()->count() === 0) {
-                throw new RuntimeException('Clone starts from production after at least one service is launched.');
+            if ($selected->services()->count() === 0) {
+                throw new RuntimeException('Clone starts from an environment that already has at least one service.');
             }
 
             $this->cloneError = null;
@@ -331,6 +318,7 @@ class Show extends Component
                     $createBranch,
                     $this->cloneCacheKey(),
                     (int) auth()->id(),
+                    $this->cloneEnvironmentRole,
                 );
             } else {
                 CloneEnvironmentStagingJob::dispatch(
@@ -338,6 +326,7 @@ class Show extends Component
                     $selected->uuid,
                     $this->cloneCacheKey(),
                     (int) auth()->id(),
+                    $this->cloneEnvironmentRole,
                 );
             }
 
@@ -789,6 +778,7 @@ class Show extends Component
             'odooGithubReady' => $this->repositoryChoiceIsOpen(),
             'hasProduction' => $production instanceof Environment,
             ...$this->catalogLaunchVersionViewData(),
+            'environmentRoleOptions' => $this->catalogEnvironmentRoleOptions(),
             'serviceOptions' => $this->catalogServiceOptions(),
             'serverChoices' => OdooGit::launchChoices(),
             'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),

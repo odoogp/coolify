@@ -69,6 +69,9 @@
                                     searchPlaceholder="{{ __('Search the catalog') }}"
                                     emptyText="{{ __('No matching service') }}"
                                     :options="$serviceOptions" />
+                                @include('livewire.project.partials.catalog-environment-role-fields', [
+                                    'environmentRoleOptions' => $environmentRoleOptions,
+                                ])
                                 @include('livewire.project.partials.catalog-version-fields', [
                                     'selectedService' => $selectedService,
                                     'versionOptions' => $versionOptions,
@@ -76,7 +79,7 @@
                                     'lockedOdooVersion' => $lockedOdooVersion,
                                 ])
                                 <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                    {{ __('Creates a new environment for this service. Pick the version when asked. Odoo may also ask for GitHub. Other catalog services open configuration on this project’s server.') }}
+                                    {{ __('Creates a new environment for this service. Choose Production or Staging first. Pick the version when asked. Odoo may also ask for GitHub. Other catalog services open configuration on this project’s server.') }}
                                 </p>
                                 <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                     <x-forms.button type="button" wire:click="launchService" wire:target="launchService" isHighlighted>
@@ -243,7 +246,7 @@
                         @endphp
                         @unless (($activities[$selectedEnvironment->uuid] ?? null) || $cloneRunning)
                             @can('update', $project)
-                                @if ($selectedEnvironment->isProduction() && ($selectedOdoo || $selectedEnvironment->services->isNotEmpty()))
+                                @if ($selectedOdoo || $selectedEnvironment->services->isNotEmpty())
                                     <button type="button" class="button button-highlighted" wire:click="openCloneWizard">
                                         {{ __('Clone') }}
                                     </button>
@@ -279,11 +282,16 @@
                         <h2 class="text-base font-semibold">{{ __('Clone') }}</h2>
                         <p class="text-[13px] font-medium">
                             @if ($project->odooProfile)
-                                {{ __('This creates staging :name from production and starts Odoo. It copies the database and files, then neutralizes that copy. It does not create another production.', ['name' => \App\Domain\Odoo\OdooStaging::nextName($project)]) }}
+                                {{ __('This copies the selected environment into a new one and starts Odoo. It copies the database and files, then neutralizes that copy. Choose whether the new environment is Production or Staging.') }}
                             @else
-                                {{ __('This creates staging :name from production and copies its services. It does not create another production.', ['name' => \App\Domain\Odoo\OdooStaging::nextName($project)]) }}
+                                {{ __('This copies every service from the selected environment into a new one and starts them when the server is ready. Choose whether the new environment is Production or Staging.') }}
                             @endif
                         </p>
+                        @include('livewire.project.partials.catalog-environment-role-fields', [
+                            'environmentRoleOptions' => $environmentRoleOptions,
+                            'roleModel' => 'cloneEnvironmentRole',
+                            'roleLabel' => __('New environment type'),
+                        ])
                         @if (filled($project->odooProfile?->git_repository) && $project->odooProfile?->githubApp)
                             <div class="space-y-2 rounded-xl border border-neutral-200 bg-neutral-50/80 p-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
                                 <p class="text-sm font-medium">{{ __('GitHub branch') }}</p>
@@ -357,7 +365,7 @@
                             </p>
                         @else
                             <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('Every service on production is copied into the new staging environment and started when the server is ready.') }}
+                                {{ __('Every service on the selected environment is copied into the new environment and started when the server is ready.') }}
                             </p>
                         @endif
                         <div class="flex justify-end gap-2">
