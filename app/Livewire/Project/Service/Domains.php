@@ -6,10 +6,13 @@ use App\Actions\Shared\CheckDomainDns;
 use App\Jobs\CheckDomainDnsJob;
 use App\Livewire\Concerns\InteractsWithCloudflareDomainConnect;
 use App\Livewire\Project\Shared\ConfigurationChecker;
+use App\Models\OdooEnvironmentBranch;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Support\DomainUrlParts;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -101,6 +104,20 @@ class Domains extends Component
     /** Pending save payload after conflict/port confirmation */
     public ?string $pendingAction = null;
 
+    public bool $isOdooService = false;
+
+    public string $odooSubdomain = '';
+
+    public int $odooWorkers = 0;
+
+    public string $odooBaseDomain = '';
+
+    public string $odooProductionHost = '';
+
+    public string $odooEnvironmentHost = '';
+
+    public bool $odooIsProduction = false;
+
     protected $listeners = [
         'refresh' => 'refreshDomains',
         'refreshServices' => 'refreshDomains',
@@ -117,6 +134,8 @@ class Domains extends Component
             'serviceRedirects.*' => 'string|in:both,www,non-www',
             'forceHttpsRedirects' => 'array',
             'forceHttpsRedirects.*' => 'boolean',
+            'odooSubdomain' => 'nullable|string|max:63',
+            'odooWorkers' => 'integer|min:0|max:32',
         ];
     }
 
@@ -124,6 +143,7 @@ class Domains extends Component
     {
         $this->authorize('view', $this->service);
         $this->loadDomainState();
+        $this->loadOdooRuntimeState();
     }
 
     public function refreshDomains(): void
@@ -131,6 +151,106 @@ class Domains extends Component
         $this->service->refresh();
         $this->service->load(['applications', 'server']);
         $this->loadDomainState();
+        $this->loadOdooRuntimeState();
+    }
+
+    protected function loadOdooRuntimeState(): void
+    {
+        $this->isOdooService = OdooJupyter::isOdooCompose((string) $this->service->docker_compose_raw);
+        if (! $this->isOdooService) {
+            $this->odooSubdomain = '';
+            $this->odooWorkers = 0;
+            $this->odooBaseDomain = '';
+            $this->odooProductionHost = '';
+            $this->odooEnvironmentHost = '';
+            $this->odooIsProduction = false;
+
+            return;
+        }
+
+        $this->service->loadMissing(['environment.project.odooProfile', 'environment.odooBranch']);
+        $environment = $this->service->environment;
+        $project = $environment?->project;
+        $profile = $project?->odooProfile;
+        $branch = $environment?->odooBranch;
+
+        $this->odooIsProduction = (bool) $environment?->isProduction();
+        $this->odooSubdomain = (string) ($profile?->subdomain ?? '');
+        $this->odooWorkers = (int) ($branch?->workers ?? $profile?->workers ?? 0);
+        $this->odooBaseDomain = OdooGit::baseDomain();
+        $this->odooProductionHost = $project !== null
+            ? OdooGit::projectHost($this->odooSubdomain, $this->odooBaseDomain, 'production', 0, true)
+            : '';
+        $this->odooEnvironmentHost = $project !== null && $environment !== null
+            ? OdooGit::hostFor($project, $environment)
+            : '';
+    }
+
+    public function saveOdooRuntime(): void
+    {
+        try {
+            $this->authorize('update', $this->service);
+            if (! OdooJupyter::isOdooCompose((string) $this->service->docker_compose_raw)) {
+                return;
+            }
+
+            $this->service->loadMissing(['environment.project.odooProfile', 'environment.odooBranch', 'environment.services.server']);
+            $environment = $this->service->environment;
+            $project = $environment?->project;
+            $profile = $project?->odooProfile;
+            if ($profile === null || $project === null || $environment === null) {
+                return;
+            }
+
+            $subdomain = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($this->odooSubdomain)), '-');
+            if (trim($this->odooSubdomain) !== '' && $subdomain === '') {
+                $this->dispatch('error', __('The subdomain can only use letters, numbers, and hyphens.'));
+
+                return;
+            }
+
+            $workers = max(0, min(32, (int) $this->odooWorkers));
+            $profilePayload = ['subdomain' => $subdomain === '' ? null : $subdomain];
+            if ($environment->isProduction()) {
+                $profilePayload['workers'] = $workers;
+            }
+            $profile->update($profilePayload);
+
+            $branch = $environment->odooBranch;
+            if ($branch instanceof OdooEnvironmentBranch) {
+                $branch->forceFill(['workers' => $workers])->save();
+            }
+
+            $project->load(['environments.services.server.settings']);
+            $addressChanged = false;
+            $restartIds = [];
+            foreach ($project->environments as $env) {
+                foreach ($env->services as $candidate) {
+                    if (! OdooJupyter::isOdooCompose((string) $candidate->docker_compose_raw)) {
+                        continue;
+                    }
+                    if (OdooGit::applyProjectHost($candidate)) {
+                        $addressChanged = true;
+                        $restartIds[] = (int) $candidate->id;
+                    }
+                }
+            }
+            foreach (array_unique($restartIds) as $restartId) {
+                $restart = Service::query()->with(['server.settings'])->find($restartId);
+                if ($restart instanceof Service) {
+                    OdooGit::startIfPossible($restart);
+                }
+            }
+
+            $this->odooSubdomain = $subdomain;
+            $this->odooWorkers = $workers;
+            $this->loadOdooRuntimeState();
+            $this->dispatch('success', $addressChanged
+                ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
+                : __('Project runtime saved. The next start applies the workers and the address.'));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
     }
 
     public function pollDnsChecks(): void

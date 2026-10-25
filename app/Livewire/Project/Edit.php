@@ -12,7 +12,6 @@ use App\Services\ProjectIconStorageService;
 use App\Support\EnsureOdooBackupSchedules;
 use App\Support\GetOdooBackupFrequency;
 use App\Support\OdooGit;
-use App\Support\OdooJupyter;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\DB;
@@ -49,10 +48,6 @@ class Edit extends Component
     public ?int $odooRepositoryId = null;
 
     public string $odooLaunchCategory = 'staging';
-
-    public string $odooSubdomain = '';
-
-    public int $odooWorkers = 0;
 
     public ?string $odooGithubHref = null;
 
@@ -277,8 +272,6 @@ class Edit extends Component
         $this->odooEnvironmentBranches = $branchRows
             ->mapWithKeys(fn (OdooEnvironmentBranch $row): array => [$row->environment_id => $row->git_branch])
             ->all();
-        $this->odooSubdomain = (string) ($profile?->subdomain ?? '');
-        $this->odooWorkers = (int) ($profile?->workers ?? 0);
         $this->odooGithubHref = null;
         if ($profile !== null) {
             foreach ($this->project->environments()->with('services')->orderBy('id')->get() as $environment) {
@@ -293,51 +286,6 @@ class Edit extends Component
                     break;
                 }
             }
-        }
-    }
-
-    public function saveOdooRuntime(): void
-    {
-        try {
-            $this->authorize('update', $this->project);
-            $profile = $this->project->odooProfile;
-            if ($profile === null) {
-                return;
-            }
-            $subdomain = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($this->odooSubdomain)), '-');
-            if (trim($this->odooSubdomain) !== '' && $subdomain === '') {
-                $this->dispatch('error', __('The subdomain can only use letters, numbers, and hyphens.'));
-
-                return;
-            }
-            $workers = max(0, min(32, (int) $this->odooWorkers));
-            $profile->update([
-                'subdomain' => $subdomain === '' ? null : $subdomain,
-                'workers' => $workers,
-            ]);
-            OdooEnvironmentBranch::query()
-                ->whereIn('environment_id', $this->project->environments()->pluck('id'))
-                ->update(['workers' => $workers]);
-            $this->project->load('environments.services.server');
-            $addressChanged = false;
-            foreach ($this->project->environments as $environment) {
-                foreach ($environment->services as $service) {
-                    if (! OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
-                        continue;
-                    }
-                    if (OdooGit::applyProjectHost($service)) {
-                        $addressChanged = true;
-                        OdooGit::startIfPossible($service);
-                    }
-                }
-            }
-            $this->odooSubdomain = $subdomain;
-            $this->odooWorkers = $workers;
-            $this->dispatch('success', $addressChanged
-                ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
-                : __('Project runtime saved. The next start applies the workers and the address.'));
-        } catch (\Throwable $e) {
-            handleError($e, $this);
         }
     }
 
@@ -503,9 +451,6 @@ class Edit extends Component
             'planBackupPolicy' => $planAllows
                 ? __('Backups').': '.GetOdooBackupFrequency::label($frequency).' · '.trans_choice(':count day|:count days', $retention, ['count' => $retention])
                 : __('Backups').': '.__('Not included'),
-            // On project settings only (not the project list/show header). Plan flag stays marketing on signup.
-            'canMigrate' => (bool) $this->project->odooProfile
-                && auth()->user()?->can('update', $this->project),
             'odooVersionOptions' => OdooComposeTemplate::versionOptions(),
             'odooVersionLocked' => $this->project->odooProfile !== null
                 && $this->projectHasActiveOdooEnvironments(),

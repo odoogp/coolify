@@ -37,6 +37,32 @@
             </section>
         </form>
 
+        @php
+            $odooService = $environment->services->first(fn ($service) => $service->supportsOdooJupyter());
+            $odooDomainsHref = $odooService
+                ? route('project.service.configuration', [
+                    'project_uuid' => $project->uuid,
+                    'environment_uuid' => $environment->uuid,
+                    'service_uuid' => $odooService->uuid,
+                ]).'#odoo-address-section'
+                : null;
+        @endphp
+        @if ($odooDomainsHref)
+            <section class="application-settings-section">
+                <div class="application-settings-section-header">
+                    <div>
+                        <h2>{{ __('Odoo address') }}</h2>
+                        <p>{{ __('Subdomain and workers for this environment are on the Odoo service Domains panel.') }}</p>
+                    </div>
+                </div>
+                <div class="application-settings-section-body">
+                    <a href="{{ $odooDomainsHref }}" {{ wireNavigate() }} class="button w-fit">
+                        {{ __('Open Domains') }}
+                    </a>
+                </div>
+            </section>
+        @endif
+
         @can('delete', $environment)
             <section
                 class="overflow-hidden rounded-[10px] border border-red-300 bg-red-50/80 dark:border-red-500/25 dark:bg-red-500/[0.06]">

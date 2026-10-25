@@ -41,6 +41,43 @@
     @if ($hasDnsChecksInProgress)
         <div class="hidden" wire:poll.2000ms="pollDnsChecks" aria-hidden="true"></div>
     @endif
+    @if ($isOdooService)
+        <x-application.settings-section id="odoo-address-section" title="{{ __('Project address') }}">
+            <p class="text-sm text-neutral-500 dark:text-fg-dim">
+                {{ $odooIsProduction
+                    ? __('Subdomain for production and staging hosts. Workers apply to this environment.')
+                    : __('Subdomain is shared by the project. Workers below apply only to this staging environment.') }}
+            </p>
+            <form wire:submit="saveOdooRuntime" class="mt-4 flex flex-col gap-4">
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <x-forms.input canGate="update" :canResource="$service" id="odooSubdomain" label="{{ __('Subdomain') }}"
+                        helper="{{ __('Leave this empty to use the address Coolify generates. Saving a new address restarts Odoo so the proxy and SSL apply.') }}"
+                        placeholder="arielmim97-20demo" />
+                    <x-forms.input canGate="update" :canResource="$service" id="odooWorkers" type="number" min="0" max="32"
+                        label="{{ __('Workers') }}"
+                        helper="{{ __('Zero is the default. Odoo reads this number the next time it starts. Saving does not restart it.') }}" />
+                </div>
+                @if ($odooBaseDomain === '')
+                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('Set the Odoo domain in Settings before this project gets its own address.') }}</p>
+                @else
+                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                        {{ __('Production address') }}:
+                        <span class="font-mono">{{ $odooProductionHost !== '' ? $odooProductionHost : '____.'.$odooBaseDomain }}</span>
+                    </p>
+                    @if (! $odooIsProduction && $odooEnvironmentHost !== '')
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('This environment') }}:
+                            <span class="font-mono">{{ $odooEnvironmentHost }}</span>
+                        </p>
+                    @endif
+                @endif
+                <div>
+                    <x-forms.button type="submit" canGate="update" :canResource="$service">{{ __('Save') }}</x-forms.button>
+                </div>
+            </form>
+        </x-application.settings-section>
+    @endif
+
     <x-application.settings-section id="service-domains-section" title="{{ __('Domains') }}">
         @can('update', $service)
             <x-slot:actions>

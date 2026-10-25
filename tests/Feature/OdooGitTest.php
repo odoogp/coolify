@@ -10,6 +10,7 @@ use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\DeleteEnvironment;
 use App\Livewire\Project\Edit;
+use App\Livewire\Project\Service\Domains;
 use App\Livewire\Project\Service\Heading;
 use App\Livewire\Project\Show;
 use App\Livewire\Settings\Odoo;
@@ -40,9 +41,21 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Str;
 use Livewire\Livewire;
+use Lorisleiva\Actions\Decorators\JobDecorator;
 use RuntimeException;
 use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\HttpKernel\Exception\HttpException;
+
+function assertStartServiceDispatched(int $times = 1): void
+{
+    $count = Bus::dispatched(JobDecorator::class, fn (JobDecorator $job): bool => $job->decorates(StartService::class))->count();
+    expect($count)->toBe($times);
+}
+
+function assertStartServiceNotDispatched(): void
+{
+    assertStartServiceDispatched(0);
+}
 
 uses(RefreshDatabase::class);
 
@@ -2130,6 +2143,73 @@ it('assigns a coolify https url when a non-odoo app has no fqdn yet', function (
         ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
 });
 
+it('keeps https on the primary catalog app and clears coolify-generated sidecar fqdns', function () {
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '159.69.56.112',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'authentik',
+        'uuid' => 'f78wytbvbxylmlqen49utpld',
+        'docker_compose_raw' => "services:\n  authentik-server:\n    image: ghcr.io/goauthentik/server\n  authentik-worker:\n    image: ghcr.io/goauthentik/server\n",
+    ]);
+    $worker = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-worker',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => 'https://authentik-f78wytbvbxylmlqen49utpld.159.69.56.112.sslip.io',
+        'is_force_https_enabled' => true,
+    ]);
+    $serverApp = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-server',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => 'http://authentikserver-f78wytbvbxylmlqen49utpld.159.69.56.112.sslip.io',
+        'is_force_https_enabled' => false,
+    ]);
+
+    expect(OdooGit::useHttps($service->fresh(['applications', 'server'])))->toBeTrue()
+        ->and($serverApp->fresh()->fqdn)->toBe('https://authentikserver-f78wytbvbxylmlqen49utpld.159.69.56.112.sslip.io')
+        ->and($serverApp->fresh()->is_force_https_enabled)->toBeTrue()
+        ->and($worker->fresh()->fqdn)->toBeNull()
+        ->and($service->fresh(['applications'])->publicHttpsUrl())->toBe('https://authentikserver-f78wytbvbxylmlqen49utpld.159.69.56.112.sslip.io');
+});
+
+it('assigns the coolify https url to the primary app when a sidecar is empty', function () {
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '198.51.100.44',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'authentik',
+        'uuid' => 'primaryapp001',
+        'docker_compose_raw' => "services:\n  authentik-server:\n    image: ghcr.io/goauthentik/server\n  authentik-worker:\n    image: ghcr.io/goauthentik/server\n",
+    ]);
+    $worker = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-worker',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => null,
+    ]);
+    $serverApp = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'authentik-server',
+        'image' => 'ghcr.io/goauthentik/server',
+        'fqdn' => null,
+    ]);
+
+    expect(OdooGit::useHttps($service->fresh(['applications', 'server'])))->toBeTrue()
+        ->and($serverApp->fresh()->fqdn)->toContain('authentik-primaryapp001')
+        ->and($serverApp->fresh()->is_force_https_enabled)->toBeTrue()
+        ->and($worker->fresh()->fqdn)->toBeNull();
+});
+
 it('restarts odoo when the project subdomain changes so the proxy gets the address', function () {
     Bus::fake();
     instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
@@ -2156,7 +2236,7 @@ it('restarts odoo when the project subdomain changes so the proxy gets the addre
         ['git_branch' => 'production', 'status' => 'idle', 'domain' => 'https://old.example.test'],
     );
 
-    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+    Livewire::test(Domains::class, ['service' => $service->fresh(['applications', 'server', 'environment.project.odooProfile', 'environment.odooBranch'])])
         ->set('odooSubdomain', 'sitio1')
         ->set('odooWorkers', 2)
         ->call('saveOdooRuntime')
@@ -2168,9 +2248,9 @@ it('restarts odoo when the project subdomain changes so the proxy gets the addre
         ->and($production->odooBranch()->first()->domain)->toBe('https://sitio1.getodoo.sh')
         ->and($this->project->odooProfile->fresh()->workers)->toBe(2);
 
-    Bus::assertDispatched(StartService::class);
+    assertStartServiceDispatched(1);
 
-    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+    Livewire::test(Domains::class, ['service' => $service->fresh(['applications', 'server', 'environment.project.odooProfile', 'environment.odooBranch'])])
         ->set('odooSubdomain', '')
         ->call('saveOdooRuntime')
         ->assertHasNoErrors();
@@ -2180,7 +2260,7 @@ it('restarts odoo when the project subdomain changes so the proxy gets the addre
         ->and($application->fresh()->fqdn)->not->toContain('getodoo.sh')
         ->and($production->odooBranch()->first()->domain)->toBe($coolify);
 
-    Bus::assertDispatchedTimes(StartService::class, 2);
+    assertStartServiceDispatched(2);
 });
 
 it('does not restart odoo when only workers change', function () {
@@ -2211,14 +2291,14 @@ it('does not restart odoo when only workers change', function () {
         ['git_branch' => 'production', 'status' => 'idle', 'domain' => 'https://sitio1.getodoo.sh', 'workers' => 0],
     );
 
-    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+    Livewire::test(Domains::class, ['service' => $service->fresh(['applications', 'server', 'environment.project.odooProfile', 'environment.odooBranch'])])
         ->set('odooSubdomain', 'sitio1')
         ->set('odooWorkers', 4)
         ->call('saveOdooRuntime')
         ->assertHasNoErrors();
 
     expect($this->project->odooProfile->fresh()->workers)->toBe(4);
-    Bus::assertNotDispatched(StartService::class);
+    assertStartServiceNotDispatched();
 });
 
 it('builds the odoo mail env from the instance smtp and not from the project', function () {

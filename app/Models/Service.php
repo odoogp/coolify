@@ -1544,22 +1544,11 @@ class Service extends BaseModel
     }
 
     /**
-     * Public HTTPS URL for the primary app (Odoo when present, otherwise the first FQDN).
+     * Public HTTPS URL for the primary app (Odoo when present, otherwise the preferred HTTP entrypoint).
      */
     public function publicHttpsUrl(): string
     {
-        if ($this->supportsOdooJupyter()) {
-            return OdooGit::publicHttpsUrl($this);
-        }
-
-        foreach ($this->applications as $application) {
-            $fqdn = firstDomainFromList((string) $application->fqdn);
-            if ($fqdn !== '') {
-                return OdooGit::httpsUrl($fqdn);
-            }
-        }
-
-        return '';
+        return OdooGit::publicHttpsUrl($this);
     }
 
     /**

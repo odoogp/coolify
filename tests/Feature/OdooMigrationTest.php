@@ -3,16 +3,21 @@
 use App\Jobs\CreateOdooBackupJob;
 use App\Jobs\MigrateOdooShJob;
 use App\Jobs\RestoreOdooBackupJob;
+use App\Livewire\Project\Edit;
 use App\Livewire\Project\OdooBackups;
 use App\Livewire\Project\OdooMigrate;
+use App\Livewire\Project\Show;
 use App\Models\GetOdooPlan;
 use App\Models\InstanceSettings;
 use App\Models\OdooBackup;
 use App\Models\OdooMigration;
 use App\Models\Project;
+use App\Models\Service;
 use App\Models\Team;
 use App\Models\User;
 use App\Support\GetOdooBackupFrequency;
+use App\Support\OdooZipBackup;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -43,10 +48,15 @@ beforeEach(function () {
 
     $this->project = Project::factory()->create(['team_id' => $this->team->id]);
     $this->project->enableOdoo('18');
+    $this->environment = $this->project->productionEnvironment()
+        ?? $this->project->environments()->orderBy('id')->firstOrFail();
 });
 
 it('opens the migration wizard when the plan includes migration', function () {
-    Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
+    Livewire::test(OdooMigrate::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $this->environment->uuid,
+    ])
         ->assertOk()
         ->assertSee(__('Migrate'))
         ->assertSee(__('Modules zip (optional)'));
@@ -55,7 +65,10 @@ it('opens the migration wizard when the plan includes migration', function () {
 it('opens the migrator for project admins without requiring the plan flag', function () {
     $this->plan->update(['includes_migration' => false]);
 
-    Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
+    Livewire::test(OdooMigrate::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $this->environment->uuid,
+    ])
         ->assertOk()
         ->assertSee(__('Restore into'));
 });
@@ -64,7 +77,10 @@ it('uploads dump, filestore and modules zip then queues the migrate job', functi
     Queue::fake();
     Storage::fake('local');
 
-    $component = Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
+    $component = Livewire::test(OdooMigrate::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $this->environment->uuid,
+    ])
         ->set('gitRepository', '')
         ->set('databaseDump', UploadedFile::fake()->create('db.dump', 100))
         ->set('filestoreArchive', UploadedFile::fake()->create('filestore.tar.gz', 100))
@@ -88,7 +104,10 @@ it('offers a brand-new environment and creates it when starting migration', func
     Queue::fake();
     Storage::fake('local');
 
-    $component = Livewire::test(OdooMigrate::class, ['project_uuid' => $this->project->uuid])
+    $component = Livewire::test(OdooMigrate::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $this->environment->uuid,
+    ])
         ->assertSee(__('New environment (:name)', ['name' => 'staging-1']))
         ->set('environmentId', OdooMigrate::NEW_ENVIRONMENT)
         ->set('databaseDump', UploadedFile::fake()->create('db.dump', 100))
@@ -189,7 +208,7 @@ it('lists branch backups and queues restore for a complete odoo zip', function (
 it('shows backup times in the viewer country timezone', function () {
     $this->owner->forceFill(['country_iso' => 'GT'])->save();
     $production = $this->project->environments()->whereRaw('LOWER(name) = ?', ['production'])->first();
-    $utc = \Carbon\Carbon::parse('2026-10-09 18:00:00', 'UTC');
+    $utc = Carbon::parse('2026-10-09 18:00:00', 'UTC');
     $backup = OdooBackup::query()->create([
         'environment_id' => $production->id,
         'status' => 'complete',
@@ -378,28 +397,45 @@ it('prunes odoo zip backups older than the plan retention window', function () {
         'filesize' => 10,
     ]);
 
-    \App\Support\OdooZipBackup::prune($production, 14);
+    OdooZipBackup::prune($production, 14);
 
     expect(OdooBackup::query()->whereKey($old->id)->exists())->toBeFalse()
         ->and(OdooBackup::query()->whereKey($fresh->id)->exists())->toBeTrue();
 });
 
 it('shows the team plan on project settings', function () {
-    Livewire::test(\App\Livewire\Project\Edit::class, ['project_uuid' => $this->project->uuid])
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
         ->assertOk()
         ->assertSee(__('Plan'))
         ->assertSee($this->plan->name)
         ->assertSee(__('The plan is set when the team signs up. Contact an advisor to change it.'));
 });
 
-it('puts migrate on project settings and not on the project show page', function () {
-    Livewire::test(\App\Livewire\Project\Edit::class, ['project_uuid' => $this->project->uuid])
-        ->assertOk()
-        ->assertSee(__('Migrate'))
-        ->assertSee(route('project.odoo.migrate', ['project_uuid' => $this->project->uuid]), false);
+it('puts migrate on the odoo service sidebar and not on project settings or show', function () {
+    $migrateUrl = route('project.odoo.migrate', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $this->environment->uuid,
+    ]);
 
-    Livewire::test(\App\Livewire\Project\Show::class, ['project_uuid' => $this->project->uuid])
+    $service = Service::factory()->create([
+        'environment_id' => $this->environment->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:18\n",
+    ]);
+
+    $html = view('components.service.configuration-sidebar', [
+        'service' => $service->fresh(['environment.project.odooProfile']),
+        'currentRoute' => 'project.service.configuration',
+    ])->render();
+
+    expect($html)->toContain(__('Migrate'))
+        ->and($html)->toContain($migrateUrl);
+
+    Livewire::test(Edit::class, ['project_uuid' => $this->project->uuid])
+        ->assertOk()
+        ->assertDontSeeHtml('href="'.$migrateUrl.'"');
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->assertOk()
         ->assertDontSee(__('Import a database dump and filestore into a branch of this project.'))
-        ->assertDontSeeHtml('href="'.route('project.odoo.migrate', ['project_uuid' => $this->project->uuid]).'"');
+        ->assertDontSeeHtml('href="'.$migrateUrl.'"');
 });

@@ -24,6 +24,8 @@ class OdooMigrate extends Component
 
     public Project $project;
 
+    public Environment $environment;
+
     public string $gitRepository = '';
 
     public string $environmentId = '';
@@ -36,18 +38,18 @@ class OdooMigrate extends Component
 
     public ?int $migrationId = null;
 
-    public function mount(string $project_uuid): void
+    public function mount(string $project_uuid, string $environment_uuid): void
     {
         $this->project = Project::query()->where('uuid', $project_uuid)->firstOrFail();
         $this->authorize('update', $this->project);
         $this->guardAccess();
+        $this->environment = $this->project->environments()->where('uuid', $environment_uuid)->firstOrFail();
 
         $profile = $this->project->odooProfile;
         abort_unless($profile !== null, 404);
         $this->gitRepository = (string) ($profile->git_repository ?? '');
 
-        $production = $this->project->productionEnvironment();
-        $this->environmentId = $production ? (string) $production->id : self::NEW_ENVIRONMENT;
+        $this->environmentId = (string) $this->environment->id;
 
         $latest = OdooMigration::query()
             ->where('project_id', $this->project->id)
@@ -176,6 +178,7 @@ class OdooMigrate extends Component
         $this->guardAccess();
         $githubApp = OdooGit::beginConnect($this->project, 'project.odoo.migrate', [
             'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $this->environment->uuid,
         ]);
         if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
             $this->dispatch('success', __('GitHub is already connected.'));
@@ -202,6 +205,7 @@ class OdooMigrate extends Component
             'githubReady' => $githubReady,
             'plan' => $this->project->team?->getodooPlan,
             'environmentChoices' => $this->environmentChoices(),
+            'service' => $this->environment->services->first(fn ($row): bool => $row->supportsOdooJupyter()),
         ]);
     }
 

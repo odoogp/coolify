@@ -606,9 +606,80 @@ class OdooGit
             fn ($application): bool => $application instanceof ServiceApplication && self::isOdooApplication($application)
         );
 
-        return $application instanceof ServiceApplication
-            ? self::httpsUrl(firstDomainFromList((string) $application->fqdn))
-            : '';
+        if ($application instanceof ServiceApplication) {
+            return self::httpsUrl(firstDomainFromList((string) $application->fqdn));
+        }
+
+        $preferred = self::preferredPublicHttpApplication($service);
+        if ($preferred instanceof ServiceApplication) {
+            return self::httpsUrl(firstDomainFromList((string) $preferred->fqdn));
+        }
+
+        return '';
+    }
+
+    /**
+     * Background containers (workers, databases, …) must not own the public
+     * Coolify/sslip Host — Traefik ACME and Open would hit the wrong service.
+     */
+    public static function isLikelySidecarApplication(ServiceApplication $application): bool
+    {
+        $name = strtolower(str_replace('_', '-', (string) $application->name));
+        if ($name === '') {
+            return false;
+        }
+
+        $roles = [
+            'worker', 'beat', 'scheduler', 'cron',
+            'redis', 'postgres', 'postgresql', 'mysql', 'mariadb', 'mongo', 'mongodb',
+            'rabbitmq', 'mailpit', 'mail', 'smtp', 'minio', 'meilisearch', 'elasticsearch',
+            'clickhouse', 'keydb', 'dragonfly', 'valkey', 'nats', 'kafka', 'zookeeper', 'db',
+        ];
+
+        foreach ($roles as $role) {
+            if ($name === $role || str_ends_with($name, '-'.$role) || str_starts_with($name, $role.'-')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function preferredPublicHttpApplication(Service $service): ?ServiceApplication
+    {
+        $applications = $service->applications()->get()
+            ->filter(fn ($application): bool => $application instanceof ServiceApplication);
+
+        $withFqdn = static fn (ServiceApplication $application): bool => trim((string) $application->fqdn) !== '';
+
+        $public = $applications->reject(fn (ServiceApplication $application): bool => self::isLikelySidecarApplication($application));
+        if ($public->isNotEmpty()) {
+            $chosen = $public->first($withFqdn) ?? $public->first();
+
+            return $chosen instanceof ServiceApplication ? $chosen : null;
+        }
+
+        $chosen = $applications->first($withFqdn) ?? $applications->first();
+
+        return $chosen instanceof ServiceApplication ? $chosen : null;
+    }
+
+    public static function isCoolifyGeneratedServiceFqdn(Service $service, string $fqdn): bool
+    {
+        $host = parse_url(self::httpsUrl($fqdn), PHP_URL_HOST);
+        if (! is_string($host) || $host === '') {
+            return false;
+        }
+
+        $uuid = (string) $service->uuid;
+        if ($uuid === '' || ! str_contains($host, $uuid)) {
+            return false;
+        }
+
+        return str_ends_with($host, '.sslip.io')
+            || $host === 'sslip.io'
+            || str_ends_with($host, '.nip.io')
+            || $host === 'nip.io';
     }
 
     public static function runtimeValue(Service $service, string $key): string
@@ -1247,18 +1318,42 @@ BASH;
 
     /**
      * Force https:// on public apps (scheme-less Coolify hosts included) and
-     * assign a Coolify/sslip URL when the app has no FQDN yet.
+     * assign a Coolify/sslip URL when no public app has an FQDN yet.
+     *
+     * Sidecars (workers, DBs, …) never receive the fallback host. Auto-generated
+     * sslip/nip FQDNs on sidecars are cleared when a primary HTTP app exists so
+     * Traefik ACME and Open hit the real entrypoint (e.g. authentik-server).
      */
     private static function upgradeServiceApplicationsToHttps(Service $service, bool $isOdoo): bool
     {
         $changed = false;
-        $fallbackAssigned = false;
+        $applications = $service->applications()->get()
+            ->filter(fn ($application): bool => $application instanceof ServiceApplication);
 
-        foreach ($service->applications()->get() as $application) {
-            if (! $application instanceof ServiceApplication) {
+        $hasPrimaryCandidate = $applications->contains(
+            fn (ServiceApplication $application): bool => ! self::isLikelySidecarApplication($application)
+        );
+
+        foreach ($applications as $application) {
+            if ($isOdoo && ! self::isOdooApplication($application)) {
                 continue;
             }
-            if ($isOdoo && ! self::isOdooApplication($application)) {
+
+            if (
+                ! $isOdoo
+                && $hasPrimaryCandidate
+                && self::isLikelySidecarApplication($application)
+                && self::isCoolifyGeneratedServiceFqdn($service, (string) $application->fqdn)
+            ) {
+                $application->fqdn = null;
+                $application->is_force_https_enabled = false;
+                $application->save();
+                $changed = true;
+
+                continue;
+            }
+
+            if (! $isOdoo && self::isLikelySidecarApplication($application) && $hasPrimaryCandidate) {
                 continue;
             }
 
@@ -1268,15 +1363,7 @@ BASH;
                 ->implode(',');
 
             if ($fqdn === '') {
-                if ($fallbackAssigned) {
-                    continue;
-                }
-                $fallback = self::coolifyPublicUrl($service);
-                if ($fallback === null) {
-                    continue;
-                }
-                $fqdn = $fallback;
-                $fallbackAssigned = true;
+                continue;
             }
 
             if ($fqdn !== (string) $application->fqdn) {
@@ -1290,6 +1377,40 @@ BASH;
             if ($application->isDirty()) {
                 $application->save();
             }
+        }
+
+        if ($isOdoo) {
+            return $changed;
+        }
+
+        $hasPublicFqdn = $service->applications()->get()->contains(
+            function ($application) use ($hasPrimaryCandidate): bool {
+                if (! $application instanceof ServiceApplication || trim((string) $application->fqdn) === '') {
+                    return false;
+                }
+                if ($hasPrimaryCandidate && self::isLikelySidecarApplication($application)) {
+                    return false;
+                }
+
+                return true;
+            }
+        );
+
+        if ($hasPublicFqdn) {
+            return $changed;
+        }
+
+        $target = self::preferredPublicHttpApplication($service);
+        $fallback = self::coolifyPublicUrl($service);
+        if (! $target instanceof ServiceApplication || $fallback === null) {
+            return $changed;
+        }
+
+        if ((string) $target->fqdn !== $fallback || ! $target->is_force_https_enabled) {
+            $target->fqdn = $fallback;
+            $target->is_force_https_enabled = true;
+            $target->save();
+            $changed = true;
         }
 
         return $changed;

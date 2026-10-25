@@ -1,18 +1,21 @@
 @props(['service', 'currentRoute'])
 
 @php
-    $service->loadMissing('environment.project');
+    $service->loadMissing('environment.project.odooProfile');
     $odooIsOdoo = $service->supportsOdooJupyter();
     $serviceRouteParameters = [
         'project_uuid' => $service->environment->project->uuid,
         'environment_uuid' => $service->environment->uuid,
         'service_uuid' => $service->uuid,
     ];
-    $odooBackupParameters = [
+    $odooEnvParameters = [
         'project_uuid' => $serviceRouteParameters['project_uuid'],
         'environment_uuid' => $serviceRouteParameters['environment_uuid'],
     ];
     $backupsRoute = $odooIsOdoo ? 'project.odoo.backups' : 'project.service.volume-backups.index';
+    $canMigrate = $odooIsOdoo
+        && $service->environment?->project?->odooProfile !== null
+        && auth()->user()?->can('update', $service->environment->project);
     $clientOdooNav = $odooIsOdoo && ! isInstanceOwner();
 
     $configurationItems = collect([
@@ -21,6 +24,7 @@
         ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
         ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
         ['label' => __('Persistent Storage'), 'route' => 'project.service.storages', 'icon' => 'storages'],
+        ['label' => __('Migrate'), 'route' => 'project.odoo.migrate', 'icon' => 'layers', 'visible' => $canMigrate],
         ['label' => __('Backups'), 'route' => $backupsRoute, 'icon' => 'database'],
         ['label' => __('Runtime Logs'), 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
         ['label' => __('Terminal'), 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->canOpenTerminal($service)],
@@ -33,6 +37,7 @@
         ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
             'project.service.deployments',
             'project.service.configuration',
+            'project.odoo.migrate',
             'project.odoo.backups',
             'project.service.logs',
             'project.service.command',
@@ -45,7 +50,8 @@
                     && str($currentRoute)->startsWith('project.service.scheduled-tasks'))
                 || ($item['route'] === 'project.service.volume-backups.index'
                     && str($currentRoute)->startsWith('project.service.volume-backups'))
-                || ($item['route'] === 'project.odoo.backups' && $currentRoute === 'project.odoo.backups'),
+                || ($item['route'] === 'project.odoo.backups' && $currentRoute === 'project.odoo.backups')
+                || ($item['route'] === 'project.odoo.migrate' && $currentRoute === 'project.odoo.migrate'),
         ]);
 
     $menuGroups = $clientOdooNav
@@ -53,14 +59,14 @@
             'Updates' => ['Deployments'],
             'Settings' => ['General'],
             'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
-            'Automation' => ['Backups'],
+            'Automation' => ['Migrate', 'Backups'],
             'Operations' => ['Danger Zone'],
         ]
         : [
             'Updates' => ['Deployments'],
             'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
             'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
-            'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
+            'Automation' => ['Migrate', 'Scheduled Tasks', 'Webhooks', 'Backups'],
             'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
         ];
 
@@ -83,8 +89,8 @@
             <div class="nav-section hidden xl:block">{{ $groupLabel }}</div>
             @foreach ($groupItems as $menuItem)
                 @php
-                    $menuRouteParameters = $menuItem['route'] === 'project.odoo.backups'
-                        ? $odooBackupParameters
+                    $menuRouteParameters = in_array($menuItem['route'], ['project.odoo.backups', 'project.odoo.migrate'], true)
+                        ? $odooEnvParameters
                         : $serviceRouteParameters;
                 @endphp
                 <a @class(['menu-item', 'menu-item-active' => $menuItem['active']])

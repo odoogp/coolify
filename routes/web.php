@@ -127,6 +127,7 @@ use App\Livewire\Team\Index as TeamIndex;
 use App\Livewire\Team\Member\Index as TeamMemberIndex;
 use App\Livewire\Terminal\Index as TerminalIndex;
 use App\Models\OdooBackup;
+use App\Models\Project;
 use App\Models\ScheduledDatabaseBackupExecution;
 use App\Models\ScheduledVolumeBackupExecution;
 use App\Models\Server;
@@ -340,7 +341,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('project/{project_uuid}')->group(function () {
         Route::get('/', ProjectShow::class)->name('project.show');
         Route::get('/edit', ProjectEdit::class)->name('project.edit')->middleware('can.update.resource');
-        Route::get('/migrate', ProjectOdooMigrate::class)->name('project.odoo.migrate')->middleware('can.update.resource');
+        Route::get('/migrate', function (string $project_uuid) {
+            $project = Project::query()->where('uuid', $project_uuid)->firstOrFail();
+            $environment = $project->productionEnvironment() ?? $project->environments()->orderBy('id')->first();
+            abort_unless($environment !== null, 404);
+
+            return redirect()->route('project.odoo.migrate', [
+                'project_uuid' => $project->uuid,
+                'environment_uuid' => $environment->uuid,
+            ]);
+        })->name('project.odoo.migrate.redirect')->middleware('can.update.resource');
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}')->group(function () {
         Route::get('/', ResourceIndex::class)->name('project.resource.index');
@@ -348,6 +358,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/new', ResourceCreate::class)->name('project.resource.create')->middleware('can.create.resources');
         Route::get('/edit', EnvironmentEdit::class)->name('project.environment.edit')->middleware('can.update.resource');
         Route::get('/odoo-backups', ProjectOdooBackups::class)->name('project.odoo.backups');
+        Route::get('/odoo-migrate', ProjectOdooMigrate::class)->name('project.odoo.migrate')->middleware('can.update.resource');
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}/application/{application_uuid}')->group(function () {
         Route::get('/', ApplicationConfiguration::class)->name('project.application.configuration');

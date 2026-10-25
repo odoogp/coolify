@@ -176,7 +176,10 @@ class AddEmpty extends Component
                 // Prepare the service only. Containers start from Deploy or the GitHub assistant
                 // (launch=choose → Launch without GitHub / repository choice).
                 if ($this->migrateFromOdoo) {
-                    return redirect()->route('project.odoo.migrate', ['project_uuid' => $project->uuid]);
+                    return redirect()->route('project.odoo.migrate', [
+                        'project_uuid' => $project->uuid,
+                        'environment_uuid' => $productionEnvironment->uuid,
+                    ]);
                 }
 
                 return redirect()->route('project.service.configuration', [
@@ -186,8 +189,11 @@ class AddEmpty extends Component
                 ]);
             }
 
-            if ($this->service === 'odoo' && $this->migrateFromOdoo) {
-                return redirect()->route('project.odoo.migrate', ['project_uuid' => $project->uuid]);
+            if ($this->service === 'odoo' && $this->migrateFromOdoo && $productionEnvironment !== null) {
+                return redirect()->route('project.odoo.migrate', [
+                    'project_uuid' => $project->uuid,
+                    'environment_uuid' => $productionEnvironment->uuid,
+                ]);
             }
 
             if ($created instanceof Service) {

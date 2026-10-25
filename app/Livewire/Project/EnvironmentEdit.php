@@ -49,7 +49,7 @@ class EnvironmentEdit extends Component
                     navigate: false,
                 );
             }
-            $this->environment = $environment;
+            $this->environment = $environment->loadMissing('services');
             $this->syncData();
         } catch (\Throwable $e) {
             return handleError($e, $this);
