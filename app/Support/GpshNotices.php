@@ -169,12 +169,20 @@ class GpshNotices
 
     public static function announce(Service $service, string $kind): ?GpshNotice
     {
-        $service->loadMissing('environment.project');
+        $service->loadMissing('environment.project', 'environment.odooBranch');
         $name = self::serviceLabel($service);
         $title = $kind === 'mounted' ? __('Odoo is up') : __('Odoo is accessible');
         $body = $kind === 'mounted'
             ? __('The containers for :name are running.', ['name' => $name])
             : __('You can open :name.', ['name' => $name]);
+
+        // Clear a stale addons-sync "failed" once Odoo is actually reachable.
+        if (in_array($kind, ['mounted', 'accessible'], true)) {
+            $branch = $service->environment?->odooBranch;
+            if ($branch !== null && $branch->status === 'failed') {
+                $branch->update(['status' => 'idle']);
+            }
+        }
 
         return self::publish(
             $service,

@@ -29,8 +29,14 @@ class StartService
         if ($service->jupyter_enabled) {
             OdooJupyter::attachShareableVolumesFrom($service->fresh() ?? $service);
         }
-        // Applications exist only after parse(); apply the project host before Traefik labels are written.
-        OdooGit::useHttps($service->fresh(['applications', 'environment.project.odooProfile', 'environment.odooBranch']) ?? $service);
+        // Applications exist only after parse(). useHttps may replace the Coolify/sslip
+        // FQDN with the project subdomain (or upgrade scheme). Traefik Host/certresolver
+        // labels were already baked from the pre-useHttps FQDN during parse(), so parse
+        // again when the public URL changed — otherwise EasyPanel keeps CN=Easypanel + 404.
+        $httpsChanged = OdooGit::useHttps($service->fresh(['applications', 'environment.project.odooProfile', 'environment.odooBranch']) ?? $service);
+        if ($httpsChanged) {
+            $service->parse();
+        }
         if ($this->shouldStopBeforeStarting($pullLatestImages, $stopBeforeStart)) {
             StopService::run(service: $service, dockerCleanup: false);
         }

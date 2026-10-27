@@ -2661,6 +2661,23 @@ function serviceParser(Service $resource): Collection
             $coolifyEnvironments->put('COOLIFY_CONTAINER_NAME', "{$containerName}");
         }
 
+        // useHttps at the top of serviceParser no-ops on first create (no apps yet).
+        // For Odoo, apply the project subdomain here — after the app row exists and
+        // before Traefik Host/certresolver labels are generated from $fqdns.
+        // Non-Odoo HTTPS upgrades still rely on StartService re-parsing when useHttps changes.
+        if (
+            $savedService instanceof ServiceApplication
+            && ! $isDatabase
+            && OdooGit::isOdooApplication($savedService)
+        ) {
+            OdooGit::useHttps($resource->fresh([
+                'applications',
+                'environment.project.odooProfile',
+                'environment.odooBranch',
+                'server',
+            ]) ?? $resource);
+            $savedService->refresh();
+        }
         if ($savedService->serviceType()) {
             $fqdns = generateServiceSpecificFqdns($savedService);
         } else {

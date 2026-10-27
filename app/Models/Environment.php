@@ -124,6 +124,46 @@ class Environment extends BaseModel
         return (string) $this->role === self::ROLE_STAGING;
     }
 
+    /**
+     * Client-facing row status on the project list.
+     * Odoo uptime wins over a stale Git addons sync failure: clients must not
+     * see "Failed" when Abrir Odoo already works.
+     */
+    public function clientFacingStatus(?Service $service = null): string
+    {
+        $service ??= $this->services
+            ->first(fn (Service $candidate): bool => $candidate->supportsOdooJupyter())
+            ?? $this->services->first();
+
+        $branchStatus = (string) ($this->odooBranch?->status ?? '');
+
+        if ($service instanceof Service && $service->isStarting()) {
+            return 'starting';
+        }
+
+        if ($branchStatus === 'updating') {
+            return 'updating';
+        }
+
+        if ($service instanceof Service && $service->isRunning()) {
+            return 'ready';
+        }
+
+        if ($branchStatus === 'failed') {
+            return 'failed';
+        }
+
+        if ($service instanceof Service) {
+            return 'empty';
+        }
+
+        return match ($branchStatus) {
+            'idle', 'finished', 'ready' => 'empty',
+            '' => 'empty',
+            default => $branchStatus,
+        };
+    }
+
     public static function ownedByCurrentTeam()
     {
         return Environment::whereRelation('project.team', 'id', currentTeam()->id)->orderBy('name');

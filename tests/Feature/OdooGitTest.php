@@ -1179,7 +1179,13 @@ it('reapplies the owner package after the client clone on sync and start', funct
         ->and($start)->toContain('reinstallOwnerPackageIntoService')
         ->and(strpos($start, 'cloneIntoService'))->toBeLessThan(strpos($start, 'reinstallOwnerPackageIntoService'))
         ->and(strpos($start, '$service->parse()'))->toBeLessThan(strpos($start, 'OdooGit::useHttps'))
-        ->and(strpos($start, 'OdooGit::useHttps'))->toBeLessThan(strpos($start, 'saveComposeConfigs'));
+        ->and(strpos($start, 'OdooGit::useHttps'))->toBeLessThan(strpos($start, 'saveComposeConfigs'))
+        // When useHttps changes the public FQDN, parse again so Traefik Host/ACME
+        // labels match — otherwise EasyPanel keeps CN=Easypanel and answers 404.
+        ->and($start)->toContain('$httpsChanged = OdooGit::useHttps')
+        ->and($start)->toContain('if ($httpsChanged)')
+        ->and(strpos($start, 'if ($httpsChanged)'))->toBeLessThan(strpos($start, 'saveComposeConfigs'))
+        ->and(substr_count($start, '$service->parse()'))->toBeGreaterThanOrEqual(2);
 });
 
 it('hides the owner package panel from non-owners', function () {

@@ -1674,7 +1674,7 @@ BASH;
         }
     }
 
-    private static function isOdooApplication(ServiceApplication $application): bool
+    public static function isOdooApplication(ServiceApplication $application): bool
     {
         $name = strtolower((string) $application->name);
         $image = strtolower((string) $application->image);

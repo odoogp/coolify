@@ -823,12 +823,7 @@ class Show extends Component
                     ?: ($service instanceof Service ? $service->publicHttpsUrl() : ''))
                 : (string) ($service instanceof Service ? $service->publicHttpsUrl() : '');
             $statusKey = $odooOnly
-                ? (string) ($environment->odooBranch?->status
-                    ?: ($service instanceof Service
-                        ? ($service->isStarting()
-                            ? 'starting'
-                            : ($service->isRunning() ? 'ready' : 'empty'))
-                        : 'empty'))
+                ? $environment->clientFacingStatus($service instanceof Service ? $service : null)
                 : ($service instanceof Service
                     ? ($service->isStarting() ? 'starting' : ($service->isRunning() ? 'ready' : ''))
                     : '');
