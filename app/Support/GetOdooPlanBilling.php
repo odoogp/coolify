@@ -6,6 +6,8 @@ use App\Models\GetOdooPlan;
 use App\Models\GetOdooPlanOrder;
 use App\Models\GetOdooPlanSignup;
 use App\Models\Team;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 
 /**
  * Charge policy for GetOdoo plans (signup + renewals), with preference stored on the team.
@@ -166,10 +168,66 @@ class GetOdooPlanBilling
         }
 
         if (! $signup instanceof GetOdooPlanSignup) {
+            $signup = GetOdooPlanSignup::query()
+                ->where('status', 'paid')
+                ->where('plan_id', $team->getodoo_plan_id)
+                ->where('organization', $team->name)
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $signup instanceof GetOdooPlanSignup) {
             return;
         }
 
         self::recordPaidSignupOrder($team, $signup);
+    }
+
+    /**
+     * Latest invoice moment for an organization plan: plan order, else billing anchor.
+     */
+    public static function latestPlanInvoiceDate(Team $team): ?CarbonInterface
+    {
+        self::ensureSignupOrderRecorded($team);
+
+        $orderAt = GetOdooPlanOrder::query()
+            ->where('team_id', $team->id)
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->value('created_at');
+
+        if ($orderAt !== null) {
+            return Carbon::parse($orderAt);
+        }
+
+        return $team->getodoo_plan_billing_anchor;
+    }
+
+    /**
+     * Next charge date: paid_until, else one month after the billing anchor / latest invoice.
+     */
+    public static function nextPlanBillingDate(Team $team): ?CarbonInterface
+    {
+        if ($team->getodoo_plan_paid_until instanceof CarbonInterface) {
+            return $team->getodoo_plan_paid_until;
+        }
+
+        $anchor = $team->getodoo_plan_billing_anchor instanceof CarbonInterface
+            ? $team->getodoo_plan_billing_anchor->copy()->startOfDay()
+            : null;
+
+        if (! $anchor instanceof CarbonInterface) {
+            $invoiceAt = self::latestPlanInvoiceDate($team);
+            $anchor = $invoiceAt?->copy()->startOfDay();
+        }
+
+        if (! $anchor instanceof CarbonInterface) {
+            return null;
+        }
+
+        $next = $anchor->copy()->startOfMonth()->addMonthsNoOverflow(1);
+
+        return $next->day(min($anchor->day, $next->daysInMonth))->startOfDay();
     }
 
     public static function recordPaidSignupOrder(Team $team, GetOdooPlanSignup $signup): GetOdooPlanOrder

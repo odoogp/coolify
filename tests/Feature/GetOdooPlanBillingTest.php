@@ -459,5 +459,63 @@ it('shows next billing before plan and invoice date from the latest plan order',
     Livewire::test(GetOdooPurchases::class)
         ->assertSee('Acme Org')
         ->assertSee(now()->parse('2026-11-28')->isoFormat('D MMM YYYY'))
-        ->assertSee(now()->parse('2026-10-15')->isoFormat('D MMM YYYY'));
+        ->assertSee(now()->parse('2026-10-15')->isoFormat('D MMM YYYY'))
+        ->assertSee(__('Search clients'))
+        ->assertSee(__('Export to Excel'));
+});
+
+it('backfills invoice date from a paid signup and filters clients by search', function () {
+    $this->travelTo('2026-09-10 12:00:00');
+
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Inicial',
+        'price' => 50,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'charge_mode' => 'hybrid',
+        'max_projects' => 1,
+        'max_environments' => 2,
+        'max_members' => 1,
+    ]);
+    $principal = User::factory()->create([
+        'name' => 'Ada Principal',
+        'email' => 'ada@example.com',
+    ]);
+    $team = Team::factory()->create([
+        'name' => 'GESTION PRODUCTIVA',
+        'getodoo_plan_id' => $plan->id,
+        'getodoo_plan_billing_preference' => 'once',
+    ]);
+    $team->members()->attach($principal->id, ['role' => 'owner']);
+
+    $signup = \App\Models\GetOdooPlanSignup::query()->create([
+        'plan_id' => $plan->id,
+        'name' => 'Ada Principal',
+        'organization' => 'GESTION PRODUCTIVA',
+        'email' => 'ada@example.com',
+        'amount' => 50,
+        'status' => 'paid',
+        'charge_mode' => 'once',
+        'user_id' => $principal->id,
+    ]);
+    $signup->forceFill([
+        'created_at' => '2026-09-10 12:00:00',
+        'updated_at' => '2026-09-10 12:00:00',
+    ])->saveQuietly();
+
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooPurchases::class)
+        ->assertSee('GESTION PRODUCTIVA')
+        ->assertSee(now()->parse('2026-09-10')->isoFormat('D MMM YYYY'))
+        ->set('clientSearch', 'no-match-xyz')
+        ->assertDontSee('GESTION PRODUCTIVA')
+        ->set('clientSearch', 'GESTION')
+        ->assertSee('GESTION PRODUCTIVA');
+
+    expect(GetOdooPlanOrder::query()->where('team_id', $team->id)->where('purpose', 'signup')->exists())->toBeTrue();
 });

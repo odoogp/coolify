@@ -15,9 +15,12 @@ use App\Support\GetOdooBillingOccupancy;
 use App\Support\GetOdooPlanBilling;
 use App\Support\GetOdooServerBilling;
 use App\Support\GpshNotices;
+use Carbon\CarbonInterface;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Response;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
 
 /**
@@ -47,6 +50,17 @@ class GetOdooPurchases extends Component
     /** clients | purchases | invoices */
     public string $activeTab = 'clients';
 
+    public string $clientSearch = '';
+
+    /** @var list<string> */
+    public array $clientPreferenceFilters = [];
+
+    /** @var list<string> */
+    public array $clientBillingFilters = [];
+
+    /** @var list<string> */
+    public array $clientPlanFilters = [];
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -71,6 +85,91 @@ class GetOdooPurchases extends Component
         }
 
         $this->activeTab = $tab;
+    }
+
+    public function toggleClientPreferenceFilter(string $value): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        if (! in_array($value, ['recurring', 'once'], true)) {
+            return;
+        }
+
+        $this->clientPreferenceFilters = in_array($value, $this->clientPreferenceFilters, true)
+            ? array_values(array_filter($this->clientPreferenceFilters, fn (string $item): bool => $item !== $value))
+            : [...$this->clientPreferenceFilters, $value];
+    }
+
+    public function toggleClientBillingFilter(string $value): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        if (! in_array($value, ['billed', 'not_billed'], true)) {
+            return;
+        }
+
+        $this->clientBillingFilters = in_array($value, $this->clientBillingFilters, true)
+            ? array_values(array_filter($this->clientBillingFilters, fn (string $item): bool => $item !== $value))
+            : [...$this->clientBillingFilters, $value];
+    }
+
+    public function toggleClientPlanFilter(string $value): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $value = trim($value);
+        if ($value === '') {
+            return;
+        }
+
+        $this->clientPlanFilters = in_array($value, $this->clientPlanFilters, true)
+            ? array_values(array_filter($this->clientPlanFilters, fn (string $item): bool => $item !== $value))
+            : [...$this->clientPlanFilters, $value];
+    }
+
+    public function clearClientFilters(): void
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $this->clientSearch = '';
+        $this->clientPreferenceFilters = [];
+        $this->clientBillingFilters = [];
+        $this->clientPlanFilters = [];
+    }
+
+    public function exportClientsExcel(): StreamedResponse
+    {
+        abort_unless(isInstanceOwner(), 403);
+
+        $rows = $this->clientExportRows();
+        $filename = 'clientes-facturacion-'.now()->format('Y-m-d').'.csv';
+
+        return Response::streamDownload(function () use ($rows): void {
+            $out = fopen('php://output', 'w');
+            if ($out === false) {
+                return;
+            }
+
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, [
+                __('Organization'),
+                __('Principal'),
+                __('Email'),
+                __('Next billing'),
+                __('Plan'),
+                __('Monthly'),
+                __('Preference'),
+                __('Invoice date'),
+            ]);
+
+            foreach ($rows as $row) {
+                fputcsv($out, $row);
+            }
+
+            fclose($out);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 
     public function savePrice(int $serverId): void
@@ -320,12 +419,28 @@ class GetOdooPurchases extends Component
             ->orderBy('name')
             ->get();
 
-        $planTeams = Team::query()
+        $allPlanTeams = Team::query()
             ->with(['getodooPlan', 'members'])
             ->whereNotNull('getodoo_plan_id')
             ->where('id', '!=', 0)
             ->orderBy('name')
             ->get();
+
+        foreach ($allPlanTeams as $planTeam) {
+            GetOdooPlanBilling::ensureSignupOrderRecorded($planTeam);
+        }
+
+        $principals = $this->principalsByTeam($allPlanTeams);
+        $latestPlanInvoiceDates = $this->latestPlanInvoiceDates($allPlanTeams);
+        $nextPlanBillingDates = $this->nextPlanBillingDates($allPlanTeams);
+        $planTeams = $this->filterPlanTeams($allPlanTeams, $principals, $latestPlanInvoiceDates);
+        $clientPlanOptions = $allPlanTeams
+            ->map(fn (Team $team): string => trim((string) ($team->getodooPlan?->name ?: '')))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
 
         $instanceHost = Server::query()->find(0);
         $instanceTeams = GetOdooBillingOccupancy::teamsOnInstanceHost();
@@ -341,26 +456,22 @@ class GetOdooPurchases extends Component
             ->limit(100)
             ->get();
 
-        $latestPlanInvoiceDates = $planTeams->isEmpty()
-            ? collect()
-            : GetOdooPlanOrder::query()
-                ->whereIn('team_id', $planTeams->modelKeys())
-                ->selectRaw('team_id, MAX(created_at) as latest_at')
-                ->groupBy('team_id')
-                ->pluck('latest_at', 'team_id');
-
         return view('livewire.settings.getodoo-purchases', [
             'soldServerRows' => $this->serverRows($soldServers, kind: 'getodoo'),
             'connectedServerRows' => $this->serverRows($connectedServers, kind: 'connected'),
+            'allPlanTeams' => $allPlanTeams,
             'planTeams' => $planTeams,
-            'principals' => $this->principalsByTeam($planTeams),
+            'principals' => $principals,
             'latestPlanInvoiceDates' => $latestPlanInvoiceDates,
+            'nextPlanBillingDates' => $nextPlanBillingDates,
+            'clientPlanOptions' => $clientPlanOptions,
+            'clientFilterCount' => count($this->clientPreferenceFilters) + count($this->clientBillingFilters) + count($this->clientPlanFilters),
             'instanceHost' => $instanceHost,
             'instanceTeams' => $instanceTeams,
             'instancePrincipals' => $this->principalsByTeam($instanceTeams),
             'orders' => $orders,
             'planOrders' => $planOrders,
-            'metrics' => $this->metrics($planTeams, $soldServers, $connectedServers, $instanceTeams, $orders, $planOrders),
+            'metrics' => $this->metrics($allPlanTeams, $soldServers, $connectedServers, $instanceTeams, $orders, $planOrders),
             'invoiceSubject' => $invoiceSubject,
             'currentMonthly' => $currentMonthly,
         ]);
@@ -445,6 +556,152 @@ class GetOdooPurchases extends Component
         }
 
         return $map;
+    }
+
+    /**
+     * @param  Collection<int, Team>  $planTeams
+     * @return Collection<int, CarbonInterface>
+     */
+    private function latestPlanInvoiceDates(Collection $planTeams): Collection
+    {
+        if ($planTeams->isEmpty()) {
+            return collect();
+        }
+
+        $dates = GetOdooPlanOrder::query()
+            ->whereIn('team_id', $planTeams->modelKeys())
+            ->orderByDesc('created_at')
+            ->orderByDesc('id')
+            ->get(['team_id', 'created_at'])
+            ->unique(fn (GetOdooPlanOrder $order): int => (int) $order->team_id)
+            ->mapWithKeys(fn (GetOdooPlanOrder $order): array => [
+                (int) $order->team_id => $order->created_at,
+            ]);
+
+        foreach ($planTeams as $team) {
+            $teamId = (int) $team->id;
+            if ($dates->has($teamId)) {
+                continue;
+            }
+
+            $fallback = GetOdooPlanBilling::latestPlanInvoiceDate($team);
+            if ($fallback instanceof CarbonInterface) {
+                $dates->put($teamId, $fallback);
+            }
+        }
+
+        return $dates;
+    }
+
+    /**
+     * @param  Collection<int, Team>  $planTeams
+     * @return Collection<int, CarbonInterface>
+     */
+    private function nextPlanBillingDates(Collection $planTeams): Collection
+    {
+        $dates = collect();
+
+        foreach ($planTeams as $team) {
+            $next = GetOdooPlanBilling::nextPlanBillingDate($team);
+            if ($next instanceof CarbonInterface) {
+                $dates->put((int) $team->id, $next);
+            }
+        }
+
+        return $dates;
+    }
+
+    /**
+     * @param  Collection<int, Team>  $planTeams
+     * @param  array<int, User|null>  $principals
+     * @param  Collection<int, CarbonInterface>  $invoiceDates
+     * @return Collection<int, Team>
+     */
+    private function filterPlanTeams(Collection $planTeams, array $principals, Collection $invoiceDates): Collection
+    {
+        $search = mb_strtolower(trim($this->clientSearch));
+
+        return $planTeams
+            ->filter(function (Team $team) use ($principals, $invoiceDates, $search): bool {
+                $principal = $principals[$team->id] ?? null;
+                $isRecurring = $team->prefersPlanRecurringBilling();
+                $hasInvoice = $invoiceDates->has((int) $team->id);
+                $planName = trim((string) ($team->getodooPlan?->name ?: ''));
+
+                if ($search !== '') {
+                    $haystack = mb_strtolower(implode(' ', array_filter([
+                        $team->name,
+                        $principal?->name,
+                        $principal?->email,
+                        $planName,
+                    ])));
+                    if (! str_contains($haystack, $search)) {
+                        return false;
+                    }
+                }
+
+                if ($this->clientPreferenceFilters !== []) {
+                    $preference = $isRecurring ? 'recurring' : 'once';
+                    if (! in_array($preference, $this->clientPreferenceFilters, true)) {
+                        return false;
+                    }
+                }
+
+                if ($this->clientBillingFilters !== []) {
+                    $billing = $hasInvoice ? 'billed' : 'not_billed';
+                    if (! in_array($billing, $this->clientBillingFilters, true)) {
+                        return false;
+                    }
+                }
+
+                if ($this->clientPlanFilters !== [] && ! in_array($planName, $this->clientPlanFilters, true)) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->values();
+    }
+
+    /**
+     * @return list<list<string>>
+     */
+    private function clientExportRows(): array
+    {
+        $planTeams = Team::query()
+            ->with(['getodooPlan', 'members'])
+            ->whereNotNull('getodoo_plan_id')
+            ->where('id', '!=', 0)
+            ->orderBy('name')
+            ->get();
+
+        foreach ($planTeams as $planTeam) {
+            GetOdooPlanBilling::ensureSignupOrderRecorded($planTeam);
+        }
+
+        $principals = $this->principalsByTeam($planTeams);
+        $invoiceDates = $this->latestPlanInvoiceDates($planTeams);
+        $nextDates = $this->nextPlanBillingDates($planTeams);
+        $filtered = $this->filterPlanTeams($planTeams, $principals, $invoiceDates);
+
+        return $filtered->map(function (Team $team) use ($principals, $invoiceDates, $nextDates): array {
+            $principal = $principals[$team->id] ?? null;
+            $next = $nextDates->get((int) $team->id);
+            $invoice = $invoiceDates->get((int) $team->id);
+
+            return [
+                (string) $team->name,
+                (string) ($principal?->name ?: ''),
+                (string) ($principal?->email ?: ''),
+                $next instanceof CarbonInterface ? $next->isoFormat('D MMM YYYY') : __('Not billed yet'),
+                (string) ($team->getodooPlan?->name ?: ''),
+                number_format($team->getodooPlanMonthlyAmount(), 2, '.', ''),
+                $team->prefersPlanRecurringBilling() ? __('Recurring') : __('One-time'),
+                $invoice instanceof CarbonInterface
+                    ? $invoice->timezone(config('app.timezone'))->isoFormat('D MMM YYYY')
+                    : __('Not billed yet'),
+            ];
+        })->all();
     }
 
     private function submitServerInvoice(GetOdooCheckout $checkout, float $amount, string $description): void

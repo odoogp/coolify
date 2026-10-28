@@ -67,104 +67,196 @@
                     <p class="border-b border-neutral-200 px-4 py-3 text-[13px] leading-5 text-neutral-500 dark:border-white/[0.08] dark:text-fg-dim">
                         {{ __('Organizations on a plan: principal, preference, and invoices the client pays in Billing.') }}
                     </p>
-                    @if ($planTeams->isEmpty())
+                    @if ($allPlanTeams->isEmpty())
                         <x-empty size="sm" title="{{ __('No organization plans yet.') }}"
                             description="{{ __('When a client buys a plan, the organization appears here.') }}" icon-name="teams" />
                     @else
-                        <div class="overflow-x-auto">
-                            <div class="data-table">
-                                <div class="data-table-header getodoo-owner-billing-orgs-grid">
-                                    <span>{{ __('Organization') }}</span>
-                                    <span>{{ __('Principal') }}</span>
-                                    <span>{{ __('Next billing') }}</span>
-                                    <span>{{ __('Plan') }}</span>
-                                    <span>{{ __('Monthly') }}</span>
-                                    <span>{{ __('Preference') }}</span>
-                                    <span>{{ __('Invoice date') }}</span>
-                                    <span></span>
-                                </div>
-                                @foreach ($planTeams as $planTeam)
-                                    @php
-                                        $principal = $principals[$planTeam->id] ?? null;
-                                        $isRecurring = $planTeam->prefersPlanRecurringBilling();
-                                        $invoiceAt = $latestPlanInvoiceDates[$planTeam->id] ?? null;
-                                        $invoiceDate = $invoiceAt ? \Illuminate\Support\Carbon::parse($invoiceAt) : null;
-                                    @endphp
-                                    <div class="data-table-row getodoo-owner-billing-orgs-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
-                                        wire:key="getodoo-plan-team-{{ $planTeam->id }}">
-                                        <div class="min-w-0">
-                                            <div class="truncate text-[13px] font-medium">{{ $planTeam->name }}</div>
-                                            @if ($planTeam->members->count() > 1)
-                                                <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
-                                                    {{ __(':count members', ['count' => $planTeam->members->count()]) }}
-                                                </div>
+                        <x-table.toolbar class="border-b border-neutral-200 p-3 dark:border-white/[0.08]">
+                            <x-slot:search>
+                                <x-table.search placeholder="{{ __('Search clients') }}"
+                                    loading-target="clientSearch,clientPreferenceFilters,clientBillingFilters,clientPlanFilters"
+                                    wire:model.live.debounce.300ms="clientSearch" />
+                            </x-slot:search>
+                            <x-table.filter :active-count="$clientFilterCount" reset-action="clearClientFilters"
+                                reset-label="{{ __('Clear filters') }}">
+                                <span
+                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Preference') }}</span>
+                                @foreach ([['recurring', __('Recurring')], ['once', __('One-time')]] as [$value, $label])
+                                    <button type="button" class="listbox-option" role="option"
+                                        aria-selected="{{ in_array($value, $clientPreferenceFilters, true) ? 'true' : 'false' }}"
+                                        wire:click="toggleClientPreferenceFilter('{{ $value }}')">
+                                        <span>{{ $label }}</span>
+                                        @php $selected = in_array($value, $clientPreferenceFilters, true); @endphp
+                                        <span @class([
+                                            'flex size-4 shrink-0 items-center justify-center rounded-[5px] border',
+                                            'border-coollabs bg-coollabs text-white dark:border-warning dark:bg-warning dark:text-black' => $selected,
+                                            'border-neutral-300 bg-white dark:border-white/[0.14] dark:bg-white/[0.045]' => ! $selected,
+                                        ])>
+                                            @if ($selected)
+                                                <svg class="size-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                                                    <path d="m2.25 6.15 2.35 2.3 5.15-5" stroke="currentColor"
+                                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
                                             @endif
-                                        </div>
-                                        <div class="min-w-0">
-                                            @if ($principal)
-                                                <div class="truncate text-[13px]">{{ $principal->name }}</div>
-                                                <div class="truncate text-[11px] text-neutral-500 dark:text-fg-faint">{{ $principal->email }}</div>
-                                            @else
-                                                <span class="text-neutral-400">-</span>
-                                            @endif
-                                        </div>
-                                        <div class="min-w-0 truncate text-[13px]">
-                                            @if ($planTeam->getodoo_plan_paid_until)
-                                                {{ $planTeam->getodoo_plan_paid_until->isoFormat('D MMM YYYY') }}
-                                                @if ($planTeam->getodoo_plan_paid_until->copy()->endOfDay()->isPast())
-                                                    <div class="mt-1"><x-status-badge status="{{ __('Overdue') }}" type="error" /></div>
-                                                @endif
-                                            @else
-                                                <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
-                                            @endif
-                                        </div>
-                                        <div class="min-w-0 truncate text-[13px]">{{ $planTeam->getodooPlan?->name }}</div>
-                                        <div class="min-w-0 text-[13px]">
-                                            ${{ number_format($planTeam->getodooPlanMonthlyAmount(), 2) }}
-                                            @if ((float) $planTeam->getodoo_plan_monthly_extra > 0)
-                                                <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
-                                                    {{ __('includes :amount extra', ['amount' => '$'.number_format((float) $planTeam->getodoo_plan_monthly_extra, 2)]) }}
-                                                </div>
-                                            @endif
-                                        </div>
-                                        <div class="min-w-0 overflow-hidden text-[13px]">
-                                            @if ($isRecurring)
-                                                <button type="button"
-                                                    class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
-                                                    wire:click="disablePlanRecurring({{ $planTeam->id }})"
-                                                    wire:loading.attr="disabled"
-                                                    wire:target="disablePlanRecurring,enablePlanRecurring,openPlanInvoiceForm"
-                                                    title="{{ __('Cancel recurring') }}">
-                                                    <span class="truncate">{{ __('Cancel recurring') }}</span>
-                                                </button>
-                                            @else
-                                                <button type="button"
-                                                    class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
-                                                    wire:click="enablePlanRecurring({{ $planTeam->id }})"
-                                                    wire:loading.attr="disabled"
-                                                    wire:target="enablePlanRecurring,disablePlanRecurring,openPlanInvoiceForm"
-                                                    title="{{ __('Make recurring') }}">
-                                                    <span class="truncate">{{ __('Make recurring') }}</span>
-                                                </button>
-                                            @endif
-                                        </div>
-                                        <div class="min-w-0 truncate text-[13px]">
-                                            @if ($invoiceDate)
-                                                {{ $invoiceDate->timezone(config('app.timezone'))->isoFormat('D MMM YYYY') }}
-                                            @else
-                                                <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
-                                            @endif
-                                        </div>
-                                        <div class="min-w-0">
-                                            <button type="button" class="button button-highlighted"
-                                                wire:click="openPlanInvoiceForm({{ $planTeam->id }})"
-                                                wire:loading.attr="disabled" wire:target="openPlanInvoiceForm">
-                                                {{ __('Create invoice') }}
-                                            </button>
-                                        </div>
-                                    </div>
+                                        </span>
+                                    </button>
                                 @endforeach
-                            </div>
+                                <span
+                                    class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Invoice date') }}</span>
+                                @foreach ([['billed', __('Billed')], ['not_billed', __('Not billed yet')]] as [$value, $label])
+                                    <button type="button" class="listbox-option" role="option"
+                                        aria-selected="{{ in_array($value, $clientBillingFilters, true) ? 'true' : 'false' }}"
+                                        wire:click="toggleClientBillingFilter('{{ $value }}')">
+                                        <span>{{ $label }}</span>
+                                        @php $selected = in_array($value, $clientBillingFilters, true); @endphp
+                                        <span @class([
+                                            'flex size-4 shrink-0 items-center justify-center rounded-[5px] border',
+                                            'border-coollabs bg-coollabs text-white dark:border-warning dark:bg-warning dark:text-black' => $selected,
+                                            'border-neutral-300 bg-white dark:border-white/[0.14] dark:bg-white/[0.045]' => ! $selected,
+                                        ])>
+                                            @if ($selected)
+                                                <svg class="size-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                                                    <path d="m2.25 6.15 2.35 2.3 5.15-5" stroke="currentColor"
+                                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            @endif
+                                        </span>
+                                    </button>
+                                @endforeach
+                                @if (count($clientPlanOptions) > 0)
+                                    <span
+                                        class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Plan') }}</span>
+                                    @foreach ($clientPlanOptions as $planOption)
+                                        <button type="button" class="listbox-option" role="option"
+                                            aria-selected="{{ in_array($planOption, $clientPlanFilters, true) ? 'true' : 'false' }}"
+                                            wire:click="toggleClientPlanFilter(@js($planOption))">
+                                            <span>{{ $planOption }}</span>
+                                            @php $selected = in_array($planOption, $clientPlanFilters, true); @endphp
+                                            <span @class([
+                                                'flex size-4 shrink-0 items-center justify-center rounded-[5px] border',
+                                                'border-coollabs bg-coollabs text-white dark:border-warning dark:bg-warning dark:text-black' => $selected,
+                                                'border-neutral-300 bg-white dark:border-white/[0.14] dark:bg-white/[0.045]' => ! $selected,
+                                            ])>
+                                                @if ($selected)
+                                                    <svg class="size-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                                                        <path d="m2.25 6.15 2.35 2.3 5.15-5" stroke="currentColor"
+                                                            stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                                                    </svg>
+                                                @endif
+                                            </span>
+                                        </button>
+                                    @endforeach
+                                @endif
+                            </x-table.filter>
+                            <button type="button" class="button" wire:click="exportClientsExcel"
+                                wire:loading.attr="disabled" wire:target="exportClientsExcel">
+                                <span wire:loading.remove wire:target="exportClientsExcel">{{ __('Export to Excel') }}</span>
+                                <span wire:loading wire:target="exportClientsExcel">{{ __('Exporting…') }}</span>
+                            </button>
+                        </x-table.toolbar>
+                        <div class="relative">
+                            <x-table.loading target="clientSearch,clearClientFilters,toggleClientPreferenceFilter,toggleClientBillingFilter,toggleClientPlanFilter,exportClientsExcel"
+                                text="{{ __('Loading records...') }}" />
+                            @if ($planTeams->isEmpty())
+                                <x-empty size="sm" title="{{ __('No clients match the current filters.') }}"
+                                    description="{{ __('Try a different search or filter.') }}" icon-name="search" />
+                            @else
+                                <div class="overflow-x-auto">
+                                    <div class="data-table">
+                                        <div class="data-table-header getodoo-owner-billing-orgs-grid">
+                                            <span>{{ __('Organization') }}</span>
+                                            <span>{{ __('Principal') }}</span>
+                                            <span>{{ __('Next billing') }}</span>
+                                            <span>{{ __('Plan') }}</span>
+                                            <span>{{ __('Monthly') }}</span>
+                                            <span>{{ __('Preference') }}</span>
+                                            <span>{{ __('Invoice date') }}</span>
+                                            <span></span>
+                                        </div>
+                                        @foreach ($planTeams as $planTeam)
+                                            @php
+                                                $principal = $principals[$planTeam->id] ?? null;
+                                                $isRecurring = $planTeam->prefersPlanRecurringBilling();
+                                                $invoiceDate = $latestPlanInvoiceDates->get((int) $planTeam->id);
+                                                $nextBillingDate = $nextPlanBillingDates->get((int) $planTeam->id);
+                                            @endphp
+                                            <div class="data-table-row getodoo-owner-billing-orgs-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
+                                                wire:key="getodoo-plan-team-{{ $planTeam->id }}">
+                                                <div class="min-w-0">
+                                                    <div class="truncate text-[13px] font-medium">{{ $planTeam->name }}</div>
+                                                    @if ($planTeam->members->count() > 1)
+                                                        <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                            {{ __(':count members', ['count' => $planTeam->members->count()]) }}
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0">
+                                                    @if ($principal)
+                                                        <div class="truncate text-[13px]">{{ $principal->name }}</div>
+                                                        <div class="truncate text-[11px] text-neutral-500 dark:text-fg-faint">{{ $principal->email }}</div>
+                                                    @else
+                                                        <span class="text-neutral-400">-</span>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0 truncate text-[13px]">
+                                                    @if ($nextBillingDate)
+                                                        {{ $nextBillingDate->isoFormat('D MMM YYYY') }}
+                                                        @if ($nextBillingDate->copy()->endOfDay()->isPast())
+                                                            <div class="mt-1"><x-status-badge status="{{ __('Overdue') }}" type="error" /></div>
+                                                        @endif
+                                                    @else
+                                                        <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0 truncate text-[13px]">{{ $planTeam->getodooPlan?->name }}</div>
+                                                <div class="min-w-0 text-[13px]">
+                                                    ${{ number_format($planTeam->getodooPlanMonthlyAmount(), 2) }}
+                                                    @if ((float) $planTeam->getodoo_plan_monthly_extra > 0)
+                                                        <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                            {{ __('includes :amount extra', ['amount' => '$'.number_format((float) $planTeam->getodoo_plan_monthly_extra, 2)]) }}
+                                                        </div>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0 overflow-hidden text-[13px]">
+                                                    @if ($isRecurring)
+                                                        <button type="button"
+                                                            class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
+                                                            wire:click="disablePlanRecurring({{ $planTeam->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="disablePlanRecurring,enablePlanRecurring,openPlanInvoiceForm"
+                                                            title="{{ __('Cancel recurring') }}">
+                                                            <span class="truncate">{{ __('Cancel recurring') }}</span>
+                                                        </button>
+                                                    @else
+                                                        <button type="button"
+                                                            class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
+                                                            wire:click="enablePlanRecurring({{ $planTeam->id }})"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="enablePlanRecurring,disablePlanRecurring,openPlanInvoiceForm"
+                                                            title="{{ __('Make recurring') }}">
+                                                            <span class="truncate">{{ __('Make recurring') }}</span>
+                                                        </button>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0 truncate text-[13px]">
+                                                    @if ($invoiceDate)
+                                                        {{ $invoiceDate->timezone(config('app.timezone'))->isoFormat('D MMM YYYY') }}
+                                                    @else
+                                                        <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
+                                                    @endif
+                                                </div>
+                                                <div class="min-w-0">
+                                                    <button type="button" class="button button-highlighted"
+                                                        wire:click="openPlanInvoiceForm({{ $planTeam->id }})"
+                                                        wire:loading.attr="disabled" wire:target="openPlanInvoiceForm">
+                                                        {{ __('Create invoice') }}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     @endif
                 </x-application.settings-section>
