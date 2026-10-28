@@ -79,6 +79,12 @@ class Configuration extends Component
 
     public bool $associatingWithoutGithub = false;
 
+    /**
+     * This environment has no git_branch yet — show the one-time repository picker.
+     * After associate, repo + branch stay locked on this panel.
+     */
+    public bool $needsEnvironmentGithubLink = false;
+
     public bool $associateRunning = false;
 
     public ?string $associateKey = null;
@@ -154,21 +160,30 @@ class Configuration extends Component
                 && blank($project->odooProfile?->git_repository)
                 && $this->odooGithubConnected
                 && $this->odooIsOdoo;
-            if ($this->odooGithubIsPersonal && ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub)) {
+            $this->needsEnvironmentGithubLink = $this->odooIsOdoo
+                && $this->odooGithubConnected
+                && blank($environment->odooBranch?->git_branch);
+            if ($this->odooGithubIsPersonal && ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub || $this->needsEnvironmentGithubLink)) {
                 $this->odooRepoMode = 'existing';
             }
             if (
                 $this->odooAccountChanged
                 || $this->awaitingRepositoryChoice
                 || $this->associatingWithoutGithub
+                || $this->needsEnvironmentGithubLink
                 || request()->query('odooPanel') === 'github'
             ) {
                 $this->odooPanel = 'github';
             } elseif (request()->query('odooPanel') === 'owner-package' && isInstanceOwner()) {
                 $this->odooPanel = 'owner-package';
             }
-            if ($this->associatingWithoutGithub) {
-                $this->odooRepoMode = $this->odooGithubIsPersonal ? 'existing' : 'new';
+            if ($this->associatingWithoutGithub || $this->needsEnvironmentGithubLink) {
+                if ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub) {
+                    $this->odooRepoMode = $this->odooGithubIsPersonal ? 'existing' : 'new';
+                } else {
+                    // New environment on a project that may already have a repo: pick once.
+                    $this->odooRepoMode = 'existing';
+                }
                 $this->associateKey = 'associate-odoo-'.$this->service->uuid;
                 $associateStatus = Cache::get($this->associateKey);
                 if (is_array($associateStatus) && ($associateStatus['done'] ?? false) !== true && blank($associateStatus['error'] ?? null)) {
@@ -179,16 +194,6 @@ class Configuration extends Component
                 if ($this->odooRepoMode === 'existing' && auth()->user()?->can('update', $this->service)) {
                     $this->loadOdooRepositories();
                 }
-            }
-            if (
-                $this->odooPanel === 'github'
-                && $this->odooIsOdoo
-                && $this->odooGithubConnected
-                && ! $this->odooAccountChanged
-                && filled($project->odooProfile?->git_repository)
-                && auth()->user()?->can('update', $this->service)
-            ) {
-                $this->loadLinkedOdooBranches();
             }
             if ($this->odooIsOdoo && isInstanceOwner()) {
                 $this->ownerPackageRepository = (string) (instanceSettings()->odoo_owner_repository ?? '');
@@ -465,12 +470,11 @@ class Configuration extends Component
             $value === 'github'
             && $this->odooIsOdoo
             && $this->odooGithubConnected
-            && ! $this->odooAccountChanged
-            && filled($this->project->odooProfile?->git_repository)
-            && $this->odooGithubBranches === []
+            && $this->needsEnvironmentGithubLink
+            && $this->odooRepoMode === 'existing'
             && auth()->user()?->can('update', $this->service)
         ) {
-            $this->loadLinkedOdooBranches();
+            $this->loadOdooRepositories();
         }
     }
 
@@ -691,8 +695,20 @@ class Configuration extends Component
                 SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
             }
             $this->syncOdooGithub();
+            $this->needsEnvironmentGithubLink = false;
 
-            return $this->startPlannedLaunch();
+            // First project GitHub link (launch=choose / started without GitHub) starts containers.
+            // Linking a branch on a later new environment only syncs addons.
+            if ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub) {
+                return $this->startPlannedLaunch();
+            }
+
+            $this->dispatch('success', __('Repository :repository linked. Cloning branch :branch…', [
+                'repository' => $repository['full_name'],
+                'branch' => $branch,
+            ]));
+
+            return null;
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {

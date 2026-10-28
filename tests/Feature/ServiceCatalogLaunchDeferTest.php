@@ -231,15 +231,13 @@ it('does not force the project repository when catalog-launching another Odoo', 
         ->assertHasNoErrors();
 
     $redirect = (string) ($component->effects['redirect'] ?? '');
-    expect($redirect)->not->toContain('odooPanel=github')
+    expect($redirect)->toContain('odooPanel=github')
         ->and($redirect)->not->toContain('launch=choose');
 
     $env = $this->project->fresh()->environments()->where('name', 'odoo-19')->first();
     expect($env)->not->toBeNull()
         ->and($env->isProduction())->toBeTrue()
         ->and((string) $env->odooBranch?->git_branch)->toBe('')
-        ->and(file_get_contents(app_path('Livewire/Project/Concerns/LaunchesCatalogService.php')))
-        ->not->toContain("'odooPanel' => 'github'")
         ->and(file_get_contents(app_path('Support/OdooGit.php')))
         ->not->toContain('odooBranch?->git_branch ?: $service->environment?->name');
 });

@@ -169,67 +169,28 @@
                                         {{ __('The environment name and the GitHub branch are stored separately. A push updates the addon folder.') }}
                                     </p>
                                 </div>
-                                @if (filled($project->odooProfile?->git_repository))
-                                    @php
-                                        $githubBranch = (string) ($environment->odooBranch?->git_branch ?? '');
-                                        $odooGithubUrl = \App\Support\OdooGit::repositoryUrl(
-                                            (string) $project->odooProfile->git_repository,
-                                            $githubBranch,
-                                        );
-                                    @endphp
+                                @php
+                                    $githubBranch = (string) ($environment->odooBranch?->git_branch ?? '');
+                                    $odooGithubLinked = $githubBranch !== '' && filled($project->odooProfile?->git_repository);
+                                    $odooGithubUrl = $odooGithubLinked
+                                        ? \App\Support\OdooGit::repositoryUrl((string) $project->odooProfile->git_repository, $githubBranch)
+                                        : '';
+                                @endphp
+                                @if ($odooGithubLinked && ! $odooAccountChanged)
                                     <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                                         <div>
                                             <p class="auth-plan-kicker mb-1">{{ __('Repository') }}</p>
                                             <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
                                         </div>
                                         <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
-                                        @if ($githubBranch !== '')
-                                            <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
-                                        @else
-                                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                                {{ __('No GitHub branch on this environment yet. Start works without cloning addons. Save a branch here only if you want this environment on the project repository (Clone is the usual path for that).') }}
-                                            </p>
-                                        @endif
+                                        <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
+                                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                            {{ __('This environment is linked. Repository and branch stay as set at association.') }}
+                                        </p>
                                         @if ($odooGithubUrl !== '')
                                             <a class="button w-fit" href="{{ $odooGithubUrl }}" target="_blank" rel="noopener noreferrer">
                                                 {{ __('Open on GitHub') }}
                                             </a>
-                                        @endif
-                                        @if ($odooGithubConnected && ! $odooAccountChanged)
-                                            @php
-                                                $branchSyncing = $this->odooBranchIsSyncing();
-                                            @endphp
-                                            <div class="max-w-sm space-y-2" @if ($branchSyncing) wire:poll.2s="refreshOdooBranchStatus" @endif>
-                                                @if ($odooGithubBranches === [])
-                                                    <div class="flex items-center gap-2 text-[13px] text-neutral-500 dark:text-fg-dim">
-                                                        <x-reicon name="refresh" class="size-3.5 animate-spin opacity-70" />
-                                                        <span>{{ __('Loading branches…') }}</span>
-                                                        <x-forms.button type="button" wire:click="loadLinkedOdooBranches" canGate="update" :canResource="$service" class="ml-auto">
-                                                            {{ __('Retry') }}
-                                                        </x-forms.button>
-                                                    </div>
-                                                @else
-                                                    <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
-                                                        searchPlaceholder="{{ __('Search branches') }}"
-                                                        emptyText="{{ __('No matching branch') }}"
-                                                        :disabled="$branchSyncing"
-                                                        :options="collect($odooGithubBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
-                                                    @if ($branchSyncing)
-                                                        <p class="flex items-center gap-2 text-[13px] text-neutral-600 dark:text-fg-dim" role="status" aria-live="polite">
-                                                            <x-reicon name="refresh" class="size-3.5 animate-spin opacity-70" />
-                                                            <span>{{ __('Cloning branch…') }}</span>
-                                                        </p>
-                                                    @endif
-                                                    <x-forms.button type="button" wire:click="saveLinkedOdooBranch" wire:loading.attr="disabled" wire:target="saveLinkedOdooBranch"
-                                                        canGate="update" :canResource="$service" :disabled="$branchSyncing" isHighlighted>
-                                                        <span wire:loading.remove wire:target="saveLinkedOdooBranch">{{ __('Save GitHub branch') }}</span>
-                                                        <span wire:loading wire:target="saveLinkedOdooBranch" class="inline-flex items-center gap-2">
-                                                            <x-reicon name="refresh" class="size-3.5 animate-spin opacity-70" />
-                                                            {{ __('Cloning branch…') }}
-                                                        </span>
-                                                    </x-forms.button>
-                                                @endif
-                                            </div>
                                         @endif
                                     </div>
                                     <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
@@ -282,7 +243,7 @@
                                             {{ __('Change account') }}
                                         </x-forms.button>
                                     </div>
-                                    @if (blank($project->odooProfile?->git_repository) || $odooAccountChanged)
+                                    @if (! $odooGithubLinked || $odooAccountChanged)
                                     @if ($odooAccountChanged)
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             {{ __('This GitHub account is not the one linked to the repository. Associate a new repository, or choose an existing repository and a branch.') }}
@@ -297,7 +258,7 @@
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             {{ $awaitingRepositoryChoice
                                                 ? __('GitHub is connected. Launch production on a new repository, or search an existing one.')
-                                                : __('Choose the GitHub branch for this environment. It can differ from the environment name.') }}
+                                                : __('Choose the GitHub repository and branch for this environment. You only set this once.') }}
                                         </p>
                                     @endif
                                     @if ($awaitingRepositoryChoice && filled($service->environment?->odooBranch?->odoo_version ?: $project->odooProfile?->odoo_version))
@@ -396,7 +357,7 @@
                                                 ? ($associatingWithoutGithub ? __('Create repository') : __('Launch production'))
                                                 : __('Associate repository') }}
                                         </x-forms.button>
-                                        @unless ($associatingWithoutGithub)
+                                        @unless ($associatingWithoutGithub || ($needsEnvironmentGithubLink && filled($project->odooProfile?->git_repository)))
                                         <x-forms.button type="button" wire:click="launchWithoutGithub" canGate="update" :canResource="$service">
                                             {{ __('Launch without GitHub') }}
                                         </x-forms.button>
@@ -408,7 +369,9 @@
                                             </p>
                                         @else
                                             <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
-                                                {{ $odooRepoMode === 'new' && ! $odooGithubIsPersonal ? __('Creating the repository…') : __('Starting Odoo.') }}
+                                                {{ $needsEnvironmentGithubLink && ! $awaitingRepositoryChoice && ! $associatingWithoutGithub
+                                                    ? __('Linking repository…')
+                                                    : ($odooRepoMode === 'new' && ! $odooGithubIsPersonal ? __('Creating the repository…') : __('Starting Odoo.')) }}
                                             </p>
                                         @endif
                                     </div>
