@@ -194,10 +194,48 @@ it('lets a later Odoo launch pick a different Compose than the project profile',
     expect($created)->not->toBeNull()
         ->and($created->docker_compose_raw)->toContain('odoo:18')
         ->and((string) $staging->odooBranch?->odoo_version)->toBe('18')
+        // Never invent git_branch from the environment name (would clone a missing tip).
+        ->and((string) $staging->odooBranch?->git_branch)->toBe('')
         ->and((string) $this->project->fresh()->odooProfile?->odoo_version)->toBe('20');
 
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);
     Bus::assertNotDispatched(StartService::class);
+});
+
+it('opens the GitHub panel when launching Odoo into a project that already has a repository', function () {
+    Bus::fake();
+    $this->project->enableOdoo('20');
+    Service::factory()->create([
+        'name' => 'odoo-seed',
+        'environment_id' => $this->environment->id,
+        'service_type' => 'odoo',
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $this->project->odooProfile->update([
+        'git_repository' => 'acme/odoogp20',
+        'repository_id' => 99,
+    ]);
+
+    $component = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->set('environmentRole', 'production')
+        ->set('selectedService', 'odoo')
+        ->set('odooVersion', '18')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertHasNoErrors();
+
+    $redirect = (string) ($component->effects['redirect'] ?? '');
+    expect($redirect)->toContain('odooPanel=github');
+
+    $env = $this->project->fresh()->environments()->where('name', 'odoo')->first()
+        ?? $this->project->fresh()->environments()->where('name', 'like', 'odoo%')->first();
+    expect($env)->not->toBeNull()
+        ->and((string) $env->odooBranch?->git_branch)->toBe('')
+        ->and(file_get_contents(app_path('Support/OdooGit.php')))
+        ->not->toContain('odooBranch?->git_branch ?: $service->environment?->name');
 });
 
 it('starts Odoo containers only when Launch without GitHub is explicit', function () {

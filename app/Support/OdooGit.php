@@ -2225,7 +2225,12 @@ BASH;
             return;
         }
 
-        $branch = $service->environment?->odooBranch?->git_branch ?: $service->environment?->name ?: 'main';
+        // Only the linked git_branch is valid. Never fall back to the environment
+        // name (a second production named "odoo" is not a remote branch).
+        $branch = trim((string) ($service->environment?->odooBranch?->git_branch ?? ''));
+        if ($branch === '') {
+            return;
+        }
         $host = parse_url((string) $githubApp->html_url, PHP_URL_HOST) ?: 'github.com';
         $token = generateGithubInstallationToken($githubApp);
         if (blank($token)) {

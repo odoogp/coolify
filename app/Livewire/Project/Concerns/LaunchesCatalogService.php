@@ -104,7 +104,11 @@ trait LaunchesCatalogService
                     blank($project->odooProfile?->git_repository)
                     && OdooGit::installedApp((int) $project->team_id, auth()->id()) instanceof GithubApp
                 ) {
+                    // First repo on the project: new vs existing repository.
                     $parameters['launch'] = 'choose';
+                } elseif (filled($project->odooProfile?->git_repository)) {
+                    // Repo is project-wide; this environment still needs its own branch.
+                    $parameters['odooPanel'] = 'github';
                 }
 
                 return redirect()->route('project.service.configuration', $parameters);
@@ -438,7 +442,10 @@ trait LaunchesCatalogService
             'environment_id' => $environment->id,
         ]);
         if (! $row->exists) {
-            $row->git_branch = (string) ($environment->name ?: 'main');
+            // Never invent a GitHub branch from the environment name (e.g. a second
+            // production named "odoo" is not a branch on origin). Leave empty until
+            // Launch-without-GitHub, repository choice, or Save GitHub branch.
+            $row->git_branch = '';
             $row->jupyter_enabled = true;
         }
         $row->odoo_version = $version;

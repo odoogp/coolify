@@ -185,6 +185,10 @@
                                         <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
                                         @if ($githubBranch !== '')
                                             <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
+                                        @else
+                                            <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                                                {{ __('This project already has a repository. Choose a GitHub branch for this environment and save it before Start — the environment name is not a branch.') }}
+                                            </p>
                                         @endif
                                         @if ($odooGithubUrl !== '')
                                             <a class="button w-fit" href="{{ $odooGithubUrl }}" target="_blank" rel="noopener noreferrer">

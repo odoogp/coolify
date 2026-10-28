@@ -5090,5 +5090,6 @@
     "Could not queue the retry.": "No se pudo encolar el reintento.",
     "Could not resolve the project for this update.": "No se pudo resolver el proyecto de esta actualización.",
     "Choose the Compose for this environment. Other environments can use a different Odoo version.": "Elige el Compose de este entorno. Otros entornos pueden usar otra versión de Odoo.",
-    "This environment installs Odoo :version. Launch another environment from the project if you need a different Compose.": "Este entorno instala Odoo :version. Lanza otro entorno desde el proyecto si necesitas otro Compose."
+    "This environment installs Odoo :version. Launch another environment from the project if you need a different Compose.": "Este entorno instala Odoo :version. Lanza otro entorno desde el proyecto si necesitas otro Compose.",
+    "This project already has a repository. Choose a GitHub branch for this environment and save it before Start — the environment name is not a branch.": "Este proyecto ya tiene un repositorio. Elige una rama de GitHub para este entorno y guárdala antes de Iniciar — el nombre del entorno no es una rama."
 }
