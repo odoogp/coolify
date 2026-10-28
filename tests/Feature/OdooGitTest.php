@@ -1218,13 +1218,13 @@ it('hides the owner package panel from non-owners', function () {
         ->and($component)->toContain('abort_unless(isInstanceOwner(), 403)');
 });
 
-it('shows getodoo.sh branding and odoo row fields without coolify chrome for clients', function () {
+it('shows getcloud.sh branding and odoo row fields without coolify chrome for clients', function () {
     $show = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
     $config = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
     $index = file_get_contents(resource_path('views/livewire/project/resource/index.blade.php'));
     $resourceIndex = file_get_contents(app_path('Livewire/Project/Resource/Index.php'));
 
-    expect(product_name())->toBe('getodoo.sh')
+    expect(product_name())->toBe('getcloud.sh')
         ->and($show)->toContain('product_name()')
         ->and($show)->not->toContain('| Coolify')
         ->and($show)->toContain('environment.domain')

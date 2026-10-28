@@ -1,8 +1,8 @@
 <?php
 
-it('uses getodoo.sh as the visible product name', function () {
-    expect(product_name())->toBe('getodoo.sh')
-        ->and(str_replace('Coolify', product_name(), 'Coolify is ready'))->toBe('getodoo.sh is ready')
+it('uses getcloud.sh as the visible product name', function () {
+    expect(product_name())->toBe('getcloud.sh')
+        ->and(str_replace('Coolify', product_name(), 'Coolify is ready'))->toBe('getcloud.sh is ready')
         ->and(product_description())->toContain('Odoo')
         ->and(product_og_image_url())->toContain('/brand/og.png');
 

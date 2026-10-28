@@ -33,8 +33,8 @@
                     @endif
 
                     <x-forms.input canGate="update" :canResource="$settings" id="instance_name" label="{{ __('Platform name') }}"
-                        placeholder="getodoo.sh"
-                        helper="{{ __('This name is what customers see on the welcome screen, login, and the rest of the platform. Leave it empty to use getodoo.sh.') }}" />
+                        placeholder="getcloud.sh"
+                        helper="{{ __('This name is what customers see on the welcome screen, login, and the rest of the platform. Leave it empty to use getcloud.sh.') }}" />
 
                     <div class="lg:col-span-2">
                         <p class="mb-2 text-sm font-medium">{{ __('Logo') }}</p>

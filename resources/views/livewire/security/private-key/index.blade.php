@@ -1,9 +1,10 @@
-<div>
+<div class="w-full min-w-0">
     <x-slot:title>
         {{ __('Keys & Tokens | Coolify') }}
     </x-slot>
 
     <x-security.settings-layout>
+        <div class="application-settings-form w-full min-w-0">
         <x-application.settings-section title="{{ __('Private keys') }}"
             description="{{ __('SSH keys used to connect servers and private repositories.') }}" flush>
         <x-slot:actions>
@@ -67,8 +68,9 @@
             description="{{ __('Generate or add an SSH key to connect Coolify to servers and private repositories.') }}"
             icon-name="keys" />
     @else
-        <div>
-            <div class="grid grid-cols-[minmax(0,1fr)_7rem_1.75rem] items-center gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[13px] font-medium text-neutral-500 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_7rem_1.75rem] dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+        <div class="w-full min-w-0 overflow-x-auto">
+            <div class="w-full min-w-[28rem]">
+            <div class="grid w-full grid-cols-[minmax(0,1fr)_7rem_1.75rem] items-center gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[13px] font-medium text-neutral-500 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_7rem_1.75rem] dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
                 <div class="pl-11">{{ __('Private key') }}</div>
                 <div class="hidden sm:block">{{ __('Description') }}</div>
                 <div class="text-center">{{ __('Status') }}</div>
@@ -109,11 +111,11 @@
                         </button>
                     </div>
                         </x-slot:content>
-                        <livewire:security.private-key.show :private_key_uuid="$key->uuid" :modalMode="true"
+                        <livewire:security.private-key.show lazy :private_key_uuid="$key->uuid" :modalMode="true"
                             :key="'private-key-editor-'.$key->uuid" />
                     </x-modal-input>
                 @else
-                    <div class="grid min-h-14 cursor-not-allowed grid-cols-[minmax(0,1fr)_7rem_1.75rem] items-center gap-3 border-b border-neutral-200 px-4 py-2.5 opacity-65 last:border-b-0 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_7rem_1.75rem] dark:border-white/[0.07]"
+                    <div class="grid min-h-14 w-full cursor-not-allowed grid-cols-[minmax(0,1fr)_7rem_1.75rem] items-center gap-3 border-b border-neutral-200 px-4 py-2.5 opacity-65 last:border-b-0 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_7rem_1.75rem] dark:border-white/[0.07]"
                         title="{{ __('You do not have permission to view this private key') }}">
                         <div class="flex items-start gap-3">
                             <div
@@ -137,9 +139,11 @@
                     </div>
                 @endcan
             @endforeach
+            </div>
         </div>
     @endif
         </x-application.settings-section>
+        </div>
 
     </x-security.settings-layout>
 </div>

@@ -27,12 +27,12 @@
     ])->filter();
 @endphp
 
-<section class="application-settings-workspace w-full max-w-none">
+<section class="application-settings-workspace w-full min-w-0 max-w-none">
     <header class="settings-mobile-header xl:hidden">
         <h1 class="settings-mobile-title">{{ __('Keys & Tokens') }}</h1>
         <p class="settings-mobile-description">{{ __('Manage SSH keys, cloud credentials, and API access tokens.') }}</p>
     </header>
-    <div class="grid min-w-0 gap-8 xl:grid-cols-[210px_minmax(0,1fr)] xl:gap-8">
+    <div class="grid w-full min-w-0 gap-6 sm:gap-8 xl:grid-cols-[210px_minmax(0,1fr)] xl:gap-8">
         <aside class="application-settings-navigation min-w-0 xl:self-start">
             <nav aria-label="{{ __('Keys and tokens') }}"
                 class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
@@ -48,7 +48,7 @@
             </nav>
         </aside>
 
-        <div class="min-w-0">
+        <div class="min-w-0 w-full">
             @isset($actions)
                 <div class="mb-3 flex min-h-8 flex-wrap items-center justify-end gap-2">
                     {{ $actions }}

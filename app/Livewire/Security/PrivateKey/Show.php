@@ -12,9 +12,11 @@ class Show extends Component
 {
     use AuthorizesRequests;
 
-    public PrivateKey $private_key;
+    public ?PrivateKey $private_key = null;
 
     public bool $modalMode = false;
+
+    public bool $unavailable = false;
 
     // Explicit properties
     public string $name;
@@ -85,7 +87,7 @@ class Show extends Component
     {
         $this->modalMode = $modalMode;
         try {
-            $this->private_key = PrivateKey::ownedByCurrentTeam(['name', 'description', 'private_key', 'is_git_related', 'team_id'])->whereUuid($private_key_uuid ?? request()->private_key_uuid)->firstOrFail();
+            $this->private_key = PrivateKey::ownedByCurrentTeam(['name', 'uuid', 'description', 'private_key', 'is_git_related', 'team_id'])->whereUuid($private_key_uuid ?? request()->private_key_uuid)->firstOrFail();
 
             // Explicit authorization check - will throw 403 if not authorized
             $this->authorize('view', $this->private_key);
@@ -93,14 +95,29 @@ class Show extends Component
             $this->syncData(false);
             $this->isInUse = $this->private_key->isInUse();
         } catch (AuthorizationException $e) {
+            // Nested editors must not abort the Keys & Tokens index.
+            if ($this->modalMode) {
+                $this->unavailable = true;
+
+                return;
+            }
             abort(403, 'You do not have permission to view this private key.');
         } catch (\Throwable) {
+            if ($this->modalMode) {
+                $this->unavailable = true;
+
+                return;
+            }
             abort(404);
         }
     }
 
     public function loadPublicKey()
     {
+        if ($this->unavailable || $this->private_key === null) {
+            return;
+        }
+
         $this->public_key = $this->private_key->getPublicKey();
         if ($this->public_key === 'Error loading private key') {
             $this->dispatch('error', __('Failed to load public key. The private key may be invalid.'));

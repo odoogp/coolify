@@ -19,11 +19,20 @@ it('uses shared sidebar navigation for keys and tokens pages', function () {
     }
 
     expect($sidebar)
+        ->toContain('application-settings-workspace w-full min-w-0 max-w-none')
+        ->toContain('grid w-full min-w-0 gap-6')
+        ->toContain('min-w-0 w-full')
         ->toContain('application-settings-navigation')
         ->toContain("'label' => 'Private Keys'")
         ->toContain("'label' => 'Cloud Tokens'")
         ->toContain("'label' => 'Cloud-Init Scripts'")
         ->toContain("'label' => 'API Tokens'");
+
+    expect(file_get_contents(resource_path('views/livewire/security/private-key/index.blade.php')))
+        ->toContain('class="w-full min-w-0"')
+        ->toContain('application-settings-form w-full min-w-0')
+        ->toContain('w-full min-w-0 overflow-x-auto')
+        ->toContain('lazy :private_key_uuid');
 
     expect($navbar)
         ->toContain("request()->routeIs('security.*')")

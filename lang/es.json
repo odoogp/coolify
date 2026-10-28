@@ -5083,7 +5083,7 @@
     "Wompi did not return a payment link.": "Wompi no devolvió un enlace de pago.",
     "The payment was cancelled.": "El pago fue cancelado.",
     "Platform name": "Nombre de la plataforma",
-    "This name is what customers see on the welcome screen, login, and the rest of the platform. Leave it empty to use getodoo.sh.": "Este nombre es el que ven los clientes en la bienvenida, el inicio de sesión y el resto de la plataforma. Déjalo vacío para usar getodoo.sh.",
+    "This name is what customers see on the welcome screen, login, and the rest of the platform. Leave it empty to use getcloud.sh.": "Este nombre es el que ven los clientes en la bienvenida, el inicio de sesión y el resto de la plataforma. Déjalo vacío para usar getcloud.sh.",
     "Logo": "Logo",
     "Use the default logo": "Usar el logo original",
     "Logo updated.": "Logo actualizado.",

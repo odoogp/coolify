@@ -889,7 +889,7 @@ function product_name(): string
         $name = '';
     }
 
-    return $name !== '' ? $name : 'getodoo.sh';
+    return $name !== '' ? $name : 'getcloud.sh';
 }
 
 function product_logo_path(): ?string

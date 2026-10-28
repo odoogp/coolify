@@ -114,16 +114,16 @@
                                                 </div>
                                             @endif
                                         </div>
-                                        <div class="text-[13px]">
+                                        <div class="min-w-0 max-w-[7rem] overflow-hidden text-[13px]">
                                             @if ($isRecurring)
-                                                <x-status-badge status="{{ __('Recurring') }}" type="success" />
+                                                <x-status-badge class="max-w-full" status="{{ __('Recurring') }}" type="success" />
                                                 @if ($planTeam->planRecurringBillingStartsAt())
-                                                    <div class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                    <div class="mt-1 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
                                                         {{ __('from :date', ['date' => $planTeam->planRecurringBillingStartsAt()->isoFormat('D MMM YYYY')]) }}
                                                     </div>
                                                 @endif
                                             @else
-                                                <x-status-badge status="{{ __('One-time') }}" type="neutral" />
+                                                <x-status-badge class="max-w-full" status="{{ __('One-time') }}" type="neutral" />
                                             @endif
                                         </div>
                                         <div class="text-[13px]">
@@ -136,20 +136,24 @@
                                                 <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
                                             @endif
                                         </div>
-                                        <div class="flex flex-wrap justify-end gap-2">
+                                        <div class="flex min-w-0 flex-wrap justify-end gap-2">
                                             @if ($isRecurring)
-                                                <button type="button" class="button"
+                                                <button type="button"
+                                                    class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
                                                     wire:click="disablePlanRecurring({{ $planTeam->id }})"
                                                     wire:loading.attr="disabled"
-                                                    wire:target="disablePlanRecurring,enablePlanRecurring,openPlanInvoiceForm">
-                                                    {{ __('Cancel recurring') }}
+                                                    wire:target="disablePlanRecurring,enablePlanRecurring,openPlanInvoiceForm"
+                                                    title="{{ __('Cancel recurring') }}">
+                                                    <span class="truncate">{{ __('Cancel recurring') }}</span>
                                                 </button>
                                             @else
-                                                <button type="button" class="button"
+                                                <button type="button"
+                                                    class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
                                                     wire:click="enablePlanRecurring({{ $planTeam->id }})"
                                                     wire:loading.attr="disabled"
-                                                    wire:target="enablePlanRecurring,disablePlanRecurring,openPlanInvoiceForm">
-                                                    {{ __('Make recurring') }}
+                                                    wire:target="enablePlanRecurring,disablePlanRecurring,openPlanInvoiceForm"
+                                                    title="{{ __('Make recurring') }}">
+                                                    <span class="truncate">{{ __('Make recurring') }}</span>
                                                 </button>
                                             @endif
                                             <button type="button" class="button button-highlighted"

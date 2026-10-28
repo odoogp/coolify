@@ -46,6 +46,7 @@ it('shows the platform name from configuration on the welcome screen', function 
 
     Livewire::test(Index::class)
         ->assertSee('Welcome to Nube Norte')
+        ->assertDontSee('Welcome to getcloud.sh')
         ->assertDontSee('Welcome to getodoo.sh');
 });
 
@@ -80,7 +81,7 @@ it('walks a new account from welcome to a project, an invite, and the server ste
         ->call('continueToGetOdooServer')
         ->assertSet('currentState', 'getodoo-servers')
         ->assertSee('This finishes the assistant.')
-        ->assertSee('Thank you for being part of the getodoo.sh team.')
+        ->assertSee('Thank you for being part of the getcloud.sh team.')
         ->assertSee('Create a new server')
         ->assertDontSee('animate-spin');
 

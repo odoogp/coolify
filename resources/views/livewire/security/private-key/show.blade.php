@@ -1,5 +1,7 @@
-<div x-init="$wire.loadPublicKey()">
-    @if ($modalMode)
+<div @if (! $unavailable) x-init="$wire.loadPublicKey()" @endif>
+    @if ($modalMode && $unavailable)
+        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('This private key is unavailable.') }}</p>
+    @elseif ($modalMode)
         <form wire:submit="changePrivateKey" class="flex flex-col gap-4" x-data="{ showPrivateKey: false }">
             <div class="grid gap-4 lg:grid-cols-2">
                 <x-forms.input canGate="update" :canResource="$private_key" id="name" label="{{ __('Name') }}" required />
