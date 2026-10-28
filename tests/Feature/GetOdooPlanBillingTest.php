@@ -460,7 +460,7 @@ it('shows next billing before plan and invoice date from the latest plan order',
         ->assertSee('Acme Org')
         ->assertSee(now()->parse('2026-11-28')->isoFormat('D MMM YYYY'))
         ->assertSee(now()->parse('2026-10-15')->isoFormat('D MMM YYYY'))
-        ->assertSee(__('Search clients'))
+        ->assertSee(__('Search organization, principal, email, or plan'))
         ->assertSee(__('Export to Excel'));
 });
 
@@ -518,4 +518,12 @@ it('backfills invoice date from a paid signup and filters clients by search', fu
         ->assertSee('GESTION PRODUCTIVA');
 
     expect(GetOdooPlanOrder::query()->where('team_id', $team->id)->where('purpose', 'signup')->exists())->toBeTrue();
+
+    Livewire::test(GetOdooPurchases::class)
+        ->set('clientInvoiceDateFrom', '2026-09-01')
+        ->set('clientInvoiceDateTo', '2026-09-30')
+        ->assertSee('GESTION PRODUCTIVA')
+        ->set('clientInvoiceDateFrom', '2026-10-01')
+        ->set('clientInvoiceDateTo', '2026-10-31')
+        ->assertDontSee('GESTION PRODUCTIVA');
 });

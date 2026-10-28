@@ -1,7 +1,13 @@
-@props(['activeCount' => 0, 'activeText' => null, 'resetAction', 'resetLabel' => 'Reset filters'])
+@props([
+    'activeCount' => 0,
+    'activeText' => null,
+    'resetAction',
+    'resetLabel' => 'Reset filters',
+    'panelClass' => 'w-44! overflow-hidden! p-0!',
+])
 
 <div class="table-filter">
-    <x-table.dropdown panel-class="w-44! overflow-hidden! p-0!" :multiselectable="true">
+    <x-table.dropdown :panel-class="$panelClass" :multiselectable="true">
         <x-slot:trigger>
             <button type="button" aria-haspopup="listbox" :aria-expanded="open"
                 @if ($activeText) title="{{ $activeText }}" @endif

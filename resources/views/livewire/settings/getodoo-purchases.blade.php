@@ -73,12 +73,14 @@
                     @else
                         <x-table.toolbar class="border-b border-neutral-200 p-3 dark:border-white/[0.08]">
                             <x-slot:search>
-                                <x-table.search placeholder="{{ __('Search clients') }}"
-                                    loading-target="clientSearch,clientPreferenceFilters,clientBillingFilters,clientPlanFilters"
+                                <x-table.search
+                                    placeholder="{{ __('Search organization, principal, email, or plan') }}"
+                                    loading-target="clientSearch,clientPreferenceFilters,clientInvoiceDateFrom,clientInvoiceDateTo,clientPlanFilters"
                                     wire:model.live.debounce.300ms="clientSearch" />
                             </x-slot:search>
                             <x-table.filter :active-count="$clientFilterCount" reset-action="clearClientFilters"
-                                reset-label="{{ __('Clear filters') }}">
+                                reset-label="{{ __('Clear filters') }}"
+                                panel-class="w-64! overflow-hidden! p-0!">
                                 <span
                                     class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Preference') }}</span>
                                 @foreach ([['recurring', __('Recurring')], ['once', __('One-time')]] as [$value, $label])
@@ -103,26 +105,18 @@
                                 @endforeach
                                 <span
                                     class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Invoice date') }}</span>
-                                @foreach ([['billed', __('Billed')], ['not_billed', __('Not billed yet')]] as [$value, $label])
-                                    <button type="button" class="listbox-option" role="option"
-                                        aria-selected="{{ in_array($value, $clientBillingFilters, true) ? 'true' : 'false' }}"
-                                        wire:click="toggleClientBillingFilter('{{ $value }}')">
-                                        <span>{{ $label }}</span>
-                                        @php $selected = in_array($value, $clientBillingFilters, true); @endphp
-                                        <span @class([
-                                            'flex size-4 shrink-0 items-center justify-center rounded-[5px] border',
-                                            'border-coollabs bg-coollabs text-white dark:border-warning dark:bg-warning dark:text-black' => $selected,
-                                            'border-neutral-300 bg-white dark:border-white/[0.14] dark:bg-white/[0.045]' => ! $selected,
-                                        ])>
-                                            @if ($selected)
-                                                <svg class="size-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                                                    <path d="m2.25 6.15 2.35 2.3 5.15-5" stroke="currentColor"
-                                                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
-                                                </svg>
-                                            @endif
-                                        </span>
-                                    </button>
-                                @endforeach
+                                <div class="flex flex-col gap-2 px-2 py-2" @click.stop>
+                                    <label class="flex flex-col gap-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        <span>{{ __('Start date') }}</span>
+                                        <input type="date" class="input w-full"
+                                            wire:model.live="clientInvoiceDateFrom" />
+                                    </label>
+                                    <label class="flex flex-col gap-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                        <span>{{ __('End date') }}</span>
+                                        <input type="date" class="input w-full"
+                                            wire:model.live="clientInvoiceDateTo" />
+                                    </label>
+                                </div>
                                 @if (count($clientPlanOptions) > 0)
                                     <span
                                         class="px-2 pb-1 pt-2 text-[10px] font-medium uppercase tracking-wider text-neutral-400 dark:text-fg-faint">{{ __('Plan') }}</span>
@@ -155,7 +149,7 @@
                             </button>
                         </x-table.toolbar>
                         <div class="relative">
-                            <x-table.loading target="clientSearch,clearClientFilters,toggleClientPreferenceFilter,toggleClientBillingFilter,toggleClientPlanFilter,exportClientsExcel"
+                            <x-table.loading target="clientSearch,clearClientFilters,toggleClientPreferenceFilter,clientInvoiceDateFrom,clientInvoiceDateTo,toggleClientPlanFilter,exportClientsExcel"
                                 text="{{ __('Loading records...') }}" />
                             @if ($planTeams->isEmpty())
                                 <x-empty size="sm" title="{{ __('No clients match the current filters.') }}"

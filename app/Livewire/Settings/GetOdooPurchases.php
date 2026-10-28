@@ -55,8 +55,9 @@ class GetOdooPurchases extends Component
     /** @var list<string> */
     public array $clientPreferenceFilters = [];
 
-    /** @var list<string> */
-    public array $clientBillingFilters = [];
+    public string $clientInvoiceDateFrom = '';
+
+    public string $clientInvoiceDateTo = '';
 
     /** @var list<string> */
     public array $clientPlanFilters = [];
@@ -100,19 +101,6 @@ class GetOdooPurchases extends Component
             : [...$this->clientPreferenceFilters, $value];
     }
 
-    public function toggleClientBillingFilter(string $value): void
-    {
-        abort_unless(isInstanceOwner(), 403);
-
-        if (! in_array($value, ['billed', 'not_billed'], true)) {
-            return;
-        }
-
-        $this->clientBillingFilters = in_array($value, $this->clientBillingFilters, true)
-            ? array_values(array_filter($this->clientBillingFilters, fn (string $item): bool => $item !== $value))
-            : [...$this->clientBillingFilters, $value];
-    }
-
     public function toggleClientPlanFilter(string $value): void
     {
         abort_unless(isInstanceOwner(), 403);
@@ -133,7 +121,8 @@ class GetOdooPurchases extends Component
 
         $this->clientSearch = '';
         $this->clientPreferenceFilters = [];
-        $this->clientBillingFilters = [];
+        $this->clientInvoiceDateFrom = '';
+        $this->clientInvoiceDateTo = '';
         $this->clientPlanFilters = [];
     }
 
@@ -465,7 +454,9 @@ class GetOdooPurchases extends Component
             'latestPlanInvoiceDates' => $latestPlanInvoiceDates,
             'nextPlanBillingDates' => $nextPlanBillingDates,
             'clientPlanOptions' => $clientPlanOptions,
-            'clientFilterCount' => count($this->clientPreferenceFilters) + count($this->clientBillingFilters) + count($this->clientPlanFilters),
+            'clientFilterCount' => count($this->clientPreferenceFilters)
+                + count($this->clientPlanFilters)
+                + ((filled($this->clientInvoiceDateFrom) || filled($this->clientInvoiceDateTo)) ? 1 : 0),
             'instanceHost' => $instanceHost,
             'instanceTeams' => $instanceTeams,
             'instancePrincipals' => $this->principalsByTeam($instanceTeams),
@@ -620,12 +611,18 @@ class GetOdooPurchases extends Component
     private function filterPlanTeams(Collection $planTeams, array $principals, Collection $invoiceDates): Collection
     {
         $search = mb_strtolower(trim($this->clientSearch));
+        $invoiceFrom = filled($this->clientInvoiceDateFrom)
+            ? \Illuminate\Support\Carbon::parse($this->clientInvoiceDateFrom)->startOfDay()
+            : null;
+        $invoiceTo = filled($this->clientInvoiceDateTo)
+            ? \Illuminate\Support\Carbon::parse($this->clientInvoiceDateTo)->endOfDay()
+            : null;
 
         return $planTeams
-            ->filter(function (Team $team) use ($principals, $invoiceDates, $search): bool {
+            ->filter(function (Team $team) use ($principals, $invoiceDates, $search, $invoiceFrom, $invoiceTo): bool {
                 $principal = $principals[$team->id] ?? null;
                 $isRecurring = $team->prefersPlanRecurringBilling();
-                $hasInvoice = $invoiceDates->has((int) $team->id);
+                $invoiceDate = $invoiceDates->get((int) $team->id);
                 $planName = trim((string) ($team->getodooPlan?->name ?: ''));
 
                 if ($search !== '') {
@@ -647,9 +644,16 @@ class GetOdooPurchases extends Component
                     }
                 }
 
-                if ($this->clientBillingFilters !== []) {
-                    $billing = $hasInvoice ? 'billed' : 'not_billed';
-                    if (! in_array($billing, $this->clientBillingFilters, true)) {
+                if ($invoiceFrom instanceof CarbonInterface || $invoiceTo instanceof CarbonInterface) {
+                    if (! $invoiceDate instanceof CarbonInterface) {
+                        return false;
+                    }
+
+                    if ($invoiceFrom instanceof CarbonInterface && $invoiceDate->lt($invoiceFrom)) {
+                        return false;
+                    }
+
+                    if ($invoiceTo instanceof CarbonInterface && $invoiceDate->gt($invoiceTo)) {
                         return false;
                     }
                 }
