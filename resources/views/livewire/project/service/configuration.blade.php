@@ -186,8 +186,8 @@
                                         @if ($githubBranch !== '')
                                             <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
                                         @else
-                                            <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-                                                {{ __('This project already has a repository. Choose a GitHub branch for this environment and save it before Start — the environment name is not a branch.') }}
+                                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                                {{ __('No GitHub branch on this environment yet. Start works without cloning addons. Save a branch here only if you want this environment on the project repository (Clone is the usual path for that).') }}
                                             </p>
                                         @endif
                                         @if ($odooGithubUrl !== '')

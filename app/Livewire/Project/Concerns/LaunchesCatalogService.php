@@ -100,15 +100,14 @@ trait LaunchesCatalogService
                     'environment_uuid' => $environment->uuid,
                     'service_uuid' => $service->uuid,
                 ];
+                // Repository choice is only for the first GitHub link on a project.
+                // Clone owns "same repo + new branch". A New/catalog Odoo launch must
+                // not force the project repository or invent a branch to clone.
                 if (
                     blank($project->odooProfile?->git_repository)
                     && OdooGit::installedApp((int) $project->team_id, auth()->id()) instanceof GithubApp
                 ) {
-                    // First repo on the project: new vs existing repository.
                     $parameters['launch'] = 'choose';
-                } elseif (filled($project->odooProfile?->git_repository)) {
-                    // Repo is project-wide; this environment still needs its own branch.
-                    $parameters['odooPanel'] = 'github';
                 }
 
                 return redirect()->route('project.service.configuration', $parameters);

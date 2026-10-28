@@ -202,7 +202,7 @@ it('lets a later Odoo launch pick a different Compose than the project profile',
     Bus::assertNotDispatched(StartService::class);
 });
 
-it('opens the GitHub panel when launching Odoo into a project that already has a repository', function () {
+it('does not force the project repository when catalog-launching another Odoo', function () {
     Bus::fake();
     $this->project->enableOdoo('20');
     Service::factory()->create([
@@ -228,12 +228,15 @@ it('opens the GitHub panel when launching Odoo into a project that already has a
         ->assertHasNoErrors();
 
     $redirect = (string) ($component->effects['redirect'] ?? '');
-    expect($redirect)->toContain('odooPanel=github');
+    expect($redirect)->not->toContain('odooPanel=github')
+        ->and($redirect)->not->toContain('launch=choose');
 
     $env = $this->project->fresh()->environments()->where('name', 'odoo')->first()
         ?? $this->project->fresh()->environments()->where('name', 'like', 'odoo%')->first();
     expect($env)->not->toBeNull()
         ->and((string) $env->odooBranch?->git_branch)->toBe('')
+        ->and(file_get_contents(app_path('Livewire/Project/Concerns/LaunchesCatalogService.php')))
+        ->not->toContain("'odooPanel' => 'github'")
         ->and(file_get_contents(app_path('Support/OdooGit.php')))
         ->not->toContain('odooBranch?->git_branch ?: $service->environment?->name');
 });
