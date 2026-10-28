@@ -602,8 +602,7 @@ class OdooGit
     }
 
     /**
-     * Store the Odoo admin password in Coolify and push it into res_users when the container is up.
-     * Does not ask for the previous password — Coolify is the source of truth for this tip.
+     * Store the Odoo admin password and assign it on base.user_admin (no current password needed).
      */
     public static function setAdminPassword(Service $service, string $password): void
     {
@@ -620,8 +619,12 @@ class OdooGit
         self::writeAdminPasswordToVolume($service, $password);
         if (! app()->runningUnitTests()) {
             $service->saveComposeConfigs();
+            if (! self::applyAdminPassword($service, $password)) {
+                throw new RuntimeException(__(
+                    'Could not assign the administrator password inside Odoo. Confirm Odoo is running, then try Apply again (or Restart Odoo once so the password API is installed).'
+                ));
+            }
         }
-        self::applyAdminPassword($service, $password);
     }
 
     /**
@@ -707,42 +710,95 @@ class OdooGit
     }
 
     /**
-     * Best-effort write into base.user_admin. Next start also applies ODOO_ADMIN_PASSWORD.
+     * Assign plaintext password on base.user_admin. Returns true only when Odoo confirms it.
      */
-    public static function applyAdminPassword(Service $service, string $password): void
+    public static function applyAdminPassword(Service $service, string $password): bool
     {
         if (app()->runningUnitTests()) {
-            return;
+            return true;
         }
-        if (! $service->supportsOdooJupyter() || ! self::odooIsUp($service)) {
-            return;
+        if (! $service->supportsOdooJupyter()) {
+            return false;
+        }
+        $password = trim($password);
+        if ($password === '') {
+            return false;
+        }
+
+        if (self::applyAdminPasswordViaHttp($service, $password)) {
+            return true;
+        }
+
+        return self::applyAdminPasswordViaShell($service, $password);
+    }
+
+    /**
+     * Prefer the live HTTP controller (same process as Connect as). Needs one Restart after deploy.
+     */
+    public static function applyAdminPasswordViaHttp(Service $service, string $password): bool
+    {
+        $base = rtrim(self::publicHttpsUrl($service), '/');
+        $token = self::runtimeValue($service, 'ODOO_LOGIN_TOKEN');
+        if ($base === '' || $token === '') {
+            return false;
+        }
+
+        try {
+            $response = Http::timeout(20)
+                ->withOptions(['verify' => false])
+                ->asJson()
+                ->post($base.'/_odoo/paas/set_admin_password', [
+                    'token' => $token,
+                    'password' => $password,
+                ]);
+        } catch (Throwable) {
+            return false;
+        }
+
+        return $response->successful() && str_contains((string) $response->body(), 'gpsh-password-set');
+    }
+
+    /**
+     * Fallback: odoo shell inside the container (works before the HTTP route is redeployed).
+     * Must pass db_host/user/password like terminalShell — plain `odoo shell -d` dials localhost and fails.
+     */
+    public static function applyAdminPasswordViaShell(Service $service, string $password): bool
+    {
+        if (! self::odooIsUp($service)) {
+            return false;
         }
 
         try {
             $service->loadMissing('destination.server');
             $server = $service->destination?->server ?? $service->server;
-            $database = self::databaseName($service);
-            if ($server === null || blank($database) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', (string) $service->uuid) !== 1) {
-                return;
+            $database = self::runtimeValue($service, 'ODOO_DATABASE') ?: (string) self::databaseName($service);
+            if ($server === null || $database === '' || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', (string) $service->uuid) !== 1) {
+                return false;
+            }
+            if (preg_match('/\A[A-Za-z0-9_]+\z/', $database) !== 1) {
+                return false;
             }
 
             $container = 'odoo-'.$service->uuid;
-            // Connect-as never sets a login password; Users → Change password then asks for a
-            // current tip that is empty. Force-write admin without needing the old password.
             $script = 'admin = env.ref("base.user_admin").sudo()'
-                ."\n".'admin.write({"password": '.json_encode($password, JSON_UNESCAPED_SLASHES).'})'
+                ."\n".'admin.write({"password": '.json_encode($password, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES).'})'
                 ."\n".'env.cr.commit()'
+                ."\n".'print("gpsh-password-set")'
                 ."\n";
             $encoded = base64_encode($script);
-            $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
-                .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '
-                .'-d '.escapeshellarg((string) $database);
+            // Same connection flags as terminalShell(); HOST/USER/PASSWORD come from the container env.
+            $inner = 'addons=$(cat /tmp/gpsh-addons-path 2>/dev/null || printf %s /mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons); '
+                .'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 --no-database-list '
+                .'--db_host="${HOST:-postgresql}" --db_port="${PORT:-5432}" --db_user="$USER" --db_password="$PASSWORD" '
+                .'-d '.escapeshellarg($database).' --addons-path="$addons"';
 
-            instant_remote_process([
+            $output = instant_remote_process([
                 'docker exec '.escapeshellarg($container).' sh -c '.escapeshellarg($inner),
-            ], $server, false, false, 60);
+            ], $server, false, false, 90);
+
+            return str_contains((string) $output, 'gpsh-password-set');
         } catch (Throwable) {
-            // Stored in Coolify; the next start reapplies the password from ODOO_ADMIN_PASSWORD.
+            return false;
         }
     }
 

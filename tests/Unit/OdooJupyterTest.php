@@ -429,6 +429,8 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($command)->toContain('admin_password')
         ->and($command)->toContain('_gpsh_store_admin_password')
         ->and($command)->toContain('_odoo/paas/connect')
+        ->and($command)->toContain('_odoo/paas/set_admin_password')
+        ->and($command)->toContain('gpsh-password-set')
         ->and($command)->toContain('Estamos preparando todo.')
         ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
         ->and($command)->toContain('Instalando la base.')

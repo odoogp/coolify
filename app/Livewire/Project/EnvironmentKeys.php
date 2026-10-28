@@ -137,13 +137,17 @@ class EnvironmentKeys extends Component
         }
 
         $this->authorize('update', $service);
-        if (! $this->pushStoredPasswordIntoOdoo($service)) {
-            $this->dispatch('error', __('No administrator password is stored yet.'));
 
-            return;
+        try {
+            if (! $this->pushStoredPasswordIntoOdoo($service)) {
+                $this->dispatch('error', __('No administrator password is stored yet.'));
+
+                return;
+            }
+            $this->dispatch('success', __('Odoo admin now uses the password shown in Keys. In Settings → Users → Change password, use that tip as the current password.'));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
         }
-
-        $this->dispatch('success', __('Odoo admin now uses the password shown in Keys. In Settings → Users → Change password, use that tip as the current password.'));
     }
 
     public function render()

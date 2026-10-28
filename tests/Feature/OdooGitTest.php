@@ -2975,6 +2975,10 @@ it('lists odoo admin credentials on environment keys and updates the stored pass
     expect(OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD'))->toBe('NewAdminPass99')
         ->and(OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD'))->not->toBe($original);
 
+    $component->call('applyStoredOdooAdminPassword')
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
     if (! shouldSkipPasswordConfirmation()) {
         Livewire::test(EnvironmentKeys::class, [
             'project_uuid' => $this->project->uuid,
@@ -2986,4 +2990,56 @@ it('lists odoo admin credentials on environment keys and updates the stored pass
             ->assertSet('unlocked', false)
             ->assertDispatched('error');
     }
+});
+
+it('assigns the odoo admin password over the paas http endpoint', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    OdooGit::prepareInstance($service);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://odoo-keys.example.test',
+        'exclude_from_status' => false,
+    ]);
+    $token = OdooGit::runtimeValue($service->fresh(), 'ODOO_LOGIN_TOKEN');
+    expect($token)->not->toBe('');
+
+    Http::fake([
+        'odoo-keys.example.test/_odoo/paas/set_admin_password' => Http::response('gpsh-password-set', 200),
+    ]);
+
+    expect(OdooGit::applyAdminPasswordViaHttp($service->fresh(), 'AssignedPass99'))->toBeTrue();
+
+    Http::assertSent(function ($request) use ($token) {
+        return str_contains($request->url(), '/_odoo/paas/set_admin_password')
+            && $request['token'] === $token
+            && $request['password'] === 'AssignedPass99';
+    });
+});
+
+it('refuses apply admin password over http when odoo denies the token', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    OdooGit::prepareInstance($service);
+    ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://odoo-keys-deny.example.test',
+        'exclude_from_status' => false,
+    ]);
+
+    Http::fake([
+        'odoo-keys-deny.example.test/_odoo/paas/set_admin_password' => Http::response('denied', 403),
+    ]);
+
+    expect(OdooGit::applyAdminPasswordViaHttp($service->fresh(), 'AssignedPass99'))->toBeFalse();
 });
