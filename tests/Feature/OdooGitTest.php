@@ -1263,12 +1263,30 @@ it('associates an existing repository with one environment and keeps the others 
     OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main', 'develop'], $staging, 'develop');
 
     expect($staging->fresh()->odooBranch->git_branch)->toBe('develop')
+        ->and($staging->fresh()->odooBranch->git_repository)->toBe('acme/odoo')
         ->and($this->project->odooProfile->fresh()->git_repository)->toBe('acme/odoo')
         ->and($production->fresh()->odooBranch)->toBeNull()
         ->and(Application::query()->count())->toBe(0);
 
     expect(fn () => OdooGit::attachExisting($this->project, $this->githubApp, 'acme/odoo', 99, ['main', 'develop'], $production, 'develop'))
         ->toThrow(InvalidArgumentException::class);
+});
+
+it('allows the same branch name on a different repository for another environment', function () {
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    $production = $this->project->environments()->where('name', 'production')->first();
+
+    OdooGit::attachExisting($this->project, $this->githubApp, 'Arielmim97/odoogp20', 20, ['main'], $production, 'main');
+    OdooGit::attachExisting($this->project, $this->githubApp, 'Arielmim97/odoogp19_demo', 19, ['main'], $staging, 'main');
+
+    expect($production->fresh()->odooBranch->git_branch)->toBe('main')
+        ->and($production->fresh()->odooBranch->git_repository)->toBe('Arielmim97/odoogp20')
+        ->and($staging->fresh()->odooBranch->git_branch)->toBe('main')
+        ->and($staging->fresh()->odooBranch->git_repository)->toBe('Arielmim97/odoogp19_demo')
+        // First link keeps the project profile; the second env stores its own repo.
+        ->and($this->project->odooProfile->fresh()->git_repository)->toBe('Arielmim97/odoogp20')
+        ->and(OdooGit::branchTakenOnRepository($this->project, $staging, 'main', 'Arielmim97/odoogp19_demo'))->toBeFalse()
+        ->and(OdooGit::branchTakenOnRepository($this->project, $production, 'main', 'Arielmim97/odoogp20'))->toBeFalse();
 });
 
 it('shows the repository choice on the odoo service page', function () {

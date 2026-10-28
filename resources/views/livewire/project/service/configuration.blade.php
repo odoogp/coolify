@@ -171,16 +171,17 @@
                                 </div>
                                 @php
                                     $githubBranch = (string) ($environment->odooBranch?->git_branch ?? '');
-                                    $odooGithubLinked = $githubBranch !== '' && filled($project->odooProfile?->git_repository);
+                                    $linkedRepository = \App\Support\OdooGit::environmentGitRepository($environment);
+                                    $odooGithubLinked = $githubBranch !== '' && filled($linkedRepository);
                                     $odooGithubUrl = $odooGithubLinked
-                                        ? \App\Support\OdooGit::repositoryUrl((string) $project->odooProfile->git_repository, $githubBranch)
+                                        ? \App\Support\OdooGit::repositoryUrl((string) $linkedRepository, $githubBranch)
                                         : '';
                                 @endphp
                                 @if ($odooGithubLinked && ! $odooAccountChanged)
                                     <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
                                         <div>
                                             <p class="auth-plan-kicker mb-1">{{ __('Repository') }}</p>
-                                            <p class="font-mono text-[13px]">{{ $project->odooProfile->git_repository }}</p>
+                                            <p class="font-mono text-[13px]">{{ $linkedRepository }}</p>
                                         </div>
                                         <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
                                         <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
@@ -344,7 +345,7 @@
                                                     })->all()" />
                                                 @if ($takenGithubBranches !== [])
                                                     <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                                        {{ __('Each environment needs its own GitHub branch. Branches already used on this project are marked in use.') }}
+                                                        {{ __('Each environment needs its own tip on the same repository. The same branch name on another repository is fine.') }}
                                                     </p>
                                                 @endif
                                             @endif

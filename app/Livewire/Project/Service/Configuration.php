@@ -7,7 +7,6 @@ use App\Jobs\AssociateOdooGithubRepositoryJob;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\GithubApp;
-use App\Models\OdooEnvironmentBranch;
 use App\Models\Service;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -678,8 +677,8 @@ class Configuration extends Component
             if ($branches !== [] && ! in_array($branch, $branches, true)) {
                 throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
             }
-            if (in_array($branch, $this->takenOdooGithubBranches(), true)) {
-                throw new InvalidArgumentException('Each environment needs its own GitHub branch. Pick another tip, or create a new branch on GitHub first.');
+            if (OdooGit::branchTakenOnRepository($this->project, $this->environment, $branch, $fullName)) {
+                throw new InvalidArgumentException('Each environment needs its own GitHub branch on the same repository. Pick another tip, or create a new branch on GitHub first.');
             }
 
             // Attach runs in a job only — never GitHub HTTP inside this Livewire request.
@@ -907,46 +906,44 @@ class Configuration extends Component
     }
 
     /**
-     * Branches already linked on other environments — only for the repository being associated.
-     * A tip used on odoogp20 must not block main on odoogp19_demo.
+     * Tips already used by other environments on the repository being associated.
+     * odoogp20/main must not mark main as taken on odoogp19_demo.
      *
      * @return list<string>
      */
     public function takenOdooGithubBranches(): array
     {
-        $this->project->loadMissing('odooProfile', 'environments');
-        $selectedFullName = '';
-        if (filled($this->odooRepositoryId)) {
+        $fullName = trim($this->odooRepositoryFullName);
+        if ($fullName === '' && filled($this->odooRepositoryId)) {
             $selected = collect($this->odooRepositories)->firstWhere('id', (int) $this->odooRepositoryId);
-            $selectedFullName = is_array($selected) ? (string) ($selected['full_name'] ?? '') : '';
+            $fullName = is_array($selected) ? (string) ($selected['full_name'] ?? '') : '';
         }
-        $profileRepo = (string) ($this->project->odooProfile?->git_repository ?? '');
-        // Tips are only “in use” on the same GitHub repository the project already tracks,
-        // or the one currently selected when it matches that profile repo.
-        $repoForTaken = $selectedFullName !== '' ? $selectedFullName : $profileRepo;
-        if ($repoForTaken === '' || ($profileRepo !== '' && strcasecmp($repoForTaken, $profileRepo) !== 0)) {
+        if ($fullName === '') {
+            $fullName = (string) ($this->project->odooProfile?->git_repository ?? '');
+        }
+        if ($fullName === '') {
             return [];
         }
 
-        $environmentIds = $this->project->environments
-            ->pluck('id')
-            ->filter(fn ($id): bool => (int) $id !== (int) $this->environment->id)
-            ->values()
-            ->all();
-
-        if ($environmentIds === []) {
-            return [];
+        $this->project->loadMissing('environments.odooBranch', 'odooProfile');
+        $taken = [];
+        foreach ($this->project->environments as $other) {
+            if ((int) $other->id === (int) $this->environment->id) {
+                continue;
+            }
+            $row = $other->odooBranch;
+            if ($row === null || blank($row->git_branch)) {
+                continue;
+            }
+            $otherRepo = filled($row->git_repository)
+                ? (string) $row->git_repository
+                : (string) ($this->project->odooProfile?->git_repository ?? '');
+            if ($otherRepo !== '' && strcasecmp($otherRepo, $fullName) === 0) {
+                $taken[] = (string) $row->git_branch;
+            }
         }
 
-        return OdooEnvironmentBranch::query()
-            ->whereIn('environment_id', $environmentIds)
-            ->whereNotNull('git_branch')
-            ->where('git_branch', '!=', '')
-            ->pluck('git_branch')
-            ->map(fn ($branch): string => (string) $branch)
-            ->unique()
-            ->values()
-            ->all();
+        return array_values(array_unique($taken));
     }
 
     /**
@@ -965,7 +962,7 @@ class Configuration extends Component
             }
         }
 
-        // Never auto-select a tip already used by another environment.
+        // Never auto-select a tip already used on this repository by another environment.
         return '';
     }
 

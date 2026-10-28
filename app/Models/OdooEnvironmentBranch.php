@@ -10,6 +10,8 @@ class OdooEnvironmentBranch extends Model
     protected $fillable = [
         'environment_id',
         'git_branch',
+        'git_repository',
+        'repository_id',
         'owner_package_branch',
         'status',
         'domain',
@@ -26,6 +28,7 @@ class OdooEnvironmentBranch extends Model
         return [
             'workers' => 'integer',
             'jupyter_enabled' => 'boolean',
+            'repository_id' => 'integer',
         ];
     }
 

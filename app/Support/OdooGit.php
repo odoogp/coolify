@@ -231,28 +231,96 @@ class OdooGit
             throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
         }
 
-        $taken = OdooEnvironmentBranch::query()
-            ->whereIn('environment_id', $project->environments()->pluck('id'))
-            ->where('git_branch', $branch)
-            ->where('environment_id', '!=', $environment->id)
-            ->exists();
-        if ($taken) {
-            throw new InvalidArgumentException('Each environment needs its own GitHub branch.');
+        if (self::branchTakenOnRepository($project, $environment, $branch, $gitRepository)) {
+            throw new InvalidArgumentException('Each environment needs its own GitHub branch on the same repository.');
         }
 
         DB::transaction(function () use ($profile, $githubApp, $gitRepository, $repositoryId, $environment, $branch): void {
-            $profile->update([
-                'github_app_id' => $githubApp->id,
-                'repository_id' => $repositoryId,
-                'git_repository' => $gitRepository,
-            ]);
+            // First link fills the project profile. Later environments may use another
+            // repository without rewriting production's profile tip.
+            if (blank($profile->git_repository)) {
+                $profile->update([
+                    'github_app_id' => $githubApp->id,
+                    'repository_id' => $repositoryId,
+                    'git_repository' => $gitRepository,
+                ]);
+            } elseif ($profile->github_app_id === null) {
+                $profile->update(['github_app_id' => $githubApp->id]);
+            }
+
             OdooEnvironmentBranch::query()->updateOrCreate(
                 ['environment_id' => $environment->id],
-                ['git_branch' => $branch],
+                [
+                    'git_branch' => $branch,
+                    'git_repository' => $gitRepository,
+                    'repository_id' => $repositoryId,
+                ],
             );
         });
 
         self::ensureAddonsApplication($environment->fresh() ?? $environment);
+    }
+
+    /**
+     * Same tip name is fine on different repositories (odoogp20/main vs odoogp19_demo/main).
+     * It is blocked only when another environment already uses that tip on this repository.
+     */
+    public static function branchTakenOnRepository(Project $project, Environment $environment, string $branch, string $gitRepository): bool
+    {
+        $branch = trim($branch);
+        $gitRepository = trim($gitRepository);
+        if ($branch === '' || $gitRepository === '') {
+            return false;
+        }
+
+        $project->loadMissing('odooProfile');
+        $profileRepo = (string) ($project->odooProfile?->git_repository ?? '');
+        $environmentIds = $project->environments()->pluck('id')
+            ->filter(fn ($id): bool => (int) $id !== (int) $environment->id)
+            ->all();
+        if ($environmentIds === []) {
+            return false;
+        }
+
+        $rows = OdooEnvironmentBranch::query()
+            ->whereIn('environment_id', $environmentIds)
+            ->where('git_branch', $branch)
+            ->get(['git_branch', 'git_repository']);
+
+        foreach ($rows as $row) {
+            $otherRepo = filled($row->git_repository)
+                ? (string) $row->git_repository
+                : $profileRepo;
+            if ($otherRepo !== '' && strcasecmp($otherRepo, $gitRepository) === 0) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function environmentGitRepository(Environment $environment): ?string
+    {
+        $environment->loadMissing('odooBranch', 'project.odooProfile');
+        $fromBranch = $environment->odooBranch?->git_repository;
+        if (filled($fromBranch)) {
+            return (string) $fromBranch;
+        }
+        $fromProfile = $environment->project?->odooProfile?->git_repository;
+
+        return filled($fromProfile) ? (string) $fromProfile : null;
+    }
+
+    public static function environmentRepositoryId(Environment $environment): ?int
+    {
+        $environment->loadMissing('odooBranch', 'project.odooProfile');
+        $fromBranch = $environment->odooBranch?->repository_id;
+        if ($fromBranch !== null && (int) $fromBranch > 0) {
+            return (int) $fromBranch;
+        }
+        $fromProfile = $environment->project?->odooProfile?->repository_id;
+
+        return $fromProfile !== null && (int) $fromProfile > 0 ? (int) $fromProfile : null;
     }
 
     /**
@@ -265,7 +333,9 @@ class OdooGit
         $environment->loadMissing('project.odooProfile', 'odooBranch', 'services');
         $profile = $environment->project?->odooProfile;
         $branch = $environment->odooBranch;
-        if ($profile === null || $branch === null || blank($profile->git_repository) || $profile->github_app_id === null || blank($branch->git_branch)) {
+        $gitRepository = self::environmentGitRepository($environment);
+        $repositoryId = self::environmentRepositoryId($environment);
+        if ($profile === null || $branch === null || blank($gitRepository) || $profile->github_app_id === null || blank($branch->git_branch)) {
             return null;
         }
 
@@ -296,9 +366,9 @@ class OdooGit
             'destination_type' => $destination->getMorphClass(),
             'source_id' => $profile->github_app_id,
             'source_type' => GithubApp::class,
-            'git_repository' => $profile->git_repository,
+            'git_repository' => $gitRepository,
             'git_branch' => $branch->git_branch,
-            'repository_project_id' => $profile->repository_id,
+            'repository_project_id' => $repositoryId,
             'build_pack' => 'dockerfile',
             'ports_exposes' => '8069',
             'is_odoo_addons' => true,
@@ -362,18 +432,18 @@ class OdooGit
                 'git_repository' => $repository['full_name'],
             ]);
 
-            $taken = OdooEnvironmentBranch::query()
-                ->whereIn('environment_id', $project->environments()->pluck('id'))
-                ->where('git_branch', $branch)
-                ->where('environment_id', '!=', $environment->id)
-                ->exists();
-            if ($taken) {
-                throw new InvalidArgumentException('Each environment needs its own GitHub branch.');
+            $fullName = (string) $repository['full_name'];
+            if (self::branchTakenOnRepository($project, $environment, $branch, $fullName)) {
+                throw new InvalidArgumentException('Each environment needs its own GitHub branch on the same repository.');
             }
 
             OdooEnvironmentBranch::query()->updateOrCreate(
                 ['environment_id' => $environment->id],
-                ['git_branch' => $branch],
+                [
+                    'git_branch' => $branch,
+                    'git_repository' => $fullName,
+                    'repository_id' => $repository['id'],
+                ],
             );
 
             return $environment;
@@ -2205,7 +2275,10 @@ BASH;
 
         $service->loadMissing('environment.project.odooProfile.githubApp', 'environment.odooBranch', 'destination.server');
         $profile = $service->environment?->project?->odooProfile;
-        $repository = $profile?->git_repository;
+        $environment = $service->environment;
+        $repository = $environment instanceof Environment
+            ? self::environmentGitRepository($environment)
+            : $profile?->git_repository;
         $githubApp = $profile?->githubApp;
         $server = $service->destination?->server;
 
@@ -2382,7 +2455,10 @@ BASH;
 
         $service->loadMissing('environment.project.odooProfile.githubApp', 'environment.odooBranch', 'destination.server');
         $profile = $service->environment?->project?->odooProfile;
-        $repository = $profile?->git_repository;
+        $environment = $service->environment;
+        $repository = $environment instanceof Environment
+            ? self::environmentGitRepository($environment)
+            : $profile?->git_repository;
         $githubApp = $profile?->githubApp;
         $server = $service->destination?->server;
         if (blank($repository) || ! $githubApp instanceof GithubApp || $server === null) {
