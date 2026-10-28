@@ -5091,5 +5091,9 @@
     "Could not resolve the project for this update.": "No se pudo resolver el proyecto de esta actualización.",
     "Choose the Compose for this environment. Other environments can use a different Odoo version.": "Elige el Compose de este entorno. Otros entornos pueden usar otra versión de Odoo.",
     "This environment installs Odoo :version. Launch another environment from the project if you need a different Compose.": "Este entorno instala Odoo :version. Lanza otro entorno desde el proyecto si necesitas otro Compose.",
-    "No GitHub branch on this environment yet. Start works without cloning addons. Save a branch here only if you want this environment on the project repository (Clone is the usual path for that).": "Este entorno aún no tiene rama de GitHub. Iniciar funciona sin clonar addons. Guarda una rama aquí solo si quieres este entorno en el repositorio del proyecto (Clone es el camino habitual para eso)."
+    "No GitHub branch on this environment yet. Start works without cloning addons. Save a branch here only if you want this environment on the project repository (Clone is the usual path for that).": "Este entorno aún no tiene rama de GitHub. Iniciar funciona sin clonar addons. Guarda una rama aquí solo si quieres este entorno en el repositorio del proyecto (Clone es el camino habitual para eso).",
+    "Environment name": "Nombre del entorno",
+    "e.g. main, cliente-a, staging-demo": "p. ej. main, cliente-a, staging-demo",
+    "This is the display name on the project list. It is not the GitHub branch.": "Es el nombre visible en la lista del proyecto. No es la rama de GitHub.",
+    "An environment named :name already exists on this project.": "Ya existe un entorno llamado :name en este proyecto."
 }

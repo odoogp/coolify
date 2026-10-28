@@ -179,6 +179,7 @@ it('lets a later Odoo launch pick a different Compose than the project profile',
         ->assertSee(__('Odoo version'))
         ->assertDontSee(__('Production set this project to Odoo :version. New environments reuse that version.', ['version' => '20']))
         ->set('environmentRole', 'staging')
+        ->set('environmentName', 'cliente-staging')
         ->set('selectedService', 'odoo')
         ->set('odooVersion', '18')
         ->set('serverId', (string) $this->server->id)
@@ -186,9 +187,9 @@ it('lets a later Odoo launch pick a different Compose than the project profile',
         ->assertHasNoErrors()
         ->assertRedirect();
 
-    $staging = $this->project->fresh()->environments()->where('role', 'staging')->first()
-        ?? $this->project->fresh()->environments()->where('name', 'like', 'staging%')->first();
-    expect($staging)->not->toBeNull();
+    $staging = $this->project->fresh()->environments()->where('name', 'cliente-staging')->first();
+    expect($staging)->not->toBeNull()
+        ->and($staging->isStaging())->toBeTrue();
 
     $created = $staging->services()->where('service_type', 'odoo')->first();
     expect($created)->not->toBeNull()
@@ -220,7 +221,9 @@ it('does not force the project repository when catalog-launching another Odoo', 
     ]);
 
     $component = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee(__('Environment name'))
         ->set('environmentRole', 'production')
+        ->set('environmentName', 'odoo-19')
         ->set('selectedService', 'odoo')
         ->set('odooVersion', '18')
         ->set('serverId', (string) $this->server->id)
@@ -231,14 +234,29 @@ it('does not force the project repository when catalog-launching another Odoo', 
     expect($redirect)->not->toContain('odooPanel=github')
         ->and($redirect)->not->toContain('launch=choose');
 
-    $env = $this->project->fresh()->environments()->where('name', 'odoo')->first()
-        ?? $this->project->fresh()->environments()->where('name', 'like', 'odoo%')->first();
+    $env = $this->project->fresh()->environments()->where('name', 'odoo-19')->first();
     expect($env)->not->toBeNull()
+        ->and($env->isProduction())->toBeTrue()
         ->and((string) $env->odooBranch?->git_branch)->toBe('')
         ->and(file_get_contents(app_path('Livewire/Project/Concerns/LaunchesCatalogService.php')))
         ->not->toContain("'odooPanel' => 'github'")
         ->and(file_get_contents(app_path('Support/OdooGit.php')))
         ->not->toContain('odooBranch?->git_branch ?: $service->environment?->name');
+});
+
+it('refuses a duplicate environment name on catalog New', function () {
+    Bus::fake();
+    seedOdooComposeVersions(['18', '20']);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->set('environmentRole', 'staging')
+        ->set('environmentName', 'production')
+        ->set('selectedService', 'odoo')
+        ->set('odooVersion', '20')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertHasErrors(['environmentName'])
+        ->assertNoRedirect();
 });
 
 it('starts Odoo containers only when Launch without GitHub is explicit', function () {
@@ -392,7 +410,10 @@ it('fills empty production on the first project New launch', function () {
     expect($this->environment->isEmpty())->toBeTrue();
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSet('environmentName', 'production')
         ->set('selectedService', 'demo-worker')
+        ->set('environmentRole', 'production')
+        ->set('environmentName', 'production')
         ->set('serverId', (string) $this->server->id)
         ->call('launchService')
         ->assertRedirect(route('project.service.configuration', [
@@ -402,7 +423,8 @@ it('fills empty production on the first project New launch', function () {
         ]));
 
     expect(Service::query()->where('environment_id', $this->environment->id)->where('service_type', 'demo-worker')->exists())->toBeTrue()
-        ->and($this->project->fresh()->environments()->count())->toBe(1);
+        ->and($this->project->fresh()->environments()->count())->toBe(1)
+        ->and($this->environment->fresh()->name)->toBe('production');
 
     Bus::assertNotDispatched(StartService::class);
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);
@@ -425,6 +447,8 @@ it('creates a new production environment when New launches a different catalog s
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->set('selectedService', 'demo-worker')
+        ->set('environmentRole', 'production')
+        ->set('environmentName', 'demo-worker')
         ->set('serverId', (string) $this->server->id)
         ->call('launchService')
         ->assertRedirect();
@@ -436,6 +460,7 @@ it('creates a new production environment when New launches a different catalog s
         ->and($this->project->fresh()->environments()->count())->toBe($before + 1)
         ->and($newEnvironment)->not->toBeNull()
         ->and($newEnvironment->isProduction())->toBeTrue()
+        ->and($newEnvironment->name)->toBe('demo-worker')
         ->and((int) $newEnvironment->id)->not->toBe((int) $this->environment->id)
         ->and(Service::query()->where('environment_id', $this->environment->id)->where('service_type', 'demo-worker')->exists())->toBeFalse();
 
@@ -458,6 +483,8 @@ it('creates staging when New launches a second instance of the same catalog serv
 
     Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
         ->set('selectedService', 'demo-worker')
+        ->set('environmentRole', 'staging')
+        ->set('environmentName', 'cliente-b')
         ->set('serverId', (string) $this->server->id)
         ->call('launchService')
         ->assertRedirect();
@@ -468,7 +495,8 @@ it('creates staging when New launches a second instance of the same catalog serv
         ->first();
 
     expect($created)->not->toBeNull()
-        ->and($created->environment?->isStaging())->toBeTrue();
+        ->and($created->environment?->isStaging())->toBeTrue()
+        ->and($created->environment?->name)->toBe('cliente-b');
 
     Bus::assertNotDispatched(StartService::class);
 });

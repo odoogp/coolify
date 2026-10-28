@@ -33,6 +33,9 @@ trait LaunchesCatalogService
     /** production|staging — chosen on Project New (new environment). Index launches into the current environment. */
     public string $environmentRole = Environment::ROLE_PRODUCTION;
 
+    /** Display name for a New-environment catalog launch (Show). Unused when Index launches into the current env. */
+    public string $environmentName = '';
+
     public string $odooVersion = '';
 
     /** Version for non-Odoo catalog services that expose more than one option. */
@@ -125,6 +128,8 @@ trait LaunchesCatalogService
                 'environment_uuid' => $environment->uuid,
                 'service_uuid' => $service->uuid,
             ]);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

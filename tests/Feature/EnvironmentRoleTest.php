@@ -170,5 +170,6 @@ it('asks production or staging on project catalog new', function () {
 
     expect($html)->toContain(__('Environment type'))
         ->and($html)->toContain(__('Production'))
-        ->and($html)->toContain(__('Staging'));
+        ->and($html)->toContain(__('Staging'))
+        ->and($html)->toContain(__('Environment name'));
 });

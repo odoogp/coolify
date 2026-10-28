@@ -72,6 +72,11 @@
                                 @include('livewire.project.partials.catalog-environment-role-fields', [
                                     'environmentRoleOptions' => $environmentRoleOptions,
                                 ])
+                                <x-forms.input id="environmentName" label="{{ __('Environment name') }}"
+                                    placeholder="{{ __('e.g. main, cliente-a, staging-demo') }}" required />
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('This is the display name on the project list. It is not the GitHub branch.') }}
+                                </p>
                                 @include('livewire.project.partials.catalog-version-fields', [
                                     'selectedService' => $selectedService,
                                     'versionOptions' => $versionOptions,

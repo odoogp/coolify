@@ -160,13 +160,16 @@ class Project extends BaseModel
             ->values();
     }
 
-    public function createNextStagingEnvironment(): Environment
+    public function createNextStagingEnvironment(?string $preferredName = null): Environment
     {
         if (! OdooStaging::canCreateStagingEnvironment($this)) {
             throw new RuntimeException('Staging environment limit reached.');
         }
 
-        $name = OdooStaging::nextName($this);
+        $name = $this->uniqueEnvironmentName(
+            $preferredName,
+            fallback: OdooStaging::nextName($this),
+        );
 
         return Environment::create([
             'name' => $name,
@@ -196,15 +199,17 @@ class Project extends BaseModel
      * First environment for a distinct catalog service (production role).
      * Display name prefers the service slug when "production" is already taken.
      */
-    public function createNextProductionEnvironment(string $serviceType): Environment
+    public function createNextProductionEnvironment(string $serviceType, ?string $preferredName = null): Environment
     {
         $slug = str($serviceType)->slug('-')->toString() ?: 'service';
-        $name = $this->environments()->where('name', 'production')->exists() ? $slug : 'production';
+        $fallback = $this->environments()->where('name', 'production')->exists() ? $slug : 'production';
         $suffix = 2;
-        while ($this->environments()->where('name', $name)->exists()) {
-            $name = $slug.'-'.$suffix;
+        while ($this->environments()->where('name', $fallback)->exists()) {
+            $fallback = $slug.'-'.$suffix;
             $suffix++;
         }
+
+        $name = $this->uniqueEnvironmentName($preferredName, fallback: $fallback);
 
         return Environment::create([
             'name' => $name,
@@ -230,15 +235,16 @@ class Project extends BaseModel
     /**
      * New environment for a catalog Launch. Role is chosen by the user —
      * staging may exist before any production (independent branches).
+     * Optional $preferredName is the display name from Project → New.
      */
-    public function createCatalogLaunchEnvironment(string $role, string $serviceType = ''): Environment
+    public function createCatalogLaunchEnvironment(string $role, string $serviceType = '', ?string $preferredName = null): Environment
     {
         $role = $role === Environment::ROLE_STAGING
             ? Environment::ROLE_STAGING
             : Environment::ROLE_PRODUCTION;
 
         if ($role === Environment::ROLE_STAGING) {
-            return $this->createNextStagingEnvironment();
+            return $this->createNextStagingEnvironment($preferredName);
         }
 
         $this->loadMissing('environments');
@@ -247,10 +253,35 @@ class Project extends BaseModel
             ->sortBy('id')
             ->first();
         if ($emptyProduction instanceof Environment) {
-            return $emptyProduction;
+            $preferred = is_string($preferredName) ? trim($preferredName) : '';
+            if ($preferred !== '' && $preferred !== (string) $emptyProduction->name) {
+                if ($this->environments()->where('name', $preferred)->where('id', '!=', $emptyProduction->id)->exists()) {
+                    throw new RuntimeException(__('An environment named :name already exists on this project.', ['name' => $preferred]));
+                }
+                $emptyProduction->update(['name' => $preferred]);
+            }
+
+            return $emptyProduction->fresh() ?? $emptyProduction;
         }
 
-        return $this->createNextProductionEnvironment($serviceType !== '' ? $serviceType : 'service');
+        return $this->createNextProductionEnvironment($serviceType !== '' ? $serviceType : 'service', $preferredName);
+    }
+
+    /**
+     * Use the preferred display name when free; otherwise the auto fallback.
+     * A preferred name that collides raises — the Launch form must pick another.
+     */
+    private function uniqueEnvironmentName(?string $preferredName, string $fallback): string
+    {
+        $preferred = is_string($preferredName) ? trim($preferredName) : '';
+        if ($preferred === '') {
+            return $fallback;
+        }
+        if ($this->environments()->where('name', $preferred)->exists()) {
+            throw new RuntimeException(__('An environment named :name already exists on this project.', ['name' => $preferred]));
+        }
+
+        return $preferred;
     }
 
     /**

@@ -20,6 +20,7 @@ use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use Livewire\Component;
 use RuntimeException;
@@ -125,8 +126,21 @@ class Show extends Component
                 auth()->user()->can('update', $this->project),
                 $this->project->odooProfile()->exists(),
             );
+            $this->suggestCatalogEnvironmentName();
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        }
+    }
+
+    public function updatedEnvironmentRole(): void
+    {
+        $this->suggestCatalogEnvironmentName(overwriteBlankOnly: false);
+    }
+
+    public function updatedSelectedService(): void
+    {
+        if ($this->environmentRole === Environment::ROLE_PRODUCTION && trim($this->environmentName) === '') {
+            $this->suggestCatalogEnvironmentName();
         }
     }
 
@@ -143,11 +157,99 @@ class Show extends Component
         }
 
         $this->assertCatalogEnvironmentRole();
+        $name = $this->assertCatalogEnvironmentName();
 
         return $this->project->createCatalogLaunchEnvironment(
             $this->environmentRole,
             trim((string) $this->selectedService),
+            $name,
         );
+    }
+
+    /**
+     * Required on Project → New. Index launches into the current environment and ignores this.
+     */
+    protected function assertCatalogEnvironmentName(): string
+    {
+        $validator = validator(
+            ['environmentName' => $this->environmentName],
+            ['environmentName' => ValidationPatterns::nameRules()],
+            ValidationPatterns::combinedMessages(),
+        );
+        if ($validator->fails()) {
+            throw ValidationException::withMessages(
+                $validator->errors()->toArray()
+            );
+        }
+
+        $name = trim($this->environmentName);
+        $existing = $this->project->environments()->where('name', $name)->first();
+        if ($existing instanceof Environment) {
+            $reusingEmptyProduction = $this->environmentRole === Environment::ROLE_PRODUCTION
+                && $existing->isProduction()
+                && $existing->isEmpty();
+            if (! $reusingEmptyProduction) {
+                throw ValidationException::withMessages([
+                    'environmentName' => [__('An environment named :name already exists on this project.', ['name' => $name])],
+                ]);
+            }
+        }
+
+        return $name;
+    }
+
+    /**
+     * Prefill the New-modal display name. Role changes refresh the suggestion when
+     * the field is still blank or still matches the previous role default.
+     */
+    protected function suggestCatalogEnvironmentName(bool $overwriteBlankOnly = true): void
+    {
+        $current = trim($this->environmentName);
+        if ($overwriteBlankOnly && $current !== '') {
+            return;
+        }
+
+        $suggestion = $this->suggestedCatalogEnvironmentName();
+        if ($overwriteBlankOnly || $current === '' || $this->isAutoCatalogEnvironmentName($current)) {
+            $this->environmentName = $suggestion;
+        }
+    }
+
+    protected function suggestedCatalogEnvironmentName(): string
+    {
+        if ($this->environmentRole === Environment::ROLE_STAGING) {
+            return OdooStaging::nextName($this->project);
+        }
+
+        $this->project->loadMissing('environments');
+        $emptyProduction = $this->project->environments
+            ->filter(fn (Environment $environment): bool => $environment->isProduction() && $environment->isEmpty())
+            ->sortBy('id')
+            ->first();
+        if ($emptyProduction instanceof Environment) {
+            return (string) $emptyProduction->name;
+        }
+
+        $slug = str(trim((string) $this->selectedService))->slug('-')->toString() ?: 'service';
+        $fallback = $this->project->environments()->where('name', 'production')->exists() ? $slug : 'production';
+        $suffix = 2;
+        while ($this->project->environments()->where('name', $fallback)->exists()) {
+            $fallback = $slug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $fallback;
+    }
+
+    protected function isAutoCatalogEnvironmentName(string $name): bool
+    {
+        if ($name === 'production' || str_starts_with($name, 'staging')) {
+            return true;
+        }
+
+        $slug = str(trim((string) $this->selectedService))->slug('-')->toString();
+
+        return $slug !== '' && ($name === $slug || str_starts_with($name, $slug.'-'));
     }
 
     public function submit()
