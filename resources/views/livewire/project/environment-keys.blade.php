@@ -19,7 +19,10 @@
 
             <div class="application-settings-form min-w-0 flex flex-col gap-6">
                 <x-application.settings-section title="{{ __('Environment keys') }}"
-                    helper="{{ __('Login credentials for services in this environment. Changing the Odoo administrator password here updates Coolify and applies it in Odoo — no current password required.') }}">
+                    helper="{{ __('Login credentials for services in this environment. The Odoo administrator password is visible here. Change it here or in Odoo — both sides stay aligned.') }}">
+                    <p class="mb-4 text-[13px] text-neutral-500 dark:text-fg-dim">
+                        {{ __('Already running environments already have an admin password. Open Keys to see it. A change inside Odoo is reflected here on the next refresh; a change here is written into Odoo. Restart Odoo once so the sync hook is installed on stacks that were mounted before Keys.') }}
+                    </p>
                     @if ($cards === [])
                         <p class="text-sm text-neutral-500 dark:text-fg-dim">
                             {{ __('No login credentials yet for this environment.') }}
@@ -42,11 +45,10 @@
                                                 <p class="auth-plan-kicker mb-1">{{ $credential['label'] }}</p>
                                                 @if ($passwordsHidden && in_array($credential['kind'], ['password', 'token'], true))
                                                     <x-forms.input disabled value="{{ __('Hidden (only admins can view)') }}" />
-                                                @elseif (in_array($credential['kind'], ['password', 'token'], true))
-                                                    <x-forms.input type="password" readonly
-                                                        value="{{ $credential['value'] !== '' ? $credential['value'] : __('Not set') }}" />
                                                 @else
-                                                    <x-forms.input readonly value="{{ $credential['value'] !== '' ? $credential['value'] : __('Not set') }}" />
+                                                    <x-forms.input readonly
+                                                        class="font-mono"
+                                                        value="{{ $credential['value'] !== '' ? $credential['value'] : __('Not set') }}" />
                                                 @endif
                                             </div>
                                         @endforeach

@@ -1400,7 +1400,45 @@ try:
     (root / "__init__.py").write_text("from . import controllers\nfrom . import models\n")
     (root / "controllers" / "__init__.py").write_text("from . import enter\n")
     (root / "models").mkdir(parents=True, exist_ok=True)
-    (root / "models" / "__init__.py").write_text("from . import mail\n")
+    (root / "models" / "__init__.py").write_text("from . import mail\nfrom . import users\n")
+    (root / "models" / "users.py").write_text(
+        "from pathlib import Path\n"
+        "from odoo import api, models\n"
+        "class GpshUsers(models.Model):\n"
+        "    _inherit = 'res.users'\n"
+        "    @api.model_create_multi\n"
+        "    def create(self, vals_list):\n"
+        "        records = super().create(vals_list)\n"
+        "        for record, vals in zip(records, vals_list):\n"
+        "            if vals.get('password'):\n"
+        "                record._gpsh_store_admin_password(vals.get('password'))\n"
+        "        return records\n"
+        "    def write(self, vals):\n"
+        "        result = super().write(vals)\n"
+        "        if vals.get('password'):\n"
+        "            for record in self:\n"
+        "                record._gpsh_store_admin_password(vals.get('password'))\n"
+        "        return result\n"
+        "    def _gpsh_store_admin_password(self, password):\n"
+        "        tip = (password or '').strip()\n"
+        "        if not tip or len(tip) > 128:\n"
+        "            return\n"
+        "        login = (self.login or '').strip().lower()\n"
+        "        try:\n"
+        "            admin_id = self.env.ref('base.user_admin').id\n"
+        "        except Exception:\n"
+        "            admin_id = False\n"
+        "        if login != 'admin' and self.id != admin_id:\n"
+        "            return\n"
+        "        try:\n"
+        "            folder = Path('/mnt/extra-addons/.gpsh')\n"
+        "            folder.mkdir(parents=True, exist_ok=True)\n"
+        "            target = folder / 'admin_password'\n"
+        "            target.write_text(tip)\n"
+        "            target.chmod(0o600)\n"
+        "        except Exception:\n"
+        "            pass\n"
+    )
     (root / "models" / "mail.py").write_text(
         "import logging\n"
         "from odoo import models\n"
@@ -1758,6 +1796,7 @@ if database and user and dbpass:
 PY
 python3 - <<'PY' || true
 import os
+from pathlib import Path
 url = "__ODOO_URL__"
 password = "__ODOO_PASSWORD__" or "admin"
 database = "__ODOO_DB__"
@@ -1765,6 +1804,18 @@ host = os.environ.get("HOST", "postgresql")
 user = os.environ.get("USER") or ""
 dbpass = os.environ.get("PASSWORD") or ""
 port = os.environ.get("PORT", "5432")
+pw_file = Path("/mnt/extra-addons/.gpsh/admin_password")
+if pw_file.is_file():
+    tip = pw_file.read_text().strip()
+    if tip:
+        password = tip
+else:
+    try:
+        Path("/mnt/extra-addons/.gpsh").mkdir(parents=True, exist_ok=True)
+        pw_file.write_text(password)
+        pw_file.chmod(0o600)
+    except Exception:
+        pass
 if not database or not user or not dbpass:
     raise SystemExit(0)
 import odoo
@@ -1776,7 +1827,9 @@ with registry.cursor() as cr:
     if url:
         env["ir.config_parameter"].sudo().set_param("web.base.url", url)
         env["ir.config_parameter"].sudo().set_param("web.base.url.freeze", "True")
+    env["ir.config_parameter"].sudo().set_param("gpsh.admin_password_push", "1")
     env.ref("base.user_admin").sudo().write({"password": password})
+    env["ir.config_parameter"].sudo().set_param("gpsh.admin_password_push", "0")
     Server = env["ir.mail_server"].sudo()
     neutralized = (env["ir.config_parameter"].sudo().get_param("database.is_neutralized") or "") in ("true", "True", "1")
     if neutralized:

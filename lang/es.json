@@ -5117,7 +5117,6 @@
     "Environment runtime saved. The next start applies the workers and the address.": "Configuración del entorno guardada. El próximo arranque aplica los workers y la dirección.",
     "Keys": "Claves",
     "Environment keys": "Claves del ambiente",
-    "Login credentials for services in this environment. Changing the Odoo administrator password here updates Coolify and applies it in Odoo — no current password required.": "Credenciales de acceso de los servicios de este entorno. Cambiar aquí la contraseña del administrador de Odoo actualiza Coolify y la aplica en Odoo, sin pedir la contraseña actual.",
     "No login credentials yet for this environment.": "Todavía no hay credenciales de acceso en este entorno.",
     "Odoo administrator": "Administrador de Odoo",
     "Set a new administrator password. Coolify stores it and writes it into Odoo for login admin.": "Define una contraseña nueva de administrador. Coolify la guarda y la escribe en Odoo para el usuario admin.",
@@ -5127,5 +5126,7 @@
     "No Odoo service in this environment.": "No hay un servicio Odoo en este entorno.",
     "The password confirmation does not match.": "La confirmación de la contraseña no coincide.",
     "Not set": "Sin definir",
-    "Choose an administrator password between 8 and 128 characters.": "Elige una contraseña de administrador de entre 8 y 128 caracteres."
+    "Choose an administrator password between 8 and 128 characters.": "Elige una contraseña de administrador de entre 8 y 128 caracteres.",
+    "Login credentials for services in this environment. The Odoo administrator password is visible here. Change it here or in Odoo — both sides stay aligned.": "Credenciales de acceso de los servicios de este entorno. Aquí se ve la contraseña del administrador de Odoo. Cámbiala aquí o en Odoo: ambos lados se mantienen alineados.",
+    "Already running environments already have an admin password. Open Keys to see it. A change inside Odoo is reflected here on the next refresh; a change here is written into Odoo. Restart Odoo once so the sync hook is installed on stacks that were mounted before Keys.": "Los entornos que ya están en marcha ya tienen contraseña de administrador. Ábrela en Claves para verla. Un cambio dentro de Odoo se refleja aquí al refrescar; un cambio aquí se escribe en Odoo. Reinicia Odoo una vez para instalar el enganche de sincronización en stacks montados antes de Claves."
 }

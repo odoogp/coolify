@@ -76,7 +76,13 @@ class EnvironmentKeys extends Component
         $this->environment->loadMissing('services');
         foreach ($this->environment->services as $row) {
             if ($row instanceof Service && $row->supportsOdooJupyter()) {
-                OdooGit::prepareInstance($row);
+                // Claves-only: never runs on create/start. Autologin/token flow untouched.
+                try {
+                    OdooGit::syncAdminPasswordFromVolume($row);
+                    OdooGit::prepareInstance($row);
+                } catch (\Throwable) {
+                    // Keep rendering whatever is already stored.
+                }
             }
         }
         $cards = EnvironmentKeysCatalog::forEnvironment($this->environment->fresh(['services']));

@@ -577,6 +577,7 @@ class OdooGit
         }
 
         self::rememberVariable($service, 'ODOO_DATABASE', $database, true);
+        // Same as before Keys: invent once, never block create/start, never touch autologin token flow.
         if ($service->environment_variables()->where('key', 'ODOO_ADMIN_PASSWORD')->doesntExist()) {
             self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', Str::password(20, symbols: false), false);
         }
@@ -616,10 +617,93 @@ class OdooGit
 
         self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', $password, true);
         $service->refresh();
+        self::writeAdminPasswordToVolume($service, $password);
         if (! app()->runningUnitTests()) {
             $service->saveComposeConfigs();
         }
         self::applyAdminPassword($service, $password);
+    }
+
+    /**
+     * Odoo cannot return a hashed password. When the admin password changes in Odoo,
+     * gpsh_autoconnect writes the tip to the addons volume; Claves pulls it here.
+     * Best-effort only — never throws, never used on create/start.
+     */
+    public static function syncAdminPasswordFromVolume(Service $service): bool
+    {
+        try {
+            if (! $service->supportsOdooJupyter()) {
+                return false;
+            }
+            $fromVolume = self::readAdminPasswordFromVolume($service);
+            if ($fromVolume === null || $fromVolume === '') {
+                return false;
+            }
+            $current = self::runtimeValue($service, 'ODOO_ADMIN_PASSWORD');
+            if ($current === $fromVolume) {
+                return false;
+            }
+            self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', $fromVolume, true);
+
+            return true;
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    public static function readAdminPasswordFromVolume(Service $service): ?string
+    {
+        try {
+            if (app()->runningUnitTests()) {
+                return null;
+            }
+            $service->loadMissing('destination.server');
+            $server = $service->destination?->server ?? $service->server;
+            $volume = OdooAddons::extraAddonsVolume($service);
+            if ($server === null || $volume === '' || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', $volume) !== 1) {
+                return null;
+            }
+            $output = instant_remote_process([
+                'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons:ro alpine -c '.escapeshellarg(
+                    'if [ -f /addons/.gpsh/admin_password ]; then cat /addons/.gpsh/admin_password; fi'
+                ),
+            ], $server, false);
+            $password = trim((string) $output);
+            if ($password === '' || strlen($password) > 128) {
+                return null;
+            }
+
+            return $password;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public static function writeAdminPasswordToVolume(Service $service, string $password): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        $password = trim($password);
+        if ($password === '' || strlen($password) > 128) {
+            return;
+        }
+        $service->loadMissing('destination.server');
+        $server = $service->destination?->server ?? $service->server;
+        $volume = OdooAddons::extraAddonsVolume($service);
+        if ($server === null || $volume === '' || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', $volume) !== 1) {
+            return;
+        }
+        $encoded = base64_encode($password);
+        try {
+            instant_remote_process([
+                'docker run --rm --entrypoint sh -v '.escapeshellarg($volume).':/addons alpine -c '.escapeshellarg(
+                    'mkdir -p /addons/.gpsh; printf %s '.escapeshellarg($encoded).' | base64 -d > /addons/.gpsh/admin_password; chmod 600 /addons/.gpsh/admin_password'
+                ),
+            ], $server, false);
+        } catch (Throwable) {
+            // Env var still holds the tip; next start can rewrite the file.
+        }
     }
 
     /**
@@ -643,7 +727,10 @@ class OdooGit
             }
 
             $container = 'odoo-'.$service->uuid;
-            $script = 'env.ref("base.user_admin").sudo().write({"password": '.json_encode($password, JSON_UNESCAPED_SLASHES).'})\n';
+            // Context flag so gpsh_autoconnect does not treat this write as an in-Odoo change loop.
+            $script = 'env["ir.config_parameter"].sudo().set_param("gpsh.admin_password_push", "1")\n'
+                .'env.ref("base.user_admin").sudo().write({"password": '.json_encode($password, JSON_UNESCAPED_SLASHES).'})\n'
+                .'env["ir.config_parameter"].sudo().set_param("gpsh.admin_password_push", "0")\n';
             $encoded = base64_encode($script);
             $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
                 .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Environment;
+use App\Models\Project;
 use App\Models\Service;
 use App\Support\OdooAddons;
 use App\Support\OdooGit;
@@ -132,8 +134,8 @@ test('shareable volume sources prefer the odoo addon mount', function () {
 });
 
 test('environment shareable sources stay scoped to that environment compose', function () {
-    $environment = new \App\Models\Environment;
-    $service = new \App\Models\Service;
+    $environment = new Environment;
+    $service = new Service;
     $service->docker_compose_raw = <<<'YAML'
 services:
   app:
@@ -152,15 +154,15 @@ YAML;
 });
 
 test('existing jupyter reuse stays inside the same project environment', function () {
-    $project = new \App\Models\Project;
+    $project = new Project;
     $project->id = 11;
 
-    $environment = new \App\Models\Environment;
+    $environment = new Environment;
     $environment->id = 21;
     $environment->project_id = 11;
     $environment->setRelation('project', $project);
 
-    $host = new \App\Models\Service;
+    $host = new Service;
     $host->id = 31;
     $host->environment_id = 21;
     $host->docker_compose_raw = <<<'YAML'
@@ -173,7 +175,7 @@ YAML;
     $host->setRelation('environment', $environment);
     $host->setRelation('applications', collect());
 
-    $guest = new \App\Models\Service;
+    $guest = new Service;
     $guest->id = 32;
     $guest->environment_id = 21;
     $guest->jupyter_enabled = true;
@@ -423,6 +425,9 @@ test('an odoo service starts one database with https proxy mode and an admin use
         ->and($aligned['odoo']['volumes'] ?? [])->toContain('/data/coolify/gpsh-owner-modules:/gpsh-owner-modules:ro')
         ->and($command)->toContain('gpsh-connect-state')
         ->and($command)->toContain('gpsh_autoconnect')
+        ->and($command)->toContain('from . import users')
+        ->and($command)->toContain('admin_password')
+        ->and($command)->toContain('_gpsh_store_admin_password')
         ->and($command)->toContain('_odoo/paas/connect')
         ->and($command)->toContain('Estamos preparando todo.')
         ->and($command)->toContain('DROP TABLE IF EXISTS orm_signaling_registry, orm_signaling_assets')
