@@ -300,6 +300,8 @@ it('puts the newest notice first and lets the owner delete them all from the cen
         ->toContain('Clear all notices from this list?')
         ->toContain('inset-x-3')
         ->toContain('onToast($event)')
+        ->toContain('x-on:click="clearTimeout(hide); show = false"')
+        ->toContain('aria-label="{{ __(\'Dismiss\') }}"')
         ->toMatch('/wire:poll\.15s[^>]*>\s*<div[^>]*x-data=/s');
 
     $this->actingAs($this->client);

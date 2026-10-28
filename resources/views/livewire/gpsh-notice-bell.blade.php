@@ -83,7 +83,13 @@
             <template x-teleport="#gpsh-activity-stack">
                 {{-- order-first + flex-col-reverse → toast sits above the updates pill --}}
                 <div x-cloak x-show="show" x-transition.opacity.duration.200ms
-                    class="pointer-events-auto order-first w-full rounded-lg border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/[0.08] dark:bg-panel">
+                    class="pointer-events-auto relative order-first w-full rounded-lg border border-neutral-200 bg-white p-3 pr-10 shadow-lg dark:border-white/[0.08] dark:bg-panel">
+                    <button type="button"
+                        class="absolute right-2.5 top-2.5 flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-700 dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                        x-on:click="clearTimeout(hide); show = false"
+                        aria-label="{{ __('Dismiss') }}">
+                        <x-reicon name="x" class="size-3.5" />
+                    </button>
                     <p class="break-words text-sm font-medium text-black dark:text-white" x-text="title"></p>
                     <p class="mt-1 break-words text-sm text-neutral-600 dark:text-fg-dim" x-text="body"></p>
                 </div>
