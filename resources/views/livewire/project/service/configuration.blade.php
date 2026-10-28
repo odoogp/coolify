@@ -266,26 +266,27 @@
                                             {{ __('This environment installs Odoo :version. Launch another environment from the project if you need a different Compose.', ['version' => $service->environment?->odooBranch?->odoo_version ?: $project->odooProfile->odoo_version]) }}
                                         </p>
                                     @endif
-                                    @unless ($associatingWithoutGithub && ! $odooGithubIsPersonal)
-                                    <div class="flex flex-wrap gap-4 text-sm">
-                                        @unless ($odooGithubIsPersonal)
-                                        <label class="inline-flex items-center gap-2">
-                                            <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
-                                            {{ __('Launch production on a new repository') }}
-                                        </label>
-                                        @endunless
-                                        <label class="inline-flex items-center gap-2">
-                                            <input type="radio" wire:model.live="odooRepoMode" value="existing" class="rounded-full">
-                                            {{ __('Use an existing repository') }}
-                                        </label>
-                                    </div>
-                                    @endunless
-                                    @if ($odooGithubIsPersonal)
-                                        <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-                                            {{ __('GitHub Apps cannot create repositories on a personal account — Administration write is not enough. Install the App on a GitHub Organization (auto-create works there), or create the repository yourself and choose an existing one on launch.') }}
-                                        </p>
+                                    @php
+                                        // Create is a separate path (org + no project repo yet). Personal / already-linked → existing only.
+                                        $canCreateOdooRepository = ! $odooGithubIsPersonal && blank($project->odooProfile?->git_repository);
+                                        $showCreateOdooRepository = $canCreateOdooRepository && $odooRepoMode === 'new';
+                                        $takenGithubBranches = $this->takenOdooGithubBranches();
+                                    @endphp
+                                    @if ($canCreateOdooRepository)
+                                        <div class="flex flex-wrap gap-4 text-sm">
+                                            <label class="inline-flex items-center gap-2">
+                                                <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
+                                                {{ __('Create a new repository') }}
+                                            </label>
+                                            <label class="inline-flex items-center gap-2">
+                                                <input type="radio" wire:model.live="odooRepoMode" value="existing" class="rounded-full">
+                                                {{ __('Use an existing repository') }}
+                                            </label>
+                                        </div>
+                                    @else
+                                        <p class="text-[13px] font-medium">{{ __('Associate an existing repository') }}</p>
                                     @endif
-                                    @if ($odooRepoMode === 'new' && ! $odooGithubIsPersonal)
+                                    @if ($showCreateOdooRepository)
                                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
                                             @if ($environment->isProduction())
                                                 {{ __('The new repository is named :name. This environment tracks its default branch.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
@@ -332,10 +333,18 @@
                                                 <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
                                                     searchPlaceholder="{{ __('Search branches') }}"
                                                     emptyText="{{ __('No matching branch') }}"
-                                                    :options="collect($odooGithubBranches)->map(fn (string $branch): array => ['value' => $branch, 'label' => $branch])->all()" />
-                                                @if (filled($environment->odooBranch?->git_branch) && ! in_array((string) $environment->odooBranch->git_branch, $odooGithubBranches, true))
+                                                    :options="collect($odooGithubBranches)->map(function (string $branch) use ($takenGithubBranches): array {
+                                                        $taken = in_array($branch, $takenGithubBranches, true);
+
+                                                        return [
+                                                            'value' => $branch,
+                                                            'label' => $taken ? $branch.' ('.__('in use').')' : $branch,
+                                                            'disabled' => $taken,
+                                                        ];
+                                                    })->all()" />
+                                                @if ($takenGithubBranches !== [])
                                                     <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                                        {{ __('The branch :branch is not on this repository. Choose another branch.', ['branch' => $environment->odooBranch->git_branch]) }}
+                                                        {{ __('Each environment needs its own GitHub branch. Branches already used on this project are marked in use.') }}
                                                     </p>
                                                 @endif
                                             @endif
@@ -343,7 +352,7 @@
                                     @endif
                                     @if ($associateError)
                                         <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100">
-                                            <p>{{ $associateError }}</p>
+                                            <p>{{ __($associateError) }}</p>
                                             <button type="button" class="mt-2 text-[12px] underline" wire:click="dismissAssociateError">
                                                 {{ __('Dismiss') }}
                                             </button>
@@ -352,9 +361,9 @@
                                     <div class="flex flex-wrap items-center gap-3"
                                         @if ($associateRunning) wire:poll.2s="refreshAssociateProgress" @endif>
                                         <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted
-                                            :disabled="$associateRunning || ($odooRepoMode === 'new' && $odooGithubIsPersonal)">
-                                            {{ $odooRepoMode === 'new' && ! $odooGithubIsPersonal
-                                                ? ($associatingWithoutGithub ? __('Create repository') : __('Launch production'))
+                                            :disabled="$associateRunning || ($showCreateOdooRepository && $odooGithubIsPersonal)">
+                                            {{ $showCreateOdooRepository
+                                                ? ($associatingWithoutGithub ? __('Create repository') : __('Create repository and launch'))
                                                 : __('Associate repository') }}
                                         </x-forms.button>
                                         @unless ($associatingWithoutGithub || ($needsEnvironmentGithubLink && filled($project->odooProfile?->git_repository)))
@@ -365,13 +374,11 @@
                                         @if ($associateRunning)
                                             <p class="inline-flex items-center gap-1.5 text-[13px]">
                                                 <span class="size-1.5 animate-pulse rounded-full bg-sky-500"></span>
-                                                {{ __('Creating the repository…') }}
+                                                {{ $showCreateOdooRepository ? __('Creating the repository…') : __('Linking repository…') }}
                                             </p>
                                         @else
                                             <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
-                                                {{ $needsEnvironmentGithubLink && ! $awaitingRepositoryChoice && ! $associatingWithoutGithub
-                                                    ? __('Linking repository…')
-                                                    : ($odooRepoMode === 'new' && ! $odooGithubIsPersonal ? __('Creating the repository…') : __('Starting Odoo.')) }}
+                                                {{ $showCreateOdooRepository ? __('Creating the repository…') : __('Linking repository…') }}
                                             </p>
                                         @endif
                                     </div>

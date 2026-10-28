@@ -1275,8 +1275,11 @@ it('shows the repository choice on the odoo service page', function () {
     $view = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
 
     expect($view)
-        ->toContain('Launch production on a new repository')
+        ->toContain('Create a new repository')
         ->toContain('Use an existing repository')
+        ->toContain('Associate an existing repository')
+        ->toContain('canCreateOdooRepository')
+        ->toContain('showCreateOdooRepository')
         ->toContain('associateOdooRepository')
         ->toContain('launchWithoutGithub')
         ->toContain('Open on GitHub')
@@ -1286,6 +1289,7 @@ it('shows the repository choice on the odoo service page', function () {
         ->toContain('odooAccountChanged')
         ->toContain('odooRepositoryQuery')
         ->toContain('reloadOdooRepositories')
+        ->toContain('takenOdooGithubBranches')
         ->not->toContain('Change repository')
         ->not->toContain('beginChangeOdooRepository')
         ->not->toContain('Load repositories')

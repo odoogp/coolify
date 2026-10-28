@@ -7,6 +7,7 @@ use App\Jobs\AssociateOdooGithubRepositoryJob;
 use App\Jobs\LaunchOdooProjectJob;
 use App\Jobs\SyncOdooAddonsJob;
 use App\Models\GithubApp;
+use App\Models\OdooEnvironmentBranch;
 use App\Models\Service;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -452,11 +453,11 @@ class Configuration extends Component
             $this->environment->loadMissing('odooBranch');
             $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
             $stored = (string) ($this->environment->odooBranch?->git_branch ?? '');
-            $this->odooBranch = in_array($stored, $this->odooGithubBranches, true)
-                ? $stored
-                : (in_array($repository['default_branch'], $this->odooGithubBranches, true)
-                    ? $repository['default_branch']
-                    : (string) ($this->odooGithubBranches[0] ?? ''));
+            $this->odooBranch = $this->preferAvailableOdooBranch(
+                $stored,
+                (string) ($repository['default_branch'] ?? ''),
+                $this->odooGithubBranches,
+            );
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
@@ -660,11 +661,14 @@ class Configuration extends Component
             $repository = $this->selectedOdooRepository();
             $branch = trim($this->odooBranch);
             $branches = $this->odooGithubBranches;
+            if ($branch === '') {
+                throw new InvalidArgumentException('Choose a GitHub branch for this environment.');
+            }
             if ($branches !== [] && ! in_array($branch, $branches, true)) {
                 throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
             }
-            if ($branch === '') {
-                throw new InvalidArgumentException('Choose a GitHub branch for this environment.');
+            if (in_array($branch, $this->takenOdooGithubBranches(), true)) {
+                throw new InvalidArgumentException('Each environment needs its own GitHub branch.');
             }
 
             // Attach + optional launch must run in a job — GitHub / CSRF “Page expired”.
@@ -889,6 +893,54 @@ class Configuration extends Component
         }
 
         return $app;
+    }
+
+    /**
+     * Branches already linked on other environments of this project.
+     *
+     * @return list<string>
+     */
+    public function takenOdooGithubBranches(): array
+    {
+        $this->project->loadMissing('environments');
+        $environmentIds = $this->project->environments
+            ->pluck('id')
+            ->filter(fn ($id): bool => (int) $id !== (int) $this->environment->id)
+            ->values()
+            ->all();
+
+        if ($environmentIds === []) {
+            return [];
+        }
+
+        return OdooEnvironmentBranch::query()
+            ->whereIn('environment_id', $environmentIds)
+            ->whereNotNull('git_branch')
+            ->where('git_branch', '!=', '')
+            ->pluck('git_branch')
+            ->map(fn ($branch): string => (string) $branch)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<string>  $branches
+     */
+    private function preferAvailableOdooBranch(string $preferred, string $default, array $branches): string
+    {
+        $taken = $this->takenOdooGithubBranches();
+        foreach ([$preferred, $default, ...$branches] as $candidate) {
+            $candidate = trim((string) $candidate);
+            if ($candidate === '' || ! in_array($candidate, $branches, true)) {
+                continue;
+            }
+            if (! in_array($candidate, $taken, true)) {
+                return $candidate;
+            }
+        }
+
+        return (string) ($branches[0] ?? '');
     }
 
     /**
