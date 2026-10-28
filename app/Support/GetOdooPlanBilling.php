@@ -125,6 +125,91 @@ class GetOdooPlanBilling
         );
     }
 
+    /**
+     * Persist the first plan purchase as a paid invoice line (signup settles without a plan order).
+     * Idempotent — safe to call from settlement and from the client Billing screen (backfill).
+     */
+    public static function ensureSignupOrderRecorded(Team $team): void
+    {
+        if (! $team->isGetOdooPlanTeam() || $team->getodoo_plan_id === null) {
+            return;
+        }
+
+        if (GetOdooPlanOrder::query()->where('team_id', $team->id)->where('purpose', 'signup')->exists()) {
+            return;
+        }
+
+        $memberIds = $team->members()->pluck('users.id');
+        if ($memberIds->isEmpty()) {
+            return;
+        }
+
+        $ownerIds = $team->members()->wherePivot('role', 'owner')->pluck('users.id');
+
+        $signup = null;
+        if ($ownerIds->isNotEmpty()) {
+            $signup = GetOdooPlanSignup::query()
+                ->where('status', 'paid')
+                ->where('plan_id', $team->getodoo_plan_id)
+                ->whereIn('user_id', $ownerIds)
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $signup instanceof GetOdooPlanSignup) {
+            $signup = GetOdooPlanSignup::query()
+                ->where('status', 'paid')
+                ->where('plan_id', $team->getodoo_plan_id)
+                ->whereIn('user_id', $memberIds)
+                ->latest('id')
+                ->first();
+        }
+
+        if (! $signup instanceof GetOdooPlanSignup) {
+            return;
+        }
+
+        self::recordPaidSignupOrder($team, $signup);
+    }
+
+    public static function recordPaidSignupOrder(Team $team, GetOdooPlanSignup $signup): GetOdooPlanOrder
+    {
+        $existing = GetOdooPlanOrder::query()
+            ->where('team_id', $team->id)
+            ->where('purpose', 'signup')
+            ->first();
+
+        if ($existing instanceof GetOdooPlanOrder) {
+            return $existing;
+        }
+
+        $order = GetOdooPlanOrder::query()->create([
+            'team_id' => $team->id,
+            'user_id' => $signup->user_id,
+            'plan_id' => $signup->plan_id,
+            'amount' => $signup->amount,
+            'status' => 'paid',
+            'purpose' => 'signup',
+            'payment_gateway' => $signup->payment_gateway,
+            'charge_mode' => $signup->charge_mode ?: GetOdooPlan::CHARGE_ONCE,
+            'n1co_plan_id' => $signup->n1co_plan_id,
+            'n1co_subscription_id' => $signup->n1co_subscription_id,
+            'n1co_subscription_status' => $signup->n1co_subscription_status,
+            'wompi_link_id' => $signup->wompi_link_id,
+            'wompi_transaction_id' => $signup->wompi_transaction_id,
+        ]);
+
+        $paidAt = $signup->updated_at ?? $signup->created_at;
+        if ($paidAt !== null) {
+            $order->forceFill([
+                'created_at' => $paidAt,
+                'updated_at' => $paidAt,
+            ])->saveQuietly();
+        }
+
+        return $order->fresh() ?? $order;
+    }
+
     public static function syncSubscriptionFromOrder(Team $team, GetOdooPlanOrder $order): void
     {
         self::syncSubscriptionIds(

@@ -81,5 +81,6 @@ class SettleGetOdooPlanSignup
 
         GetOdooPlanBilling::stampPreference($team, $plan, forceInitial: true);
         GetOdooPlanBilling::syncSubscriptionFromSignup($team, $signup);
+        GetOdooPlanBilling::recordPaidSignupOrder($team, $signup);
     }
 }

@@ -4520,7 +4520,7 @@ input[type="search"]::-webkit-search-results-decoration {
 
 .getodoo-plan-billing-table-grid {
     grid-template-columns: 8.5rem minmax(12rem, 1.6fr) 6.5rem minmax(8rem, 1fr) max-content;
-    min-width: 42rem;
+    min-width: 48rem;
 }
 
 .getodoo-owner-billing-orgs-grid {

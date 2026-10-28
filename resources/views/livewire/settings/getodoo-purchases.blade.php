@@ -430,7 +430,8 @@
                             <label class="flex flex-col gap-1 text-sm">
                                 <span>{{ __('Description') }}</span>
                                 <input id="invoiceDescription" type="text" maxlength="255" wire:model="invoiceDescription"
-                                    placeholder="{{ __('Optional — shown on the invoice') }}"
+                                    @if ($invoiceKind === 'once' || $invoiceChargeNow) required @endif
+                                    placeholder="{{ __('Shown on the client invoice') }}"
                                     class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
                                 @error('invoiceDescription')
                                     <span class="text-sm text-red-500">{{ $message }}</span>

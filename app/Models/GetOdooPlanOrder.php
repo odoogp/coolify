@@ -75,10 +75,16 @@ class GetOdooPlanOrder extends BaseModel
     }
 
     /**
-     * Client-facing line: which plan was charged and why (signup vs renewal).
+     * Client-facing line: owner description when set; otherwise plan · purpose.
      */
     public function lineLabel(): string
     {
+        $description = trim((string) ($this->description ?: ''));
+        if ($description !== '') {
+            // Owner-assigned invoices: show only what they wrote (not "Plan renewal").
+            return $description;
+        }
+
         $this->loadMissing('plan');
         $planName = trim((string) ($this->plan?->name ?: ''));
         if ($planName === '') {
@@ -89,14 +95,20 @@ class GetOdooPlanOrder extends BaseModel
             'signup' => __('Plan signup'),
             'renewal' => __('Plan renewal'),
             'extra' => __('Plan add-on'),
-            default => filled($this->description) ? (string) $this->description : __('Plan charge'),
+            default => __('Plan charge'),
         };
 
-        if (filled($this->description) && ! in_array((string) $this->purpose, ['signup', 'renewal'], true)) {
-            return $planName.' · '.(string) $this->description;
-        }
-
         return $planName.' · '.$purpose;
+    }
+
+    public function isPayable(): bool
+    {
+        return in_array($this->status, ['awaiting_payment', 'failed'], true);
+    }
+
+    public function isOneTimeCharge(): bool
+    {
+        return ($this->charge_mode ?: GetOdooPlan::CHARGE_ONCE) === GetOdooPlan::CHARGE_ONCE;
     }
 
     public function chargeModeLabel(): ?string

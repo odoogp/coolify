@@ -30,31 +30,36 @@
                 $planDueSoon = $planTeam->getodoo_plan_paid_until
                     && ! $planOverdue
                     && $planTeam->getodoo_plan_paid_until->copy()->startOfDay()->lte(now()->startOfDay()->addDays(7));
-                $planPending = $planOrders->first(fn ($order) => $order->purpose === 'renewal'
-                    && $order->status === 'awaiting_payment'
-                    && filled($order->wompi_link_url));
-                $planNeedsPayment = $planPending || $planOverdue || $planDueSoon;
+                $planPayableOrders = $planOrders->filter(fn ($order) => $order->isPayable());
+                $planHasPayable = $planPayableOrders->isNotEmpty();
+                // Header Pay only when due and no open invoice yet — open invoices are paid per row.
+                $planNeedsNewInvoice = ! $planHasPayable && ($planOverdue || $planDueSoon);
                 $planRecurring = $planTeam->prefersPlanRecurringBilling();
                 $planRecurringStarts = $planTeam->planRecurringBillingStartsAt();
+                $planHasOneTimeLine = $planOrders->contains(fn ($order) => $order->isOneTimeCharge());
+                // Newest once-mode line (orders are latest-first) carries Make recurring.
+                $planMakeRecurringOrderId = ! $planRecurring
+                    ? $planOrders->first(fn ($order) => $order->isOneTimeCharge())?->id
+                    : null;
             @endphp
             <x-application.settings-section :title="$plan?->name ?: __('Organization plan')" flush wire:key="getodoo-plan-subscription-{{ $planTeam->id }}-{{ $planTeam->getodoo_plan_billing_preference }}-{{ $planTeam->getodoo_plan_recurring_starts_at }}">
                 <x-slot:actions>
-                    @if ($planNeedsPayment)
+                    @if ($planNeedsNewInvoice)
                         <button type="button" class="button button-highlighted" wire:click="payPlan"
-                            wire:loading.attr="disabled" wire:target="payPlan,enablePlanRecurring,disablePlanRecurring">
-                            {{ $planPending ? __('Continue payment') : __('Pay') }}
+                            wire:loading.attr="disabled" wire:target="payPlan,payPlanOrder,enablePlanRecurring,disablePlanRecurring">
+                            {{ __('Pay') }}
                         </button>
                     @endif
                     @if ($planRecurring)
                         <button type="button" class="button" wire:click="disablePlanRecurring"
                             wire:confirm="{{ __('Turn off recurring billing? Future invoices will need a manual payment.') }}"
-                            wire:loading.attr="disabled" wire:target="enablePlanRecurring,disablePlanRecurring,payPlan">
+                            wire:loading.attr="disabled" wire:target="enablePlanRecurring,disablePlanRecurring,payPlan,payPlanOrder">
                             {{ __('Cancel recurring') }}
                         </button>
-                    @else
+                    @elseif (! $planHasOneTimeLine)
                         <button type="button" class="button" wire:click="enablePlanRecurring"
                             wire:confirm="{{ __('Turn on recurring for the next invoice? You will not be charged today.') }}"
-                            wire:loading.attr="disabled" wire:target="enablePlanRecurring,disablePlanRecurring,payPlan">
+                            wire:loading.attr="disabled" wire:target="enablePlanRecurring,disablePlanRecurring,payPlan,payPlanOrder">
                             {{ __('Make recurring') }}
                         </button>
                     @endif
@@ -80,7 +85,7 @@
 
                 @if ($planOrders->isEmpty())
                     <x-empty size="sm" title="{{ __('No purchases yet.') }}"
-                        description="{{ __('Plan renewals appear here.') }}" icon-name="calendar" />
+                        description="{{ __('Plan purchases and renewals appear here.') }}" icon-name="calendar" />
                 @else
                     <div class="overflow-x-auto">
                         <div class="data-table">
@@ -109,7 +114,21 @@
                                     <div>
                                         <x-status-badge :status="$order->statusLabel()" :type="$order->statusType()" />
                                     </div>
-                                    <div></div>
+                                    <div class="flex flex-wrap justify-end gap-2">
+                                        @if ($order->isPayable())
+                                            <button type="button" class="button button-highlighted" wire:click="payPlanOrder({{ $order->id }})"
+                                                wire:loading.attr="disabled" wire:target="payPlanOrder,payPlan,enablePlanRecurring,disablePlanRecurring">
+                                                {{ filled($order->wompi_link_url) ? __('Continue payment') : __('Pay') }}
+                                            </button>
+                                        @endif
+                                        @if ($planMakeRecurringOrderId === $order->id)
+                                            <button type="button" class="button" wire:click="enablePlanRecurring"
+                                                wire:confirm="{{ __('Turn on recurring for the next invoice? You will not be charged today.') }}"
+                                                wire:loading.attr="disabled" wire:target="enablePlanRecurring,disablePlanRecurring,payPlan,payPlanOrder">
+                                                {{ __('Make recurring') }}
+                                            </button>
+                                        @endif
+                                    </div>
                                 </div>
                             @endforeach
                         </div>

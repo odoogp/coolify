@@ -140,11 +140,14 @@ class GetOdooPurchases extends Component
     {
         abort_unless(isInstanceOwner(), 403);
 
+        $createsInvoiceToday = $this->invoiceKind === 'once' || $this->invoiceChargeNow;
+
         $this->validate([
             'invoiceTarget' => ['required', 'in:server,plan'],
             'invoiceKind' => ['required', 'in:once,recurring'],
             'invoiceAmount' => ['required', 'numeric', 'min:0.01', 'max:100000'],
-            'invoiceDescription' => ['nullable', 'string', 'max:255'],
+            // Client Billing shows this text on the invoice line — required whenever a charge is created.
+            'invoiceDescription' => [$createsInvoiceToday ? 'required' : 'nullable', 'string', 'max:255'],
             'invoiceChargeNow' => ['boolean'],
         ]);
 
@@ -531,15 +534,16 @@ class GetOdooPurchases extends Component
             'user_id' => auth()->id(),
             'plan_id' => $plan->id,
             'amount' => $amount,
-            'description' => $description !== '' ? $description : null,
+            'description' => $description,
             'status' => 'awaiting_payment',
-            'purpose' => 'renewal',
+            // Owner-created charges are not plan renewals — client Billing shows the description.
+            'purpose' => 'extra',
             'payment_gateway' => $checkout->provider(),
             'charge_mode' => GetOdooPlan::CHARGE_ONCE,
         ]);
 
         $this->attachPlanPaymentLink($order, $checkout);
-        $this->notifyClientInvoice($team->id, $description !== '' ? $description : $plan->name);
+        $this->notifyClientInvoice($team->id, $description);
         $this->dispatch('success', __('Invoice created. The client can pay it in Billing.'));
     }
 

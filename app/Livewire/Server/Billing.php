@@ -392,6 +392,54 @@ class Billing extends Component
         return $this->redirectToPlanPayment($order->fresh(), $link['url'], $chargeMode);
     }
 
+    /**
+     * Pay a specific plan invoice (row action). Avoids ambiguous header Pay when several are due.
+     */
+    public function payPlanOrder(int $orderId, GetOdooCheckout $checkout): mixed
+    {
+        abort_unless($this->canAccessBilling(), 403);
+
+        $team = currentTeam();
+        abort_unless($team instanceof Team && $team->isGetOdooPlanTeam(), 403);
+
+        $order = GetOdooPlanOrder::query()
+            ->where('team_id', $team->id)
+            ->findOrFail($orderId);
+
+        if (! $order->isPayable()) {
+            return $this->dispatch('error', __('The payment could not be started.'));
+        }
+
+        if ($checkout->provider() === null) {
+            return $this->dispatch('error', __('Wompi is not ready for charges.'));
+        }
+
+        if ($order->status === 'awaiting_payment' && filled($order->wompi_link_url) && ($order->payment_gateway ?: 'wompi') === $checkout->provider()) {
+            return $this->redirectToPlanPayment($order, (string) $order->wompi_link_url, (string) ($order->charge_mode ?: 'once'));
+        }
+
+        $order->forceFill(['uuid' => new_public_id(), 'payment_gateway' => $checkout->provider()])->save();
+
+        try {
+            $link = $checkout->linkForPlanOrder($order);
+        } catch (Throwable $exception) {
+            report($exception);
+
+            return $this->dispatch('error', __('The payment could not be started.'));
+        }
+
+        $chargeMode = $link['charge_mode'] ?? ($order->charge_mode ?: GetOdooPlanBilling::chargeModeForRenewal($team, $team->getodooPlan));
+        $order->update([
+            'status' => 'awaiting_payment',
+            'wompi_link_id' => $link['id'],
+            'wompi_link_url' => $link['url'],
+            'n1co_plan_id' => $link['plan_id'] ?? null,
+            'charge_mode' => $chargeMode,
+        ]);
+
+        return $this->redirectToPlanPayment($order->fresh(), $link['url'], $chargeMode);
+    }
+
     public function enablePlanRecurring(GetOdooCheckout $checkout): mixed
     {
         abort_unless($this->canAccessBilling(), 403);
@@ -483,9 +531,11 @@ class Billing extends Component
             ->latest('id')
             ->get();
 
-        $planOrders = $team instanceof Team && $team->isGetOdooPlanTeam()
-            ? GetOdooPlanOrder::query()->with('plan')->where('team_id', $team->id)->latest('id')->get()
-            : collect();
+        $planOrders = collect();
+        if ($team instanceof Team && $team->isGetOdooPlanTeam()) {
+            GetOdooPlanBilling::ensureSignupOrderRecorded($team);
+            $planOrders = GetOdooPlanOrder::query()->with('plan')->where('team_id', $team->id)->latest('id')->get();
+        }
 
         return view('livewire.server.billing', [
             'groups' => $this->subscriptionGroups($servers, $orders),
