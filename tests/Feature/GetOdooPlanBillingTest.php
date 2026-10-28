@@ -169,10 +169,65 @@ it('keeps plan make recurring charge-free while the period is still paid', funct
     session(['currentTeam' => $team]);
 
     Livewire::test(Billing::class)
-        ->assertSee(__('Organization plan'))
+        ->assertSee('Hibrido')
+        ->assertSee(__('Make recurring'))
         ->call('enablePlanRecurring')
-        ->assertDispatched('success');
+        ->assertDispatched('success')
+        ->assertSee(__('Cancel recurring'))
+        ->assertDontSee(__('Make recurring'))
+        ->assertSee(__('Recurring from :date', ['date' => now()->parse('2026-12-20')->isoFormat('D MMM YYYY')]));
 
     expect($team->fresh()->getodoo_plan_recurring_starts_at?->toDateString())->toBe('2026-12-20')
         ->and(GetOdooPlanOrder::query()->count())->toBe(0);
+});
+
+it('shows the purchased plan name on client billing invoice lines', function () {
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Oficina Pro',
+        'price' => 49,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'charge_mode' => 'hybrid',
+        'max_projects' => 1,
+        'max_environments' => 2,
+        'max_members' => 1,
+    ]);
+    $team = Team::factory()->create([
+        'getodoo_plan_id' => $plan->id,
+        'getodoo_plan_paid_until' => '2026-12-20',
+        'getodoo_plan_billing_preference' => 'once',
+    ]);
+    $admin = User::factory()->create();
+    $team->members()->attach($admin->id, ['role' => 'admin']);
+    GetOdooPlanOrder::query()->create([
+        'team_id' => $team->id,
+        'user_id' => $admin->id,
+        'plan_id' => $plan->id,
+        'amount' => 49,
+        'status' => 'paid',
+        'purpose' => 'signup',
+        'payment_gateway' => 'n1co',
+        'charge_mode' => 'once',
+    ]);
+    GetOdooPlanOrder::query()->create([
+        'team_id' => $team->id,
+        'user_id' => $admin->id,
+        'plan_id' => $plan->id,
+        'amount' => 49,
+        'status' => 'paid',
+        'purpose' => 'renewal',
+        'payment_gateway' => 'n1co',
+        'charge_mode' => 'subscription',
+    ]);
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(Billing::class)
+        ->assertSee('Oficina Pro')
+        ->assertSee('Oficina Pro · '.__('Plan signup'))
+        ->assertSee('Oficina Pro · '.__('Plan renewal'))
+        ->assertSee(__('One-time'))
+        ->assertSee(__('Recurring'));
 });

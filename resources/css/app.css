@@ -4518,6 +4518,11 @@ input[type="search"]::-webkit-search-results-decoration {
     min-width: 36rem;
 }
 
+.getodoo-plan-billing-table-grid {
+    grid-template-columns: 8.5rem minmax(12rem, 1.6fr) 6.5rem minmax(8rem, 1fr) max-content;
+    min-width: 42rem;
+}
+
 .getodoo-owner-billing-orgs-grid {
     display: grid;
     align-items: center;
@@ -4821,6 +4826,15 @@ html[data-accent="on"] .odoo-backups-table-grid .odoo-backup-action.button:not(:
     }
 
     .getodoo-billing-table-grid > :nth-child(2) {
+        display: none;
+    }
+
+    .getodoo-plan-billing-table-grid {
+        grid-template-columns: 7.5rem minmax(0, 1fr) max-content;
+        min-width: 0;
+    }
+
+    .getodoo-plan-billing-table-grid > :nth-child(3) {
         display: none;
     }
 

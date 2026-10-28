@@ -37,7 +37,7 @@
                 $planRecurring = $planTeam->prefersPlanRecurringBilling();
                 $planRecurringStarts = $planTeam->planRecurringBillingStartsAt();
             @endphp
-            <x-application.settings-section :title="$plan?->name ?: __('Organization plan')" flush wire:key="getodoo-plan-subscription">
+            <x-application.settings-section :title="$plan?->name ?: __('Organization plan')" flush wire:key="getodoo-plan-subscription-{{ $planTeam->id }}-{{ $planTeam->getodoo_plan_billing_preference }}-{{ $planTeam->getodoo_plan_recurring_starts_at }}">
                 <x-slot:actions>
                     @if ($planNeedsPayment)
                         <button type="button" class="button button-highlighted" wire:click="payPlan"
@@ -61,7 +61,7 @@
                 </x-slot:actions>
 
                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-neutral-200 px-4 py-3 text-[13px] text-neutral-600 dark:border-white/[0.08] dark:text-fg-dim">
-                    <span>{{ __('Organization plan') }}</span>
+                    <span class="font-medium text-neutral-900 dark:text-fg">{{ $plan?->name ?: __('Organization plan') }}</span>
                     <span>${{ number_format($planTeam->getodooPlanMonthlyAmount(), 2) }}</span>
                     @if ($planTeam->getodoo_plan_paid_until)
                         <span>{{ __('Next billing') }} {{ $planTeam->getodoo_plan_paid_until->isoFormat('D MMM YYYY') }}</span>
@@ -84,17 +84,24 @@
                 @else
                     <div class="overflow-x-auto">
                         <div class="data-table">
-                            <div class="data-table-header getodoo-billing-table-grid">
+                            <div class="data-table-header getodoo-plan-billing-table-grid">
                                 <span>{{ __('Date') }}</span>
+                                <span>{{ __('Plan') }}</span>
                                 <span>{{ __('Amount') }}</span>
                                 <span>{{ __('Status') }}</span>
                                 <span></span>
                             </div>
                             @foreach ($planOrders as $order)
-                                <div class="data-table-row getodoo-billing-table-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.08]"
+                                <div class="data-table-row getodoo-plan-billing-table-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.08]"
                                     wire:key="getodoo-plan-order-{{ $order->id }}">
                                     <div class="text-[13px] text-neutral-700 dark:text-fg">
                                         {{ $order->created_at?->timezone(config('app.timezone'))->isoFormat('D MMM YYYY') }}
+                                    </div>
+                                    <div class="min-w-0 text-[13px] text-neutral-700 dark:text-fg">
+                                        <p class="truncate font-medium">{{ $order->lineLabel() }}</p>
+                                        @if ($order->chargeModeLabel())
+                                            <p class="mt-0.5 text-[12px] text-neutral-500 dark:text-fg-dim">{{ $order->chargeModeLabel() }}</p>
+                                        @endif
                                     </div>
                                     <div class="text-[13px] text-neutral-700 dark:text-fg">
                                         ${{ number_format((float) $order->amount, 2) }}

@@ -92,10 +92,20 @@ class TeamPolicy
     }
 
     /**
-     * Creation quotas belong to each admin and can only be written by the team owner.
+     * Creation quotas and server/launch flags on membership profiles.
+     * Instance owner always. Plan principals must not assign them — only the platform owner.
+     * On non-plan teams, the team owner still may.
      */
     public function updateCreationLimits(User $user, Team $team): bool
     {
+        if ($user->isInstanceOwner()) {
+            return true;
+        }
+
+        if ($team->isGetOdooPlanTeam()) {
+            return false;
+        }
+
         if (! $user->teams->contains('id', $team->id)) {
             return false;
         }

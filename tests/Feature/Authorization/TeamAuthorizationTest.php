@@ -3,15 +3,18 @@
 use App\Livewire\Team\DangerZone;
 use App\Livewire\Team\Index as TeamIndex;
 use App\Livewire\Team\Member as TeamMember;
+use App\Models\GetOdooPlan;
 use App\Models\InstanceSettings;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    Cache::flush();
     InstanceSettings::query()->delete();
     $settings = new InstanceSettings;
     $settings->id = 0;
@@ -211,6 +214,100 @@ test('owner can manage invitations via policy', function () {
     session(['currentTeam' => $this->team]);
 
     expect(auth()->user()->can('manageInvitations', $this->team))->toBeTrue();
+});
+
+// --- Team Policy: updateCreationLimits ---
+
+test('non-plan team owner can update creation limits', function () {
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $this->team]);
+
+    expect(auth()->user()->can('updateCreationLimits', $this->team))->toBeTrue();
+});
+
+test('non-plan team admin cannot update creation limits', function () {
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    expect(auth()->user()->can('updateCreationLimits', $this->team))->toBeFalse();
+});
+
+test('plan principal cannot update creation limits', function () {
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Limits plan',
+        'price' => 0,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+    ]);
+    $this->team->forceFill(['getodoo_plan_id' => $plan->id])->save();
+    $fresh = $this->team->fresh();
+    Cache::forget('user:'.$this->owner->id.':team:'.$this->team->id);
+
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $fresh]);
+
+    expect(auth()->user()->can('updateCreationLimits', $fresh))->toBeFalse();
+});
+
+test('plan principal cannot save creation limits on a member row', function () {
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Limits plan save',
+        'price' => 0,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+    ]);
+    $this->team->forceFill(['getodoo_plan_id' => $plan->id])->save();
+    $fresh = $this->team->fresh();
+    Cache::forget('user:'.$this->owner->id.':team:'.$this->team->id);
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $fresh]);
+
+    Livewire::test(TeamMember::class, ['member' => $this->admin])
+        ->assertDontSee(__('Can launch instances on the server where GPSH is installed'))
+        ->set('canAddServers', true)
+        ->set('canLaunchOnInstanceServer', true)
+        ->set('maxStagingBranches', 5)
+        ->call('saveCreationLimits')
+        ->assertDispatched('error');
+
+    $pivot = $this->admin->fresh()->teams()->where('teams.id', $this->team->id)->first()->pivot;
+    expect((bool) $pivot->can_add_servers)->toBeFalse()
+        ->and((bool) $pivot->can_launch_on_instance_server)->toBeFalse();
+});
+
+test('instance owner can update creation limits on a plan team', function () {
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Limits plan instance',
+        'price' => 0,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+    ]);
+    $this->team->forceFill(['getodoo_plan_id' => $plan->id])->save();
+    $fresh = $this->team->fresh();
+    Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
+    $this->owner->teams()->attach(0, ['role' => 'owner']);
+    $this->owner->unsetRelation('teams');
+    Cache::forget('user:'.$this->owner->id.':team:'.$this->team->id);
+    $this->actingAs($this->owner->fresh(['teams']));
+    session(['currentTeam' => $fresh]);
+
+    expect(auth()->user()->can('updateCreationLimits', $fresh))->toBeTrue();
+
+    Livewire::test(TeamMember::class, ['member' => $this->admin])
+        ->assertSee(__('Can launch instances on the server where GPSH is installed'))
+        ->set('canAddServers', true)
+        ->set('canLaunchOnInstanceServer', true)
+        ->set('maxStagingBranches', 4)
+        ->call('saveCreationLimits')
+        ->assertDispatched('success');
+
+    $pivot = $this->admin->fresh()->teams()->where('teams.id', $this->team->id)->first()->pivot;
+    expect((bool) $pivot->can_add_servers)->toBeTrue()
+        ->and((bool) $pivot->can_launch_on_instance_server)->toBeTrue()
+        ->and((int) $pivot->max_staging_branches)->toBe(4);
 });
 
 // --- Cross-team isolation ---

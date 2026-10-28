@@ -73,4 +73,38 @@ class GetOdooPlanOrder extends BaseModel
             default => 'neutral',
         };
     }
+
+    /**
+     * Client-facing line: which plan was charged and why (signup vs renewal).
+     */
+    public function lineLabel(): string
+    {
+        $this->loadMissing('plan');
+        $planName = trim((string) ($this->plan?->name ?: ''));
+        if ($planName === '') {
+            $planName = __('Organization plan');
+        }
+
+        $purpose = match ((string) $this->purpose) {
+            'signup' => __('Plan signup'),
+            'renewal' => __('Plan renewal'),
+            'extra' => __('Plan add-on'),
+            default => filled($this->description) ? (string) $this->description : __('Plan charge'),
+        };
+
+        if (filled($this->description) && ! in_array((string) $this->purpose, ['signup', 'renewal'], true)) {
+            return $planName.' · '.(string) $this->description;
+        }
+
+        return $planName.' · '.$purpose;
+    }
+
+    public function chargeModeLabel(): ?string
+    {
+        return match ((string) ($this->charge_mode ?: 'once')) {
+            'subscription' => __('Recurring'),
+            'once' => __('One-time'),
+            default => null,
+        };
+    }
 }

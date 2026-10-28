@@ -408,6 +408,7 @@ class Billing extends Component
                 'getodoo_plan_recurring_starts_at' => $paidUntil->toDateString(),
             ]);
             GetOdooPlanBilling::invalidatePendingRenewals($team, GetOdooPlan::CHARGE_SUBSCRIPTION);
+            $this->refreshBillingTeam($team);
             $this->dispatch('success', __('Recurring billing will start on the next invoice (:date). No charge was made today.', [
                 'date' => $paidUntil->isoFormat('D MMM YYYY'),
             ]));
@@ -420,6 +421,7 @@ class Billing extends Component
             'getodoo_plan_recurring_starts_at' => now()->startOfDay()->toDateString(),
         ]);
         GetOdooPlanBilling::invalidatePendingRenewals($team);
+        $this->refreshBillingTeam($team);
 
         if ($checkout->provider() === 'n1co') {
             return $this->payPlan($checkout);
@@ -454,14 +456,19 @@ class Billing extends Component
             'n1co_subscription_status' => $subscriptionId !== '' ? 'cancelled' : null,
         ]);
         GetOdooPlanBilling::invalidatePendingRenewals($team, GetOdooPlan::CHARGE_ONCE);
+        $this->refreshBillingTeam($team);
 
         $this->dispatch('success', __('Recurring billing was turned off. Future invoices can be paid one by one.'));
     }
 
     public function render(): View
     {
-        $team = currentTeam();
-        $teamId = $team?->id;
+        // Always reload the team from the DB — currentTeam() is cached and would keep a stale
+        // billing preference after Make recurring / Cancel recurring.
+        $teamId = currentTeam()?->id;
+        $team = $teamId !== null
+            ? Team::query()->with('getodooPlan')->find($teamId)
+            : null;
 
         $servers = Server::query()
             ->with('getodooOffer')
@@ -477,14 +484,19 @@ class Billing extends Component
             ->get();
 
         $planOrders = $team instanceof Team && $team->isGetOdooPlanTeam()
-            ? GetOdooPlanOrder::query()->where('team_id', $team->id)->latest('id')->get()
+            ? GetOdooPlanOrder::query()->with('plan')->where('team_id', $team->id)->latest('id')->get()
             : collect();
 
         return view('livewire.server.billing', [
             'groups' => $this->subscriptionGroups($servers, $orders),
-            'planTeam' => $team instanceof Team && $team->isGetOdooPlanTeam() ? $team->loadMissing('getodooPlan') : null,
+            'planTeam' => $team instanceof Team && $team->isGetOdooPlanTeam() ? $team : null,
             'planOrders' => $planOrders,
         ]);
+    }
+
+    private function refreshBillingTeam(Team $team): void
+    {
+        refreshSession($team->fresh(['getodooPlan']) ?? $team);
     }
 
     private function canAccessBilling(): bool

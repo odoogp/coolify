@@ -114,3 +114,32 @@ it('only allows target team owners to delete the team', function (string $role, 
     'admin' => ['admin', false],
     'member' => ['member', false],
 ]);
+
+it('allows instance owners to update creation limits on any team', function () {
+    $user = Mockery::mock(User::class)->makePartial();
+    $user->shouldReceive('isInstanceOwner')->andReturn(true);
+    $team = teamPolicyTeam(1);
+    $team->shouldReceive('isGetOdooPlanTeam')->never();
+
+    expect((new TeamPolicy)->updateCreationLimits($user, $team))->toBeTrue();
+});
+
+it('denies plan principals from updating creation limits', function () {
+    $user = teamPolicyUserWithTeams([1]);
+    $user->shouldReceive('isInstanceOwner')->andReturn(false);
+    $user->shouldReceive('roleInTeam')->with(1)->never();
+    $team = teamPolicyTeam(1);
+    $team->shouldReceive('isGetOdooPlanTeam')->once()->andReturn(true);
+
+    expect((new TeamPolicy)->updateCreationLimits($user, $team))->toBeFalse();
+});
+
+it('allows non-plan team owners to update creation limits', function () {
+    $user = teamPolicyUserWithTeams([1]);
+    $user->shouldReceive('isInstanceOwner')->andReturn(false);
+    $user->shouldReceive('roleInTeam')->with(1)->andReturn('owner');
+    $team = teamPolicyTeam(1);
+    $team->shouldReceive('isGetOdooPlanTeam')->once()->andReturn(false);
+
+    expect((new TeamPolicy)->updateCreationLimits($user, $team))->toBeTrue();
+});
