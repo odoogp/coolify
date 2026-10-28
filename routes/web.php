@@ -43,6 +43,7 @@ use App\Livewire\Project\Database\Backup\Index as DatabaseBackupIndex;
 use App\Livewire\Project\Database\Configuration as DatabaseConfiguration;
 use App\Livewire\Project\Edit as ProjectEdit;
 use App\Livewire\Project\EnvironmentEdit;
+use App\Livewire\Project\EnvironmentKeys as ProjectEnvironmentKeys;
 use App\Livewire\Project\Index as ProjectIndex;
 use App\Livewire\Project\OdooBackups as ProjectOdooBackups;
 use App\Livewire\Project\OdooMigrate as ProjectOdooMigrate;
@@ -359,6 +360,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/edit', EnvironmentEdit::class)->name('project.environment.edit')->middleware('can.update.resource');
         Route::get('/odoo-backups', ProjectOdooBackups::class)->name('project.odoo.backups');
         Route::get('/odoo-migrate', ProjectOdooMigrate::class)->name('project.odoo.migrate')->middleware('can.update.resource');
+        Route::get('/keys', ProjectEnvironmentKeys::class)->name('project.environment.keys');
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}/application/{application_uuid}')->group(function () {
         Route::get('/', ApplicationConfiguration::class)->name('project.application.configuration');

@@ -601,6 +601,63 @@ class OdooGit
     }
 
     /**
+     * Store the Odoo admin password in Coolify and push it into res_users when the container is up.
+     * Does not ask for the previous password — Coolify is the source of truth for this tip.
+     */
+    public static function setAdminPassword(Service $service, string $password): void
+    {
+        if (! $service->supportsOdooJupyter()) {
+            throw new InvalidArgumentException('This service is not an Odoo stack.');
+        }
+        $password = trim($password);
+        if ($password === '' || strlen($password) < 8 || strlen($password) > 128) {
+            throw new InvalidArgumentException('Choose an administrator password between 8 and 128 characters.');
+        }
+
+        self::rememberVariable($service, 'ODOO_ADMIN_PASSWORD', $password, true);
+        $service->refresh();
+        if (! app()->runningUnitTests()) {
+            $service->saveComposeConfigs();
+        }
+        self::applyAdminPassword($service, $password);
+    }
+
+    /**
+     * Best-effort write into base.user_admin. Next start also applies ODOO_ADMIN_PASSWORD.
+     */
+    public static function applyAdminPassword(Service $service, string $password): void
+    {
+        if (app()->runningUnitTests()) {
+            return;
+        }
+        if (! $service->supportsOdooJupyter() || ! self::odooIsUp($service)) {
+            return;
+        }
+
+        try {
+            $service->loadMissing('destination.server');
+            $server = $service->destination?->server ?? $service->server;
+            $database = self::databaseName($service);
+            if ($server === null || blank($database) || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]*\z/', (string) $service->uuid) !== 1) {
+                return;
+            }
+
+            $container = 'odoo-'.$service->uuid;
+            $script = 'env.ref("base.user_admin").sudo().write({"password": '.json_encode($password, JSON_UNESCAPED_SLASHES).'})\n';
+            $encoded = base64_encode($script);
+            $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
+                .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '
+                .'-d '.escapeshellarg((string) $database);
+
+            instant_remote_process([
+                'docker exec '.escapeshellarg($container).' sh -c '.escapeshellarg($inner),
+            ], $server, false, false, 45);
+        } catch (Throwable) {
+            // Stored in Coolify; the next start reapplies the password from ODOO_ADMIN_PASSWORD.
+        }
+    }
+
+    /**
      * The Odoo container is up. Sidecars and the service-wide "starting" flag do not count.
      */
     public static function odooIsUp(Service $service): bool

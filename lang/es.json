@@ -2720,7 +2720,7 @@
     "Mark as read": "Marcar como leído",
     "Memory limit": "Límite de memoria",
     "Memory usage": "Uso de memoria",
-    "New password": "Nueva contraseña",
+    "New password": "Contraseña nueva",
     "New resource": "Nuevo recurso",
     "No server IP": "Sin IP del servidor",
     "Organization": "Organización",
@@ -5114,5 +5114,18 @@
     "Leave this empty to use the address Coolify generates. Saving a new address restarts only this Odoo so the proxy and SSL apply.": "Déjalo vacío para usar la dirección que genera Coolify. Guardar una dirección nueva reinicia solo este Odoo para que el proxy y el SSL la tomen.",
     "That address is already used by another environment in this project. Choose a different subdomain.": "Esa dirección ya la usa otro entorno de este proyecto. Elige otro subdominio.",
     "Environment address saved. Odoo is restarting so the proxy takes the address.": "Dirección del entorno guardada. Odoo se está reiniciando para que el proxy tome la dirección.",
-    "Environment runtime saved. The next start applies the workers and the address.": "Configuración del entorno guardada. El próximo arranque aplica los workers y la dirección."
+    "Environment runtime saved. The next start applies the workers and the address.": "Configuración del entorno guardada. El próximo arranque aplica los workers y la dirección.",
+    "Keys": "Claves",
+    "Environment keys": "Claves del ambiente",
+    "Login credentials for services in this environment. Changing the Odoo administrator password here updates Coolify and applies it in Odoo — no current password required.": "Credenciales de acceso de los servicios de este entorno. Cambiar aquí la contraseña del administrador de Odoo actualiza Coolify y la aplica en Odoo, sin pedir la contraseña actual.",
+    "No login credentials yet for this environment.": "Todavía no hay credenciales de acceso en este entorno.",
+    "Odoo administrator": "Administrador de Odoo",
+    "Set a new administrator password. Coolify stores it and writes it into Odoo for login admin.": "Define una contraseña nueva de administrador. Coolify la guarda y la escribe en Odoo para el usuario admin.",
+    "Confirm password": "Confirmar contraseña",
+    "Update administrator password": "Actualizar contraseña de administrador",
+    "Administrator password updated in Coolify and applied in Odoo.": "Contraseña de administrador actualizada en Coolify y aplicada en Odoo.",
+    "No Odoo service in this environment.": "No hay un servicio Odoo en este entorno.",
+    "The password confirmation does not match.": "La confirmación de la contraseña no coincide.",
+    "Not set": "Sin definir",
+    "Choose an administrator password between 8 and 128 characters.": "Elige una contraseña de administrador de entre 8 y 128 caracteres."
 }

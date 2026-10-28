@@ -10,6 +10,7 @@ use App\Jobs\SyncOdooAddonsJob;
 use App\Livewire\Project\AddEmpty;
 use App\Livewire\Project\DeleteEnvironment;
 use App\Livewire\Project\Edit;
+use App\Livewire\Project\EnvironmentKeys;
 use App\Livewire\Project\Service\Domains;
 use App\Livewire\Project\Service\Heading;
 use App\Livewire\Project\Show;
@@ -30,6 +31,7 @@ use App\Models\ServiceDatabase;
 use App\Models\StandaloneDocker;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\EnvironmentKeys as EnvironmentKeysCatalog;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
@@ -2936,4 +2938,34 @@ it('tells the owner when the owner jupyter or its certificate was missing', func
         ->toContain('jupyter.example.test')
         ->and(OdooJupyter::ownerRepairMessage('gpsh-owner-status before=present running=false cert=applied', 'jupyter.example.test'))
         ->toContain('did not start');
+});
+
+it('lists odoo admin credentials on environment keys and updates the stored password', function () {
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    OdooGit::prepareInstance($service);
+
+    $cards = EnvironmentKeysCatalog::forEnvironment($production->fresh(['services']));
+    expect($cards)->toHaveCount(1)
+        ->and($cards[0]['kind'])->toBe('odoo')
+        ->and(collect($cards[0]['credentials'])->firstWhere('key', 'ODOO_ADMIN_PASSWORD')['value'])
+        ->not->toBe('');
+
+    $original = OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD');
+
+    Livewire::test(EnvironmentKeys::class, [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $production->uuid,
+    ])
+        ->set('odooAdminPassword', 'NewAdminPass99')
+        ->set('odooAdminPasswordConfirmation', 'NewAdminPass99')
+        ->call('saveOdooAdminPassword')
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
+    expect(OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD'))->toBe('NewAdminPass99')
+        ->and(OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD'))->not->toBe($original);
 });
