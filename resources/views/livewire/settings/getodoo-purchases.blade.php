@@ -76,11 +76,11 @@
                                 <div class="data-table-header getodoo-owner-billing-orgs-grid">
                                     <span>{{ __('Organization') }}</span>
                                     <span>{{ __('Principal') }}</span>
-                                    <span>{{ __('Invoice date') }}</span>
+                                    <span>{{ __('Next billing') }}</span>
                                     <span>{{ __('Plan') }}</span>
                                     <span>{{ __('Monthly') }}</span>
                                     <span>{{ __('Preference') }}</span>
-                                    <span>{{ __('Next billing') }}</span>
+                                    <span></span>
                                 </div>
                                 @foreach ($planTeams as $planTeam)
                                     @php

@@ -4526,7 +4526,7 @@ input[type="search"]::-webkit-search-results-decoration {
 .getodoo-owner-billing-orgs-grid {
     display: grid;
     align-items: center;
-    /* Org | Principal | Invoice date | Plan | Monthly | Preference | Next billing */
+    /* Org | Principal | Next billing | Plan | Monthly | Preference | actions */
     grid-template-columns: minmax(8rem, 1.1fr) minmax(8rem, 1.1fr) 7rem minmax(5rem, 0.8fr) 5.5rem 8.5rem max-content;
     gap: 0.75rem;
     min-width: 62rem;
