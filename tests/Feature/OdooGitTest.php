@@ -2956,10 +2956,16 @@ it('lists odoo admin credentials on environment keys and updates the stored pass
 
     $original = OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD');
 
-    Livewire::test(EnvironmentKeys::class, [
+    $component = Livewire::test(EnvironmentKeys::class, [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $production->uuid,
-    ])
+    ]);
+    if (! $component->get('unlocked')) {
+        $component->set('unlockPassword', 'password')
+            ->call('unlockKeys')
+            ->assertSet('unlocked', true);
+    }
+    $component
         ->set('odooAdminPassword', 'NewAdminPass99')
         ->set('odooAdminPasswordConfirmation', 'NewAdminPass99')
         ->call('saveOdooAdminPassword')
@@ -2968,4 +2974,16 @@ it('lists odoo admin credentials on environment keys and updates the stored pass
 
     expect(OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD'))->toBe('NewAdminPass99')
         ->and(OdooGit::runtimeValue($service->fresh(), 'ODOO_ADMIN_PASSWORD'))->not->toBe($original);
+
+    if (! shouldSkipPasswordConfirmation()) {
+        Livewire::test(EnvironmentKeys::class, [
+            'project_uuid' => $this->project->uuid,
+            'environment_uuid' => $production->uuid,
+        ])
+            ->call('lockKeys')
+            ->set('unlockPassword', 'wrong-password')
+            ->call('unlockKeys')
+            ->assertSet('unlocked', false)
+            ->assertDispatched('error');
+    }
 });

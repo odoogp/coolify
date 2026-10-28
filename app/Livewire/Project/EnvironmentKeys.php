@@ -23,6 +23,10 @@ class EnvironmentKeys extends Component
 
     public string $odooAdminPasswordConfirmation = '';
 
+    public string $unlockPassword = '';
+
+    public bool $unlocked = false;
+
     public bool $passwordsHidden = false;
 
     public function mount(string $project_uuid, string $environment_uuid): void
@@ -31,11 +35,51 @@ class EnvironmentKeys extends Component
         $this->authorize('view', $this->project);
         $this->environment = $this->project->environments()->where('uuid', $environment_uuid)->firstOrFail();
         $this->passwordsHidden = auth()->user()?->isMember() ?? false;
+        $this->unlocked = $this->sessionUnlocked() || shouldSkipPasswordConfirmation();
+        $this->loadOdooPasswordForm();
+    }
+
+    public function unlockKeys(): void
+    {
+        $this->authorize('view', $this->project);
+
+        if ($this->passwordsHidden) {
+            $this->dispatch('error', __('Members cannot view environment keys.'));
+
+            return;
+        }
+
+        if (shouldSkipPasswordConfirmation()) {
+            $this->markUnlocked();
+
+            return;
+        }
+
+        if (! verifyPasswordConfirmation($this->unlockPassword, $this)) {
+            $this->dispatch('error', __('The provided password is incorrect.'));
+            $this->unlockPassword = '';
+
+            return;
+        }
+
+        $this->unlockPassword = '';
+        $this->markUnlocked();
+        $this->dispatch('success', __('Keys unlocked for this session.'));
+    }
+
+    public function lockKeys(): void
+    {
+        $this->unlocked = false;
+        session()->forget($this->unlockSessionKey());
         $this->loadOdooPasswordForm();
     }
 
     public function saveOdooAdminPassword(): void
     {
+        if (! $this->ensureUnlocked()) {
+            return;
+        }
+
         $service = $this->odooService();
         if ($service === null) {
             $this->dispatch('error', __('No Odoo service in this environment.'));
@@ -65,7 +109,42 @@ class EnvironmentKeys extends Component
             $this->odooAdminPassword = '';
             $this->odooAdminPasswordConfirmation = '';
             $this->loadOdooPasswordForm();
-            $this->dispatch('success', __('Administrator password updated in Coolify and applied in Odoo.'));
+            $this->dispatch('success', __('Administrator password updated in :product and applied in Odoo.', [
+                'product' => product_name(),
+            ]));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    /**
+     * Force the password shown in Keys into Odoo admin (no current Odoo password needed).
+     * Fixes drift when Connect-as was used and Preferences rejects the Claves tip.
+     */
+    public function applyStoredOdooAdminPassword(): void
+    {
+        if (! $this->ensureUnlocked()) {
+            return;
+        }
+
+        $service = $this->odooService();
+        if ($service === null) {
+            $this->dispatch('error', __('No Odoo service in this environment.'));
+
+            return;
+        }
+
+        $this->authorize('update', $service);
+        $password = OdooGit::runtimeValue($service, 'ODOO_ADMIN_PASSWORD');
+        if ($password === '') {
+            $this->dispatch('error', __('No administrator password is stored yet.'));
+
+            return;
+        }
+
+        try {
+            OdooGit::setAdminPassword($service, $password);
+            $this->dispatch('success', __('Odoo admin now uses the password shown in Keys. You can change it in Odoo Preferences afterward.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -74,30 +153,19 @@ class EnvironmentKeys extends Component
     public function render()
     {
         $this->environment->loadMissing('services');
-        foreach ($this->environment->services as $row) {
-            if ($row instanceof Service && $row->supportsOdooJupyter()) {
-                // Claves-only: never runs on create/start. Autologin/token flow untouched.
-                try {
-                    OdooGit::syncAdminPasswordFromVolume($row);
-                    OdooGit::prepareInstance($row);
-                } catch (\Throwable) {
-                    // Keep rendering whatever is already stored.
+        $cards = [];
+        if ($this->unlocked && ! $this->passwordsHidden) {
+            foreach ($this->environment->services as $row) {
+                if ($row instanceof Service && $row->supportsOdooJupyter()) {
+                    try {
+                        OdooGit::syncAdminPasswordFromVolume($row);
+                        OdooGit::prepareInstance($row);
+                    } catch (\Throwable) {
+                        // Keep rendering whatever is already stored.
+                    }
                 }
             }
-        }
-        $cards = EnvironmentKeysCatalog::forEnvironment($this->environment->fresh(['services']));
-        if ($this->passwordsHidden) {
-            $cards = array_map(function (array $card): array {
-                $card['credentials'] = array_map(function (array $credential): array {
-                    if (in_array($credential['kind'], ['password', 'token'], true)) {
-                        $credential['value'] = '';
-                    }
-
-                    return $credential;
-                }, $card['credentials']);
-
-                return $card;
-            }, $cards);
+            $cards = EnvironmentKeysCatalog::forEnvironment($this->environment->fresh(['services']));
         }
 
         $service = $this->odooService()
@@ -106,16 +174,48 @@ class EnvironmentKeys extends Component
         return view('livewire.project.environment-keys', [
             'cards' => $cards,
             'service' => $service,
-            'canEditOdooPassword' => $service instanceof Service
+            'canEditOdooPassword' => $this->unlocked
+                && $service instanceof Service
                 && $service->supportsOdooJupyter()
                 && auth()->user()?->can('update', $service)
                 && ! $this->passwordsHidden,
         ]);
     }
 
+    private function ensureUnlocked(): bool
+    {
+        if ($this->unlocked || shouldSkipPasswordConfirmation()) {
+            return true;
+        }
+        $this->dispatch('error', __('Confirm your :product password to open Keys.', [
+            'product' => product_name(),
+        ]));
+
+        return false;
+    }
+
+    private function markUnlocked(): void
+    {
+        $this->unlocked = true;
+        session([
+            $this->unlockSessionKey() => now()->addMinutes(15)->getTimestamp(),
+        ]);
+    }
+
+    private function sessionUnlocked(): bool
+    {
+        $until = (int) session($this->unlockSessionKey(), 0);
+
+        return $until > now()->getTimestamp();
+    }
+
+    private function unlockSessionKey(): string
+    {
+        return 'environment-keys-unlocked-'.(int) auth()->id().'-'.$this->environment->uuid;
+    }
+
     private function loadOdooPasswordForm(): void
     {
-        // Keep the change form empty; reveal happens from the stored credential row.
         $this->odooAdminPassword = '';
         $this->odooAdminPasswordConfirmation = '';
     }

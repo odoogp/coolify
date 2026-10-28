@@ -5128,5 +5128,20 @@
     "Not set": "Sin definir",
     "Choose an administrator password between 8 and 128 characters.": "Elige una contraseña de administrador de entre 8 y 128 caracteres.",
     "Login credentials for services in this environment. The Odoo administrator password is visible here. Change it here or in Odoo — both sides stay aligned.": "Credenciales de acceso de los servicios de este entorno. Aquí se ve la contraseña del administrador de Odoo. Cámbiala aquí o en Odoo: ambos lados se mantienen alineados.",
-    "Already running environments already have an admin password. Open Keys to see it. A change inside Odoo is reflected here on the next refresh; a change here is written into Odoo. Restart Odoo once so the sync hook is installed on stacks that were mounted before Keys.": "Los entornos que ya están en marcha ya tienen contraseña de administrador. Ábrela en Claves para verla. Un cambio dentro de Odoo se refleja aquí al refrescar; un cambio aquí se escribe en Odoo. Reinicia Odoo una vez para instalar el enganche de sincronización en stacks montados antes de Claves."
+    "Already running environments already have an admin password. Open Keys to see it. A change inside Odoo is reflected here on the next refresh; a change here is written into Odoo. Restart Odoo once so the sync hook is installed on stacks that were mounted before Keys.": "Los entornos que ya están en marcha ya tienen contraseña de administrador. Ábrela en Claves para verla. Un cambio dentro de Odoo se refleja aquí al refrescar; un cambio aquí se escribe en Odoo. Reinicia Odoo una vez para instalar el enganche de sincronización en stacks montados antes de Claves.",
+    "Login credentials for services in this environment. Confirm your :product password to view them.": "Credenciales de acceso de los servicios de este entorno. Confirma tu contraseña de :product para verlas.",
+    "Members cannot view environment keys. Ask an administrator.": "Los miembros no pueden ver las claves del entorno. Pide a un administrador.",
+    "Keys are not for everyone. Enter your :product account password to unlock this screen.": "Claves no es para todo el mundo. Introduce la contraseña de tu cuenta :product para desbloquear esta pantalla.",
+    "Your password": "Tu contraseña",
+    "Unlock Keys": "Desbloquear Claves",
+    "Keys unlocked for this session.": "Claves desbloqueadas para esta sesión.",
+    "Confirm your :product password to open Keys.": "Confirma tu contraseña de :product para abrir Claves.",
+    "If Odoo Preferences says the current password is wrong, push the tip below into Odoo first — Connect as does not use that password, so it can drift.": "Si Preferencias de Odoo dice que la contraseña actual es incorrecta, primero aplica abajo la clave en Odoo: Connect as no usa esa contraseña y puede desincronizarse.",
+    "Apply this password in Odoo": "Aplicar esta contraseña en Odoo",
+    "Writes the password shown above into admin without asking Odoo for the current one.": "Escribe la contraseña de arriba en admin sin pedirle a Odoo la actual.",
+    "Or set a new administrator password. :product stores it and writes it into Odoo for login admin.": "O define una contraseña nueva de administrador. :product la guarda y la escribe en Odoo para el usuario admin.",
+    "Administrator password updated in :product and applied in Odoo.": "Contraseña de administrador actualizada en :product y aplicada en Odoo.",
+    "Odoo admin now uses the password shown in Keys. You can change it in Odoo Preferences afterward.": "El admin de Odoo ya usa la contraseña mostrada en Claves. Después puedes cambiarla en Preferencias de Odoo.",
+    "No administrator password is stored yet.": "Todavía no hay una contraseña de administrador guardada.",
+    "The provided password is incorrect.": "La contraseña indicada es incorrecta."
 }

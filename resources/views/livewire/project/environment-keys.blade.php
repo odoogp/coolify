@@ -19,62 +19,91 @@
 
             <div class="application-settings-form min-w-0 flex flex-col gap-6">
                 <x-application.settings-section title="{{ __('Environment keys') }}"
-                    helper="{{ __('Login credentials for services in this environment. The Odoo administrator password is visible here. Change it here or in Odoo — both sides stay aligned.') }}">
-                    <p class="mb-4 text-[13px] text-neutral-500 dark:text-fg-dim">
-                        {{ __('Already running environments already have an admin password. Open Keys to see it. A change inside Odoo is reflected here on the next refresh; a change here is written into Odoo. Restart Odoo once so the sync hook is installed on stacks that were mounted before Keys.') }}
-                    </p>
-                    @if ($cards === [])
+                    helper="{{ __('Login credentials for services in this environment. Confirm your :product password to view them.', ['product' => product_name()]) }}">
+                    @if ($passwordsHidden)
                         <p class="text-sm text-neutral-500 dark:text-fg-dim">
-                            {{ __('No login credentials yet for this environment.') }}
+                            {{ __('Members cannot view environment keys. Ask an administrator.') }}
                         </p>
+                    @elseif (! $unlocked)
+                        <form wire:submit="unlockKeys" class="flex max-w-md flex-col gap-3">
+                            <p class="text-[13px] text-neutral-600 dark:text-fg-dim">
+                                {{ __('Keys are not for everyone. Enter your :product account password to unlock this screen.', ['product' => product_name()]) }}
+                            </p>
+                            <x-forms.input type="password" id="unlockPassword" label="{{ __('Your password') }}"
+                                autocomplete="current-password" />
+                            @error('password')
+                                <p class="text-[13px] text-red-600 dark:text-red-300">{{ $message }}</p>
+                            @enderror
+                            <div>
+                                <x-forms.button type="submit" isHighlighted>{{ __('Unlock Keys') }}</x-forms.button>
+                            </div>
+                        </form>
                     @else
-                        <div class="flex flex-col gap-6">
-                            @foreach ($cards as $card)
-                                <div
-                                    class="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
-                                    <div class="mb-3 flex items-center gap-2">
-                                        <x-reicon name="keys" class="size-4 shrink-0 text-neutral-500 dark:text-fg-dim" />
-                                        <div class="min-w-0">
-                                            <p class="text-[13px] font-medium text-neutral-900 dark:text-fg">{{ $card['title'] }}</p>
-                                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ $card['service_name'] }}</p>
-                                        </div>
-                                    </div>
-                                    <div class="grid gap-3 sm:grid-cols-2">
-                                        @foreach ($card['credentials'] as $credential)
-                                            <div>
-                                                <p class="auth-plan-kicker mb-1">{{ $credential['label'] }}</p>
-                                                @if ($passwordsHidden && in_array($credential['kind'], ['password', 'token'], true))
-                                                    <x-forms.input disabled value="{{ __('Hidden (only admins can view)') }}" />
-                                                @else
-                                                    <x-forms.input readonly
-                                                        class="font-mono"
-                                                        value="{{ $credential['value'] !== '' ? $credential['value'] : __('Not set') }}" />
-                                                @endif
-                                            </div>
-                                        @endforeach
-                                    </div>
-
-                                    @if ($card['kind'] === 'odoo' && $canEditOdooPassword)
-                                        <form wire:submit="saveOdooAdminPassword" class="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-                                            <p class="text-[13px] text-neutral-600 dark:text-fg-dim">
-                                                {{ __('Set a new administrator password. Coolify stores it and writes it into Odoo for login admin.') }}
-                                            </p>
-                                            <div class="grid gap-3 sm:grid-cols-2">
-                                                <x-forms.input type="password" id="odooAdminPassword"
-                                                    label="{{ __('New password') }}" autocomplete="new-password" />
-                                                <x-forms.input type="password" id="odooAdminPasswordConfirmation"
-                                                    label="{{ __('Confirm password') }}" autocomplete="new-password" />
-                                            </div>
-                                            <div>
-                                                <x-forms.button type="submit" canGate="update" :canResource="$service" isHighlighted>
-                                                    {{ __('Update administrator password') }}
-                                                </x-forms.button>
-                                            </div>
-                                        </form>
-                                    @endif
-                                </div>
-                            @endforeach
+                        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('If Odoo Preferences says the current password is wrong, push the tip below into Odoo first — Connect as does not use that password, so it can drift.') }}
+                            </p>
+                            <x-forms.button type="button" wire:click="lockKeys">{{ __('Lock') }}</x-forms.button>
                         </div>
+                        @if ($cards === [])
+                            <p class="text-sm text-neutral-500 dark:text-fg-dim">
+                                {{ __('No login credentials yet for this environment.') }}
+                            </p>
+                        @else
+                            <div class="flex flex-col gap-6">
+                                @foreach ($cards as $card)
+                                    <div
+                                        class="rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                                        <div class="mb-3 flex items-center gap-2">
+                                            <x-reicon name="keys" class="size-4 shrink-0 text-neutral-500 dark:text-fg-dim" />
+                                            <div class="min-w-0">
+                                                <p class="text-[13px] font-medium text-neutral-900 dark:text-fg">{{ $card['title'] }}</p>
+                                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ $card['service_name'] }}</p>
+                                            </div>
+                                        </div>
+                                        <div class="grid gap-3 sm:grid-cols-2">
+                                            @foreach ($card['credentials'] as $credential)
+                                                <div>
+                                                    <p class="auth-plan-kicker mb-1">{{ $credential['label'] }}</p>
+                                                    <x-forms.input readonly class="font-mono"
+                                                        value="{{ $credential['value'] !== '' ? $credential['value'] : __('Not set') }}" />
+                                                </div>
+                                            @endforeach
+                                        </div>
+
+                                        @if ($card['kind'] === 'odoo' && $canEditOdooPassword)
+                                            <div class="mt-4 flex flex-col gap-3 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                                                <div>
+                                                    <x-forms.button type="button" wire:click="applyStoredOdooAdminPassword" canGate="update"
+                                                        :canResource="$service">
+                                                        {{ __('Apply this password in Odoo') }}
+                                                    </x-forms.button>
+                                                    <p class="mt-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                        {{ __('Writes the password shown above into admin without asking Odoo for the current one.') }}
+                                                    </p>
+                                                </div>
+                                                <form wire:submit="saveOdooAdminPassword" class="flex flex-col gap-3">
+                                                    <p class="text-[13px] text-neutral-600 dark:text-fg-dim">
+                                                        {{ __('Or set a new administrator password. :product stores it and writes it into Odoo for login admin.', ['product' => product_name()]) }}
+                                                    </p>
+                                                    <div class="grid gap-3 sm:grid-cols-2">
+                                                        <x-forms.input type="password" id="odooAdminPassword"
+                                                            label="{{ __('New password') }}" autocomplete="new-password" />
+                                                        <x-forms.input type="password" id="odooAdminPasswordConfirmation"
+                                                            label="{{ __('Confirm password') }}" autocomplete="new-password" />
+                                                    </div>
+                                                    <div>
+                                                        <x-forms.button type="submit" canGate="update" :canResource="$service" isHighlighted>
+                                                            {{ __('Update administrator password') }}
+                                                        </x-forms.button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        @endif
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
                     @endif
                 </x-application.settings-section>
             </div>
