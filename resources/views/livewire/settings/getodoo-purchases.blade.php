@@ -80,12 +80,15 @@
                                     <span>{{ __('Plan') }}</span>
                                     <span>{{ __('Monthly') }}</span>
                                     <span>{{ __('Preference') }}</span>
+                                    <span>{{ __('Invoice date') }}</span>
                                     <span></span>
                                 </div>
                                 @foreach ($planTeams as $planTeam)
                                     @php
                                         $principal = $principals[$planTeam->id] ?? null;
                                         $isRecurring = $planTeam->prefersPlanRecurringBilling();
+                                        $invoiceAt = $latestPlanInvoiceDates[$planTeam->id] ?? null;
+                                        $invoiceDate = $invoiceAt ? \Illuminate\Support\Carbon::parse($invoiceAt) : null;
                                     @endphp
                                     <div class="data-table-row getodoo-owner-billing-orgs-grid border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
                                         wire:key="getodoo-plan-team-{{ $planTeam->id }}">
@@ -105,7 +108,7 @@
                                                 <span class="text-neutral-400">-</span>
                                             @endif
                                         </div>
-                                        <div class="min-w-0 text-[13px]">
+                                        <div class="min-w-0 truncate text-[13px]">
                                             @if ($planTeam->getodoo_plan_paid_until)
                                                 {{ $planTeam->getodoo_plan_paid_until->isoFormat('D MMM YYYY') }}
                                                 @if ($planTeam->getodoo_plan_paid_until->copy()->endOfDay()->isPast())
@@ -115,8 +118,8 @@
                                                 <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
                                             @endif
                                         </div>
-                                        <div class="truncate text-[13px]">{{ $planTeam->getodooPlan?->name }}</div>
-                                        <div class="text-[13px]">
+                                        <div class="min-w-0 truncate text-[13px]">{{ $planTeam->getodooPlan?->name }}</div>
+                                        <div class="min-w-0 text-[13px]">
                                             ${{ number_format($planTeam->getodooPlanMonthlyAmount(), 2) }}
                                             @if ((float) $planTeam->getodoo_plan_monthly_extra > 0)
                                                 <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
@@ -143,6 +146,13 @@
                                                     title="{{ __('Make recurring') }}">
                                                     <span class="truncate">{{ __('Make recurring') }}</span>
                                                 </button>
+                                            @endif
+                                        </div>
+                                        <div class="min-w-0 truncate text-[13px]">
+                                            @if ($invoiceDate)
+                                                {{ $invoiceDate->timezone(config('app.timezone'))->isoFormat('D MMM YYYY') }}
+                                            @else
+                                                <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
                                             @endif
                                         </div>
                                         <div class="min-w-0">

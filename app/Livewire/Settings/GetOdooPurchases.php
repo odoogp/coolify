@@ -341,11 +341,20 @@ class GetOdooPurchases extends Component
             ->limit(100)
             ->get();
 
+        $latestPlanInvoiceDates = $planTeams->isEmpty()
+            ? collect()
+            : GetOdooPlanOrder::query()
+                ->whereIn('team_id', $planTeams->modelKeys())
+                ->selectRaw('team_id, MAX(created_at) as latest_at')
+                ->groupBy('team_id')
+                ->pluck('latest_at', 'team_id');
+
         return view('livewire.settings.getodoo-purchases', [
             'soldServerRows' => $this->serverRows($soldServers, kind: 'getodoo'),
             'connectedServerRows' => $this->serverRows($connectedServers, kind: 'connected'),
             'planTeams' => $planTeams,
             'principals' => $this->principalsByTeam($planTeams),
+            'latestPlanInvoiceDates' => $latestPlanInvoiceDates,
             'instanceHost' => $instanceHost,
             'instanceTeams' => $instanceTeams,
             'instancePrincipals' => $this->principalsByTeam($instanceTeams),

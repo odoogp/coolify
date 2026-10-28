@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\GetOdooPlanBilling;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
@@ -409,4 +410,54 @@ it('shows the owner invoice description on client billing instead of plan renewa
         ->assertSee('Capacitación del equipo')
         ->assertDontSee(__('Plan renewal'))
         ->assertDontSee('Inicial · '.__('Plan renewal'));
+});
+
+it('shows next billing before plan and invoice date from the latest plan order', function () {
+    $this->travelTo('2026-10-15 12:00:00');
+
+    $plan = GetOdooPlan::query()->create([
+        'name' => 'Inicial',
+        'price' => 50,
+        'currency' => 'USD',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'charge_mode' => 'hybrid',
+        'max_projects' => 1,
+        'max_environments' => 2,
+        'max_members' => 1,
+    ]);
+    $team = Team::factory()->create([
+        'name' => 'Acme Org',
+        'getodoo_plan_id' => $plan->id,
+        'getodoo_plan_paid_until' => '2026-11-28',
+        'getodoo_plan_billing_preference' => 'once',
+    ]);
+    GetOdooPlanOrder::query()->create([
+        'team_id' => $team->id,
+        'plan_id' => $plan->id,
+        'amount' => 50,
+        'status' => 'paid',
+        'purpose' => 'signup',
+        'charge_mode' => 'once',
+    ]);
+
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $html = Livewire::test(GetOdooPurchases::class)->html();
+    $header = Str::before(Str::after($html, 'getodoo-owner-billing-orgs-grid'), 'getodoo-plan-team-');
+
+    expect($header)
+        ->toContain(__('Next billing'))
+        ->toContain(__('Plan'))
+        ->toContain(__('Invoice date'))
+        ->and(strpos($header, __('Next billing')))->toBeLessThan(strpos($header, __('Plan')))
+        ->and(strpos($header, __('Plan')))->toBeLessThan(strpos($header, __('Invoice date')));
+
+    Livewire::test(GetOdooPurchases::class)
+        ->assertSee('Acme Org')
+        ->assertSee(now()->parse('2026-11-28')->isoFormat('D MMM YYYY'))
+        ->assertSee(now()->parse('2026-10-15')->isoFormat('D MMM YYYY'));
 });

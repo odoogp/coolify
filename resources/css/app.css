@@ -4526,10 +4526,28 @@ input[type="search"]::-webkit-search-results-decoration {
 .getodoo-owner-billing-orgs-grid {
     display: grid;
     align-items: center;
-    /* Org | Principal | Next billing | Plan | Monthly | Preference | actions */
-    grid-template-columns: minmax(8rem, 1.1fr) minmax(8rem, 1.1fr) 7rem minmax(5rem, 0.8fr) 5.5rem 8.5rem max-content;
+    /* Org | Principal | Next billing | Plan | Monthly | Preference | Invoice date | actions */
+    grid-template-columns:
+        minmax(8rem, 1.1fr)
+        minmax(8rem, 1.1fr)
+        minmax(8.5rem, 0.95fr)
+        minmax(5rem, 0.7fr)
+        5.5rem
+        8.5rem
+        minmax(7.5rem, 0.9fr)
+        8.5rem;
     gap: 0.75rem;
-    min-width: 62rem;
+    min-width: 76rem;
+}
+
+.getodoo-owner-billing-orgs-grid > * {
+    min-width: 0;
+}
+
+.getodoo-owner-billing-orgs-grid.data-table-header > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .getodoo-owner-billing-servers-grid {
