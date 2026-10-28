@@ -93,6 +93,24 @@ html[data-theme="light"] .button:hover:not(:disabled) {
     color: var(--theme-accent-foreground, #ffffff);
 }
 
+/*
+ * Ghost delete actions (e.g. "Delete unused keys"): red label only.
+ * Do not paint the Letify primary fill underneath text-error.
+ * Leaves button-highlighted and button[isError] alone.
+ */
+html[data-theme="light"] .button:not(:disabled):not([isError]):not(.button-highlighted)[class*="text-error"],
+html[data-theme="light"] .button:not(:disabled):not([isError]):not(.button-highlighted)[class*="text-error"]:hover {
+    background: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--color-error, #dc2626);
+}
+
+html[data-theme="light"] .button:not(:disabled):not([isError]):not(.button-highlighted)[class*="text-error"]:hover {
+    background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+}
+
 html[data-theme="light"] .application-heading-actions .button:not(:disabled),
 html[data-theme="light"] .compact-actions .button:not(:disabled) {
     min-height: 2rem;

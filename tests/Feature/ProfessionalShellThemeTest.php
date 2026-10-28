@@ -73,6 +73,8 @@ test('letify light is a named light theme and does not restyle dark appearances'
         ->toContain('.application-heading-actions .button:not(:disabled)')
         ->toContain('.compact-actions .button:not(:disabled)')
         ->toContain('min-height: 2rem;')
+        ->toContain('[class*="text-error"]')
+        ->toContain('background: transparent;')
         ->toContain('html[data-theme="light"] .listbox-panel')
         ->toContain('border-radius: 12px;')
         ->and($accent)

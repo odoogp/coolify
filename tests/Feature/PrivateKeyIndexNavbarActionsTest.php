@@ -24,6 +24,8 @@ test('security list views place create actions in collection card headers', func
             'New key',
             'Delete unused keys',
             'Delete unused',
+            'text-error!',
+            'button-highlighted',
         ],
         resource_path('views/livewire/security/cloud-provider-tokens.blade.php') => [
             'New token',

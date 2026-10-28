@@ -76,11 +76,11 @@
                                 <div class="data-table-header getodoo-owner-billing-orgs-grid">
                                     <span>{{ __('Organization') }}</span>
                                     <span>{{ __('Principal') }}</span>
+                                    <span>{{ __('Invoice date') }}</span>
                                     <span>{{ __('Plan') }}</span>
                                     <span>{{ __('Monthly') }}</span>
                                     <span>{{ __('Preference') }}</span>
                                     <span>{{ __('Next billing') }}</span>
-                                    <span></span>
                                 </div>
                                 @foreach ($planTeams as $planTeam)
                                     @php
@@ -105,28 +105,7 @@
                                                 <span class="text-neutral-400">-</span>
                                             @endif
                                         </div>
-                                        <div class="truncate text-[13px]">{{ $planTeam->getodooPlan?->name }}</div>
-                                        <div class="text-[13px]">
-                                            ${{ number_format($planTeam->getodooPlanMonthlyAmount(), 2) }}
-                                            @if ((float) $planTeam->getodoo_plan_monthly_extra > 0)
-                                                <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
-                                                    {{ __('includes :amount extra', ['amount' => '$'.number_format((float) $planTeam->getodoo_plan_monthly_extra, 2)]) }}
-                                                </div>
-                                            @endif
-                                        </div>
-                                        <div class="min-w-0 max-w-[7rem] overflow-hidden text-[13px]">
-                                            @if ($isRecurring)
-                                                <x-status-badge class="max-w-full" status="{{ __('Recurring') }}" type="success" />
-                                                @if ($planTeam->planRecurringBillingStartsAt())
-                                                    <div class="mt-1 truncate text-[11px] text-neutral-500 dark:text-fg-faint">
-                                                        {{ __('from :date', ['date' => $planTeam->planRecurringBillingStartsAt()->isoFormat('D MMM YYYY')]) }}
-                                                    </div>
-                                                @endif
-                                            @else
-                                                <x-status-badge class="max-w-full" status="{{ __('One-time') }}" type="neutral" />
-                                            @endif
-                                        </div>
-                                        <div class="text-[13px]">
+                                        <div class="min-w-0 text-[13px]">
                                             @if ($planTeam->getodoo_plan_paid_until)
                                                 {{ $planTeam->getodoo_plan_paid_until->isoFormat('D MMM YYYY') }}
                                                 @if ($planTeam->getodoo_plan_paid_until->copy()->endOfDay()->isPast())
@@ -136,7 +115,16 @@
                                                 <span class="text-neutral-500 dark:text-fg-dim">{{ __('Not billed yet') }}</span>
                                             @endif
                                         </div>
-                                        <div class="flex min-w-0 flex-wrap justify-end gap-2">
+                                        <div class="truncate text-[13px]">{{ $planTeam->getodooPlan?->name }}</div>
+                                        <div class="text-[13px]">
+                                            ${{ number_format($planTeam->getodooPlanMonthlyAmount(), 2) }}
+                                            @if ((float) $planTeam->getodoo_plan_monthly_extra > 0)
+                                                <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                    {{ __('includes :amount extra', ['amount' => '$'.number_format((float) $planTeam->getodoo_plan_monthly_extra, 2)]) }}
+                                                </div>
+                                            @endif
+                                        </div>
+                                        <div class="min-w-0 overflow-hidden text-[13px]">
                                             @if ($isRecurring)
                                                 <button type="button"
                                                     class="button w-[8.5rem] min-w-[8.5rem] max-w-[8.5rem] justify-center overflow-hidden"
@@ -156,6 +144,8 @@
                                                     <span class="truncate">{{ __('Make recurring') }}</span>
                                                 </button>
                                             @endif
+                                        </div>
+                                        <div class="min-w-0">
                                             <button type="button" class="button button-highlighted"
                                                 wire:click="openPlanInvoiceForm({{ $planTeam->id }})"
                                                 wire:loading.attr="disabled" wire:target="openPlanInvoiceForm">
