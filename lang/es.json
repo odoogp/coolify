@@ -5143,5 +5143,9 @@
     "Administrator password updated in :product and applied in Odoo.": "Contraseña de administrador actualizada en :product y aplicada en Odoo.",
     "Odoo admin now uses the password shown in Keys. You can change it in Odoo Preferences afterward.": "El admin de Odoo ya usa la contraseña mostrada en Claves. Después puedes cambiarla en Preferencias de Odoo.",
     "No administrator password is stored yet.": "Todavía no hay una contraseña de administrador guardada.",
-    "The provided password is incorrect.": "La contraseña indicada es incorrecta."
+    "The provided password is incorrect.": "La contraseña indicada es incorrecta.",
+    "Connect as uses a token, so admin often has no usable password. Unlocking Keys writes the tip below into Odoo. Then in Settings → Users → Change password, use that tip as the current password — or set a new one here.": "Connect as usa un token, así que admin suele no tener contraseña usable. Al desbloquear Claves se escribe abajo en Odoo. Luego en Ajustes → Usuarios → Cambiar contraseña, usa esa clave como contraseña actual, o define una nueva aquí.",
+    "Writes the password shown above into admin without asking Odoo for the current one. Use this if Settings → Users → Change password still rejects the tip.": "Escribe la contraseña de arriba en admin sin pedirle a Odoo la actual. Úsalo si en Ajustes → Usuarios → Cambiar contraseña sigue rechazando la clave.",
+    "Keys unlocked. The admin password from Keys was written into Odoo so Settings → Users → Change password can use it as the current password.": "Claves desbloqueadas. La contraseña de admin de Claves se escribió en Odoo para que en Ajustes → Usuarios → Cambiar contraseña sirva como contraseña actual.",
+    "Odoo admin now uses the password shown in Keys. In Settings → Users → Change password, use that tip as the current password.": "El admin de Odoo ya usa la contraseña de Claves. En Ajustes → Usuarios → Cambiar contraseña, úsala como contraseña actual."
 }

@@ -39,9 +39,9 @@
                             </div>
                         </form>
                     @else
-                        <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                        <div class="mb-4 flex flex-wrap items-start justify-between gap-2">
                             <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                                {{ __('If Odoo Preferences says the current password is wrong, push the tip below into Odoo first — Connect as does not use that password, so it can drift.') }}
+                                {{ __('Connect as uses a token, so admin often has no usable password. Unlocking Keys writes the tip below into Odoo. Then in Settings → Users → Change password, use that tip as the current password — or set a new one here.') }}
                             </p>
                             <x-forms.button type="button" wire:click="lockKeys">{{ __('Lock') }}</x-forms.button>
                         </div>
@@ -79,7 +79,7 @@
                                                         {{ __('Apply this password in Odoo') }}
                                                     </x-forms.button>
                                                     <p class="mt-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
-                                                        {{ __('Writes the password shown above into admin without asking Odoo for the current one.') }}
+                                                        {{ __('Writes the password shown above into admin without asking Odoo for the current one. Use this if Settings → Users → Change password still rejects the tip.') }}
                                                     </p>
                                                 </div>
                                                 <form wire:submit="saveOdooAdminPassword" class="flex flex-col gap-3">

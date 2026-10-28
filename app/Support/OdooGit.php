@@ -727,10 +727,12 @@ class OdooGit
             }
 
             $container = 'odoo-'.$service->uuid;
-            // Context flag so gpsh_autoconnect does not treat this write as an in-Odoo change loop.
-            $script = 'env["ir.config_parameter"].sudo().set_param("gpsh.admin_password_push", "1")\n'
-                .'env.ref("base.user_admin").sudo().write({"password": '.json_encode($password, JSON_UNESCAPED_SLASHES).'})\n'
-                .'env["ir.config_parameter"].sudo().set_param("gpsh.admin_password_push", "0")\n';
+            // Connect-as never sets a login password; Users → Change password then asks for a
+            // current tip that is empty. Force-write admin without needing the old password.
+            $script = 'admin = env.ref("base.user_admin").sudo()'
+                ."\n".'admin.write({"password": '.json_encode($password, JSON_UNESCAPED_SLASHES).'})'
+                ."\n".'env.cr.commit()'
+                ."\n";
             $encoded = base64_encode($script);
             $inner = 'printf %s '.escapeshellarg($encoded).' | base64 -d | odoo shell --no-http --max-cron-threads=0 '
                 .'--addons-path=/mnt/extra-addons,/usr/lib/python3/dist-packages/odoo/addons '
@@ -738,7 +740,7 @@ class OdooGit
 
             instant_remote_process([
                 'docker exec '.escapeshellarg($container).' sh -c '.escapeshellarg($inner),
-            ], $server, false, false, 45);
+            ], $server, false, false, 60);
         } catch (Throwable) {
             // Stored in Coolify; the next start reapplies the password from ODOO_ADMIN_PASSWORD.
         }

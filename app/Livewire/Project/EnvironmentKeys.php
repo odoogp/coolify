@@ -51,6 +51,7 @@ class EnvironmentKeys extends Component
 
         if (shouldSkipPasswordConfirmation()) {
             $this->markUnlocked();
+            $this->alignOdooAdminPasswordAfterUnlock();
 
             return;
         }
@@ -64,7 +65,7 @@ class EnvironmentKeys extends Component
 
         $this->unlockPassword = '';
         $this->markUnlocked();
-        $this->dispatch('success', __('Keys unlocked for this session.'));
+        $this->alignOdooAdminPasswordAfterUnlock();
     }
 
     public function lockKeys(): void
@@ -119,7 +120,8 @@ class EnvironmentKeys extends Component
 
     /**
      * Force the password shown in Keys into Odoo admin (no current Odoo password needed).
-     * Fixes drift when Connect-as was used and Preferences rejects the Claves tip.
+     * Connect-as never sets a usable password, so Settings → Users → Change password
+     * asks for a current tip that is empty / unknown — this breaks that circle.
      */
     public function applyStoredOdooAdminPassword(): void
     {
@@ -135,19 +137,13 @@ class EnvironmentKeys extends Component
         }
 
         $this->authorize('update', $service);
-        $password = OdooGit::runtimeValue($service, 'ODOO_ADMIN_PASSWORD');
-        if ($password === '') {
+        if (! $this->pushStoredPasswordIntoOdoo($service)) {
             $this->dispatch('error', __('No administrator password is stored yet.'));
 
             return;
         }
 
-        try {
-            OdooGit::setAdminPassword($service, $password);
-            $this->dispatch('success', __('Odoo admin now uses the password shown in Keys. You can change it in Odoo Preferences afterward.'));
-        } catch (\Throwable $e) {
-            handleError($e, $this);
-        }
+        $this->dispatch('success', __('Odoo admin now uses the password shown in Keys. In Settings → Users → Change password, use that tip as the current password.'));
     }
 
     public function render()
@@ -200,6 +196,44 @@ class EnvironmentKeys extends Component
         session([
             $this->unlockSessionKey() => now()->addMinutes(15)->getTimestamp(),
         ]);
+    }
+
+    /**
+     * After unlock: make sure admin has the Claves tip in Odoo so Users → Change password works.
+     * Best-effort — never blocks unlock if Odoo is down.
+     */
+    private function alignOdooAdminPasswordAfterUnlock(): void
+    {
+        $service = $this->odooService();
+        if ($service === null || ! auth()->user()?->can('update', $service)) {
+            $this->dispatch('success', __('Keys unlocked for this session.'));
+
+            return;
+        }
+
+        try {
+            OdooGit::prepareInstance($service);
+            if ($this->pushStoredPasswordIntoOdoo($service->fresh() ?? $service)) {
+                $this->dispatch('success', __('Keys unlocked. The admin password from Keys was written into Odoo so Settings → Users → Change password can use it as the current password.'));
+
+                return;
+            }
+        } catch (\Throwable) {
+            // Unlock still succeeds; user can retry with Apply.
+        }
+
+        $this->dispatch('success', __('Keys unlocked for this session.'));
+    }
+
+    private function pushStoredPasswordIntoOdoo(Service $service): bool
+    {
+        $password = OdooGit::runtimeValue($service, 'ODOO_ADMIN_PASSWORD');
+        if ($password === '') {
+            return false;
+        }
+        OdooGit::setAdminPassword($service, $password);
+
+        return true;
     }
 
     private function sessionUnlocked(): bool
