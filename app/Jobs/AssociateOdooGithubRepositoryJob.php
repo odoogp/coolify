@@ -17,8 +17,8 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Create a GitHub repository for a project that started without GitHub and push
- * existing custom addons. Must not run inside a Livewire request (timeout / 419).
+ * Link a GitHub repository to an Odoo service (create new, or attach existing + branch).
+ * Must not run inside a Livewire request (GitHub waits / CSRF → "Page expired").
  */
 class AssociateOdooGithubRepositoryJob implements ShouldQueue
 {
@@ -28,11 +28,19 @@ class AssociateOdooGithubRepositoryJob implements ShouldQueue
 
     public int $tries = 1;
 
+    /**
+     * @param  list<string>  $existingBranches  Branch tips already loaded in the UI when possible
+     */
     public function __construct(
         public int $serviceId,
         public string $cacheKey,
         public int $userId,
         public int $githubAppId,
+        public ?string $existingFullName = null,
+        public ?int $existingRepositoryId = null,
+        public ?string $existingBranch = null,
+        public array $existingBranches = [],
+        public bool $startLaunch = false,
     ) {
         $this->onQueue('high');
     }
@@ -50,16 +58,65 @@ class AssociateOdooGithubRepositoryJob implements ShouldQueue
 
         try {
             $service = Service::query()->find($this->serviceId);
-            $project = $service?->environment?->project;
+            $environment = $service?->environment;
+            $project = $environment?->project;
             $app = GithubApp::query()->find($this->githubAppId);
-            if (! $service instanceof Service || $project === null || ! $app instanceof GithubApp) {
-                throw new RuntimeException('The GitHub repository could not be created.');
+            if (! $service instanceof Service || $project === null || $environment === null || ! $app instanceof GithubApp) {
+                throw new RuntimeException('The GitHub repository could not be associated.');
             }
 
             $this->progress(1);
-            OdooGit::associateNewRepository($service, $app);
 
-            $this->progress(2, done: true);
+            if (blank($this->existingFullName) || blank($this->existingBranch) || $this->existingRepositoryId === null) {
+                OdooGit::associateNewRepository($service, $app);
+                $this->progress(2, done: true);
+
+                return;
+            }
+
+            $branches = $this->existingBranches;
+            if ($branches === []) {
+                [$owner, $name] = array_pad(explode('/', (string) $this->existingFullName, 2), 2, '');
+                $branches = OdooGit::branchNames($app, $owner, $name);
+            }
+
+            OdooGit::attachExisting(
+                $project,
+                $app,
+                (string) $this->existingFullName,
+                (int) $this->existingRepositoryId,
+                $branches,
+                $environment,
+                (string) $this->existingBranch,
+            );
+
+            $environment->unsetRelation('odooBranch');
+            $environment->load('odooBranch');
+            $row = $environment->odooBranch;
+            if ($row !== null) {
+                $row->update([
+                    'status' => 'updating',
+                    'service_id' => $row->service_id ?: $service->id,
+                ]);
+                SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
+            }
+
+            if ($this->startLaunch) {
+                $launchKey = 'launch-odoo-'.$service->uuid;
+                Cache::put($launchKey, ['step' => 1, 'done' => false, 'error' => null, 'redirect' => null], now()->addMinutes(30));
+                LaunchOdooProjectJob::dispatch($service->id, $launchKey, $this->userId);
+                $this->progress(2, done: true, redirect: [
+                    'name' => 'project.show',
+                    'parameters' => ['project_uuid' => $project->uuid],
+                ]);
+
+                return;
+            }
+
+            $this->progress(2, done: true, message: __('Repository :repository linked. Cloning branch :branch…', [
+                'repository' => $this->existingFullName,
+                'branch' => $this->existingBranch,
+            ]));
         } catch (Throwable $exception) {
             $status = Cache::get($this->cacheKey);
             $this->progress(is_array($status) ? (int) ($status['step'] ?? 1) : 1, error: $exception->getMessage());
@@ -70,12 +127,17 @@ class AssociateOdooGithubRepositoryJob implements ShouldQueue
         }
     }
 
-    private function progress(int $step, bool $done = false, ?string $error = null): void
+    /**
+     * @param  array{name: string, parameters: array<string, mixed>}|null  $redirect
+     */
+    private function progress(int $step, bool $done = false, ?string $error = null, ?array $redirect = null, ?string $message = null): void
     {
         Cache::put($this->cacheKey, [
             'step' => $step,
             'done' => $done,
             'error' => $error,
+            'redirect' => $redirect,
+            'message' => $message,
         ], now()->addMinutes(30));
     }
 }

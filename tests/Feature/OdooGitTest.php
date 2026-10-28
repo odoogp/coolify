@@ -437,11 +437,27 @@ it('only treats github secondary limits as wait-and-retry', function () {
 
 it('queues associate-new-repository instead of creating it inside livewire', function () {
     $source = file_get_contents(app_path('Livewire/Project/Service/Configuration.php'));
+    $job = file_get_contents(app_path('Jobs/AssociateOdooGithubRepositoryJob.php'));
 
     expect($source)
         ->toContain('AssociateOdooGithubRepositoryJob::dispatch')
+        ->toContain('queueAssociateOdooRepository')
         ->not->toContain('OdooGit::associateNewRepository($this->service')
+        ->and($job)->toContain('OdooGit::attachExisting(')
+        ->and($job)->toContain('existingFullName')
+        ->and($job)->toContain('Must not run inside a Livewire request')
         ->and(file_exists(app_path('Jobs/AssociateOdooGithubRepositoryJob.php')))->toBeTrue();
+
+    // associateOdooRepository itself must only queue — no sync attach/GitHub in that method body.
+    expect(preg_match(
+        '/function associateOdooRepository\(\): mixed\s*\{(.*?)\n    (?:private|public|protected) function /s',
+        $source,
+        $match
+    ))->toBe(1);
+    expect($match[1])
+        ->toContain('queueAssociateOdooRepository')
+        ->not->toContain('OdooGit::attachExisting(')
+        ->not->toContain('OdooGit::branchNames(');
 });
 
 it('creates the project repository and makes each environment its own branch', function () {

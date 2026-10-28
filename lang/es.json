@@ -5098,5 +5098,6 @@
     "Repository :repository linked. Cloning branch :branch…": "Repositorio :repository vinculado. Clonando la rama :branch…",
     "Linking repository…": "Vinculando repositorio…",
     "Choose the GitHub repository and branch for this environment. You only set this once.": "Elige el repositorio y la rama de GitHub para este entorno. Solo se configura una vez.",
-    "This environment is linked. Repository and branch stay as set at association.": "Este entorno ya está vinculado. El repositorio y la rama quedan como se asociaron."
+    "This environment is linked. Repository and branch stay as set at association.": "Este entorno ya está vinculado. El repositorio y la rama quedan como se asociaron.",
+    "Choose a GitHub branch for this environment.": "Elige una rama de GitHub para este entorno."
 }

@@ -642,78 +642,75 @@ class Configuration extends Component
                 $this->project->refresh();
             }
 
+            $githubApp = $this->odooGithubApp();
+
             if ($this->odooRepoMode === 'new') {
-                $githubApp = $this->odooGithubApp();
                 if ($this->odooGithubIsPersonal) {
                     throw new RuntimeException(OdooGit::cannotAutoCreateOnPersonalAccountMessage());
                 }
                 if ($this->associatingWithoutGithub || (! $this->awaitingRepositoryChoice && blank($this->project->odooProfile?->git_repository))) {
                     // Create + push in a queue job (console can wait out secondary GitHub limits;
                     // Livewire must not hold the request or the CSRF token expires → "Page expired").
-                    $this->associateKey = 'associate-odoo-'.$this->service->uuid;
-                    Cache::put($this->associateKey, ['step' => 1, 'done' => false, 'error' => null], now()->addMinutes(30));
-                    AssociateOdooGithubRepositoryJob::dispatch(
-                        $this->service->id,
-                        $this->associateKey,
-                        (int) auth()->id(),
-                        (int) $githubApp->id,
-                    );
-                    $this->associateRunning = true;
-                    $this->associateError = null;
-
-                    return null;
+                    return $this->queueAssociateOdooRepository($githubApp);
                 }
 
                 return $this->startPlannedLaunch(createRepository: true);
             }
 
             $repository = $this->selectedOdooRepository();
-            $branches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
             $branch = trim($this->odooBranch);
-            if (! in_array($branch, $branches, true)) {
+            $branches = $this->odooGithubBranches;
+            if ($branches !== [] && ! in_array($branch, $branches, true)) {
                 throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
             }
-            OdooGit::attachExisting(
-                $this->project,
-                $this->odooGithubApp(),
-                $repository['full_name'],
-                (int) $repository['id'],
-                $branches,
-                $this->environment,
-                $branch,
+            if ($branch === '') {
+                throw new InvalidArgumentException('Choose a GitHub branch for this environment.');
+            }
+
+            // Attach + optional launch must run in a job — GitHub / CSRF “Page expired”.
+            return $this->queueAssociateOdooRepository(
+                $githubApp,
+                existingFullName: $repository['full_name'],
+                existingRepositoryId: (int) $repository['id'],
+                existingBranch: $branch,
+                existingBranches: $branches,
+                startLaunch: $this->awaitingRepositoryChoice || $this->associatingWithoutGithub,
             );
-            $this->environment->unsetRelation('odooBranch');
-            $this->environment->load('odooBranch');
-            $row = $this->environment->odooBranch;
-            if ($row !== null) {
-                $row->update([
-                    'status' => 'updating',
-                    'service_id' => $row->service_id ?: $this->service->id,
-                ]);
-                // StartService also clones, but queue an explicit sync so a failed
-                // silent path cannot leave Jupyter on an empty addons volume.
-                SyncOdooAddonsJob::dispatch(odooEnvironmentBranchId: $row->id);
-            }
-            $this->syncOdooGithub();
-            $this->needsEnvironmentGithubLink = false;
-
-            // First project GitHub link (launch=choose / started without GitHub) starts containers.
-            // Linking a branch on a later new environment only syncs addons.
-            if ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub) {
-                return $this->startPlannedLaunch();
-            }
-
-            $this->dispatch('success', __('Repository :repository linked. Cloning branch :branch…', [
-                'repository' => $repository['full_name'],
-                'branch' => $branch,
-            ]));
-
-            return null;
         } catch (InvalidArgumentException|RuntimeException $exception) {
             $this->dispatch('error', __($exception->getMessage()));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
+    }
+
+    /**
+     * @param  list<string>  $existingBranches
+     */
+    private function queueAssociateOdooRepository(
+        GithubApp $githubApp,
+        ?string $existingFullName = null,
+        ?int $existingRepositoryId = null,
+        ?string $existingBranch = null,
+        array $existingBranches = [],
+        bool $startLaunch = false,
+    ): null {
+        $this->associateKey = 'associate-odoo-'.$this->service->uuid;
+        Cache::put($this->associateKey, ['step' => 1, 'done' => false, 'error' => null], now()->addMinutes(30));
+        AssociateOdooGithubRepositoryJob::dispatch(
+            $this->service->id,
+            $this->associateKey,
+            (int) auth()->id(),
+            (int) $githubApp->id,
+            $existingFullName,
+            $existingRepositoryId,
+            $existingBranch,
+            $existingBranches,
+            $startLaunch,
+        );
+        $this->associateRunning = true;
+        $this->associateError = null;
+
+        return null;
     }
 
     public function refreshLaunchProgress(): void
@@ -759,12 +756,25 @@ class Configuration extends Component
             $this->associateRunning = false;
             $this->project->unsetRelation('odooProfile');
             $this->project->load('odooProfile');
+            $this->environment->unsetRelation('odooBranch');
+            $this->environment->load('odooBranch');
             $this->syncOdooGithub();
             $this->associatingWithoutGithub = false;
             $this->awaitingRepositoryChoice = false;
+            $this->needsEnvironmentGithubLink = blank($this->environment->odooBranch?->git_branch);
+            $redirect = $status['redirect'] ?? null;
+            $message = is_string($status['message'] ?? null)
+                ? $status['message']
+                : __('Repository created. Custom addons were pushed when present.');
             Cache::forget($this->associateKey);
             $this->associateKey = null;
-            $this->dispatch('success', __('Repository created. Custom addons were pushed when present.'));
+            if (is_array($redirect) && is_string($redirect['name'] ?? null)) {
+                $parameters = is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
+                $this->redirectRoute($redirect['name'], $parameters);
+
+                return;
+            }
+            $this->dispatch('success', $message);
         }
     }
 
