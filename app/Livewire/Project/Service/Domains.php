@@ -3,6 +3,7 @@
 namespace App\Livewire\Project\Service;
 
 use App\Actions\Shared\CheckDomainDns;
+use App\Domain\Odoo\OdooDomains;
 use App\Jobs\CheckDomainDnsJob;
 use App\Livewire\Concerns\InteractsWithCloudflareDomainConnect;
 use App\Livewire\Project\Shared\ConfigurationChecker;
@@ -175,12 +176,16 @@ class Domains extends Component
         $branch = $environment?->odooBranch;
 
         $this->odooIsProduction = (bool) $environment?->isProduction();
-        $this->odooSubdomain = (string) ($profile?->subdomain ?? '');
+        $this->odooSubdomain = $project !== null && $environment !== null
+            ? OdooGit::environmentSubdomain($project, $environment)
+            : (string) ($profile?->subdomain ?? '');
         $this->odooWorkers = (int) ($branch?->workers ?? $profile?->workers ?? 0);
         $this->odooBaseDomain = OdooGit::baseDomain();
-        $this->odooProductionHost = $project !== null
-            ? OdooGit::projectHost($this->odooSubdomain, $this->odooBaseDomain, 'production', 0, true)
-            : '';
+        $this->odooProductionHost = $project !== null && $environment !== null && $environment->isProduction()
+            ? OdooGit::projectHost($this->odooSubdomain, $this->odooBaseDomain, $environment->name, (int) $environment->id, true)
+            : ($project !== null
+                ? OdooGit::projectHost($this->odooSubdomain, $this->odooBaseDomain, 'production', 0, true)
+                : '');
         $this->odooEnvironmentHost = $project !== null && $environment !== null
             ? OdooGit::hostFor($project, $environment)
             : '';
@@ -209,30 +214,55 @@ class Domains extends Component
                 return;
             }
 
-            $workers = max(0, min(32, (int) $this->odooWorkers));
-            $profilePayload = ['subdomain' => $subdomain === '' ? null : $subdomain];
-            if ($environment->isProduction()) {
-                $profilePayload['workers'] = $workers;
-            }
-            $profile->update($profilePayload);
+            $previewHost = OdooGit::projectHost(
+                $subdomain,
+                OdooGit::baseDomain(),
+                $environment->name,
+                (int) $environment->id,
+                $environment->isProduction(),
+            );
+            if ($previewHost !== '' && OdooDomains::collides($project, 'https://'.$previewHost, (int) $environment->id)) {
+                $this->dispatch('error', __('That address is already used by another environment in this project. Choose a different subdomain.'));
 
+                return;
+            }
+
+            $workers = max(0, min(32, (int) $this->odooWorkers));
+            // Subdomain is per environment. Never rewrite other environments' hosts.
             $branch = $environment->odooBranch;
             if ($branch instanceof OdooEnvironmentBranch) {
-                $branch->forceFill(['workers' => $workers])->save();
+                $branch->forceFill([
+                    'subdomain' => $subdomain === '' ? null : $subdomain,
+                    'workers' => $workers,
+                ])->save();
+            } else {
+                OdooEnvironmentBranch::query()->create([
+                    'environment_id' => $environment->id,
+                    'subdomain' => $subdomain === '' ? null : $subdomain,
+                    'workers' => $workers,
+                    'status' => 'idle',
+                ]);
             }
 
-            $project->load(['environments.services.server.settings']);
+            // Keep the profile as a fallback for environments that have not set their own tip yet.
+            if ($environment->isProduction()) {
+                $profile->update([
+                    'subdomain' => $subdomain === '' ? null : $subdomain,
+                    'workers' => $workers,
+                ]);
+            }
+
+            $environment->unsetRelation('odooBranch');
+            $environment->load(['odooBranch', 'services.server.settings']);
             $addressChanged = false;
             $restartIds = [];
-            foreach ($project->environments as $env) {
-                foreach ($env->services as $candidate) {
-                    if (! OdooJupyter::isOdooCompose((string) $candidate->docker_compose_raw)) {
-                        continue;
-                    }
-                    if (OdooGit::applyProjectHost($candidate)) {
-                        $addressChanged = true;
-                        $restartIds[] = (int) $candidate->id;
-                    }
+            foreach ($environment->services as $candidate) {
+                if (! OdooJupyter::isOdooCompose((string) $candidate->docker_compose_raw)) {
+                    continue;
+                }
+                if (OdooGit::applyProjectHost($candidate)) {
+                    $addressChanged = true;
+                    $restartIds[] = (int) $candidate->id;
                 }
             }
             foreach (array_unique($restartIds) as $restartId) {
@@ -246,8 +276,8 @@ class Domains extends Component
             $this->odooWorkers = $workers;
             $this->loadOdooRuntimeState();
             $this->dispatch('success', $addressChanged
-                ? __('Project runtime saved. Odoo is restarting so the proxy takes the address.')
-                : __('Project runtime saved. The next start applies the workers and the address.'));
+                ? __('Environment address saved. Odoo is restarting so the proxy takes the address.')
+                : __('Environment runtime saved. The next start applies the workers and the address.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }

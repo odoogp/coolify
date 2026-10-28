@@ -2362,6 +2362,7 @@ it('restarts odoo when the project subdomain changes so the proxy gets the addre
     $coolify = OdooGit::coolifyPublicUrl($service->fresh());
     expect($application->fresh()->fqdn)->toBe('https://sitio1.getodoo.sh')
         ->and($production->odooBranch()->first()->domain)->toBe('https://sitio1.getodoo.sh')
+        ->and($production->odooBranch()->first()->subdomain)->toBe('sitio1')
         ->and($this->project->odooProfile->fresh()->workers)->toBe(2);
 
     assertStartServiceDispatched(1);
@@ -2372,11 +2373,95 @@ it('restarts odoo when the project subdomain changes so the proxy gets the addre
         ->assertHasNoErrors();
 
     expect($this->project->odooProfile->fresh()->subdomain)->toBeNull()
+        ->and($production->odooBranch()->first()->subdomain)->toBeNull()
         ->and($application->fresh()->fqdn)->toBe($coolify)
         ->and($application->fresh()->fqdn)->not->toContain('getodoo.sh')
         ->and($production->odooBranch()->first()->domain)->toBe($coolify);
 
     assertStartServiceDispatched(2);
+});
+
+it('keeps another environment host when this environment subdomain changes', function () {
+    Bus::fake();
+    instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
+    $this->project->odooProfile->update(['subdomain' => 'v20prod', 'workers' => 0]);
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '203.0.113.10',
+    ]);
+    $server->settings()->update(['is_reachable' => true, 'is_usable' => true]);
+
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $staging = $this->project->environments()->where('name', 'staging-1')->first();
+    expect($staging)->not->toBeNull();
+
+    $productionService = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+    $productionApp = ServiceApplication::create([
+        'service_id' => $productionService->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:20',
+        'fqdn' => 'https://v20prod.getodoo.sh',
+        'is_force_https_enabled' => true,
+    ]);
+    OdooEnvironmentBranch::query()->updateOrCreate(
+        ['environment_id' => $production->id],
+        [
+            'git_branch' => 'main',
+            'status' => 'idle',
+            'domain' => 'https://v20prod.getodoo.sh',
+            'subdomain' => 'v20prod',
+        ],
+    );
+
+    $stagingService = Service::factory()->create([
+        'environment_id' => $staging->id,
+        'server_id' => $server->id,
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:19\n",
+    ]);
+    $stagingApp = ServiceApplication::create([
+        'service_id' => $stagingService->id,
+        'name' => 'odoo',
+        'human_name' => 'Odoo',
+        'image' => 'odoo:19',
+        'fqdn' => 'https://old-staging.getodoo.sh',
+        'is_force_https_enabled' => true,
+    ]);
+    OdooEnvironmentBranch::query()->updateOrCreate(
+        ['environment_id' => $staging->id],
+        [
+            'git_branch' => 'staging',
+            'status' => 'idle',
+            'domain' => 'https://old-staging.getodoo.sh',
+            'subdomain' => 'old-staging',
+        ],
+    );
+
+    Livewire::test(Domains::class, ['service' => $stagingService->fresh(['applications', 'server', 'environment.project.odooProfile', 'environment.odooBranch'])])
+        ->set('odooSubdomain', 'v19stage')
+        ->set('odooWorkers', 1)
+        ->call('saveOdooRuntime')
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
+    $expectedStaging = 'https://v19stage-staging-1-'.$staging->id.'.getodoo.sh';
+
+    expect($stagingApp->fresh()->fqdn)->toBe($expectedStaging)
+        ->and($staging->odooBranch()->first()->subdomain)->toBe('v19stage')
+        ->and($staging->odooBranch()->first()->domain)->toBe($expectedStaging)
+        ->and($productionApp->fresh()->fqdn)->toBe('https://v20prod.getodoo.sh')
+        ->and($production->odooBranch()->first()->domain)->toBe('https://v20prod.getodoo.sh')
+        ->and($production->odooBranch()->first()->subdomain)->toBe('v20prod')
+        ->and($this->project->odooProfile->fresh()->subdomain)->toBe('v20prod')
+        ->and(OdooGit::hostFor($this->project->fresh(), $production->fresh()))->toBe('v20prod.getodoo.sh')
+        ->and(OdooGit::hostFor($this->project->fresh(), $staging->fresh()))
+        ->toBe('v19stage-staging-1-'.$staging->id.'.getodoo.sh');
+
+    assertStartServiceDispatched(1);
 });
 
 it('does not restart odoo when only workers change', function () {

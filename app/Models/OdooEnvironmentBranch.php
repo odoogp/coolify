@@ -15,6 +15,7 @@ class OdooEnvironmentBranch extends Model
         'owner_package_branch',
         'status',
         'domain',
+        'subdomain',
         'odoo_version',
         'workers',
         'addons_path',

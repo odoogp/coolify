@@ -1228,10 +1228,28 @@ BASH;
         return OdooDomains::projectHost($subdomain, $baseDomain, $environment, $environmentId, $isProduction);
     }
 
+    /**
+     * Public host label for one environment. Prefer the branch row; fall back to the
+     * project profile so older projects keep working until each environment is saved.
+     */
+    public static function environmentSubdomain(Project $project, ?Environment $environment = null): string
+    {
+        $project->loadMissing('odooProfile');
+        if ($environment instanceof Environment) {
+            $environment->loadMissing('odooBranch');
+            $fromBranch = $environment->odooBranch?->subdomain;
+            if (filled($fromBranch)) {
+                return (string) $fromBranch;
+            }
+        }
+
+        return (string) ($project->odooProfile?->subdomain ?? '');
+    }
+
     public static function hostFor(Project $project, ?Environment $environment = null): string
     {
         return self::projectHost(
-            (string) ($project->odooProfile?->subdomain ?? ''),
+            self::environmentSubdomain($project, $environment),
             self::normalizedBaseDomain((string) (instanceSettings()->odoo_base_domain ?? '')),
             $environment?->name,
             (int) ($environment->id ?? 0),

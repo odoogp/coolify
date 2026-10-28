@@ -5108,5 +5108,11 @@
     "Each environment needs its own GitHub branch. Pick another tip, or create a new branch on GitHub first.": "Cada entorno necesita su propia rama de GitHub. Elige otra punta, o crea primero una rama nueva en GitHub.",
     "Each environment needs its own GitHub branch on the same repository.": "Cada entorno necesita su propia rama de GitHub en el mismo repositorio.",
     "Each environment needs its own GitHub branch on the same repository. Pick another tip, or create a new branch on GitHub first.": "Cada entorno necesita su propia rama de GitHub en el mismo repositorio. Elige otra punta, o crea primero una rama nueva en GitHub.",
-    "Each environment needs its own tip on the same repository. The same branch name on another repository is fine.": "Cada entorno necesita su propia punta en el mismo repositorio. El mismo nombre de rama en otro repositorio sí se puede."
+    "Each environment needs its own tip on the same repository. The same branch name on another repository is fine.": "Cada entorno necesita su propia punta en el mismo repositorio. El mismo nombre de rama en otro repositorio sí se puede.",
+    "Environment address": "Dirección del entorno",
+    "Each environment has its own subdomain and certificate. Changing this one does not rewrite the others.": "Cada entorno tiene su propio subdominio y certificado. Cambiar este no reescribe los demás.",
+    "Leave this empty to use the address Coolify generates. Saving a new address restarts only this Odoo so the proxy and SSL apply.": "Déjalo vacío para usar la dirección que genera Coolify. Guardar una dirección nueva reinicia solo este Odoo para que el proxy y el SSL la tomen.",
+    "That address is already used by another environment in this project. Choose a different subdomain.": "Esa dirección ya la usa otro entorno de este proyecto. Elige otro subdominio.",
+    "Environment address saved. Odoo is restarting so the proxy takes the address.": "Dirección del entorno guardada. Odoo se está reiniciando para que el proxy tome la dirección.",
+    "Environment runtime saved. The next start applies the workers and the address.": "Configuración del entorno guardada. El próximo arranque aplica los workers y la dirección."
 }
