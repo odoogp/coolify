@@ -839,7 +839,10 @@ class Show extends Component
                 'finished' => 'Finished',
                 default => $statusKey,
             });
-            $version = $isOdooService ? (string) ($this->project->odooProfile?->odoo_version ?? '') : '';
+            $version = $isOdooService
+                ? (string) ($environment->odooBranch?->odoo_version
+                    ?: ($this->project->odooProfile?->odoo_version ?? ''))
+                : '';
             $serviceHref = $service instanceof Service
                 ? route(
                     $isOdooService

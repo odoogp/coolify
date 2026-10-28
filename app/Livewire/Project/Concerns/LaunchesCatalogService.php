@@ -66,18 +66,13 @@ trait LaunchesCatalogService
             $environment = $this->catalogLaunchEnvironment();
 
             if ($name === 'odoo') {
+                // Every Odoo launch chooses its Compose version. Do not force the
+                // profile version onto a new environment (no duplicate Odoo in the
+                // same environment — existingOdooService reuses that row).
+                $this->validateCatalogOdooVersion();
                 if ($project->odooProfile === null) {
-                    // Production (first) launch sets the project version; staging reuses it.
-                    $this->validateCatalogOdooVersion();
                     $project->enableOdoo($this->odooVersion);
                     $project->refresh();
-                } else {
-                    $this->odooVersion = (string) $project->odooProfile->odoo_version;
-                    if ($this->odooVersion === '') {
-                        throw ValidationException::withMessages([
-                            'odooVersion' => [__('This project has no Odoo version on its profile. Launch production again after configuring Compose templates.')],
-                        ]);
-                    }
                 }
                 $service = $this->existingOdooService($environment)
                     ?? $this->createOdooService($project, $environment, start: false, destination: $this->chosenDestination($project, $environment));
@@ -185,18 +180,21 @@ trait LaunchesCatalogService
     protected function catalogNeedsVersionChoice(?string $service = null, ?Project $project = null): bool
     {
         $service ??= $this->selectedService;
-        $project ??= $this->catalogLaunchProject();
 
         if ($service === 'odoo') {
-            // Always show the picker when enabling Odoo so the owner picks a
-            // configured Compose row — even if only one version exists.
-            return $project->odooProfile === null && $this->catalogVersionOptions('odoo') !== [];
+            // Always show the picker for Odoo — including launches after the
+            // project profile already exists — so each environment can pick Compose.
+            return $this->catalogVersionOptions('odoo') !== [];
         }
 
         return count($this->catalogVersionOptions($service)) > 1;
     }
 
-    protected function catalogLockedOdooVersion(?Project $project = null): ?string
+    /**
+     * Suggested default for the Odoo version listbox (profile version when set).
+     * Never used to hide the picker — each launch may choose a different Compose.
+     */
+    protected function catalogSuggestedOdooVersion(?Project $project = null): ?string
     {
         $project ??= $this->catalogLaunchProject();
         $version = $project->odooProfile?->odoo_version;
@@ -204,10 +202,21 @@ trait LaunchesCatalogService
         return is_string($version) && $version !== '' ? $version : null;
     }
 
+    /** @deprecated Use catalogSuggestedOdooVersion(); kept for view data key compatibility. */
+    protected function catalogLockedOdooVersion(?Project $project = null): ?string
+    {
+        return null;
+    }
+
     protected function ensureDefaultOdooVersion(): void
     {
         $versions = OdooComposeTemplate::configuredVersions();
         if ($this->odooVersion === '') {
+            $suggested = $this->catalogSuggestedOdooVersion();
+            if (is_string($suggested) && in_array($suggested, $versions, true)) {
+                $this->odooVersion = $suggested;
+            }
+
             return;
         }
         // Drop a stale client value (e.g. old hardcoded 18) that is not configured.
@@ -226,7 +235,8 @@ trait LaunchesCatalogService
         return [
             'versionOptions' => $this->catalogVersionOptions(),
             'needsVersionChoice' => $this->catalogNeedsVersionChoice(),
-            'lockedOdooVersion' => $this->catalogLockedOdooVersion(),
+            // Always null: the Launch UI never locks the version to the profile.
+            'lockedOdooVersion' => null,
         ];
     }
 
@@ -364,7 +374,7 @@ trait LaunchesCatalogService
             return null;
         }
 
-        $version = (string) ($profile->odoo_version ?: '');
+        $version = (string) ($this->odooVersion !== '' ? $this->odooVersion : ($profile->odoo_version ?: ''));
         $compose = $version !== '' ? OdooComposeTemplate::composeFor($version) : null;
         if (! is_string($compose) || $compose === '') {
             $this->dispatch('error', __('Odoo has no compose template for this version. Configure it in Settings → Odoo.'));

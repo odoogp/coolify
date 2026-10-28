@@ -145,8 +145,8 @@ it('asks for an Odoo version before enabling the profile on first catalog launch
         ->assertSet('selectedService', 'odoo')
         ->assertSet('odooVersion', '')
         ->assertSee(__('Odoo version'))
-        ->assertSee(__('This becomes the project version. Staging and other environments use the same Compose.'))
-        ->assertDontSee(__('This project runs Odoo :version (chosen when you launched production). It cannot be changed later in this assistant or in project settings. Staging uses the same version.', ['version' => '20']))
+        ->assertSee(__('Choose the Compose for this environment. Other environments can use a different Odoo version.'))
+        ->assertDontSee(__('Production set this project to Odoo :version. New environments reuse that version.', ['version' => '20']))
         ->set('odooVersion', '20')
         ->set('serverId', (string) $this->server->id)
         ->call('launchService')
@@ -158,6 +158,44 @@ it('asks for an Odoo version before enabling the profile on first catalog launch
         ]));
 
     expect($this->project->fresh()->odooProfile?->odoo_version)->toBe('20');
+    Bus::assertNotDispatched(LaunchOdooProjectJob::class);
+    Bus::assertNotDispatched(StartService::class);
+});
+
+it('lets a later Odoo launch pick a different Compose than the project profile', function () {
+    Bus::fake();
+    $this->project->enableOdoo('20');
+    Service::factory()->create([
+        'name' => 'odoo-seed',
+        'environment_id' => $this->environment->id,
+        'service_type' => 'odoo',
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n",
+    ]);
+
+    Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])
+        ->assertSee(__('Odoo version'))
+        ->assertDontSee(__('Production set this project to Odoo :version. New environments reuse that version.', ['version' => '20']))
+        ->set('environmentRole', 'staging')
+        ->set('selectedService', 'odoo')
+        ->set('odooVersion', '18')
+        ->set('serverId', (string) $this->server->id)
+        ->call('launchService')
+        ->assertHasNoErrors()
+        ->assertRedirect();
+
+    $staging = $this->project->fresh()->environments()->where('role', 'staging')->first()
+        ?? $this->project->fresh()->environments()->where('name', 'like', 'staging%')->first();
+    expect($staging)->not->toBeNull();
+
+    $created = $staging->services()->where('service_type', 'odoo')->first();
+    expect($created)->not->toBeNull()
+        ->and($created->docker_compose_raw)->toContain('odoo:18')
+        ->and((string) $staging->odooBranch?->odoo_version)->toBe('18')
+        ->and((string) $this->project->fresh()->odooProfile?->odoo_version)->toBe('20');
+
     Bus::assertNotDispatched(LaunchOdooProjectJob::class);
     Bus::assertNotDispatched(StartService::class);
 });
@@ -187,7 +225,9 @@ it('does not hardcode Odoo 18 when launching without a version choice in the tra
     expect($source)
         ->toContain('validateCatalogOdooVersion')
         ->toContain('enableOdoo($this->odooVersion)')
-        ->not->toContain("enableOdoo('18')");
+        ->toContain('$this->odooVersion !== \'\' ? $this->odooVersion')
+        ->not->toContain("enableOdoo('18')")
+        ->not->toContain('$project->odooProfile === null && $this->catalogVersionOptions');
 });
 
 it('reuses the project server when launching another catalog service', function () {
@@ -248,15 +288,16 @@ it('lets the new-project form pick a configured Odoo version without inventing 1
         ->assertSet('odooVersion', '')
         ->set('service', 'odoo')
         ->assertSee(__('Odoo version'))
-        ->assertSee(__('This becomes the project version. Staging and other environments use the same Compose.'));
+        ->assertSee(__('Choose the Compose for this environment. Other environments can use a different Odoo version.'));
 });
 
-it('shows the immutable version warning on the GitHub launch wizard', function () {
+it('shows the environment version note on the GitHub launch wizard', function () {
     $blade = file_get_contents(resource_path('views/livewire/project/service/configuration.blade.php'));
 
     expect($blade)
         ->toContain('awaitingRepositoryChoice')
-        ->toContain('chosen when you launched production');
+        ->toContain('This environment installs Odoo :version')
+        ->not->toContain('chosen when you launched production');
 });
 
 it('creates a non-odoo service from the new-project form without starting containers', function () {

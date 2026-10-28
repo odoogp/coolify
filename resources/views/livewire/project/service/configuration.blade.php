@@ -296,9 +296,9 @@
                                                 : __('Choose the GitHub branch for this environment. It can differ from the environment name.') }}
                                         </p>
                                     @endif
-                                    @if ($awaitingRepositoryChoice && filled($project->odooProfile?->odoo_version))
+                                    @if ($awaitingRepositoryChoice && filled($service->environment?->odooBranch?->odoo_version ?: $project->odooProfile?->odoo_version))
                                         <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
-                                            {{ __('This project runs Odoo :version (chosen when you launched production). It cannot be changed later in this assistant or in project settings. Staging uses the same version.', ['version' => $project->odooProfile->odoo_version]) }}
+                                            {{ __('This environment installs Odoo :version. Launch another environment from the project if you need a different Compose.', ['version' => $service->environment?->odooBranch?->odoo_version ?: $project->odooProfile->odoo_version]) }}
                                         </p>
                                     @endif
                                     @unless ($associatingWithoutGithub && ! $odooGithubIsPersonal)

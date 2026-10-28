@@ -22,6 +22,24 @@ use Spatie\Url\Url;
 use Symfony\Component\Yaml\Yaml;
 
 /**
+ * True when a SERVICE_FQDN_* / SERVICE_URL_* key already exists with a numeric port suffix
+ * (e.g. SERVICE_FQDN_MONITOR_8090). Uses LIKE + PHP so SQLite tests work (no Postgres `~`).
+ */
+function environmentVariableHasNumericPortSuffix(Service|Application $resource, string $baseKey): bool
+{
+    if ($baseKey === '') {
+        return false;
+    }
+
+    $pattern = '/^'.preg_quote($baseKey, '/').'_[0-9]+$/';
+
+    return $resource->environment_variables()
+        ->where('key', 'LIKE', $baseKey.'_%')
+        ->pluck('key')
+        ->contains(fn (mixed $key): bool => is_string($key) && preg_match($pattern, $key) === 1);
+}
+
+/**
  * Validates a Docker Compose YAML string for command injection vulnerabilities.
  * This should be called BEFORE saving to database to prevent malicious data from being stored.
  *
@@ -2001,11 +2019,9 @@ function serviceParser(Service $resource): Collection
                     $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
-                    // Also check if a port-suffixed version exists (e.g., SERVICE_FQDN_UMAMI_3000)
-                    $portSuffixedExists = $resource->environment_variables()
-                        ->where('key', 'LIKE', $key->value().'_%')
-                        ->whereRaw('key ~ ?', ['^'.$key->value().'_[0-9]+$'])
-                        ->exists();
+                    // Also check if a port-suffixed version exists (e.g., SERVICE_FQDN_UMAMI_3000).
+                    // Avoid Postgres-only `~` so SQLite feature tests can parse Odoo stacks.
+                    $portSuffixedExists = environmentVariableHasNumericPortSuffix($resource, $key->value());
                     $serviceExists = findServiceApplicationForEnvName($resource, (string) $fqdnFor);
                     // Check if FQDN already has a port set (contains ':' after the domain)
                     $fqdnHasPort = $serviceExists && str($serviceExists->fqdn)->contains(':') && str($serviceExists->fqdn)->afterLast(':')->isMatch('/^\d+$/');
@@ -2047,11 +2063,8 @@ function serviceParser(Service $resource): Collection
                     $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
-                    // Also check if a port-suffixed version exists (e.g., SERVICE_URL_DASHBOARD_6791)
-                    $portSuffixedExists = $resource->environment_variables()
-                        ->where('key', 'LIKE', $key->value().'_%')
-                        ->whereRaw('key ~ ?', ['^'.$key->value().'_[0-9]+$'])
-                        ->exists();
+                    // Also check if a port-suffixed version exists (e.g., SERVICE_URL_DASHBOARD_6791).
+                    $portSuffixedExists = environmentVariableHasNumericPortSuffix($resource, $key->value());
                     $serviceExists = findServiceApplicationForEnvName($resource, (string) $urlFor);
                     // Check if FQDN already has a port set (contains ':' after the domain)
                     $fqdnHasPort = $serviceExists && str($serviceExists->fqdn)->contains(':') && str($serviceExists->fqdn)->afterLast(':')->isMatch('/^\d+$/');

@@ -44,7 +44,7 @@
             <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal required
                 :options="$odooVersionOptions" />
             <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                {{ __('This becomes the project version. Staging and other environments use the same Compose.') }}
+                {{ __('Choose the Compose for this environment. Other environments can use a different Odoo version.') }}
             </p>
         @endif
         <x-forms.checkbox id="migrateFromOdoo" live label="{{ __('Migrate') }}"
