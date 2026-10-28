@@ -63,6 +63,9 @@ class Configuration extends Component
 
     public ?int $odooRepositoryId = null;
 
+    /** full_name of the picked existing repository (owner/name) — kept so Associate never reloads GitHub. */
+    public string $odooRepositoryFullName = '';
+
     public array $odooGithubBranches = [];
 
     public string $odooBranch = '';
@@ -445,12 +448,16 @@ class Configuration extends Component
     public function updatedOdooRepositoryId(): void
     {
         if (blank($this->odooRepositoryId)) {
+            $this->odooRepositoryFullName = '';
+
             return;
         }
 
         try {
             $repository = $this->selectedOdooRepository();
+            $this->odooRepositoryFullName = (string) $repository['full_name'];
             $this->environment->loadMissing('odooBranch');
+            // Branch list can wait on GitHub rate limits — keep it out of Associate.
             $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
             $stored = (string) ($this->environment->odooBranch?->git_branch ?? '');
             $this->odooBranch = $this->preferAvailableOdooBranch(
@@ -658,9 +665,13 @@ class Configuration extends Component
                 return $this->startPlannedLaunch(createRepository: true);
             }
 
-            $repository = $this->selectedOdooRepository();
             $branch = trim($this->odooBranch);
+            $fullName = trim($this->odooRepositoryFullName);
+            $repositoryId = (int) $this->odooRepositoryId;
             $branches = $this->odooGithubBranches;
+            if ($repositoryId <= 0 || $fullName === '' || ! str_contains($fullName, '/')) {
+                throw new InvalidArgumentException('Choose a repository from the list (use Refresh repositories if it is empty).');
+            }
             if ($branch === '') {
                 throw new InvalidArgumentException('Choose a GitHub branch for this environment.');
             }
@@ -668,14 +679,14 @@ class Configuration extends Component
                 throw new InvalidArgumentException('That branch does not exist on this GitHub repository. Use the branch name from GitHub, not the environment name.');
             }
             if (in_array($branch, $this->takenOdooGithubBranches(), true)) {
-                throw new InvalidArgumentException('Each environment needs its own GitHub branch.');
+                throw new InvalidArgumentException('Each environment needs its own GitHub branch. Pick another tip, or create a new branch on GitHub first.');
             }
 
-            // Attach + optional launch must run in a job — GitHub / CSRF “Page expired”.
+            // Attach runs in a job only — never GitHub HTTP inside this Livewire request.
             return $this->queueAssociateOdooRepository(
                 $githubApp,
-                existingFullName: $repository['full_name'],
-                existingRepositoryId: (int) $repository['id'],
+                existingFullName: $fullName,
+                existingRepositoryId: $repositoryId,
                 existingBranch: $branch,
                 existingBranches: $branches,
                 startLaunch: $this->awaitingRepositoryChoice || $this->associatingWithoutGithub,
@@ -896,13 +907,27 @@ class Configuration extends Component
     }
 
     /**
-     * Branches already linked on other environments of this project.
+     * Branches already linked on other environments — only for the repository being associated.
+     * A tip used on odoogp20 must not block main on odoogp19_demo.
      *
      * @return list<string>
      */
     public function takenOdooGithubBranches(): array
     {
-        $this->project->loadMissing('environments');
+        $this->project->loadMissing('odooProfile', 'environments');
+        $selectedFullName = '';
+        if (filled($this->odooRepositoryId)) {
+            $selected = collect($this->odooRepositories)->firstWhere('id', (int) $this->odooRepositoryId);
+            $selectedFullName = is_array($selected) ? (string) ($selected['full_name'] ?? '') : '';
+        }
+        $profileRepo = (string) ($this->project->odooProfile?->git_repository ?? '');
+        // Tips are only “in use” on the same GitHub repository the project already tracks,
+        // or the one currently selected when it matches that profile repo.
+        $repoForTaken = $selectedFullName !== '' ? $selectedFullName : $profileRepo;
+        if ($repoForTaken === '' || ($profileRepo !== '' && strcasecmp($repoForTaken, $profileRepo) !== 0)) {
+            return [];
+        }
+
         $environmentIds = $this->project->environments
             ->pluck('id')
             ->filter(fn ($id): bool => (int) $id !== (int) $this->environment->id)
@@ -940,20 +965,25 @@ class Configuration extends Component
             }
         }
 
-        return (string) ($branches[0] ?? '');
+        // Never auto-select a tip already used by another environment.
+        return '';
     }
 
     /**
+     * Resolve the picked repository from the already-loaded list only.
+     * Never call GitHub here — that belongs in jobs / explicit Refresh (CSRF “Page expired”).
+     *
      * @return array{id: int, full_name: string, owner: string, name: string, default_branch: string}
      */
     private function selectedOdooRepository(bool $refresh = false): array
     {
-        if ($refresh || $this->odooRepositories === []) {
+        if ($refresh) {
             $this->odooRepositories = OdooGit::repositories($this->odooGithubApp());
+            $this->odooRepositoriesLoaded = true;
         }
         $repository = collect($this->odooRepositories)->firstWhere('id', (int) $this->odooRepositoryId);
         if (! is_array($repository)) {
-            throw new InvalidArgumentException('Choose a repository.');
+            throw new InvalidArgumentException('Choose a repository from the list (use Refresh repositories if it is empty).');
         }
 
         return $repository;

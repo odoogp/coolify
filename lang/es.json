@@ -5104,5 +5104,7 @@
     "Associate an existing repository": "Asociar un repositorio existente",
     "Create repository and launch": "Crear repositorio y lanzar",
     "in use": "en uso",
-    "Each environment needs its own GitHub branch. Branches already used on this project are marked in use.": "Cada entorno necesita su propia rama de GitHub. Las ramas ya usadas en este proyecto aparecen como en uso."
+    "Each environment needs its own GitHub branch. Branches already used on this project are marked in use.": "Cada entorno necesita su propia rama de GitHub. Las ramas ya usadas en este proyecto aparecen como en uso.",
+    "Choose a repository from the list (use Refresh repositories if it is empty).": "Elige un repositorio de la lista (usa Reevaluar repositorios si está vacía).",
+    "Each environment needs its own GitHub branch. Pick another tip, or create a new branch on GitHub first.": "Cada entorno necesita su propia rama de GitHub. Elige otra punta, o crea primero una rama nueva en GitHub."
 }
