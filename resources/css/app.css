@@ -932,13 +932,17 @@ html:not(.dark) .application-console-shell[data-console-theme="system"] .termina
     --coollabs-line: oklch(14.5% 0 0 / 0.1);
     --coollabs-hairline: oklch(93.5% 0 0);
     --coollabs-subtle: oklch(55.6% 0 0);
-    /* Motion tokens (Apple / Emil): strong ease-out for UI, never ease-in on enter/leave */
-    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-    --duration-press: 140ms;
-    --duration-popover: 180ms;
-    --duration-modal: 280ms;
+    /*
+     * UI motion tokens (Apple / Emil). Prefixed with --motion-* so they never
+     * override Tailwind's built-in --ease-out / --ease-in-out (those would
+     * reshape unrelated surfaces such as the login flow-tunnel video fades).
+     */
+    --motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-duration-press: 140ms;
+    --motion-duration-popover: 180ms;
+    --motion-duration-modal: 280ms;
 }
 
 .dark {
@@ -1140,9 +1144,9 @@ html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm {
     backdrop-filter: blur(40px) saturate(1.6);
     -webkit-backdrop-filter: blur(40px) saturate(1.6);
     transition:
-        transform var(--duration-press) var(--ease-out),
-        box-shadow var(--duration-popover) var(--ease-out),
-        border-color var(--duration-popover) var(--ease-out);
+        transform var(--motion-duration-press) var(--motion-ease-out),
+        box-shadow var(--motion-duration-popover) var(--motion-ease-out),
+        border-color var(--motion-duration-popover) var(--motion-ease-out);
     min-width: 0;
 }
 
@@ -2437,7 +2441,8 @@ html:not(.dark) .auth-shell-login .auth-locale select {
 .flow-tunnel-poster {
     z-index: 2;
     opacity: 1;
-    transition: opacity 1.4s ease;
+    /* Literal cubic-bezier (standard ease). Do not use theme --ease-* tokens. */
+    transition: opacity 1.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 .flow-tunnel.is-ready .flow-tunnel-poster {
@@ -2454,6 +2459,7 @@ html:not(.dark) .auth-shell-login .auth-locale select {
     opacity: 0;
     z-index: 0;
     background: transparent;
+    /* Crossfade must stay linear; motion UI tokens must never reach here. */
     transition: opacity 2s linear;
     -webkit-transform: translateZ(0);
     transform: translateZ(0);
@@ -2462,6 +2468,10 @@ html:not(.dark) .auth-shell-login .auth-locale select {
 .flow-tunnel-fade video.is-on {
     opacity: 1;
     z-index: 1;
+}
+
+.auth-shell .motion-tile {
+    transition: none;
 }
 
 .auth-shell-tunnel .auth-stage {

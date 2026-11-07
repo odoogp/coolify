@@ -194,21 +194,28 @@ the shared status badge.
 
 ### Motion
 
-Shared motion tokens live on `:root` in `resources/css/app.css`:
+Shared UI motion tokens live on `:root` in `resources/css/app.css`. They are
+prefixed `--motion-*` on purpose so they never override Tailwind's built-in
+`--ease-out` / `--ease-in-out` (that clash broke unrelated timing, including
+login `flow-tunnel` fades).
 
-- `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)` for UI enter/leave and press
-- `--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)` for on-screen morphs
-- `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)` for sheet-like surfaces
-- `--duration-press: 140ms`, `--duration-popover: 180ms`,
-  `--duration-modal: 280ms`
+- `--motion-ease-out: cubic-bezier(0.23, 1, 0.32, 1)` for UI enter/leave and press
+- `--motion-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)` for on-screen morphs
+- `--motion-ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)` for sheet-like surfaces
+- `--motion-duration-press: 140ms`, `--motion-duration-popover: 180ms`,
+  `--motion-duration-modal: 280ms`
 
 Use Alpine/Tailwind class `ease-motion-out` instead of `ease-in` on overlays.
-Buttons use press scale `0.97` on `:active`. Collection tiles use `motion-tile`
-(transform, box-shadow, border-color only), never `transition-all`.
+Buttons use press scale `0.97` on `:active` (disabled inside `.auth-shell`).
+Collection tiles use `motion-tile` (transform, box-shadow, border-color only),
+never `transition-all`.
 
-Animate occasional surfaces (modals, toasts, listboxes, dropdowns). Do not
-animate keyboard-driven UI such as global search, high-frequency list hover, or
-dense data the user is reading. Honor `prefers-reduced-motion`.
+Do not apply these tokens to the login/register atmosphere: `.flow-tunnel`
+video crossfades stay `linear` / standard ease, and auth stage keyframes keep
+their own timing. Animate occasional app surfaces (modals, toasts, listboxes,
+dropdowns). Do not animate keyboard-driven UI such as global search,
+high-frequency list hover, or dense data the user is reading. Honor
+`prefers-reduced-motion`.
 
 Local-only interactive preview: `/__motion` (`dev.motion-preview`) in
 `local`/`testing` environments.
