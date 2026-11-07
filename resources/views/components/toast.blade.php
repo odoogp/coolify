@@ -89,12 +89,12 @@
             x-cloak>
             <template x-for="toast in toasts" :key="toast.id">
                 <li x-show="toast.visible"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="translate-y-2 opacity-0"
+                    x-transition:enter="transition ease-motion-out duration-[180ms]"
+                    x-transition:enter-start="-translate-y-2 opacity-0"
                     x-transition:enter-end="translate-y-0 opacity-100"
-                    x-transition:leave="transition ease-in duration-150"
+                    x-transition:leave="transition ease-motion-out duration-[150ms]"
                     x-transition:leave-start="translate-y-0 opacity-100"
-                    x-transition:leave-end="-translate-y-1 opacity-0"
+                    x-transition:leave-end="-translate-y-2 opacity-0"
                     @mouseenter="pauseToast(toast)" @mouseleave="resumeToast(toast)"
                     class="relative flex w-full items-start rounded-lg group"
                     style="background: var(--coollabs-elevated); box-shadow: 0 0 0 1px var(--coollabs-line), var(--shadow-modal);"

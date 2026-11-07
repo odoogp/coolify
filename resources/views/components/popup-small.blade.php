@@ -45,10 +45,10 @@
         },
     }"
     x-show="bannerVisible" x-cloak
-    x-transition:enter="transition ease-out duration-200"
+    x-transition:enter="transition ease-motion-out duration-[180ms]"
     x-transition:enter-start="translate-y-3 opacity-0"
     x-transition:enter-end="translate-y-0 opacity-100"
-    x-transition:leave="transition ease-in duration-150"
+    x-transition:leave="transition ease-motion-out duration-[150ms]"
     x-transition:leave-start="translate-y-0 opacity-100"
     x-transition:leave-end="translate-y-3 opacity-0"
     class="fixed right-4 z-999 {{ $position === 'top-right' ? 'top-16' : 'bottom-4' }}">

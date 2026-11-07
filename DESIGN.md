@@ -192,6 +192,27 @@ resource type. Place active deployments above the resource grids as a compact,
 live-updating table rather than a metric card. Communicate server health with
 the shared status badge.
 
+### Motion
+
+Shared motion tokens live on `:root` in `resources/css/app.css`:
+
+- `--ease-out: cubic-bezier(0.23, 1, 0.32, 1)` for UI enter/leave and press
+- `--ease-in-out: cubic-bezier(0.77, 0, 0.175, 1)` for on-screen morphs
+- `--ease-drawer: cubic-bezier(0.32, 0.72, 0, 1)` for sheet-like surfaces
+- `--duration-press: 140ms`, `--duration-popover: 180ms`,
+  `--duration-modal: 280ms`
+
+Use Alpine/Tailwind class `ease-motion-out` instead of `ease-in` on overlays.
+Buttons use press scale `0.97` on `:active`. Collection tiles use `motion-tile`
+(transform, box-shadow, border-color only), never `transition-all`.
+
+Animate occasional surfaces (modals, toasts, listboxes, dropdowns). Do not
+animate keyboard-driven UI such as global search, high-frequency list hover, or
+dense data the user is reading. Honor `prefers-reduced-motion`.
+
+Local-only interactive preview: `/__motion` (`dev.motion-preview`) in
+`local`/`testing` environments.
+
 ### Top-level dashboard destinations
 
 Every page opened directly from the main sidebar uses the same compact content

@@ -151,10 +151,10 @@
             <div x-ref="panel" id="{{ $panelId }}" class="listbox-panel"
                 style="position: fixed; z-index: 9999; visibility: hidden" x-show="open"
                 x-cloak :style="{ position: 'fixed', zIndex: 9999, visibility: positioned ? 'visible' : 'hidden' }"
-                x-transition:enter="transition ease-out duration-100"
+                x-transition:enter="transition ease-motion-out duration-[180ms]"
                 x-transition:enter-start="opacity-0 -translate-y-1 scale-[0.98]"
                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                x-transition:leave="transition ease-in duration-75"
+                x-transition:leave="transition ease-motion-out duration-[150ms]"
                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                 x-transition:leave-end="opacity-0 -translate-y-1 scale-[0.98]"
                 x-effect="if (open) requestAnimationFrame(() => positionPanel($el))" role="listbox">
@@ -178,10 +178,10 @@
             </template>
         @else
             <div x-ref="panel" class="listbox-panel" x-show="open" x-cloak
-                x-transition:enter="transition ease-out duration-100"
+                x-transition:enter="transition ease-motion-out duration-[180ms]"
                 x-transition:enter-start="opacity-0 -translate-y-1 scale-[0.98]"
                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-                x-transition:leave="transition ease-in duration-75"
+                x-transition:leave="transition ease-motion-out duration-[150ms]"
                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                 x-transition:leave-end="opacity-0 -translate-y-1 scale-[0.98]" role="listbox">
                 <div x-show="options.length === 0"

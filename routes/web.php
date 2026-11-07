@@ -189,6 +189,12 @@ if (app()->environment(['local', 'testing'])) {
 
         abort((int) $code, $messages[$code]);
     })->where('code', '[0-9]{3}')->name('dev.error-preview');
+
+    Route::get('/__motion', function () {
+        return view('dev.motion-preview', [
+            'title' => 'Motion preview',
+        ]);
+    })->name('dev.motion-preview');
 }
 
 Route::middleware(['auth', 'throttle:force-password-reset'])->group(function () {

@@ -278,14 +278,19 @@
     <template x-teleport="body">
         <div x-show="modalOpen"
             class="fixed inset-0 z-99 flex min-h-full items-center justify-center overflow-y-auto p-4" x-cloak>
-            <div x-show="modalOpen" class="absolute inset-0 bg-black/50 backdrop-blur-[2px]">
+            <div x-show="modalOpen" x-transition:enter="transition ease-motion-out duration-[280ms]"
+                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="transition ease-motion-out duration-[220ms]"
+                x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
+                class="absolute inset-0 bg-black/50 backdrop-blur-[2px]">
             </div>
-            <div x-show="modalOpen" x-trap.inert.noscroll="modalOpen" x-transition:enter="ease-out duration-100"
-                x-transition:enter-start="opacity-0 -translate-y-2 sm:scale-95"
-                x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                x-transition:leave="ease-in duration-100"
-                x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
-                x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
+            <div x-show="modalOpen" x-trap.inert.noscroll="modalOpen"
+                x-transition:enter="transition ease-motion-out duration-[280ms]"
+                x-transition:enter-start="opacity-0 scale-[0.96]"
+                x-transition:enter-end="opacity-100 scale-100"
+                x-transition:leave="transition ease-motion-out duration-[220ms]"
+                x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-[0.96]"
                 class="application-settings-form application-settings-section relative flex max-h-[calc(100dvh-2rem)] w-full flex-col lg:min-w-[36rem] lg:max-w-2xl"
                 style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
                 <header class="flex-nowrap!">

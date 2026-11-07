@@ -103,7 +103,7 @@
                 <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <template x-for="project in paginatedProjects" :key="project.uuid">
                         <article
-                            class="group relative flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
+                            class="group relative flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm motion-tile hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
                             <a :href="project.href" {{ wireNavigate() }} class="absolute inset-0 rounded-xl"
                                 :aria-label="`Open ${project.name}`"></a>
                             <div class="flex items-start gap-3">

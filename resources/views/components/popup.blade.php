@@ -2,13 +2,13 @@
 <div x-data="{
     bannerVisible: false,
     bannerVisibleAfter: 300
-}" x-show="bannerVisible" x-transition:enter="transition ease-out duration-500"
+}" x-show="bannerVisible" x-transition:enter="transition ease-motion-out duration-[400ms]"
     x-transition:enter-start="translate-y-full" x-transition:enter-end="translate-y-0"
-    x-transition:leave="transition ease-in duration-300" x-transition:leave-start="translate-y-0"
+    x-transition:leave="transition ease-motion-out duration-[280ms]" x-transition:leave-start="translate-y-0"
     x-transition:leave-end="translate-y-full" x-init="setTimeout(() => { bannerVisible = true }, bannerVisibleAfter);"
     @class([
-        'pointer-events-auto w-full duration-300 ease-out' => $stacked,
-        'fixed right-0 bottom-0 z-[999] h-auto w-full duration-300 ease-out sm:px-5 sm:pb-5' => ! $stacked,
+        'pointer-events-auto w-full' => $stacked,
+        'fixed right-0 bottom-0 z-[999] h-auto w-full sm:px-5 sm:pb-5' => ! $stacked,
     ]) x-cloak>
     @isset($customActions)
         {{ $customActions }}

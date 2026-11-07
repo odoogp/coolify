@@ -130,10 +130,10 @@
         @endisset
     </button>
     <div x-ref="popup" x-show="open" x-cloak :id="$id('helper-popup')" role="tooltip"
-        x-transition:enter="transition ease-out duration-100"
+        x-transition:enter="transition ease-motion-out duration-[150ms]"
         x-transition:enter-start="opacity-0 translate-y-0.5"
         x-transition:enter-end="opacity-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-75"
+        x-transition:leave="transition ease-motion-out duration-[120ms]"
         x-transition:leave-start="opacity-100"
         x-transition:leave-end="opacity-0"
         :style="style"

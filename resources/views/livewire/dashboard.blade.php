@@ -57,7 +57,7 @@
                         @endphp
 
                         <article
-                            class="feature-tile group relative flex min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
+                            class="feature-tile group relative flex min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-4 shadow-sm motion-tile hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
                             <a href="{{ $project->navigateTo() }}" {{ wireNavigate() }}
                                 class="absolute inset-0 rounded-xl"
                                 aria-label="Open {{ $project->name }}"></a>
@@ -193,7 +193,7 @@
 
                         <a href="{{ route('server.show', ['server_uuid' => $server->uuid]) }}"
                             {{ wireNavigate() }} aria-label="Open {{ $server->name }}"
-                            class="feature-tile group relative flex min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
+                            class="feature-tile group relative flex min-w-0 flex-col rounded-xl border border-neutral-200 bg-white p-4 shadow-sm motion-tile hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]">
                             @if ($server->isMetricsEnabled())
                                 <livewire:dashboard.server-metrics-chart :server="$server"
                                     :key="'dashboard-server-metrics-'.$server->uuid" />

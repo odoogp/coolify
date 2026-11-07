@@ -932,6 +932,13 @@ html:not(.dark) .application-console-shell[data-console-theme="system"] .termina
     --coollabs-line: oklch(14.5% 0 0 / 0.1);
     --coollabs-hairline: oklch(93.5% 0 0);
     --coollabs-subtle: oklch(55.6% 0 0);
+    /* Motion tokens (Apple / Emil): strong ease-out for UI, never ease-in on enter/leave */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+    --duration-press: 140ms;
+    --duration-popover: 180ms;
+    --duration-modal: 280ms;
 }
 
 .dark {
@@ -1132,7 +1139,10 @@ html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm {
     --spot-y: 16%;
     backdrop-filter: blur(40px) saturate(1.6);
     -webkit-backdrop-filter: blur(40px) saturate(1.6);
-    transition: transform 180ms ease, box-shadow 180ms ease;
+    transition:
+        transform var(--duration-press) var(--ease-out),
+        box-shadow var(--duration-popover) var(--ease-out),
+        border-color var(--duration-popover) var(--ease-out);
     min-width: 0;
 }
 
@@ -1190,6 +1200,15 @@ html:not(.dark) main .grid > :is(a, article).rounded-xl.shadow-sm.is-pressed {
 
 @media (prefers-reduced-motion: reduce) {
     main .grid > :is(a, article).rounded-xl.shadow-sm {
+        transition: none;
+    }
+
+    .button:active:not(:disabled),
+    a.button:active:not(:disabled) {
+        transform: none;
+    }
+
+    .motion-tile {
         transition: none;
     }
 }

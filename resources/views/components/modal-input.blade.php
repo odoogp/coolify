@@ -44,18 +44,19 @@
         <div x-show="modalOpen"
             x-init="$watch('modalOpen', value => { if(value) { $nextTick(() => { const firstInput = $el.querySelector('input, textarea, select'); firstInput?.focus(); }) } })"
             class="fixed inset-0 z-99 overflow-y-auto">
-            <div x-show="modalOpen" x-transition:enter="ease-out duration-100" x-transition:enter-start="opacity-0"
-                x-transition:enter-end="opacity-100" x-transition:leave="ease-in duration-100"
+            <div x-show="modalOpen" x-transition:enter="transition ease-motion-out duration-[280ms]"
+                x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+                x-transition:leave="transition ease-motion-out duration-[220ms]"
                 x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
                 class="absolute inset-0 w-full h-full bg-black/50 backdrop-blur-[2px]"></div>
             <div @if ($closeOutside) @click.self="modalOpen=false" @endif class="relative flex min-h-full items-start justify-center p-4 sm:items-center">
                 <div id="{{ $modalId }}" data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"
-                    x-transition:enter="ease-out duration-100"
-                    x-transition:enter-start="opacity-0 -translate-y-2"
-                    x-transition:enter-end="opacity-100 translate-y-0"
-                    x-transition:leave="ease-in duration-100"
-                    x-transition:leave-start="opacity-100 translate-y-0"
-                    x-transition:leave-end="opacity-0 -translate-y-2"
+                    x-transition:enter="transition ease-motion-out duration-[280ms]"
+                    x-transition:enter-start="opacity-0 scale-[0.96]"
+                    x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="transition ease-motion-out duration-[220ms]"
+                    x-transition:leave-start="opacity-100 scale-100"
+                    x-transition:leave-end="opacity-0 scale-[0.96]"
                     @class([
                         'application-settings-form application-settings-section relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden',
                         'lg:w-[95vw]! lg:max-w-7xl!' => $isLarge,
