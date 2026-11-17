@@ -80,16 +80,17 @@ class CreateScheduledBackup extends Component
                 $payload['databases_to_backup'] = $database->mariadb_database;
             } elseif ($database->type() === 'standalone-clickhouse') {
                 $payload['databases_to_backup'] = $database->clickhouse_db;
+            } elseif ($database->type() === 'standalone-sqlite') {
+                $payload['databases_to_backup'] = $database->sqlite_databases;
             }
 
             $databaseBackup = ScheduledDatabaseBackup::create($payload);
             if ($database->getMorphClass() === ServiceDatabase::class) {
                 $service = $database->service;
-                $this->redirectRoute('project.service.database.backup.show', [
+                $this->redirectRoute('project.service.volume-backups.index', [
                     'project_uuid' => $service->project()->uuid,
                     'environment_uuid' => $service->environment->uuid,
                     'service_uuid' => $service->uuid,
-                    'stack_service_uuid' => $database->uuid,
                     'backup_uuid' => $databaseBackup->uuid,
                 ], navigate: true);
             } else {

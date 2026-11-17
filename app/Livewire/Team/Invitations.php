@@ -22,15 +22,21 @@ class Invitations extends Component
             $this->authorize('manageInvitations', currentTeam());
 
             $invitation = TeamInvitation::ownedByCurrentTeam()->findOrFail($invitation_id);
+            $invitationEmail = $invitation->email;
+            $invitationUuid = $invitation->uuid;
             DB::transaction(function () use ($invitation): void {
+                $invitation->delete();
                 $user = User::whereEmail($invitation->email)->first();
                 if ($user instanceof User) {
                     $user->teams()->detach($invitation->team_id);
                     $user->deleteIfNotVerifiedAndForcePasswordReset();
                 }
-
-                $invitation->delete();
             });
+            auditLog('ui.team_invitation.revoked', [
+                'team_id' => currentTeam()->id,
+                'invitation_uuid' => $invitationUuid,
+                'invitation_email' => $invitationEmail,
+            ]);
             $this->refreshInvitations();
             $this->dispatch('success', __('Invitation revoked.'));
         } catch (\Exception) {

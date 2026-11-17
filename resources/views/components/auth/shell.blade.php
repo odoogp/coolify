@@ -6,100 +6,149 @@
     'tunnel' => null,
     'crystal' => false,
     'lockup' => false,
+    'initialAuthState' => null,
 ])
 
-<section @class([
+@php
+    $resolvedAuthState = $initialAuthState
+        ?? (session('error') || (isset($errors) && $errors->any()) ? 'error' : 'idle');
+    $isLogin = $tunnel === 'login';
+    $uid = $tunnel ?: ($wide ? 'wide' : 'default');
+@endphp
+
+<section
+    data-auth-state="{{ $resolvedAuthState }}"
+    @class([
         'auth-shell application-settings-form',
         'auth-shell-wide' => $wide,
         'auth-shell-scroll' => $scroll && ! $wide,
-        'auth-shell-tunnel' => filled($tunnel),
+        'auth-shell-tunnel' => filled($tunnel) && ! $isLogin,
         'auth-shell-split' => $tunnel === 'split',
         'auth-shell-terms' => $tunnel === 'full',
-        'auth-shell-crystal' => $crystal || $tunnel === 'login',
-        'auth-shell-login' => $tunnel === 'login',
-    ])>
-    @if ($tunnel === 'login')
-        <x-flow-tunnel video="media/login.mp4" mobile-video="media/login-mobile.mp4" poster="media/login-poster.jpg" mobile-poster="media/login-mobile-poster.jpg" :width="3840" :height="2160" rate="0.3" mobile-rate="0.5" />
-    @elseif (filled($tunnel))
+        'auth-shell-crystal' => $crystal && ! $isLogin,
+        'auth-shell-login' => $isLogin,
+        'auth-shell-mission' => $isLogin,
+    ])
+    x-data="{
+        setAuthState(state) {
+            const next = ['idle', 'email-focus', 'password-focus', 'submitting', 'error'].includes(state)
+                ? state
+                : 'idle';
+            if ($el.dataset.authState === next) {
+                return;
+            }
+            $el.dataset.authState = next;
+            $el.dispatchEvent(new CustomEvent('auth-state', { detail: next, bubbles: true }));
+        },
+    }"
+    x-on:auth-state="setAuthState($event.detail)">
+    @if (filled($tunnel) && ! $isLogin)
         <x-flow-tunnel />
     @endif
-    <div class="auth-stage" aria-hidden="true">
-        <span class="auth-stage-glow"></span>
-        <span class="auth-stage-glow auth-stage-glow-green"></span>
-        <span class="auth-stage-orbit"></span>
-        <span class="auth-stage-orbit auth-stage-orbit-b"></span>
-        <span class="auth-stage-shard auth-stage-shard-a"></span>
-        <span class="auth-stage-shard auth-stage-shard-b"></span>
-        <span class="auth-stage-shard auth-stage-shard-c"></span>
-        <span class="auth-stage-shard auth-stage-shard-d"></span>
-        <div class="auth-stage-mark-slot">
-            <span class="auth-stage-flare"></span>
-            <svg class="auth-stage-mark" viewBox="0 0 200 200">
-                <defs>
-                    <linearGradient id="auth-glass" x1="28" y1="8" x2="172" y2="188" gradientUnits="userSpaceOnUse">
-                        <stop offset="0" stop-color="#ffffff" stop-opacity="0.94"/>
-                        <stop offset="0.32" stop-color="#efeaff" stop-opacity="0.5"/>
-                        <stop offset="0.68" stop-color="#8ea0ff" stop-opacity="0.26"/>
-                        <stop offset="1" stop-color="#241a4a" stop-opacity="0.18"/>
-                    </linearGradient>
-                    <linearGradient id="auth-rim" x1="0" y1="0" x2="1" y2="1">
-                        <stop offset="0" stop-color="#ffffff" stop-opacity="0.95"/>
-                        <stop offset="0.5" stop-color="#c9bdff" stop-opacity="0.4"/>
-                        <stop offset="1" stop-color="#ffffff" stop-opacity="0.12"/>
-                    </linearGradient>
-                    <filter id="auth-crystal-blur" x="-40%" y="-40%" width="180%" height="180%">
-                        <feGaussianBlur stdDeviation="8"/>
-                    </filter>
-                </defs>
-                <polygon points="100,18 166,56 166,130 100,168 34,130 34,56" fill="#b7a6ff" opacity="0.45" filter="url(#auth-crystal-blur)"/>
-                <polygon points="100,16 168,54 168,132 100,170 32,132 32,54" fill="url(#auth-glass)" stroke="url(#auth-rim)" stroke-width="2.4"/>
-                <polygon points="100,16 168,54 100,92 32,54" fill="rgb(255 255 255 / 0.28)"/>
-                <polygon points="100,48 134,67 134,110 100,130 66,110 66,67" fill="rgb(255 255 255 / 0.08)" stroke="rgb(255 255 255 / 0.62)" stroke-width="1.5"/>
-                <path d="M78 112 L100 70 L122 112 L109 112 L100 94 L91 112 Z" fill="#ffffff"/>
-            </svg>
-        </div>
-        <span class="auth-stage-ridge auth-stage-ridge-a"></span>
-        <span class="auth-stage-ridge auth-stage-ridge-b"></span>
-    </div>
-    @isset($overlay)
-        {{ $overlay }}
-    @endisset
 
-    <div class="auth-shell-content">
-        <div @class(['auth-card', 'auth-card-wide' => $wide])>
-            <div class="auth-card-heading">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        @if ($tunnel === 'login')
-                            <h1 class="auth-login-heading">
-                                <span class="auth-isologo auth-login-heading-mark">
-                                    <img src="{{ product_logo_url() }}" alt="{{ $title }}">
-                                </span>
-                            </h1>
-                        @elseif ($lockup)
-                            <div class="auth-isologo auth-lockup-isologo">
-                                <img src="{{ product_logo_url() }}" alt="{{ $title }}">
-                            </div>
-                        @else
-                            <h1>{{ $title }}</h1>
-                        @endif
-                        @if ($description)
-                            <p>{{ $description }}</p>
-                        @endif
-                    </div>
-                    <x-locale-switcher variant="compact" />
+    @if ($isLogin)
+        <div class="auth-mission auth-mission--bleed">
+            <div class="auth-mission-visual" aria-hidden="true">
+                <div class="auth-stage auth-stage--space">
+                    <x-auth.orbit :uid="$uid" />
                 </div>
             </div>
 
-            <div class="auth-card-body">
-                {{ $slot }}
-            </div>
+            <p class="auth-mission-tagline" aria-hidden="true">{{ __('Artemis III · EVA') }}</p>
 
-            @isset($footer)
-                <footer class="auth-card-footer">
-                    {{ $footer }}
-                </footer>
-            @endisset
+            {{-- Hero brand for the open burst; settles into the card wordmark. --}}
+            <img
+                class="auth-open-brand"
+                src="{{ asset('brand/logotipo-oscuro.svg') }}"
+                alt=""
+                width="280"
+                height="46"
+                aria-hidden="true"
+                decoding="async"
+            >
+
+            {{-- Dive veil: submit flies into stars, then app enter continues from the same black. --}}
+            <div class="auth-dive-veil gc-star-veil" aria-hidden="true"></div>
+
+            <div class="auth-shell-content">
+                <div @class(['auth-card', 'auth-card-wide' => $wide])>
+                    <div class="auth-card-heading">
+                        <div class="auth-card-heading-row">
+                            <div class="min-w-0">
+                                <h1 class="auth-login-heading">
+                                    <span class="sr-only">{{ $title }}</span>
+                                    <img
+                                        class="auth-login-brand"
+                                        src="{{ asset('brand/logotipo-oscuro.svg') }}"
+                                        alt="{{ $title }}"
+                                        width="220"
+                                        height="36"
+                                    >
+                                </h1>
+                                @if ($description)
+                                    <p class="auth-login-lede">{{ $description }}</p>
+                                @endif
+                            </div>
+                            <div class="auth-mission-locale">
+                                <x-locale-switcher variant="compact" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="auth-card-body">
+                        {{ $slot }}
+                    </div>
+
+                    @isset($footer)
+                        <footer class="auth-card-footer">
+                            {{ $footer }}
+                        </footer>
+                    @endisset
+                </div>
+            </div>
         </div>
-    </div>
+    @else
+        <div class="auth-stage auth-stage--space" aria-hidden="true">
+            <x-auth.orbit :uid="$uid" />
+        </div>
+
+        @isset($overlay)
+            {{ $overlay }}
+        @endisset
+
+        <div class="auth-shell-content">
+            <div @class(['auth-card', 'auth-card-wide' => $wide])>
+                <div class="auth-card-heading">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            @if ($lockup)
+                                <div class="auth-isologo auth-lockup-isologo">
+                                    <img src="{{ product_logo_url() }}" alt="{{ $title }}">
+                                </div>
+                                @if ($description)
+                                    <p>{{ $description }}</p>
+                                @endif
+                            @else
+                                <h1>{{ $title }}</h1>
+                                @if ($description)
+                                    <p>{{ $description }}</p>
+                                @endif
+                            @endif
+                        </div>
+                        <x-locale-switcher variant="compact" />
+                    </div>
+                </div>
+
+                <div class="auth-card-body">
+                    {{ $slot }}
+                </div>
+
+                @isset($footer)
+                    <footer class="auth-card-footer">
+                        {{ $footer }}
+                    </footer>
+                @endisset
+            </div>
+        </div>
+    @endif
 </section>

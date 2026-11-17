@@ -189,3 +189,39 @@ if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         card.style.removeProperty('--spot-y');
     });
 }
+
+function bootGetCloudAuthStage() {
+    if (! document.querySelector('.auth-shell')) {
+        return;
+    }
+
+    import('./auth-stage.js')
+        .then(({ bootAuthStagesIn }) => bootAuthStagesIn(document))
+        .catch((error) => {
+            console.warn('GetCloud auth stage failed to load', error);
+        });
+}
+
+function bootGetCloudAppEnter() {
+    if (! document.documentElement.classList.contains('gc-enter')) {
+        return;
+    }
+
+    import('./app-enter.js')
+        .then(({ bootAppEnter }) => bootAppEnter())
+        .catch((error) => {
+            console.warn('GetCloud app enter failed to load', error);
+            document.documentElement.classList.remove('gc-enter');
+            try {
+                sessionStorage.removeItem('gc-enter');
+            } catch (storageError) {
+                // ignore
+            }
+        });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    bootGetCloudAuthStage();
+    bootGetCloudAppEnter();
+});
+document.addEventListener('livewire:navigated', bootGetCloudAuthStage);

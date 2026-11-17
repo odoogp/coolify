@@ -552,6 +552,16 @@
                     {{ __('Try a different search.') }}
                 </p>
             </div>
+
+            <section class="gc-project-deploys" aria-labelledby="project-deploys-title">
+                <div class="gc-project-deploys-head">
+                    <h2 id="project-deploys-title" class="gc-project-deploys-title">{{ __('Deploys') }}</h2>
+                    <a href="{{ route('deployments.index', ['project' => $project->uuid]) }}" {{ wireNavigate() }}
+                        class="gc-dash-link">{{ __('Open in Deploys') }}</a>
+                </div>
+                <livewire:deployments.index :project="$project->uuid" :limit="8"
+                    :key="'project-deploys-'.$project->uuid" />
+            </section>
         @endif
         @if ($odooUsersOpen)
             <template x-teleport="body">

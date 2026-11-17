@@ -141,6 +141,7 @@ return [
             'days' => env('LOG_AUDIT_DAYS', 90),
             'replace_placeholders' => true,
         ],
+
     ],
 
 ];

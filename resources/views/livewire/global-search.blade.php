@@ -94,6 +94,16 @@
         return grouped;
     },
 
+    get navigationFunctions() {
+        return (this.allSearchableItems || [])
+            .filter(item => item.type === 'navigation')
+            .slice(0, 12);
+    },
+
+    get quickCreateActions() {
+        return (this.creatableItems || []).slice(0, 6);
+    },
+
     openModal() {
         // Check if $wire is available (may not be after SPA navigation destroys/recreates component)
         if (typeof $wire === 'undefined' || !$wire) {
@@ -205,7 +215,7 @@
                 'new private github', 'new private gh', 'new private deploy', 'new deploy key',
                 'new dockerfile', 'new docker compose', 'new compose', 'new docker image', 'new image',
                 'new postgresql', 'new postgres', 'new mysql', 'new mariadb',
-                'new redis', 'new keydb', 'new dragonfly', 'new mongodb', 'new mongo', 'new clickhouse'
+                'new redis', 'new keydb', 'new dragonfly', 'new mongodb', 'new mongo', 'new clickhouse', 'new sqlite'
             ];
             if (exactMatchCommands.includes(trimmed)) {
                 const matchingItem = this.creatableItems.find(item => {
@@ -358,7 +368,7 @@
                         </svg>
                     </span>
                     <input type="text" x-model="searchQuery"
-                        placeholder="{{ __('Search resources, paths, everything (type new for create)...') }}" x-ref="searchInput"
+                        placeholder="{{ __('Search resources, functions, paths… (type new to create)') }}" x-ref="searchInput"
                         x-init="$watch('modalOpen', value => { if (value) setTimeout(() => $refs.searchInput.focus(), 100) })"
                         class="command-palette-input" autocomplete="off" spellcheck="false" />
                     <div class="command-palette-shortcuts">
@@ -367,6 +377,56 @@
                         <button type="button" @click="closeModal()" class="command-palette-kbd" title="{{ __('Close') }}">
                             {{ __('ESC') }}
                         </button>
+                    </div>
+                </div>
+
+                <!-- Odoo-like home: functions + create when the query is empty -->
+                <div x-show="modalOpen && searchQuery.length < 1 && !$wire.isSelectingResource" x-cloak
+                    class="command-palette-body">
+                    <div class="command-palette-home">
+                        <p class="command-palette-home-hint">
+                            {{ __('Jump to any screen, list functions, or type to search the whole system.') }}
+                        </p>
+                        <template x-if="!isLoadingInitialData && navigationFunctions.length > 0">
+                            <div class="command-palette-section">
+                                <div class="command-palette-group-label">{{ __('Functions') }}</div>
+                                <div class="command-palette-quick-grid">
+                                    <template x-for="item in navigationFunctions" :key="item.link + item.name">
+                                        <a :href="item.link || '#'" class="search-result-item command-palette-item">
+                                            <div class="command-palette-item-main">
+                                                <div class="command-palette-item-name" x-text="item.name"></div>
+                                                <div class="command-palette-item-meta" x-text="item.description"></div>
+                                            </div>
+                                        </a>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <template x-if="!isLoadingInitialData && quickCreateActions.length > 0">
+                            <div class="command-palette-section">
+                                <div class="command-palette-group-label">{{ __('Create') }}</div>
+                                <template x-for="item in quickCreateActions" :key="'create-' + item.type">
+                                    <button type="button"
+                                        @click="runPaletteTransition(() => $wire.navigateToResource(item.type))"
+                                        class="search-result-item command-palette-item">
+                                        <div class="command-palette-item-main">
+                                            <div class="command-palette-item-name" x-text="item.name"></div>
+                                            <div class="command-palette-item-meta" x-text="item.description"></div>
+                                        </div>
+                                        <x-reicon name="arrow-right" class="command-palette-item-chevron" />
+                                    </button>
+                                </template>
+                            </div>
+                        </template>
+                        <div x-show="isLoadingInitialData && showLoadingSpinner" class="command-palette-status">
+                            <svg class="size-3.5 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+                                <path class="opacity-75" fill="currentColor"
+                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                </path>
+                            </svg>
+                            <span>{{ __('Loading…') }}</span>
+                        </div>
                     </div>
                 </div>
 
@@ -655,7 +715,9 @@
                                             class="search-result-item command-palette-item">
                                             <template x-if="item.logo">
                                                 <div class="command-palette-item-icon">
-                                                    <img :src="'/' + item.logo" :alt="item.name">
+                                                    <img :src="item.logo.startsWith('http') ? item.logo : '/' + item.logo"
+                                                        :alt="item.name"
+                                                        x-on:error="if (item.logo_cdn_url && !$el.dataset.cdnTried) { $el.dataset.cdnTried = 'true'; $el.src = item.logo_cdn_url; } else if (item.logo_default_url && !$el.dataset.defaultTried) { $el.dataset.defaultTried = 'true'; $el.src = item.logo_default_url; }">
                                                 </div>
                                             </template>
                                             <template x-if="!item.logo">
@@ -749,7 +811,7 @@
                         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                         x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
                         class="{{ $createModalShell }}"
-                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
+                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-dropdown)">
                         <header class="flex-nowrap!">
                             <h3 class="min-w-0 flex-1 truncate">{{ __('New project') }}</h3>
                             <button type="button" @click="modalOpen=false" class="{{ $createModalClose }}">
@@ -792,7 +854,7 @@
                         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                         x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
                         class="{{ $createModalShell }}"
-                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
+                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-dropdown)">
                         <header class="flex-nowrap!">
                             <h3 class="min-w-0 flex-1 truncate">{{ __('New team') }}</h3>
                             <button type="button" @click="modalOpen=false" class="{{ $createModalClose }}">
@@ -835,7 +897,7 @@
                         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                         x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
                         class="{{ $createModalShell }}"
-                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
+                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-dropdown)">
                         <header class="flex-nowrap!">
                             <h3 class="min-w-0 flex-1 truncate">{{ __('New S3 storage') }}</h3>
                             <button type="button" @click="modalOpen=false" class="{{ $createModalClose }}">
@@ -878,7 +940,7 @@
                         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                         x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
                         class="{{ $createModalShell }}"
-                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
+                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-dropdown)">
                         <header class="flex-nowrap!">
                             <h3 class="min-w-0 flex-1 truncate">{{ __('New private key') }}</h3>
                             <button type="button" @click="modalOpen=false" class="{{ $createModalClose }}">
@@ -922,7 +984,7 @@
                         x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
                         x-transition:leave-end="opacity-0 -translate-y-2 sm:scale-95"
                         class="{{ $createModalShell }}"
-                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-modal)">
+                        style="box-shadow: 0 0 0 1px var(--coollabs-hairline), var(--shadow-dropdown)">
                         <header class="flex-nowrap!">
                             <h3 class="min-w-0 flex-1 truncate">{{ __('New GitHub app') }}</h3>
                             <button type="button" @click="modalOpen=false" class="{{ $createModalClose }}">

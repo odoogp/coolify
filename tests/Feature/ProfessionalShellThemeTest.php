@@ -25,7 +25,7 @@ test('the signed-in shell uses the professional canvas and violet accent', funct
         ->not->toContain('--color-accent: #fcd452;');
 });
 
-test('crystal is its own appearance and keeps readable type on colored glass', function () {
+test('crystal is Obsidian Crystal glass for dark and light interiors', function () {
     $menu = file_get_contents(resource_path('views/components/top-user-menu.blade.php'));
     $appearance = file_get_contents(resource_path('views/livewire/profile/appearance.blade.php'));
     $layout = file_get_contents(resource_path('views/layouts/base.blade.php'));
@@ -34,20 +34,19 @@ test('crystal is its own appearance and keeps readable type on colored glass', f
     expect($menu)
         ->toContain("['value' => 'light', 'label' => __('Letify Light')]")
         ->toContain("['value' => 'dark', 'label' => __('Midnight Dark')]")
-        ->toContain("['value' => 'crystal', 'label' => __('Crystal Dark')]")
-        ->toContain("['value' => 'crystal-light', 'label' => __('Crystal Light')]")
+        ->toContain("['value' => 'crystal', 'label' => __('Obsidian Crystal')]")
+        ->toContain("['value' => 'crystal-light', 'label' => __('Obsidian Crystal Light')]")
         ->and($appearance)
-        ->toContain("['value' => 'crystal', 'label' => __('Crystal Dark')")
+        ->toContain("['value' => 'crystal', 'label' => __('Obsidian Crystal')")
         ->and($layout)
         ->toContain("theme === 'crystal'")
         ->toContain("theme === 'crystal-light'")
         ->and($styles)
         ->toContain('html[data-theme="crystal"]')
-        ->toContain('radial-gradient(90% 75% at var(--spot-x) var(--spot-y), #ff9a7a 0%, rgb(226 85 60 / 0.28) 42%, transparent 68%)')
-        ->toContain('color: #ffffff;')
-        ->toContain('--spot-x: 28%;')
+        ->toContain('--color-panel: #070b14;')
+        ->toContain('--obsidian-glass:')
         ->toContain('html[data-theme="crystal-light"]')
-        ->toContain('color: #1d1d1f;')
+        ->toContain('--color-panel: #f4f6fb;')
         ->and(file_get_contents(resource_path('js/app.js')))
         ->toContain('placeTileSpot')
         ->toContain('is-pressed');

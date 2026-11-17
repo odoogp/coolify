@@ -3,6 +3,15 @@
 <script data-navigate-once>
     // Immediate theme application - runs before any rendering
     (function () {
+        // Post-login layout assemble: hide panels before first paint (no spinner page).
+        try {
+            if (sessionStorage.getItem('gc-enter') === '1'
+                && ! window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.documentElement.classList.add('gc-enter');
+            }
+        } catch (error) {
+            // sessionStorage can throw in private modes; skip the assemble cue.
+        }
         window.themeAccentForeground = (color) => {
             const channels = color.match(/[a-f\d]{2}/gi).map(channel => parseInt(channel, 16) * 0.85 + 255 * 0.15);
             const luminance = channels
@@ -52,7 +61,8 @@
                 root.style.removeProperty('--theme-accent-foreground');
             }
 
-            document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+            const browserThemeColor = theme === 'crystal' ? '#070b14' : (theme === 'crystal-light' ? '#f4f6fb' : (isDark ? '#101010' : '#ffffff'));
+            document.querySelector('meta[name=theme-color]')?.setAttribute('content', browserThemeColor);
         };
         window.previewThemeAccent = (color) => {
             const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
@@ -140,7 +150,8 @@
         (function () {
             var t = localStorage.theme || 'light';
             var isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-            document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+            var browserThemeColor = t === 'crystal' ? '#070b14' : (t === 'crystal-light' ? '#f4f6fb' : (isDark ? '#101010' : '#ffffff'));
+            document.getElementById('theme-color-meta')?.setAttribute('content', browserThemeColor);
         })();
         window.applyFontDelta = function (value) {
             var delta = Number(value);

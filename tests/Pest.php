@@ -3,6 +3,7 @@
 use App\Models\OdooComposeTemplate;
 use App\Models\Server;
 use Illuminate\Support\Once;
+use Livewire\Features\SupportTesting\Testable;
 use Tests\TestCase;
 
 /*
@@ -15,7 +16,7 @@ use Tests\TestCase;
 | need to change it using the "uses()" function to bind a different classes or traits.
 |
 */
-uses(TestCase::class)->in('Feature', 'v4/Feature', 'v4/Browser', 'v5/Browser');
+uses(TestCase::class)->in('Feature', 'v4/Feature', 'v4/Browser');
 
 /*
 |--------------------------------------------------------------------------
@@ -27,6 +28,7 @@ uses(TestCase::class)->in('Feature', 'v4/Feature', 'v4/Browser', 'v5/Browser');
 */
 
 require_once __DIR__.'/Support/BrowserTestHelpers.php';
+require_once __DIR__.'/Support/ManagedDnsTestHelpers.php';
 
 /**
  * Seed Settings → Odoo compose rows used by launch version pickers.
@@ -61,6 +63,25 @@ function remoteOutputSource(string $path): string
     return $source;
 }
 
+/**
+ * Trigger the deferred mount of a #[Lazy] Livewire component the way the browser would
+ * via its x-intersect `__lazyLoad(...)` call, so assertions can run against the real
+ * (post-mount) render instead of the placeholder.
+ */
+function loadLazy(Testable $component): Testable
+{
+    preg_match('/__lazyLoad\(&#039;([^&]+)&#039;\)/', $component->html(), $matches);
+
+    if (empty($matches)) {
+        // No trigger means the component isn't lazy (or the placeholder markup changed).
+        // Fail loudly rather than silently asserting against the un-mounted placeholder,
+        // which would turn a lazy-load regression into a false-positive pass.
+        throw new RuntimeException('loadLazy: no __lazyLoad trigger found — component is not #[Lazy] or its placeholder markup changed.');
+    }
+
+    return $component->call('__lazyLoad', $matches[1]);
+}
+
 /*
 |--------------------------------------------------------------------------
 | Test Hooks
@@ -76,8 +97,7 @@ beforeEach(function () {
     // Flush the Server identity map cache to ensure tests get fresh data
     Server::flushIdentityMap();
 
-    // Browser Livewire actions often dispatch events; the Soketi host is not
-    // resolvable from host-side Pest runs (docker DNS name coolify-realtime).
+    // Browser Livewire actions often dispatch events; disable broadcasting for host-side runs.
     config(['broadcasting.default' => 'null']);
 });
 

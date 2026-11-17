@@ -16,7 +16,7 @@
             </div>
         </x-slot:actions>
 
-        <div class="mb-4 flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2.5 ring-1 ring-neutral-200 dark:bg-white/[0.025] dark:ring-white/[0.07]">
+        <div class="mb-4 flex items-center justify-between gap-3 rounded-lg bg-neutral-50 px-3 py-2.5 ring-1 ring-neutral-200 dark:bg-white/[0.05] dark:ring-white/[0.07]">
             <span class="text-[12px] text-neutral-500 dark:text-fg-dim">
                 {{ $backup?->targetType() ?? ($storage instanceof \App\Models\LocalFileVolume ? __('Directory') : __('Volume')) }}
             </span>
@@ -45,5 +45,6 @@
             <x-forms.input id="timeout" type="number" min="60" max="36000" label="{{ __('Timeout') }}"
                 helper="{{ __('Maximum backup runtime in seconds.') }}" required />
         </div>
+        <x-next-run class="mt-4" :at="$backup?->next_run_at" :timezone="$timezone" :enabled="(bool) $backup?->enabled" :frequency="$backup?->frequency" />
     </x-application.settings-section>
 </form>

@@ -54,8 +54,8 @@
                     ['value' => 'light', 'label' => __('Letify Light'), 'description' => __('Original Letify light design.'), 'preview' => 'bg-[#f3eefe]'],
                     ['value' => 'system', 'label' => __('Match system'), 'description' => __('Follow your operating system.'), 'preview' => 'bg-gradient-to-r from-white via-neutral-400 to-[#050505]'],
                     ['value' => 'dark', 'label' => __('Midnight Dark'), 'description' => __('Dark surfaces and soft contrast.'), 'preview' => 'bg-[#181818]'],
-                    ['value' => 'crystal', 'label' => __('Crystal Dark'), 'description' => __('Colored glass on a black canvas.'), 'preview' => 'bg-gradient-to-b from-[#ff7a62] via-[#7c5cff] to-[#07140c]'],
-                    ['value' => 'crystal-light', 'label' => __('Crystal Light'), 'description' => __('The same glass in light tones.'), 'preview' => 'bg-gradient-to-b from-[#ffe4dc] via-[#efe8ff] to-white'],
+                    ['value' => 'crystal', 'label' => __('Obsidian Crystal'), 'description' => __('Deep navy glass for the app interior.'), 'preview' => 'bg-gradient-to-b from-[#4d8dff] via-[#1b2c6f] to-[#070b14]'],
+                    ['value' => 'crystal-light', 'label' => __('Obsidian Crystal Light'), 'description' => __('Cool frost glass for daytime work.'), 'preview' => 'bg-gradient-to-b from-[#dbe7ff] via-[#eef2ff] to-white'],
                     ['value' => 'custom', 'label' => __('Custom Dark'), 'description' => __('Original dark accent.'), 'preview' => 'bg-[#2a1848]'],
                 ] as $option)
                     <div role="button" tabindex="0"

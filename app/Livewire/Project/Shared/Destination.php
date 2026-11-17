@@ -5,8 +5,11 @@ namespace App\Livewire\Project\Shared;
 use App\Actions\Application\StopApplicationOneServer;
 use App\Actions\Docker\GetContainersStatus;
 use App\Events\ApplicationStatusChanged;
+use App\Models\Application;
 use App\Models\Server;
 use App\Models\StandaloneDocker;
+use App\Services\ScheduleNextRunRecalculator;
+use App\Traits\ListensToTeamChannel;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Component;
@@ -14,6 +17,7 @@ use Livewire\Component;
 class Destination extends Component
 {
     use AuthorizesRequests;
+    use ListensToTeamChannel;
 
     public $resource;
 
@@ -21,12 +25,12 @@ class Destination extends Component
 
     public function getListeners()
     {
-        $teamId = auth()->user()->currentTeam()->id;
-
         return [
-            "echo-private:team.{$teamId},ApplicationStatusChanged" => 'loadData',
-            "echo-private:team.{$teamId},ServiceStatusChanged" => 'mount',
             'refresh' => 'mount',
+            ...$this->teamChannelListeners([
+                'ApplicationStatusChanged' => 'loadData',
+                'ServiceStatusChanged' => 'mount',
+            ]),
         ];
     }
 
@@ -64,6 +68,13 @@ class Destination extends Component
             $this->authorize('deploy', $this->resource);
             $server = Server::ownedByCurrentTeam()->findOrFail($serverId);
             StopApplicationOneServer::run($this->resource, $server);
+            auditLog('ui.application.destination_stopped', [
+                'team_id' => $this->resource->team()?->id,
+                'application_uuid' => $this->resource->uuid,
+                'application_name' => $this->resource->name,
+                'server_uuid' => $server->uuid,
+                'server_name' => $server->name,
+            ]);
             $this->refreshServers();
         } catch (\Exception $e) {
             return handleError($e, $this);
@@ -128,6 +139,7 @@ class Destination extends Component
                     ->wherePivot('server_id', $server->id)
                     ->detach($network->id);
                 $this->resource->additional_networks()->attach($mainDestination->id, ['server_id' => $mainDestination->server->id]);
+                app(ScheduleNextRunRecalculator::class)->forResource($this->resource);
             });
             $this->resource->refresh();
             $this->refreshServers();
@@ -149,8 +161,18 @@ class Destination extends Component
             $server = Server::ownedByCurrentTeam()->findOrFail($server_id);
             $network = StandaloneDocker::ownedByCurrentTeam()->where('server_id', $server->id)->findOrFail($network_id);
             $this->authorize('update', $this->resource);
+            $reason = $this->resource instanceof Application
+                ? $this->resource->additionalServersUnavailableReason($server)
+                : 'Only applications can use multiple servers.';
+            if ($reason) {
+                $this->dispatch('error', 'Failed to add server.', $reason);
 
-            $this->resource->additional_networks()->attach($network->id, ['server_id' => $server->id]);
+                return;
+            }
+
+            $this->resource->additional_networks()->syncWithoutDetaching([
+                $network->id => ['server_id' => $server->id],
+            ]);
             $this->dispatch('refresh');
         } catch (\Throwable $e) {
             return handleError($e, $this);

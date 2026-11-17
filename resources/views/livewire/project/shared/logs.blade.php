@@ -56,6 +56,10 @@
                 <x-empty size="lg" title="{{ __('Runtime logs unavailable') }}"
                     description="{{ __('No functional servers are available, so container logs cannot be loaded.') }}"
                     icon-name="file-content" />
+            @elseif (count($serverErrors) > 0)
+                <x-empty size="lg" title="Runtime logs unavailable"
+                    description="Could not load containers: {{ collect($serverErrors)->first() }}"
+                    icon-name="file-content" />
             @else
                 <x-empty size="lg" title="{{ __('Runtime logs unavailable') }}"
                     description="{{ __('No containers are running, so there are no runtime logs to show.') }}"
@@ -67,6 +71,10 @@
                     @if (! $server->isFunctional())
                         <x-callout type="warning" title="{{ __('Server unavailable') }}">
                             {{ $server->name }} is not functional, so its container logs cannot be loaded.
+                        </x-callout>
+                    @elseif (isset($serverErrors[$server->id]))
+                        <x-callout type="warning" title="Could not load containers">
+                            {{ $server->name }}: {{ $serverErrors[$server->id] }}
                         </x-callout>
                     @elseif (isset($serverContainers[$server->id]) && count($serverContainers[$server->id]) > 0)
                         @if ($servers->count() > 1)

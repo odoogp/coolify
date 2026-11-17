@@ -3,17 +3,16 @@
 namespace App\Livewire\Project\Service;
 
 use App\Actions\Shared\CheckDomainDns;
-use App\Domain\Odoo\OdooDomains;
 use App\Jobs\CheckDomainDnsJob;
 use App\Livewire\Concerns\InteractsWithCloudflareDomainConnect;
 use App\Livewire\Project\Shared\ConfigurationChecker;
-use App\Models\OdooEnvironmentBranch;
 use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Support\DomainUrlParts;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
+use App\Support\OdooRuntime;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -195,87 +194,19 @@ class Domains extends Component
     {
         try {
             $this->authorize('update', $this->service);
-            if (! OdooJupyter::isOdooCompose((string) $this->service->docker_compose_raw)) {
-                return;
-            }
-
-            $this->service->loadMissing(['environment.project.odooProfile', 'environment.odooBranch', 'environment.services.server']);
-            $environment = $this->service->environment;
-            $project = $environment?->project;
-            $profile = $project?->odooProfile;
-            if ($profile === null || $project === null || $environment === null) {
-                return;
-            }
-
-            $subdomain = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($this->odooSubdomain)), '-');
-            if (trim($this->odooSubdomain) !== '' && $subdomain === '') {
-                $this->dispatch('error', __('The subdomain can only use letters, numbers, and hyphens.'));
-
-                return;
-            }
-
-            $previewHost = OdooGit::projectHost(
-                $subdomain,
-                OdooGit::baseDomain(),
-                $environment->name,
-                (int) $environment->id,
-                $environment->isProduction(),
-            );
-            if ($previewHost !== '' && OdooDomains::collides($project, 'https://'.$previewHost, (int) $environment->id)) {
-                $this->dispatch('error', __('That address is already used by another environment in this project. Choose a different subdomain.'));
-
-                return;
-            }
-
-            $workers = max(0, min(32, (int) $this->odooWorkers));
-            // Subdomain is per environment. Never rewrite other environments' hosts.
-            $branch = $environment->odooBranch;
-            if ($branch instanceof OdooEnvironmentBranch) {
-                $branch->forceFill([
-                    'subdomain' => $subdomain === '' ? null : $subdomain,
-                    'workers' => $workers,
-                ])->save();
-            } else {
-                OdooEnvironmentBranch::query()->create([
-                    'environment_id' => $environment->id,
-                    'subdomain' => $subdomain === '' ? null : $subdomain,
-                    'workers' => $workers,
-                    'status' => 'idle',
-                ]);
-            }
-
-            // Keep the profile as a fallback for environments that have not set their own tip yet.
-            if ($environment->isProduction()) {
-                $profile->update([
-                    'subdomain' => $subdomain === '' ? null : $subdomain,
-                    'workers' => $workers,
-                ]);
-            }
-
-            $environment->unsetRelation('odooBranch');
-            $environment->load(['odooBranch', 'services.server.settings']);
-            $addressChanged = false;
-            $restartIds = [];
-            foreach ($environment->services as $candidate) {
-                if (! OdooJupyter::isOdooCompose((string) $candidate->docker_compose_raw)) {
-                    continue;
+            $result = OdooRuntime::save($this->service, $this->odooSubdomain, (int) $this->odooWorkers);
+            if (! ($result['ok'] ?? false)) {
+                if (filled($result['error'] ?? null)) {
+                    $this->dispatch('error', $result['error']);
                 }
-                if (OdooGit::applyProjectHost($candidate)) {
-                    $addressChanged = true;
-                    $restartIds[] = (int) $candidate->id;
-                }
-            }
-            foreach (array_unique($restartIds) as $restartId) {
-                $restart = Service::query()->with(['server.settings'])->find($restartId);
-                if ($restart instanceof Service) {
-                    OdooGit::startIfPossible($restart);
-                }
+
+                return;
             }
 
-            $this->odooSubdomain = $subdomain;
-            $this->odooWorkers = $workers;
+            $this->odooSubdomain = (string) ($result['subdomain'] ?? '');
+            $this->odooWorkers = (int) ($result['workers'] ?? 0);
             $this->loadOdooRuntimeState();
-            $this->dispatch('success', $addressChanged
+            $this->dispatch('success', ($result['address_changed'] ?? false)
                 ? __('Environment address saved. Odoo is restarting so the proxy takes the address.')
                 : __('Environment runtime saved. The next start applies the workers and the address.'));
         } catch (\Throwable $e) {

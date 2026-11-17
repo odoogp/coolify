@@ -272,12 +272,6 @@ class ProjectController extends Controller
             'team_id' => $teamId,
         ]);
 
-        auditLog('api.project.created', [
-            'team_id' => $teamId,
-            'project_uuid' => $project->uuid,
-            'project_name' => $project->name,
-        ]);
-
         return response()->json([
             'uuid' => $project->uuid,
         ])->setStatusCode(201);
@@ -397,13 +391,6 @@ class ProjectController extends Controller
 
         $project->update($request->only($allowedFields));
 
-        auditLog('api.project.updated', [
-            'team_id' => $teamId,
-            'project_uuid' => $project->uuid,
-            'project_name' => $project->name,
-            'changed_fields' => array_values(array_intersect($allowedFields, array_keys($request->all()))),
-        ]);
-
         return response()->json([
             'uuid' => $project->uuid,
             'name' => $project->name,
@@ -483,15 +470,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Project has resources, so it cannot be deleted.'], 400);
         }
 
-        $projectUuid = $project->uuid;
-        $projectName = $project->name;
         $project->delete();
-
-        auditLog('api.project.deleted', [
-            'team_id' => $teamId,
-            'project_uuid' => $projectUuid,
-            'project_name' => $projectName,
-        ]);
 
         return response()->json(['message' => 'Project deleted.']);
     }

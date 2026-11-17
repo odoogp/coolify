@@ -131,8 +131,8 @@
                 ['value' => 'light', 'label' => __('Letify Light')],
                 ['value' => 'system', 'label' => __('Match system')],
                 ['value' => 'dark', 'label' => __('Midnight Dark')],
-                ['value' => 'crystal', 'label' => __('Crystal Dark')],
-                ['value' => 'crystal-light', 'label' => __('Crystal Light')],
+                ['value' => 'crystal', 'label' => __('Obsidian Crystal')],
+                ['value' => 'crystal-light', 'label' => __('Obsidian Crystal Light')],
                 ['value' => 'custom', 'label' => __('Custom Dark')],
             ] as $option)
                 <div class="flex h-8 w-full items-center gap-1 rounded-md px-2 text-left text-xs text-neutral-600 transition-colors hover:bg-neutral-200 hover:text-neutral-950 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">

@@ -1,23 +1,26 @@
 <?php
 
 /**
- * Auth shell headers should brand the product so users know they are on Coolify.
+ * Auth shell headers brand via product_name() (GetCloud / getcloud.sh).
  */
-test('login register and forgot password headers are Coolify', function () {
+test('login register and forgot password headers use product_name', function () {
     $login = file_get_contents(resource_path('views/auth/login.blade.php'));
     $register = file_get_contents(resource_path('views/auth/register.blade.php'));
     $forgot = file_get_contents(resource_path('views/auth/forgot-password.blade.php'));
 
     expect($login)
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('title="{{ product_name() }}"')
+        ->toContain("shell.dataset.authState = 'email-focus'")
+        ->toContain("dataset.authState = 'submitting'")
+        ->toContain("sessionStorage.setItem('gc-enter', '1')")
         ->not->toContain('title="Welcome back"');
 
     expect($register)
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('title="{{ product_name() }}"')
         ->not->toContain(":title=\"\$isFirstUser ? 'Create the root account' : 'Create your account'\"");
 
     expect($forgot)
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('title="{{ product_name() }}"')
         ->not->toContain("title=\"{{ __('auth.forgot_password_heading') }}\"");
 });
 
@@ -43,6 +46,8 @@ test('auth scene shares one viewport and moves its objects', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
     $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
     $signup = file_get_contents(resource_path('views/livewire/getodoo/plan-signup.blade.php'));
+    $authStage = file_get_contents(resource_path('js/auth-stage.js'));
+    $appJs = file_get_contents(resource_path('js/app.js'));
 
     expect($styles)
         ->toContain('@keyframes auth-float')
@@ -50,19 +55,136 @@ test('auth scene shares one viewport and moves its objects', function () {
         ->toContain('@keyframes auth-spin')
         ->toContain('prefers-reduced-motion: reduce')
         ->toContain('.auth-stage {')
+        ->toContain('--gc-motion-base')
+        ->toContain('--gc-auth-glow')
+        ->toContain('.auth-stage--anime')
+        ->toContain('.auth-stage--space')
+        ->toContain("data-auth-state='password-focus'")
         ->toMatch('/\.auth-stage\s*\{[^}]*position:\s*relative;/s')
         ->toMatch('/@media \(min-width: 901px\)\s*\{[^}]*\.auth-stage\s*\{[^}]*position:\s*absolute;/s')
-        ->toMatch('/\.auth-shell-wide\s+\.auth-stage\s*\{[^}]*position:\s*fixed;/s')
-        ->toMatch('/\.auth-shell-wide \.auth-stage-mark-slot\s*\{[^}]*position:\s*fixed;[^}]*top:\s*1\.15rem;[^}]*z-index:\s*0;/s')
-        ->toMatch('/\.auth-shell-wide \.auth-shell-content\s*\{[^}]*align-items:\s*safe center;/s')
+        ->toContain('.auth-shell-wide .auth-shell-content')
         ->not->toContain('padding: 42vh')
-        ->not->toContain('grid-template-columns: minmax(0, 1.15fr)')
         ->and($shell)
-        ->toContain('auth-stage-mark-slot')
-        ->toContain('auth-stage-glow')
+        ->toContain('auth-login-brand')
+        ->toContain('auth-open-brand')
+        ->toContain('auth-dive-veil')
+        ->toContain('gc-star-veil')
+        ->toContain('auth-card-heading-row')
+        ->toContain('auth-mission')
+        ->toContain('auth-mission--bleed')
+        ->toContain('auth-mission-locale')
+        ->toContain('auth-mission-tagline')
+        ->toContain('Artemis III · EVA')
+        ->toContain('auth-shell-mission')
+        ->toContain('x-auth.orbit')
+        ->toContain('brand/logotipo-oscuro.svg')
+        ->not->toContain('auth-mission-caption')
+        ->not->toContain('Mission control')
         ->toContain('auth-shell-wide')
+        ->toContain('data-auth-state')
+        ->toContain('setAuthState(state)')
+        ->not->toContain('auth-stage-brand')
+        ->not->toContain('x-auth.gargantua')
+        ->not->toContain('auth-stage-shard')
+        ->not->toContain('space-station.png')
+        ->not->toContain('M78 112 L100 70 L122 112')
+        ->and($styles)
+        ->toContain('.auth-shell-crystal .auth-card:hover::before')
+        ->toContain('content: none')
+        ->toContain('.auth-orbit')
+        ->toContain('.auth-orbit-hero')
+        ->toContain('.auth-orbit-visor-glow')
+        ->toContain('.auth-orbit-sky')
+        ->toContain('height: 36%')
+        ->toContain('.auth-open-brand')
+        ->toContain('.auth-dive-veil')
+        ->toContain('.gc-star-veil')
+        ->toContain('.auth-mission')
+        ->toContain('.auth-mission--bleed')
+        ->toContain('.auth-mission-locale')
+        ->toContain('.auth-mission-tagline')
+        ->toContain('.auth-shell--static')
+        ->toContain('.auth-login-brand')
+        ->toContain('html.gc-enter')
+        ->toContain('.auth-shell-crystal .auth-card label')
+        ->toContain('color: #1a1524')
+        ->not->toContain('inset: 0 0 36% 0')
         ->and($signup)
-        ->toContain('x-auth.shell wide');
+        ->toContain('x-auth.shell wide')
+        ->and($authStage)
+        ->toContain("from 'animejs'")
+        ->toContain('auth-orbit-hero-wrap')
+        ->toContain('auth-orbit-visor-glow')
+        ->toContain('markLoginEnter')
+        ->toContain('password-focus')
+        ->toContain('prefers-reduced-motion')
+        ->and($appJs)
+        ->toContain("import('./auth-stage.js')")
+        ->toContain("import('./app-enter.js')");
+
+    $orbit = file_get_contents(resource_path('views/components/auth/orbit.blade.php'));
+    $loginPage = file_get_contents(resource_path('views/auth/login.blade.php'));
+    expect($orbit)
+        ->toContain('mission-hero.jpg')
+        ->toContain('auth-orbit-visor-glow')
+        ->toContain('auth-orbit-sky')
+        ->toContain('auth-orbit-stars--far')
+        ->toContain('auth-orbit-stars--mid')
+        ->toContain('auth-orbit-stars--near')
+        ->toContain('auth-orbit-meteor')
+        ->toContain('auth-orbit-open-veil')
+        ->not->toContain('mission-earth.jpg')
+        ->not->toContain('mission-nebula.jpg')
+        ->not->toContain('auth-orbit-astronaut')
+        ->not->toContain('earth-disk.jpg');
+    expect($styles)
+        ->toContain('.auth-orbit-meteor')
+        ->toContain('.auth-orbit-meteor-trail')
+        ->toContain('.auth-orbit-open-veil')
+        ->toContain('.auth-shell--opening');
+    expect($authStage)
+        ->toContain('bootStarfield')
+        ->toContain('playAuthOpen')
+        ->toContain('auth-open-brand')
+        ->toContain('auth-dive-veil')
+        ->toContain('Plunge into the starfield')
+        ->toContain('bootImmersiveParallax')
+        ->toContain('deviceorientation')
+        ->toContain('auth-shell--opening')
+        ->toContain('auth-shell--static')
+        ->toContain('createTimer')
+        ->toContain('auth-orbit-meteor');
+
+    expect($loginPage)
+        ->toContain('New to :product?')
+        ->toContain('product_name()')
+        ->not->toContain('New to Coolify?');
+    expect(file_exists(public_path('brand/illustrations/space/mission-hero.jpg')))->toBeTrue();
+    expect($authStage)
+        ->not->toContain('auth-orbit-nebula')
+        ->not->toContain('auth-orbit-earth');
+
+    $appEnter = file_get_contents(resource_path('js/app-enter.js'));
+    $appLayout = file_get_contents(resource_path('views/layouts/app.blade.php'));
+    $baseLayout = file_get_contents(resource_path('views/layouts/base.blade.php'));
+
+    expect($appEnter)
+        ->toContain("from 'animejs'")
+        ->toContain('emerge-from-stars')
+        ->toContain('isMobile')
+        ->toContain('bootAppEnter')
+        ->toContain('markLoginEnter');
+
+    expect($appLayout)
+        ->toContain('data-gc-enter="sidebar"')
+        ->toContain('data-gc-enter="main"')
+        ->toContain('data-gc-enter="topbar"')
+        ->toContain('data-gc-enter="veil"')
+        ->toContain('gc-star-veil');
+
+    expect($baseLayout)
+        ->toContain("sessionStorage.getItem('gc-enter')")
+        ->toContain("classList.add('gc-enter')");
 });
 
 test('auth pages use the Coollabs purple background glow', function () {
@@ -86,7 +208,7 @@ test('confirm password page uses the shared auth shell', function () {
 
     expect($confirm)
         ->toContain('x-auth.shell')
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('product_name()')
         ->toContain('x-auth.alert')
         ->toContain('auth-guidance')
         ->not->toContain('bg-gray-50 dark:bg-base')
@@ -98,7 +220,7 @@ test('two factor challenge page uses the shared auth shell', function () {
 
     expect($challenge)
         ->toContain('x-auth.shell')
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('product_name()')
         ->toContain('x-auth.alert')
         ->toContain('auth-guidance')
         ->toContain('Verify and continue')
@@ -112,7 +234,7 @@ test('email verification page uses the shared auth shell', function () {
     expect($verification)
         ->toContain('x-layout-simple')
         ->toContain('x-auth.shell')
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('product_name()')
         ->toContain('auth-guidance')
         ->toContain('block sm:inline')
         ->not->toContain('<x-layout>')
@@ -124,7 +246,7 @@ test('team invitation page uses the shared auth shell', function () {
 
     expect($invitation)
         ->toContain('x-auth.shell')
-        ->toContain('title="{{ __(\'Coolify\') }}"')
+        ->toContain('product_name()')
         ->toContain('x-auth.alert')
         ->toContain('Accept invitation')
         ->not->toContain('bg-gray-50 dark:bg-base')
@@ -171,12 +293,9 @@ test('plan signup keeps the crystal above the form and plans stay in one setting
     $styles = file_get_contents(resource_path('css/app.css'));
     $plans = file_get_contents(resource_path('views/livewire/settings/getodoo-plans.blade.php'));
 
-    expect($styles)
-        ->toContain('.auth-shell-wide .auth-stage-mark-slot')
-        ->toContain('transform: translateX(-50%)');
-
     expect($plans)
-        ->toContain('settings-section title="{{ __(\'Plans\') }}" flush')
+        ->toContain("title=\"{{ \$showArchived ? __('Archived plans') : __('Plans') }}\"")
+        ->toContain('flush>')
         ->toContain('data-table-header getodoo-plans-table-grid')
         ->toContain('data-table-row getodoo-plans-table-grid')
         ->not->toContain('getodoo-plan-row');

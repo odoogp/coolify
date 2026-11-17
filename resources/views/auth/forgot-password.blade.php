@@ -17,7 +17,15 @@
             @endif
 
             @if (is_transactional_emails_enabled())
-                <form action="/forgot-password" method="POST" class="flex flex-col gap-4">
+                <form action="/forgot-password" method="POST" class="flex flex-col gap-4"
+                    @focusin="if ($event.target?.getAttribute?.('name') === 'email') $dispatch('auth-state', 'email-focus')"
+                    @focusout="
+                        $nextTick(() => {
+                            if ($el.contains(document.activeElement)) return;
+                            $dispatch('auth-state', 'idle');
+                        });
+                    "
+                    @submit="$dispatch('auth-state', 'submitting')">
                     @csrf
                     <x-forms.input required type="email" name="email" autocomplete="email" autofocus
                         label="{{ __('input.email') }}" />

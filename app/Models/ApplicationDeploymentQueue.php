@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Casts\EncryptedArrayCast;
+use App\Enums\ApplicationDeploymentStatus;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -38,12 +39,51 @@ use OpenApi\Attributes as OA;
         'deployment_url' => ['type' => 'string'],
         'destination_id' => ['type' => 'string'],
         'only_this_server' => ['type' => 'boolean'],
+        'parent_deployment_uuid' => ['type' => 'string', 'nullable' => true],
         'rollback' => ['type' => 'boolean'],
         'commit_message' => ['type' => 'string'],
     ],
 )]
 class ApplicationDeploymentQueue extends Model
 {
+    protected static function booted(): void
+    {
+        static::created(function (ApplicationDeploymentQueue $deployment): void {
+            if (! auth()->check() || ! $deployment->rollback) {
+                return;
+            }
+
+            $application = $deployment->application;
+            $source = $deployment->is_api ? 'api' : 'ui';
+
+            auditLog("{$source}.application.rollback", [
+                'team_id' => $application?->team()?->id,
+                'application_uuid' => $application?->uuid,
+                'application_name' => $application?->name,
+                'deployment_uuid' => $deployment->deployment_uuid,
+                'commit' => $deployment->commit,
+            ]);
+        });
+
+        static::updated(function (ApplicationDeploymentQueue $deployment): void {
+            if (! auth()->check()
+                || ! $deployment->wasChanged('status')
+                || $deployment->status !== ApplicationDeploymentStatus::CANCELLED_BY_USER->value) {
+                return;
+            }
+
+            $application = $deployment->application;
+            $source = $deployment->is_api ? 'api' : 'ui';
+
+            auditLog("{$source}.deployment.cancelled", [
+                'team_id' => $application?->team()?->id,
+                'application_uuid' => $application?->uuid,
+                'application_name' => $application?->name,
+                'deployment_uuid' => $deployment->deployment_uuid,
+            ]);
+        });
+    }
+
     protected $fillable = [
         'application_id',
         'deployment_uuid',
@@ -66,6 +106,7 @@ class ApplicationDeploymentQueue extends Model
         'deployment_url',
         'destination_id',
         'only_this_server',
+        'parent_deployment_uuid',
         'rollback',
         'commit_message',
         'is_api',
@@ -140,43 +181,47 @@ class ApplicationDeploymentQueue extends Model
 
     private function redactSensitiveInfo($text)
     {
-        $text = remove_iip($text);
+        try {
+            $text = remove_iip($text);
 
-        $app = $this->application;
-        if (! $app) {
-            return $text;
+            $app = $this->application;
+            if (! $app) {
+                return $text;
+            }
+
+            $lockedVars = collect([]);
+
+            if ($app->environment_variables) {
+                $lockedVars = $lockedVars->merge(
+                    $app->environment_variables
+                        ->where('is_shown_once', true)
+                        ->flatMap(fn (EnvironmentVariable $variable): array => $variable->logRedactionValues())
+                        ->filter()
+                );
+            }
+
+            if ($this->pull_request_id !== 0 && $app->environment_variables_preview) {
+                $lockedVars = $lockedVars->merge(
+                    $app->environment_variables_preview
+                        ->where('is_shown_once', true)
+                        ->flatMap(fn (EnvironmentVariable $variable): array => $variable->logRedactionValues())
+                        ->filter()
+                );
+            }
+
+            foreach ($lockedVars as $key => $value) {
+                $escapedValue = preg_quote($value, '/');
+                $text = preg_replace(
+                    '/'.$escapedValue.'/',
+                    REDACTED,
+                    $text
+                );
+            }
+
+            return is_string($text) ? $text : REDACTED;
+        } catch (\Throwable) {
+            return REDACTED;
         }
-
-        $lockedVars = collect([]);
-
-        if ($app->environment_variables) {
-            $lockedVars = $lockedVars->merge(
-                $app->environment_variables
-                    ->where('is_shown_once', true)
-                    ->pluck('real_value', 'key')
-                    ->filter()
-            );
-        }
-
-        if ($this->pull_request_id !== 0 && $app->environment_variables_preview) {
-            $lockedVars = $lockedVars->merge(
-                $app->environment_variables_preview
-                    ->where('is_shown_once', true)
-                    ->pluck('real_value', 'key')
-                    ->filter()
-            );
-        }
-
-        foreach ($lockedVars as $key => $value) {
-            $escapedValue = preg_quote($value, '/');
-            $text = preg_replace(
-                '/'.$escapedValue.'/',
-                REDACTED,
-                $text
-            );
-        }
-
-        return $text;
     }
 
     public function addLogEntry(string $message, string $type = 'stdout', bool $hidden = false)

@@ -5,6 +5,8 @@ namespace App\Livewire;
 use App\Models\PrivateKey;
 use App\Models\Project;
 use App\Models\Server;
+use App\Services\DashboardOverview;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 
@@ -21,24 +23,14 @@ class Dashboard extends Component
         $this->privateKeys = PrivateKey::ownedByCurrentTeamCached();
         $this->servers = Server::ownedByCurrentTeamCached();
         $this->projects = Project::ownedByCurrentTeam()
-            ->with(['environments:id,uuid,name,project_id'])
-            ->withCount([
-                'applications',
-                'services',
-                'postgresqls',
-                'redis',
-                'keydbs',
-                'dragonflies',
-                'clickhouses',
-                'mongodbs',
-                'mysqls',
-                'mariadbs',
-            ])
+            ->with(['environments:id,uuid,name,role,project_id'])
             ->get();
     }
 
-    public function render()
+    public function render(): View
     {
-        return view('livewire.dashboard');
+        return view('livewire.dashboard', [
+            'overview' => app(DashboardOverview::class)->build($this->projects, $this->servers),
+        ]);
     }
 }

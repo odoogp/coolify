@@ -33,12 +33,16 @@
                 <livewire:deployments-indicator />
             </div>
 
+            {{-- Star veil bridges login dive → app assemble (only while html.gc-enter). --}}
+            <div data-gc-enter="veil" class="gc-enter-veil gc-star-veil" aria-hidden="true"></div>
+
             {{-- ============ DESKTOP TOP BAR ============ --}}
             <header
+                data-gc-enter="topbar"
                 x-data="{ resourceActionsOpen: false }"
                 @resource-actions-toggled.window="resourceActionsOpen = $event.detail.open"
                 :class="{ 'z-[1000]': resourceActionsOpen }"
-                class="hidden lg:flex fixed top-0 inset-x-0 z-50 h-12 items-center bg-white/95 dark:bg-panel/95 backdrop-blur">
+                class="gc-app-topbar gc-enter-panel hidden lg:flex fixed top-0 inset-x-0 z-50 h-12 items-center bg-white/95 dark:bg-panel/95 backdrop-blur">
                 {{-- Brand (width tracks sidebar) --}}
                 <div class="flex h-full shrink-0 items-center gap-1.5 overflow-hidden border-r border-neutral-200 dark:border-white/[0.06] transition-[width] duration-200"
                     :class="collapsed ? 'w-16 justify-center px-0' : 'w-56 px-4'">
@@ -73,6 +77,15 @@
                         <x-top-breadcrumb />
                         <div id="server-topbar-context" class="min-w-0"></div>
                     </div>
+                    @if (isSubscribed() || ! isCloud())
+                        <button type="button" @click="$dispatch('open-global-search')"
+                            class="obsidian-search-trigger mx-3 w-full max-w-md shrink"
+                            :title="@js(__('Search')) + ' (' + (navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl+') + 'K)'">
+                            <x-reicon name="search" class="size-3.5 shrink-0 opacity-70" />
+                            <span class="obsidian-search-trigger-label">{{ __('Search projects, servers, functions…') }}</span>
+                            <kbd class="obsidian-search-trigger-kbd" x-data x-text="(/Mac|iPhone|iPad|iPod/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl+') + 'K'"></kbd>
+                        </button>
+                    @endif
                     {{-- Dev Server-Timing HUD docks here (local only; empty in production) --}}
                     <div id="server-timing-hud-slot" data-server-timing-hud-slot class="hidden shrink-0 items-center"></div>
                     <div id="configuration-warning-hud-slot" class="relative shrink-0"></div>
@@ -115,7 +128,8 @@
             {{-- ============ DESKTOP SIDEBAR (below top bar) ============ --}}
             {{-- overflow-visible: listbox panels (account menu) must escape the sidebar (DESIGN.md).
                  Nav list scroll lives on the ul inside <x-navbar>. z-50 keeps the menu above main. --}}
-            <div class="hidden lg:fixed lg:top-12 lg:bottom-0 lg:left-0 lg:z-50 lg:flex lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:flex-col min-w-0"
+            <div data-gc-enter="sidebar"
+                class="gc-enter-panel hidden lg:fixed lg:top-12 lg:bottom-0 lg:left-0 lg:z-50 lg:flex lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:flex-col min-w-0"
                 :class="[collapsed ? 'lg:w-16' : 'lg:w-56', sidebarReady ? 'transition-[width] duration-200' : '']">
                 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-visible">
                     <x-navbar />
@@ -124,7 +138,8 @@
 
             {{-- ============ MOBILE TOP BAR ============ --}}
             <div
-                class="sticky top-0 z-40 flex items-center justify-between px-4 py-3 gap-x-4 sm:px-6 lg:hidden bg-white/95 dark:bg-panel/95 backdrop-blur-sm border-b border-neutral-200/60 dark:border-white/[0.06]">
+                data-gc-enter="topbar"
+                class="gc-enter-panel sticky top-0 z-40 flex items-center justify-between px-4 py-3 gap-x-4 sm:px-6 lg:hidden bg-white/95 dark:bg-panel/95 backdrop-blur-sm border-b border-neutral-200/60 dark:border-white/[0.06]">
                 <div class="flex min-w-0 flex-1 items-center gap-2.5">
                     <a href="/"
                         class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 transition-opacity hover:opacity-80 dark:bg-white/[0.06]">
@@ -135,6 +150,14 @@
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
+                    @if (isSubscribed() || ! isCloud())
+                        <button type="button" @click="$dispatch('open-global-search')"
+                            class="obsidian-search-trigger max-w-[10.5rem]"
+                            title="{{ __('Search') }}">
+                            <x-reicon name="search" class="size-3.5 shrink-0 opacity-70" />
+                            <span class="obsidian-search-trigger-label">{{ __('Search') }}</span>
+                        </button>
+                    @endif
                     {{-- Dev Server-Timing HUD docks here on <lg (desktop uses #server-timing-hud-slot) --}}
                     <div id="server-timing-hud-slot-mobile" data-server-timing-hud-slot
                         class="hidden shrink-0 items-center"></div>
@@ -157,7 +180,8 @@
             {{-- ============ MAIN ============ --}}
             {{-- Body scrolls (not main): sticky settings nav top offsets stay viewport-relative. --}}
             <main
-                class="min-h-screen bg-white dark:bg-panel px-5 py-6 sm:px-8 lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10"
+                data-gc-enter="main"
+                class="gc-enter-panel min-h-screen bg-white dark:bg-panel px-5 py-6 sm:px-8 lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10"
                 :class="[collapsed ? 'lg:ml-16' : 'lg:ml-56', sidebarReady ? 'transition-[margin] duration-200' : '']">
                 <div class="w-full" :class="pageWidth === 'centered' ? 'mx-auto max-w-[1400px]' : 'max-w-none'">
                     {{-- components.layout forwards Livewire/<x-layout> via @section('page');

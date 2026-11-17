@@ -49,7 +49,8 @@
                     document.documentElement.classList.remove('dark');
                 }
                 document.documentElement.dataset.theme = userSettings === 'custom' ? 'custom' : (userSettings === 'crystal' ? 'crystal' : (userSettings === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
-                document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#07080e' : '#f6f4f1');
+                const themeColor = userSettings === 'crystal' ? '#070b14' : (userSettings === 'crystal-light' ? '#f4f6fb' : (isDark ? '#07080e' : '#f6f4f1'));
+                document.querySelector('meta[name=theme-color]')?.setAttribute('content', themeColor);
             }
     }">
     {{-- Search is only useful when workspace resources are available --}}
@@ -87,6 +88,14 @@
                     :class="collapsed && 'lg:justify-center lg:px-0'" href="/projects">
                     <x-reicon name="projects" class="menu-item-icon" />
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Projects') }}</span>
+                </a>
+            </li>
+            <li>
+                <a title="{{ __('Deploys') }}" {{ wireNavigate() }}
+                    class="{{ request()->is('deployments') ? 'menu-item menu-item-active' : 'menu-item' }}"
+                    :class="collapsed && 'lg:justify-center lg:px-0'" href="{{ route('deployments.index') }}">
+                    <x-reicon name="upload" class="menu-item-icon" />
+                    <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Deploys') }}</span>
                 </a>
             </li>
             @if (auth()->user()?->isInstanceOwner() || auth()->user()?->isOwner())

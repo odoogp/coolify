@@ -8,7 +8,6 @@ use App\Models\Project;
 use App\Models\S3Storage;
 use App\Models\Server;
 use App\Models\Service;
-use App\Models\Team;
 use App\Models\StandaloneClickhouse;
 use App\Models\StandaloneDragonfly;
 use App\Models\StandaloneKeydb;
@@ -17,6 +16,8 @@ use App\Models\StandaloneMongodb;
 use App\Models\StandaloneMysql;
 use App\Models\StandalonePostgresql;
 use App\Models\StandaloneRedis;
+use App\Models\StandaloneSqlite;
+use App\Models\Team;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
@@ -201,6 +202,7 @@ class GlobalSearch extends Component
             'new redis' => 'redis',
             'new keydb' => 'keydb',
             'new dragonfly' => 'dragonfly',
+            'new sqlite' => 'sqlite',
             'new mongodb' => 'mongodb',
             'new mongo' => 'mongodb',
             'new clickhouse' => 'clickhouse',
@@ -243,7 +245,7 @@ class GlobalSearch extends Component
             'dockerfile', 'docker-compose-empty', 'docker-image',
             // Databases
             'postgresql', 'mysql', 'mariadb', 'redis', 'keydb',
-            'dragonfly', 'mongodb', 'clickhouse',
+            'dragonfly', 'mongodb', 'clickhouse', 'sqlite',
         ]) || str_starts_with($type, 'one-click-service-')) {
             return $user->can('createAnyResource');
         }
@@ -519,6 +521,27 @@ class GlobalSearch extends Component
                     })
             );
 
+            // SQLite
+            $databases = $databases->merge(
+                StandaloneSqlite::ownedByCurrentTeam()
+                    ->with(['environment.project'])
+                    ->get()
+                    ->map(function ($db) {
+                        return [
+                            'id' => $db->id,
+                            'name' => $db->name,
+                            'type' => 'database',
+                            'subtype' => 'sqlite',
+                            'uuid' => $db->uuid,
+                            'description' => $db->description,
+                            'link' => $db->link(),
+                            'project' => $db->environment->project->name ?? null,
+                            'environment' => $db->environment->name ?? null,
+                            'search_text' => strtolower($db->name.' '.$db->uuid.' sqlite '.$db->description.' database databases db'),
+                        ];
+                    })
+            );
+
             // Get all servers
             $servers = Server::ownedByCurrentTeam()
                 ->get()
@@ -622,6 +645,13 @@ class GlobalSearch extends Component
                     'description' => 'View all projects',
                     'link' => route('project.index'),
                     'search_text' => 'projects all list view',
+                ],
+                [
+                    'name' => 'Deploys',
+                    'type' => 'navigation',
+                    'description' => 'View team deploy history',
+                    'link' => route('deployments.index'),
+                    'search_text' => 'deploys deployments deploy history builds rolling updates',
                 ],
                 [
                     'name' => 'Destinations',
@@ -1129,6 +1159,16 @@ class GlobalSearch extends Component
                 'logo' => 'svgs/clickhouse-icon.svg',
                 'resourceType' => 'database',
             ]);
+
+            $items->push([
+                'name' => 'SQLite',
+                'description' => 'Lightweight file-based relational database',
+                'quickcommand' => '(type: new sqlite)',
+                'type' => 'sqlite',
+                'category' => 'Databases',
+                'logo' => 'svgs/resources/sqlite.svg',
+                'resourceType' => 'database',
+            ]);
         }
 
         // Merge with services
@@ -1512,8 +1552,7 @@ class GlobalSearch extends Component
                 'type' => 'one-click-service-'.$serviceKey,
                 'category' => 'Services',
                 'resourceType' => 'service',
-                'logo' => data_get($service, 'logo'),
-            ] + array_filter([
+            ] + service_logo_urls(data_get($service, 'logo')) + array_filter([
                 'amd_only' => data_get($service, 'amd_only') ? true : null,
                 'arm_only' => data_get($service, 'arm_only') ? true : null,
             ]));

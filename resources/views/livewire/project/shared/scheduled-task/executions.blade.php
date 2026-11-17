@@ -71,7 +71,7 @@
                                     {{ __('Load all') }}
                                 </x-forms.button>
                             @endif
-                            @if (strlen($execution->message) > 0)
+                            @if (strlen($execution->message) > 0 && $this->canReadOutput())
                                 <x-forms.button wire:click.prevent="downloadLogs({{ data_get($execution, 'id') }})">
                                     {{ __('Download logs') }}
                                 </x-forms.button>

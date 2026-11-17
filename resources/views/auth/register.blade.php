@@ -31,7 +31,22 @@ $email = getOldOrLocal('email', 'test3@example.com');
                 </x-auth.alert>
             @endif
 
-            <form action="/register" method="POST" class="flex flex-col gap-4">
+            <form action="/register" method="POST" class="flex flex-col gap-4"
+                @focusin="
+                    const name = $event.target?.getAttribute?.('name');
+                    if (name === 'email') $dispatch('auth-state', 'email-focus');
+                    if (name === 'password' || name === 'password_confirmation') $dispatch('auth-state', 'password-focus');
+                "
+                @focusout="
+                    $nextTick(() => {
+                        const active = document.activeElement;
+                        const name = active?.getAttribute?.('name');
+                        if (['email', 'password', 'password_confirmation'].includes(name)) return;
+                        if ($el.contains(active)) return;
+                        $dispatch('auth-state', 'idle');
+                    });
+                "
+                @submit="$dispatch('auth-state', 'submitting')">
                 @csrf
                 <x-forms.input id="name" required type="text" name="name" value="{{ $name }}" autofocus
                     autocomplete="name" label="{{ __('input.name') }}" />

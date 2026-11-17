@@ -15,6 +15,7 @@ use App\Models\StandaloneMongodb;
 use App\Models\StandaloneMysql;
 use App\Models\StandalonePostgresql;
 use App\Models\StandaloneRedis;
+use App\Models\StandaloneSqlite;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Validate;
@@ -26,7 +27,7 @@ class FileStorage extends Component
 
     public LocalFileVolume $fileStorage;
 
-    public ServiceApplication|StandaloneRedis|StandalonePostgresql|StandaloneMongodb|StandaloneMysql|StandaloneMariadb|StandaloneKeydb|StandaloneDragonfly|StandaloneClickhouse|ServiceDatabase|Application $resource;
+    public ServiceApplication|StandaloneRedis|StandalonePostgresql|StandaloneMongodb|StandaloneMysql|StandaloneMariadb|StandaloneKeydb|StandaloneDragonfly|StandaloneClickhouse|StandaloneSqlite|ServiceDatabase|Application $resource;
 
     public string $fs_path;
 
@@ -120,7 +121,7 @@ class FileStorage extends Component
             : route('project.application.backup.show', [...$parameters, 'backup_uuid' => $backup->uuid]);
     }
 
-    public function syncData(bool $toModel = false): void
+    private function syncData(bool $toModel = false): void
     {
         if ($toModel) {
             if ($this->fileStorage->is_too_large) {
@@ -136,7 +137,7 @@ class FileStorage extends Component
             $this->fileStorage->save();
         } else {
             // Sync from model
-            $this->content = $this->fileStorage->content;
+            $this->content = auth()->user()?->can('update', $this->resource) ? $this->fileStorage->content : null;
             $this->isBasedOnGit = $this->fileStorage->is_based_on_git;
             $this->isPreviewSuffixEnabled = $this->fileStorage->is_preview_suffix_enabled ?? true;
         }
@@ -160,7 +161,7 @@ class FileStorage extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         } finally {
-            $this->dispatch('refreshStorages');
+            $this->dispatch('storageCountsChanged')->to(Storage::class);
         }
     }
 
@@ -179,7 +180,7 @@ class FileStorage extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         } finally {
-            $this->dispatch('refreshStorages');
+            $this->dispatch('storageCountsChanged')->to(Storage::class);
         }
     }
 
@@ -207,7 +208,7 @@ class FileStorage extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         } finally {
-            $this->dispatch('refreshStorages');
+            $this->dispatch('storageCountsChanged')->to(Storage::class);
         }
     }
 
@@ -242,7 +243,7 @@ class FileStorage extends Component
         } catch (\Throwable $e) {
             return handleError($e, $this);
         } finally {
-            $this->dispatch('refreshStorages');
+            $this->dispatch('storageCountsChanged')->to(Storage::class);
         }
 
         return true;
@@ -308,10 +309,10 @@ class FileStorage extends Component
     {
         return view('livewire.project.service.file-storage', [
             'directoryDeletionCheckboxes' => [
-                ['id' => 'permanently_delete', 'label' => 'The selected directory and all its contents will be permantely deleted form the server.'],
+                ['id' => 'permanently_delete', 'label' => 'The selected directory and all its contents will be permanently deleted from the server.'],
             ],
             'fileDeletionCheckboxes' => [
-                ['id' => 'permanently_delete', 'label' => 'The selected file will be permanently deleted form the server.'],
+                ['id' => 'permanently_delete', 'label' => 'The selected file will be permanently deleted from the server.'],
             ],
             'hostFileDeletionCheckboxes' => [
                 ['id' => 'permanently_delete', 'label' => 'Only the mount configuration will be removed. The host file will not be deleted.'],

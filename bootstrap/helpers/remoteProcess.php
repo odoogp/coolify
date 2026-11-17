@@ -9,6 +9,9 @@ use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
 use App\Models\PrivateKey;
 use App\Models\Server;
+use App\Models\Service;
+use App\Models\StandaloneDocker;
+use App\Support\RemoteProcessCommand;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -25,7 +28,8 @@ function remote_process(
     ?Model $model = null,
     bool $ignore_errors = false,
     $callEventOnFinish = null,
-    $callEventData = null
+    $callEventData = null,
+    array $properties = [],
 ): Activity {
     $type = $type ?? ActivityTypes::INLINE->value;
     $command = $command instanceof Collection ? $command->toArray() : $command;
@@ -43,8 +47,9 @@ function remote_process(
     SshMultiplexingHelper::ensureMultiplexedConnection($server);
 
     $properties = [
+        ...$properties,
         'server_uuid' => $server->uuid,
-        'command' => $command_string,
+        ...RemoteProcessCommand::properties($command_string),
         'type' => $type,
         'type_uuid' => $type_uuid,
         'status' => ProcessStatus::QUEUED->value,
@@ -88,13 +93,13 @@ function userCanUseServer(Server $server): bool
         return true;
     }
 
-    $destinationIds = \App\Models\StandaloneDocker::query()->where('server_id', $server->id)->select('id');
+    $destinationIds = StandaloneDocker::query()->where('server_id', $server->id)->select('id');
 
-    return \App\Models\Service::query()
+    return Service::query()
         ->where(function ($query) use ($server, $destinationIds) {
             $query->where('server_id', $server->id)
                 ->orWhere(function ($query) use ($destinationIds) {
-                    $query->where('destination_type', \App\Models\StandaloneDocker::class)
+                    $query->where('destination_type', StandaloneDocker::class)
                         ->whereIn('destination_id', $destinationIds);
                 });
         })
@@ -395,7 +400,7 @@ function remove_iip($text)
     $text = preg_replace('/Bearer\s+[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/i', 'Bearer '.REDACTED, $text);
 
     // GitHub tokens (ghp_ = personal, gho_ = OAuth, ghu_ = user-to-server, ghs_ = server-to-server, ghr_ = refresh)
-    $text = preg_replace('/\b(gh[pousr]_[A-Za-z0-9_]{36,})\b/', REDACTED, $text);
+    $text = preg_replace('/\bgh[pousr]_[A-Za-z0-9.\-_]{36,}(?![A-Za-z0-9.\-_])/', REDACTED, $text);
 
     // GitLab tokens (glpat- = personal access token, glcbt- = CI build token, glrt- = runner token)
     $text = preg_replace('/\b(gl(?:pat|cbt|rt)-[A-Za-z0-9\-_]{20,})\b/', REDACTED, $text);

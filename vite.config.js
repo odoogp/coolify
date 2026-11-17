@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import laravel from "laravel-vite-plugin";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), "");
@@ -22,7 +23,10 @@ export default defineConfig(({ mode }) => {
     return {
         server: {
             watch: {
-                ignored: ["**/dev_*_data/**", "**/storage/**"],
+                ignored: ["**/dev_*_data/**", "**/storage/**", "**/vendor/**"],
+                // Bind mounts from macOS VMs (Colima/Lima virtiofs) do not emit inotify events.
+                usePolling: (process.env.VITE_USE_POLLING || env.VITE_USE_POLLING) === "1",
+                interval: 300,
             },
             // Listen on all interfaces so Docker / remote clients can reach the dev server
             host: "0.0.0.0",
@@ -45,9 +49,11 @@ export default defineConfig(({ mode }) => {
                     "resources/css/letify-light.css",
                     "resources/css/theme-accent.css",
                     "resources/js/app.js",
+                    "resources/js/environment-canvas/main.jsx",
                 ],
                 refresh: true,
             }),
+            react(),
         ],
     };
 });
