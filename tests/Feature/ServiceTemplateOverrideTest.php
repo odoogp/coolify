@@ -198,3 +198,39 @@ test('saving odoo without an includes_jupyter override keeps jupyter on', functi
     expect(ServiceTemplateCatalog::includesJupyter('odoo'))->toBeTrue()
         ->and((bool) ServiceTemplateOverride::query()->where('name', 'odoo')->value('includes_jupyter'))->toBeTrue();
 });
+
+test('launch options include railway-style preview of services volumes and parameters', function () {
+    $this->actingAs($this->owner);
+
+    ServiceTemplateCatalog::create(
+        'preview-stack',
+        "services:\n  web:\n    image: nginx:alpine\n    environment:\n      - PASS=\${SERVICE_PASSWORD_WEB}\n    volumes:\n      - web-data:/data\n  db:\n    image: postgres:16\nvolumes:\n  web-data:\n",
+        $this->owner->id,
+        [
+            'display_name' => 'Preview Stack',
+            'description' => 'Demo stack for launch preview.',
+            'is_visible' => true,
+        ],
+    );
+
+    $preview = ServiceTemplateCatalog::launchPreview('preview-stack');
+    $option = collect(ServiceTemplateCatalog::launchOptions())->firstWhere('value', 'preview-stack');
+
+    expect($preview['services'])->toContain('web', 'db')
+        ->and($preview['volumes'])->toContain('web-data')
+        ->and($preview['parameters'])->toContain('SERVICE_PASSWORD_WEB')
+        ->and($preview['needs_github'])->toBeFalse()
+        ->and($option)->not->toBeNull()
+        ->and($option['services'])->toContain('web')
+        ->and($option['volumes'])->toContain('web-data')
+        ->and($option['parameters'])->toContain('SERVICE_PASSWORD_WEB');
+});
+
+test('odoo launch preview marks github app as needed', function () {
+    seedOdooComposeVersions();
+
+    $preview = ServiceTemplateCatalog::launchPreview('odoo');
+
+    expect($preview['needs_github'])->toBeTrue()
+        ->and($preview['services'])->not->toBeEmpty();
+});

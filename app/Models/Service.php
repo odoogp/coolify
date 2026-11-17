@@ -1626,32 +1626,23 @@ class Service extends BaseModel
         }
 
         $workdir = $this->workdir();
-
-        // Write compose over SSH (base64), same as .env below — avoid local
-        // storage/app/tmp + scp, which fails with "stat local ... Permission denied"
-        // when the Coolify container cannot read files created for SCP.
-        $compose_base64 = base64_encode($this->docker_compose);
-        instant_remote_process([
+        // Absolute paths and tee, no cd or scp: a non-root SSH user cannot enter /data/coolify.
+        $environmentFile = $workdir.'/'.new_public_id().'.env.tmp';
+        $commands = [
             "mkdir -p $workdir",
-            "cd $workdir",
-            "echo '$compose_base64' | base64 -d | tee $workdir/docker-compose.yml > /dev/null",
-        ], $this->server);
-
-        $commands[] = "cd $workdir";
-        $commands[] = 'rm -f .env || true';
+            "echo '".base64_encode($this->docker_compose)."' | base64 -d | tee $workdir/docker-compose.yml > /dev/null",
+        ];
 
         $envs = collect([]);
 
         // Generate SERVICE_NAME_* environment variables from docker-compose services
-        if ($this->docker_compose) {
-            try {
-                $dockerCompose = Yaml::parse($this->docker_compose);
-                $services = data_get($dockerCompose, 'services', []);
-                foreach ($services as $serviceName => $_) {
-                    $envs->push('SERVICE_NAME_'.str($serviceName)->replace('-', '_')->replace('.', '_')->upper().'='.$serviceName);
-                }
-            } catch (\Exception $e) {
+        try {
+            $dockerCompose = Yaml::parse($this->docker_compose);
+            $services = data_get($dockerCompose, 'services', []);
+            foreach ($services as $serviceName => $_) {
+                $envs->push('SERVICE_NAME_'.str($serviceName)->replace('-', '_')->replace('.', '_')->upper().'='.$serviceName);
             }
+        } catch (\Exception $e) {
         }
 
         $envs_from_coolify = $this->environment_variables()->get();

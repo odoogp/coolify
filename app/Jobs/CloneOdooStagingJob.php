@@ -218,7 +218,7 @@ class CloneOdooStagingJob implements ShouldQueue
                 return;
             }
 
-            throw new RuntimeException('The staging service did not start.');
+            throw new RuntimeException(OdooGit::startFailureMessage($service));
         }
 
         $mounted = false;
@@ -241,7 +241,7 @@ class CloneOdooStagingJob implements ShouldQueue
 
                 $activity->refresh();
 
-                throw new RuntimeException($this->startFailureMessage($activity));
+                throw new RuntimeException($this->startFailureMessage($activity, $service));
             }
             sleep(3);
         }
@@ -250,17 +250,17 @@ class CloneOdooStagingJob implements ShouldQueue
             return;
         }
 
-        throw new RuntimeException('The staging service did not start.');
+        throw new RuntimeException(OdooGit::startFailureMessage($service));
     }
 
-    private function startFailureMessage(Activity $activity): string
+    private function startFailureMessage(Activity $activity, Service $service): string
     {
         $line = collect(preg_split('/\R/', RunRemoteProcess::decodeOutput($activity)) ?: [])
             ->map(fn ($line): string => trim((string) $line))
             ->filter(fn (string $line): bool => $line !== '')
             ->last();
 
-        return is_string($line) && $line !== '' ? $line : 'The staging service did not start.';
+        return is_string($line) && $line !== '' ? $line : OdooGit::startFailureMessage($service);
     }
 
     /**

@@ -166,8 +166,9 @@ canvas, not a small widget or the advanced config screens.
 - selecting a node opens an **in-canvas inspector** for **Logs** (docker),
   **Monitor** (iframe), or **GitHub** (link status) — same window, not a
   redirect to Coolify configuration screens;
-- toolbar: **Sync**, **Create** (`?catalog=1`), **List** (`?list=1`), Project
-  back, Reset layout;
+- toolbar: **Add**, **Deploy** (only when something is pending), quiet
+  Configuration / Sync / List / Reset; **Save template** only when the stack
+  is customized (2+ services, user links, or an agent);
 - entry: env name / **Open environment** / `Show::navigateToEnvironment` open
   canvas; `project.resource.index` redirects populated envs here.
 
@@ -220,10 +221,11 @@ and focus-visible controls retain the accent ring alongside the depth.
 Movement and depth-shadow changes transition over 80ms; color transitions keep
 the shared 120ms duration.
 Standard button labels use `capitalize`, giving each word an initial capital.
-Highlighted buttons use `--color-coollabs-300` for their bottom edge; the
-custom theme derives it from its bright color mixed with black, so custom
-colors keep a matching edge. Dark mode matches the depth edge of neutral
-buttons to their regular border color (`rgb(255 255 255 / 0.08)`).
+Highlighted buttons are a **solid accent fill** with the same 2px depth edge —
+never a purple gradient wash, never a soft neon bloom/glow around the control.
+Obsidian Crystal keeps radius at `0.5rem` so primary and secondary actions share
+one silhouette. Dark mode matches the depth edge of neutral buttons to their
+regular border color (`rgb(255 255 255 / 0.08)`).
 
 ---
 

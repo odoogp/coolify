@@ -60,6 +60,27 @@ beforeEach(function () {
     ];
 });
 
+it('renders compose resources as a readable table with name image and status', function () {
+    $this->application->update([
+        'human_name' => 'Web App',
+        'status' => 'running:healthy',
+    ]);
+
+    $this->get(route('project.service.configuration', $this->parameters))
+        ->assertSuccessful()
+        ->assertSee(__('Compose resources'))
+        ->assertSee('compose-resources', false)
+        ->assertSee('compose-resource--table', false)
+        ->assertSee('Web App')
+        ->assertSee('example/web:latest')
+        ->assertSee(formatContainerStatus('running:healthy'))
+        ->assertSee('postgres')
+        ->assertDontSee(route('project.service.index', [
+            ...$this->parameters,
+            'stack_service_uuid' => $this->application->uuid,
+        ]), false);
+});
+
 it('shows application general and advanced settings in a resource card modal', function () {
     Livewire::test(ResourceCard::class, [
         'service' => $this->service,

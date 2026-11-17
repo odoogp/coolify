@@ -1025,17 +1025,34 @@ class OdooGit
 
         $server = $service->server;
         if ($server === null || ! $server->isFunctional()) {
-            throw new RuntimeException('The staging service did not start.');
+            throw new RuntimeException(self::startFailureMessage($service));
         }
 
         instant_remote_process([self::containersReadyCommand($service)], $server);
         $host = parse_url(self::publicHttpsUrl($service), PHP_URL_HOST);
         $command = is_string($host) ? self::httpsReadyCommand($host) : null;
         if ($command === null) {
-            throw new RuntimeException('The staging service did not start.');
+            throw new RuntimeException(self::startFailureMessage($service));
         }
 
         instant_remote_process([$command], $server);
+    }
+
+    /**
+     * Clone/wait helpers used to say “staging” even when the environment was
+     * production — that confused users watching the project list.
+     */
+    public static function startFailureMessage(?Service $service = null): string
+    {
+        $environment = $service?->environment;
+        if ($environment instanceof Environment && $environment->isProduction()) {
+            return 'The production service did not start.';
+        }
+        if ($environment instanceof Environment && $environment->isStaging()) {
+            return 'The new staging environment did not start.';
+        }
+
+        return 'Odoo did not start on this environment.';
     }
 
     public static function clientSeesLog(string $container): bool
@@ -1520,10 +1537,77 @@ BASH;
     }
 
     /**
+     * Public PaaS host for non-Odoo catalog services under odoo_base_domain.
+     * Never equals the project Odoo host (Traefik Host collision).
+     *
+     * Example: acme-portainer-abcd1234.getcloud.sh
+     */
+    public static function paasServiceHost(Service $service): ?string
+    {
+        if (OdooJupyter::isOdooCompose((string) $service->docker_compose_raw)) {
+            return null;
+        }
+
+        $base = self::baseDomain();
+        if ($base === '') {
+            return null;
+        }
+
+        $service->loadMissing(['environment.project.odooProfile', 'environment']);
+        $environment = $service->environment;
+        $project = $environment?->project;
+
+        $type = str((string) ($service->service_type ?: $service->name))->slug('-')->toString() ?: 'svc';
+        $type = substr($type, 0, 24);
+        $short = substr((string) $service->uuid, 0, 8);
+        if ($short === '' || preg_match('/\A[A-Za-z0-9]+\z/', $short) !== 1) {
+            return null;
+        }
+
+        $projectLabel = '';
+        if ($project !== null) {
+            $sub = trim((string) ($project->odooProfile?->subdomain ?? ''));
+            if ($sub === '') {
+                $sub = (string) ($project->name ?? '');
+            }
+            $projectLabel = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower($sub)), '-');
+            $projectLabel = substr($projectLabel, 0, 24);
+        }
+
+        $prefix = $projectLabel !== '' ? $projectLabel.'-'.$type : $type;
+        $label = $prefix.'-'.$short;
+        $isProduction = $environment?->isProduction() ?? true;
+        if (! $isProduction && $environment !== null) {
+            $branch = trim((string) preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $environment->name)), '-');
+            $suffix = '-'.($branch !== '' ? $branch : 'staging').'-'.$environment->id;
+            $label = trim(substr($label, 0, max(1, 63 - strlen($suffix))), '-').$suffix;
+        }
+        $label = trim(substr($label, 0, 63), '-');
+        if ($label === '') {
+            return null;
+        }
+
+        $host = $label.'.'.$base;
+        if ($project !== null && self::hostFor($project, $environment) === $host) {
+            $host = $type.'-'.$short.'.'.$base;
+        }
+
+        return $host;
+    }
+
+    /**
      * The address Coolify assigns from the server, before a project subdomain replaces it.
+     * Prefer a PaaS base-domain host when configured (Portainer, Authentik, …).
      */
     public static function coolifyPublicUrl(Service $service): ?string
     {
+        $paasHost = self::paasServiceHost($service);
+        if (is_string($paasHost) && $paasHost !== '') {
+            $url = self::httpsUrl($paasHost);
+
+            return $url === '' ? null : $url;
+        }
+
         $server = $service->server;
         $ip = (string) ($server?->ip ?? '');
         if ($server === null || $ip === '' || preg_match('/\A[A-Za-z0-9.:-]+\z/', $ip) !== 1) {
@@ -1678,6 +1762,18 @@ BASH;
 
             if ($fqdn === '') {
                 continue;
+            }
+
+            // Promote Coolify/sslip hosts to a PaaS base-domain subdomain when
+            // configured (admin tools like Portainer stay reachable via Traefik).
+            $paasHost = self::paasServiceHost($service);
+            if (
+                ! $isOdoo
+                && is_string($paasHost)
+                && $paasHost !== ''
+                && self::isCoolifyGeneratedServiceFqdn($service, $fqdn)
+            ) {
+                $fqdn = self::httpsUrl($paasHost);
             }
 
             if ($fqdn !== (string) $application->fqdn) {
@@ -1883,7 +1979,7 @@ BASH;
         $uuid = (string) $service->uuid;
         $serviceId = (string) $service->id;
         if (preg_match('/^[A-Za-z0-9]+$/', $uuid) !== 1 || preg_match('/^[1-9][0-9]*$/', $serviceId) !== 1) {
-            throw new RuntimeException('The staging service did not start.');
+            throw new RuntimeException(self::startFailureMessage($service));
         }
 
         $script = <<<'BASH'
@@ -2503,12 +2599,10 @@ BASH;
         $server = $service->destination?->server;
 
         // No GitHub on the project yet — Jupyter-only until a repository is linked.
-        if (blank($repository) && blank($profile?->github_app_id)) {
-            return;
-        }
-
+        // Incomplete half-links (repo without app, or app without repo) are also
+        // optional: Start/Deploy must not fail — fix from the canvas GitHub node.
         if (blank($repository) || ! $githubApp instanceof GithubApp) {
-            throw new RuntimeException('GitHub is linked incompletely for this project. Open the service GitHub panel and save the branch again.');
+            return;
         }
         if ($server === null) {
             throw new RuntimeException('This Odoo service has no server destination, so addons cannot be cloned.');

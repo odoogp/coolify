@@ -3,6 +3,27 @@
         {{ data_get_str($environment, 'name')->limit(10) }} > {{ $odooOnly ? __('Environment') : __('Resources') }} | {{ product_name() }}
     </x-slot>
     <div x-data="resourceIndex()" class="w-full">
+        @if (request()->boolean('catalog') || request()->boolean('launch'))
+            <nav class="gc-launch-steps mb-5" aria-label="{{ __('Launch steps') }}">
+                <ol class="gc-launch-steps-list">
+                    <li class="gc-launch-step is-active">
+                        <span class="gc-launch-step-index">1</span>
+                        <span class="gc-launch-step-label">{{ __('Pick a stack') }}</span>
+                    </li>
+                    <li class="gc-launch-step">
+                        <span class="gc-launch-step-index">2</span>
+                        <span class="gc-launch-step-label">{{ __('Connect GitHub') }}</span>
+                    </li>
+                    <li class="gc-launch-step">
+                        <span class="gc-launch-step-index">3</span>
+                        <span class="gc-launch-step-label">{{ __('Configure & start') }}</span>
+                    </li>
+                </ol>
+                <p class="mt-2 text-[12px] text-neutral-500 dark:text-fg-dim">
+                    {{ __('Launch prepares the service and opens configuration. Containers start when you press Start.') }}
+                </p>
+            </nav>
+        @endif
         <header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
                 <h1 class="truncate text-[24px]! leading-7! font-semibold! tracking-tight!">{{ $environment->name }}</h1>
@@ -35,11 +56,13 @@
                     </a>
                 @endcan
                 @can('createAnyResource')
-                    <x-modal-input title="{{ __('New') }}" :wireIgnore="false" data-listbox-portal-root>
+                    <x-modal-input title="{{ __('Add') }}" :wireIgnore="false" :inline="true"
+                        data-listbox-portal-root>
                         <x-slot:content>
-                            <button type="button" class="button whitespace-nowrap button-highlighted">
+                            <button type="button" class="button whitespace-nowrap button-highlighted"
+                                title="{{ __('Add to project') }}">
                                 <x-reicon name="plus" class="size-3.5" />
-                                {{ __('New') }}
+                                {{ __('Add') }}
                             </button>
                         </x-slot:content>
                         <div class="flex flex-col gap-4">

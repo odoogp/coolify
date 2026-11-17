@@ -1,11 +1,14 @@
 import {
     Background,
     BackgroundVariant,
+    ConnectionMode,
     Controls,
+    MarkerType,
     MiniMap,
     ReactFlow,
     ReactFlowProvider,
     SelectionMode,
+    addEdge,
     useEdgesState,
     useNodesState,
     useReactFlow,
@@ -47,22 +50,60 @@ function FitController({ bootKey }) {
     return null;
 }
 
-function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
+function CanvasInner({
+    graph,
+    canUpdate,
+    savePosition,
+    onInspect,
+    onConnectNodes,
+    onDisconnectNodes,
+    removeLabel,
+    bootKey,
+}) {
     const inspectRef = useRef(onInspect);
     inspectRef.current = onInspect;
+    const connectRef = useRef(onConnectNodes);
+    connectRef.current = onConnectNodes;
+    const disconnectRef = useRef(onDisconnectNodes);
+    disconnectRef.current = onDisconnectNodes;
+    const setEdgesRef = useRef(null);
 
     const stableInspect = useCallback((nodeId, panel) => {
         inspectRef.current?.(nodeId, panel);
     }, []);
 
+    const stableRemoveConnection = useCallback((from, to, edgeId) => {
+        if (!from || !to) {
+            return;
+        }
+        setEdgesRef.current?.((current) =>
+            current.filter(
+                (edge) =>
+                    !(
+                        edge.id === edgeId ||
+                        (edge.source === from && edge.target === to) ||
+                        (edge.source === to && edge.target === from)
+                    ),
+            ),
+        );
+        disconnectRef.current?.(from, to, edgeId);
+    }, []);
+
     const initial = useMemo(
-        () => graphToFlow(graph, { canUpdate, onInspect: stableInspect }),
+        () =>
+            graphToFlow(graph, {
+                canUpdate,
+                onInspect: stableInspect,
+                onRemoveConnection: stableRemoveConnection,
+                removeLabel,
+            }),
         // boot once; later updates arrive via gc-canvas:update
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
     );
     const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
+    setEdgesRef.current = setEdges;
     const saveTimer = useRef(null);
 
     useEffect(() => {
@@ -78,6 +119,8 @@ function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
                     canUpdate,
                     replacePositions,
                     onInspect: stableInspect,
+                    onRemoveConnection: stableRemoveConnection,
+                    removeLabel,
                 });
                 setEdges(merged.edges);
                 return merged.nodes;
@@ -89,7 +132,7 @@ function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
 
         window.addEventListener('gc-canvas:update', onUpdate);
         return () => window.removeEventListener('gc-canvas:update', onUpdate);
-    }, [canUpdate, setEdges, setNodes, stableInspect]);
+    }, [canUpdate, removeLabel, setEdges, setNodes, stableInspect, stableRemoveConnection]);
 
     const persistPosition = useCallback(
         (node) => {
@@ -124,9 +167,72 @@ function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
                 return;
             }
             const kind = node.data?.kind;
-            stableInspect(node.id, kind === 'github' ? 'github' : 'details');
+            if (kind === 'github') {
+                stableInspect(node.id, 'github');
+                return;
+            }
+            if (kind === 'agent') {
+                stableInspect(node.id, 'chat');
+                return;
+            }
+            if (kind === 'volume' || kind === 'domain') {
+                stableInspect(node.id, 'settings');
+                return;
+            }
+            stableInspect(node.id, 'details');
         },
         [stableInspect],
+    );
+
+    const isValidConnection = useCallback((connection) => {
+        if (!connection?.source || !connection?.target) {
+            return false;
+        }
+
+        return connection.source !== connection.target;
+    }, []);
+
+    const onConnect = useCallback(
+        (connection) => {
+            if (!canUpdate || !connection?.source || !connection?.target) {
+                return;
+            }
+            if (connection.source === connection.target) {
+                return;
+            }
+
+            const edgeId = `link:${connection.source}->${connection.target}`;
+            setEdges((current) => {
+                if (current.some((edge) => edge.source === connection.source && edge.target === connection.target)) {
+                    return current;
+                }
+
+                return addEdge(
+                    {
+                        ...connection,
+                        id: edgeId,
+                        type: 'flow',
+                        className: 'gc-flow-edge is-intranet is-removable',
+                        markerEnd: {
+                            type: MarkerType.ArrowClosed,
+                            width: 14,
+                            height: 14,
+                            color: '#2dd4bf',
+                        },
+                        data: {
+                            kind: 'intranet',
+                            removable: true,
+                            removeLabel,
+                            onRemove: stableRemoveConnection,
+                        },
+                    },
+                    current,
+                );
+            });
+
+            connectRef.current?.(connection.source, connection.target);
+        },
+        [canUpdate, removeLabel, setEdges, stableRemoveConnection],
     );
 
     const minimapNodeColor = useCallback((node) => {
@@ -135,6 +241,8 @@ function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
                 return '#c4b5fd';
             case 'domain':
                 return '#34d399';
+            case 'agent':
+                return '#f472b6';
             case 'odoo':
             case 'service':
             case 'application':
@@ -157,13 +265,16 @@ function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            isValidConnection={isValidConnection}
+            connectionMode={ConnectionMode.Loose}
             onNodeDragStop={onNodeDragStop}
             onSelectionDragStop={onSelectionDragStop}
             onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             nodesDraggable={canUpdate}
-            nodesConnectable={false}
+            nodesConnectable={canUpdate}
             elementsSelectable
             selectionOnDrag={false}
             panOnDrag
@@ -183,6 +294,7 @@ function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
                 type: 'flow',
                 interactionWidth: 28,
             }}
+            connectionLineStyle={{ stroke: '#2dd4bf', strokeWidth: 2 }}
         >
             <FitController bootKey={bootKey} />
             <Background

@@ -52,7 +52,8 @@
                 this.applyCollapsed(true);
             }
         }" @open-global-search.window="open = false" @page-width-changed.window="pageWidth = $event.detail"
-            class="dark:text-inherit text-black">
+            class="dark:text-inherit text-black"
+            :style="`--sidebar-w: ${collapsed ? '4rem' : '14rem'}`">
             {{-- No x-cloak on this shell: Livewire morph / Alpine toast errors used to leave
                  [x-cloak]{display:none} on the whole app (blank black Keys & Tokens page). --}}
             {{-- Bottom-right activity stack: updates pill at the corner; notice toasts stack above it. --}}
@@ -229,6 +230,7 @@
             @if ($supportNumber !== '')
                 <x-whatsapp-support :number="$supportNumber" />
             @endif
+            <livewire:project.agent.cloud-shell />
         </div>
     @endauth
 @endsection

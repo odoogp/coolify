@@ -3,7 +3,7 @@
     'label' => null,
     'helper' => null,
     'required' => false,
-    'options' => [], // list of ['value' => ..., 'label' => ..., 'disabled' => bool, 'description' => ?, 'logo' => ?, 'category' => ?]
+    'options' => [], // list of ['value' => ..., 'label' => ..., 'disabled' => bool, 'description' => ?, 'logo' => ?, 'category' => ?, 'services' => ?, 'volumes' => ?, 'parameters' => ?, 'needs_github' => ?]
     'placeholder' => __('Select…'),
     'searchPlaceholder' => 'Search…',
     'emptyText' => 'No matching options',
@@ -20,7 +20,12 @@
 @php
     $hasRichOptions = collect($options)->contains(
         fn (mixed $option): bool => is_array($option)
-            && (filled($option['logo'] ?? null) || filled($option['description'] ?? null))
+            && (
+                filled($option['logo'] ?? null)
+                || filled($option['description'] ?? null)
+                || (is_array($option['services'] ?? null) && $option['services'] !== [])
+                || (is_array($option['volumes'] ?? null) && $option['volumes'] !== [])
+            )
     );
 @endphp
 
@@ -249,11 +254,10 @@
             </svg>
         </button>
         @if ($hasRichOptions)
-            <div x-show="selected && (selected.description || selected.logo)" x-cloak
-                class="searchable-listbox-preview mt-2">
-                <div class="flex min-w-0 items-start gap-3">
-                    <div
-                        class="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 dark:border-white/[0.08] dark:bg-white/[0.04]">
+            <div x-show="selected && (selected.description || selected.logo || (selected.services && selected.services.length) || (selected.volumes && selected.volumes.length))"
+                x-cloak class="searchable-listbox-preview gc-launch-preview mt-2">
+                <div class="gc-launch-preview-head">
+                    <div class="gc-launch-preview-logo">
                         <template x-if="selected?.logo">
                             <img :src="selected.logo" alt="" class="size-full object-contain p-2"
                                 x-on:error="$el.src=@js(asset('svgs/default.webp'))" />
@@ -272,10 +276,54 @@
                                 x-text="selected?.category"></p>
                         </div>
                         <p x-show="selected?.description"
-                            class="mt-1 line-clamp-2 text-[12px] leading-5 text-neutral-600 dark:text-fg-dim"
+                            class="mt-1 line-clamp-3 text-[12px] leading-5 text-neutral-600 dark:text-fg-dim"
                             x-text="selected?.description"></p>
                     </div>
                 </div>
+                <template x-if="selected?.services?.length">
+                    <div class="gc-launch-preview-section">
+                        <p class="gc-launch-preview-kicker">{{ __('Will launch') }}</p>
+                        <ul class="gc-launch-preview-chips">
+                            <template x-for="svc in selected.services" :key="svc">
+                                <li x-text="svc"></li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+                <template x-if="selected?.volumes?.length">
+                    <div class="gc-launch-preview-section">
+                        <p class="gc-launch-preview-kicker">{{ __('Persistent volumes') }}</p>
+                        <ul class="gc-launch-preview-chips">
+                            <template x-for="vol in selected.volumes" :key="vol">
+                                <li x-text="vol"></li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+                <template x-if="selected?.parameters?.length">
+                    <div class="gc-launch-preview-section">
+                        <p class="gc-launch-preview-kicker">{{ __('Auto-generated parameters') }}</p>
+                        <p class="mb-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Coolify fills passwords and URLs on create. Review them in configuration after launch.') }}
+                        </p>
+                        <ul class="gc-launch-preview-params">
+                            <template x-for="param in selected.parameters.slice(0, 8)" :key="param">
+                                <li><code x-text="param"></code></li>
+                            </template>
+                        </ul>
+                    </div>
+                </template>
+                <template x-if="selected?.needs_github">
+                    <div class="gc-launch-preview-github">
+                        <img src="/svgs/github.svg" alt="" class="size-5 shrink-0 dark:invert" loading="lazy">
+                        <div class="min-w-0">
+                            <p class="text-[13px] font-medium">{{ __('GitHub App (optional)') }}</p>
+                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('After Launch, connect the GitHub App to link a repository and branch for addons.') }}
+                            </p>
+                        </div>
+                    </div>
+                </template>
             </div>
         @endif
         <div x-ref="panel" data-searchable-listbox-panel

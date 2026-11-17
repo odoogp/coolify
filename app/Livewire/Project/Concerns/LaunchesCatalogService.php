@@ -138,7 +138,7 @@ trait LaunchesCatalogService
     }
 
     /**
-     * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string}>
+     * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string, services: list<string>, volumes: list<string>, parameters: list<string>, needs_github: bool}>
      */
     protected function catalogServiceOptions(): array
     {
@@ -149,6 +149,10 @@ trait LaunchesCatalogService
                 'description' => $row['description'] ?? null,
                 'category' => $row['category'] ?? null,
                 'logo' => $row['logo'] ?? null,
+                'services' => is_array($row['services'] ?? null) ? $row['services'] : [],
+                'volumes' => is_array($row['volumes'] ?? null) ? $row['volumes'] : [],
+                'parameters' => is_array($row['parameters'] ?? null) ? $row['parameters'] : [],
+                'needs_github' => (bool) ($row['needs_github'] ?? false),
             ])
             ->values()
             ->all();

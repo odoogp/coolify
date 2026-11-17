@@ -30,6 +30,16 @@ function Glyph({ name }) {
         );
     }
 
+    if (name === 'agent') {
+        return (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+                <path d="M12 3v3M8 7h8l1.5 3.5a6.5 6.5 0 1 1-11 0L8 7Z" />
+                <circle cx="10" cy="13" r="0.8" fill="currentColor" />
+                <circle cx="14" cy="13" r="0.8" fill="currentColor" />
+            </svg>
+        );
+    }
+
     return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
             <ellipse cx="12" cy="6" rx="8" ry="3" />
@@ -57,16 +67,31 @@ function navigateTo(href, external = false) {
 function ResourceNodeComponent({ id, data, selected }) {
     const ports = data.ports || { in: true, out: true };
     const panels = Array.isArray(data.panels) ? data.panels : [];
+    const volumes = Array.isArray(data.volumes) ? data.volumes : [];
+    const domains = Array.isArray(data.domains) ? data.domains : [];
+    const isVolume = data.kind === 'volume';
+    const isDomain = data.kind === 'domain';
+    const isAgent = data.kind === 'agent';
     const hasLogs = panels.includes('logs');
     const hasMonitor = panels.includes('monitor') || panels.includes('metrics');
     const hasGithub = panels.includes('github') || data.kind === 'github';
+    const hasChat = panels.includes('chat') || isAgent;
+    const hasSettings = panels.includes('settings') || isVolume || isDomain || isAgent;
+    const hasConfig = panels.includes('config') || !!data.configHref;
+    const attachmentBits = [];
+    if (!isVolume && !isDomain && domains.length > 0) {
+        attachmentBits.push(`${domains.length} domain${domains.length === 1 ? '' : 's'}`);
+    }
+    if (!isVolume && !isDomain && volumes.length > 0) {
+        attachmentBits.push(`${volumes.length} volume${volumes.length === 1 ? '' : 's'}`);
+    }
     const hasActions =
-        selected && (hasLogs || hasMonitor || hasGithub || data.openHref || data.href);
+        selected && (hasLogs || hasMonitor || hasGithub || hasChat || hasSettings || hasConfig || data.openHref || data.href);
 
     const inspect = useCallback(
-        (panel) => {
+        (panel, nodeId = id) => {
             if (typeof data.onInspect === 'function') {
-                data.onInspect(id, panel);
+                data.onInspect(nodeId, panel);
             }
         },
         [data, id],
@@ -76,21 +101,21 @@ function ResourceNodeComponent({ id, data, selected }) {
         (event) => {
             event.preventDefault();
             event.stopPropagation();
+            if (isAgent || hasChat) {
+                inspect('chat');
+                return;
+            }
+            if (isVolume || isDomain || hasSettings) {
+                inspect('settings');
+                return;
+            }
             if (hasGithub) {
                 inspect('github');
                 return;
             }
-            if (hasLogs) {
-                inspect('logs');
-                return;
-            }
-            if (hasMonitor) {
-                inspect('monitor');
-                return;
-            }
-            navigateTo(data.openHref || data.href, !!data.external || !!data.openHref);
+            inspect('details');
         },
-        [data.external, data.href, data.openHref, hasGithub, hasLogs, hasMonitor, inspect],
+        [hasChat, hasGithub, hasSettings, inspect, isAgent, isDomain, isVolume],
     );
 
     const openSite = useCallback(
@@ -134,44 +159,52 @@ function ResourceNodeComponent({ id, data, selected }) {
             <div className="gc-flow-node-body">
                 <div className="gc-flow-node-top">
                     <span className="gc-flow-node-kind">{data.meta || data.kind}</span>
-                    <span className={`gc-flow-status is-${data.status || 'idle'}`} title={data.statusLabel || ''} />
+                    {!isVolume && !isDomain ? (
+                        <span className={`gc-flow-status is-${data.status || 'idle'}`} title={data.statusLabel || ''} />
+                    ) : null}
                 </div>
-                <h2 className="gc-flow-node-label">{data.label}</h2>
-                <p className="gc-flow-node-meta">{data.statusLabel}</p>
+                <h2 className="gc-flow-node-label" title={data.label}>
+                    {data.label}
+                </h2>
+                <p className="gc-flow-node-meta">
+                    {isVolume
+                        ? data.mountPath || data.statusLabel
+                        : isDomain
+                          ? data.fqdn || data.statusLabel
+                          : data.statusLabel}
+                </p>
+                {attachmentBits.length > 0 ? (
+                    <p className="gc-flow-node-attachments">{attachmentBits.join(' · ')}</p>
+                ) : null}
             </div>
 
             {hasActions ? (
                 <div className="gc-flow-node-actions nodrag nopan">
+                    <button type="button" className="gc-flow-node-action is-primary" onClick={(e) => { e.stopPropagation(); inspect('details'); }}>
+                        Details
+                    </button>
                     {hasGithub ? (
-                        <button type="button" className="gc-flow-node-action is-primary" onClick={(e) => { e.stopPropagation(); inspect('github'); }}>
+                        <button type="button" className="gc-flow-node-action" onClick={(e) => { e.stopPropagation(); inspect('github'); }}>
                             GitHub
                         </button>
                     ) : null}
-                    {hasLogs ? (
-                        <button type="button" className="gc-flow-node-action is-primary" onClick={(e) => { e.stopPropagation(); inspect('logs'); }}>
-                            Logs
+                    {hasChat ? (
+                        <button type="button" className="gc-flow-node-action" onClick={(e) => { e.stopPropagation(); inspect('chat'); }}>
+                            Chat
                         </button>
                     ) : null}
-                    {hasMonitor ? (
-                        <button type="button" className="gc-flow-node-action" onClick={(e) => { e.stopPropagation(); inspect('metrics'); }}>
-                            Metrics
+                    {hasSettings && (isVolume || isDomain || isAgent) ? (
+                        <button type="button" className="gc-flow-node-action" onClick={(e) => { e.stopPropagation(); inspect('settings'); }}>
+                            Settings
+                        </button>
+                    ) : null}
+                    {hasLogs ? (
+                        <button type="button" className="gc-flow-node-action" onClick={(e) => { e.stopPropagation(); inspect('logs'); }}>
+                            Logs
                         </button>
                     ) : null}
                     {data.openHref ? (
                         <button type="button" className="gc-flow-node-action" onClick={openSite}>
-                            Open
-                        </button>
-                    ) : null}
-                    {!data.openHref && data.href && data.external ? (
-                        <button
-                            type="button"
-                            className="gc-flow-node-action"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                navigateTo(data.href, true);
-                            }}
-                        >
                             Open
                         </button>
                     ) : null}

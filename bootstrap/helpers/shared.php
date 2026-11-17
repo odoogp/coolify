@@ -3305,18 +3305,18 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                     $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                                         uuid: $resource->uuid,
                                         domains: $fqdns,
-                                        onlyPort: $proxyPort,
+                                        onlyPort: $proxyPort ?: $onlyPort,
                                         is_force_https_enabled: $savedService->isForceHttpsEnabled(),
                                         serviceLabels: $serviceLabels,
                                         is_gzip_enabled: $savedService->isGzipEnabled(),
                                         is_stripprefix_enabled: $savedService->isStripprefixEnabled(),
                                         service_name: $serviceName,
                                         image: data_get($service, 'image'),
-                                        onlyPort: $onlyPort,
+
                                         noindex_domains: $noindexDomains,
                                         redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        ));
+                                        tlsCertResolver: $resource->server,
+                                    ));
                                     break;
                                 case ProxyTypes::CADDY->value:
                                     $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
@@ -3343,18 +3343,18 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                             $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                                 uuid: $resource->uuid,
                                 domains: $fqdns,
-                                onlyPort: $proxyPort,
+                                onlyPort: $proxyPort ?: $onlyPort,
                                 is_force_https_enabled: $savedService->isForceHttpsEnabled(),
                                 serviceLabels: $serviceLabels,
                                 is_gzip_enabled: $savedService->isGzipEnabled(),
                                 is_stripprefix_enabled: $savedService->isStripprefixEnabled(),
                                 service_name: $serviceName,
                                 image: data_get($service, 'image'),
-                                onlyPort: $onlyPort,
+
                                 noindex_domains: $noindexDomains,
                                 redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        ));
+                                tlsCertResolver: $resource->server,
+                            ));
                             $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                                 network: $resource->destination->network,
                                 uuid: $resource->uuid,
@@ -4127,18 +4127,18 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                         fqdnLabelsForTraefik(
                                             uuid: $resource->uuid,
                                             domains: $fqdns,
-                                            onlyPort: $proxyPort,
+                                            onlyPort: $proxyPort ?: $onlyPort,
                                             serviceLabels: $serviceLabels,
                                             generate_unique_uuid: $resource->build_pack === 'dockercompose',
                                             image: data_get($service, 'image'),
                                             is_force_https_enabled: $resource->isForceHttpsEnabled(),
                                             is_gzip_enabled: $resource->isGzipEnabled(),
                                             is_stripprefix_enabled: $resource->isStripprefixEnabled(),
-                                            onlyPort: $onlyPort,
+
                                             noindex_domains: $noindexDomains,
                                             redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        )
+                                            tlsCertResolver: $resource->server,
+                                        )
                                     );
                                     break;
                                 case ProxyTypes::CADDY->value:
@@ -4168,18 +4168,18 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                 fqdnLabelsForTraefik(
                                     uuid: $resource->uuid,
                                     domains: $fqdns,
-                                    onlyPort: $proxyPort,
+                                    onlyPort: $proxyPort ?: $onlyPort,
                                     serviceLabels: $serviceLabels,
                                     generate_unique_uuid: $resource->build_pack === 'dockercompose',
                                     image: data_get($service, 'image'),
                                     is_force_https_enabled: $resource->isForceHttpsEnabled(),
                                     is_gzip_enabled: $resource->isGzipEnabled(),
                                     is_stripprefix_enabled: $resource->isStripprefixEnabled(),
-                                    onlyPort: $onlyPort,
+
                                     noindex_domains: $noindexDomains,
                                     redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        )
+                                    tlsCertResolver: $resource->server,
+                                )
                             );
                             $serviceLabels = $serviceLabels->merge(
                                 fqdnLabelsForCaddy(

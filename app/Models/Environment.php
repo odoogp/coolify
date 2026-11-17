@@ -288,6 +288,14 @@ class Environment extends BaseModel
         return $this->hasMany(Service::class);
     }
 
+    /**
+     * Docker volumes left behind after a service delete with “keep volumes”.
+     */
+    public function orphanVolumes()
+    {
+        return $this->morphMany(LocalPersistentVolume::class, 'resource');
+    }
+
     public function canvasLayout()
     {
         return $this->hasOne(EnvironmentCanvasLayout::class);

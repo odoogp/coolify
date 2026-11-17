@@ -24,7 +24,8 @@ class Danger extends Component
 
     public bool $delete_configurations = true;
 
-    public bool $delete_volumes = true;
+    /** Volumes stay on the server/canvas unless the user opts in. */
+    public bool $delete_volumes = false;
 
     public bool $docker_cleanup = true;
 
@@ -122,10 +123,7 @@ class Danger extends Component
                 $this->docker_cleanup,
             )->afterResponse();
 
-            return redirectRoute($this, 'project.resource.index', [
-                'project_uuid' => $this->projectUuid,
-                'environment_uuid' => $this->environmentUuid,
-            ]);
+            return $this->redirectAfterDelete();
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -148,26 +146,39 @@ class Danger extends Component
                 deleteFromCoolifyOnly: true,
             )->afterResponse();
 
-            return redirectRoute($this, 'project.resource.index', [
-                'project_uuid' => $this->projectUuid,
-                'environment_uuid' => $this->environmentUuid,
-            ]);
+            return $this->redirectAfterDelete();
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
     }
 
+    private function redirectAfterDelete(): mixed
+    {
+        if ($this->resource instanceof Service && filled($this->projectUuid) && filled($this->environmentUuid)) {
+            return redirectRoute($this, 'project.environment.canvas', [
+                'project_uuid' => $this->projectUuid,
+                'environment_uuid' => $this->environmentUuid,
+            ]);
+        }
+
+        return redirectRoute($this, 'project.resource.index', [
+            'project_uuid' => $this->projectUuid,
+            'environment_uuid' => $this->environmentUuid,
+        ]);
+    }
+
     public function render()
     {
+        $volumeLabel = $this->resource instanceof Service
+            ? __('Also permanently delete Docker volumes (otherwise they stay as orphans on the canvas).')
+            : __('resource.delete_volumes');
+
         return view('livewire.project.shared.danger', [
             'checkboxes' => [
-                ['id' => 'delete_volumes', 'label' => __('resource.delete_volumes')],
+                ['id' => 'delete_volumes', 'label' => $volumeLabel],
                 ['id' => 'delete_connected_networks', 'label' => __('resource.delete_connected_networks')],
                 ['id' => 'delete_configurations', 'label' => __('resource.delete_configurations')],
                 ['id' => 'docker_cleanup', 'label' => __('resource.docker_cleanup')],
-                // ['id' => 'delete_associated_backups_locally', 'label' => 'All backups associated with this Ressource will be permanently deleted from local storage.'],
-                // ['id' => 'delete_associated_backups_s3', 'label' => 'All backups associated with this Ressource will be permanently deleted from the selected S3 Storage.'],
-                // ['id' => 'delete_associated_backups_sftp', 'label' => 'All backups associated with this Ressource will be permanently deleted from the selected SFTP Storage.']
             ],
         ]);
     }

@@ -41,6 +41,7 @@ class EnvironmentCanvasGraph
             'dragonflies',
             'clickhouses',
             'sqlites',
+            'orphanVolumes',
             'canvasLayout',
         ]);
 
@@ -51,6 +52,8 @@ class EnvironmentCanvasGraph
             $service->setRelation('environment', $environment);
             self::appendServiceCluster($service, $nodes, $edges);
         }
+
+        self::appendOrphanVolumes($environment, $nodes);
 
         foreach ($environment->applications as $application) {
             if ($application->is_odoo_addons) {
@@ -100,8 +103,23 @@ class EnvironmentCanvasGraph
             ], 'database', $kindKey));
         }
 
+        self::appendAgentNode($environment, $nodes, $edges);
+
         $layout = $environment->canvasLayout;
         $positions = $layout instanceof EnvironmentCanvasLayout ? $layout->positionsMap() : [];
+        if ($layout instanceof EnvironmentCanvasLayout) {
+            foreach ($layout->connectionsList() as $connection) {
+                if ($nodes->contains(fn (array $node): bool => $node['id'] === $connection['from'])
+                    && $nodes->contains(fn (array $node): bool => $node['id'] === $connection['to'])) {
+                    $edges->push([
+                        'id' => $connection['id'],
+                        'from' => $connection['from'],
+                        'to' => $connection['to'],
+                        'label' => $connection['label'] ?? 'link',
+                    ]);
+                }
+            }
+        }
         $placed = self::applyPositions($nodes->values(), $positions);
 
         return [
@@ -113,6 +131,49 @@ class EnvironmentCanvasGraph
                 'count' => $placed->count(),
             ],
         ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $nodes
+     * @param  Collection<int, array<string, mixed>>  $edges
+     */
+    private static function appendAgentNode(Environment $environment, Collection $nodes, Collection $edges): void
+    {
+        $project = $environment->project;
+        if (! $project) {
+            return;
+        }
+        $project->loadMissing('agent');
+        $agent = $project->agent;
+        // Agent is opt-in: only appear after the user adds one on the canvas.
+        if ($agent === null) {
+            return;
+        }
+        $agentKey = 'agent:'.$project->uuid;
+        $ready = $agent->isReady();
+        $nodes->push(self::withIcon([
+            'id' => $agentKey,
+            'kind' => 'agent',
+            'label' => (string) ($agent->name ?: __('AI agent')),
+            'status' => $ready ? 'running' : 'idle',
+            'status_label' => $ready ? __('Ready') : __('Configure'),
+            'meta' => __('Access only via canvas connections'),
+            'panels' => ['chat', 'settings'],
+            'project_uuid' => $project->uuid,
+            'ports' => ['in' => true, 'out' => true],
+        ], 'agent'));
+
+        foreach ($agent->connectedNodeIds() as $targetId) {
+            if (! $nodes->contains(fn (array $node): bool => $node['id'] === $targetId)) {
+                continue;
+            }
+            $edges->push([
+                'id' => $agentKey.'->'.$targetId,
+                'from' => $agentKey,
+                'to' => $targetId,
+                'label' => 'context',
+            ]);
+        }
     }
 
     /**
@@ -154,7 +215,7 @@ class EnvironmentCanvasGraph
             $stackAppKeys[] = $appKey;
             $kind = self::stackAppKind($appName, $isOdoo);
             $container = $appName.'-'.$service->uuid;
-            $panels = ['logs', 'metrics'];
+            $panels = ['logs', 'metrics', 'config'];
             if ($kind === 'odoo' && filled($monitorUrl)) {
                 $panels[] = 'monitor';
             }
@@ -181,6 +242,7 @@ class EnvironmentCanvasGraph
                 'panels' => $panels,
                 'rules' => $rules,
                 'monitor_url' => in_array('monitor', $panels, true) ? $monitorUrl : null,
+                'config_href' => route('project.service.configuration', $configParams),
                 'open_href' => $openHref,
                 'meta' => match ($kind) {
                     'odoo' => 'Odoo',
@@ -195,34 +257,59 @@ class EnvironmentCanvasGraph
                 $hubKey = $appKey;
             }
 
-            self::appendDomainNodes($application, $appKey, $nodes, $edges);
-            self::appendVolumeNodes($application->persistentStorages ?? collect(), $appKey, $nodes, $edges);
+            self::appendDomainNodes(
+                $application,
+                $appKey,
+                $nodes,
+                $edges,
+                (string) $service->uuid,
+                route('project.service.domains', $configParams),
+            );
+            self::appendVolumeNodes(
+                $application->persistentStorages ?? collect(),
+                $appKey,
+                $nodes,
+                $edges,
+                (string) $service->uuid,
+                route('project.service.configuration', $configParams),
+            );
         }
 
         if ($hubKey === null && $stackAppKeys !== []) {
             $hubKey = $stackAppKeys[0];
         }
 
+        // GitHub is optional, but always emit a node for Odoo so users can
+        // connect / fix an incomplete link from the canvas (not buried in services).
         if ($isOdoo) {
-            $githubKey = 'github:'.$service->uuid;
             $environment->loadMissing('odooBranch', 'project.odooProfile');
+            $profile = $environment->project?->odooProfile;
             $repo = (string) ($environment->odooBranch?->git_repository
-                ?: $environment->project?->odooProfile?->git_repository
+                ?: $profile?->git_repository
                 ?: '');
             $branch = (string) ($environment->odooBranch?->git_branch ?: '');
-            $linked = $repo !== '' && $branch !== '';
+            $appId = (int) ($profile?->github_app_id ?? 0);
+            $linked = $repo !== '' && $branch !== '' && $appId > 0;
+            // Half-linked: repo/branch without app, or app without a usable tip.
+            $incomplete = ! $linked && ($repo !== '' || $branch !== '' || $appId > 0);
+            $githubKey = 'github:'.$service->uuid;
+            $label = $linked
+                ? $repo.($branch !== '' ? ':'.$branch : '')
+                : ($incomplete && $repo !== '' ? $repo : __('GitHub'));
             $nodes->push(self::withIcon([
                 'id' => $githubKey,
                 'kind' => 'github',
-                'label' => $linked ? ($repo.($branch !== '' ? ':'.$branch : '')) : __('GitHub'),
-                'status' => $linked ? 'running' : 'idle',
-                'status_label' => $linked ? __('Linked') : __('Not linked'),
+                'label' => $label,
+                'status' => $linked ? 'running' : ($incomplete ? 'degraded' : 'exited'),
+                'status_label' => $linked ? __('Linked') : ($incomplete ? __('Needs setup') : __('Connect')),
                 'service_uuid' => $service->uuid,
-                'panels' => ['github'],
+                'panels' => ['github', 'config'],
+                'config_href' => route('project.service.configuration', array_merge($configParams, ['odooPanel' => 'github'])),
                 'github' => [
                     'repository' => $repo !== '' ? $repo : null,
                     'branch' => $branch !== '' ? $branch : null,
                     'linked' => $linked,
+                    'incomplete' => $incomplete,
                 ],
                 'meta' => __('Source'),
                 'ports' => ['in' => false, 'out' => true],
@@ -252,7 +339,8 @@ class EnvironmentCanvasGraph
                 'status_label' => self::statusLabel((string) ($database->status ?? '')),
                 'service_uuid' => $service->uuid,
                 'container' => $dbName.'-'.$service->uuid,
-                'panels' => ['logs', 'metrics'],
+                'panels' => ['logs', 'metrics', 'config'],
+                'config_href' => route('project.service.configuration', $configParams),
                 'rules' => self::stackRulesFor('database', $isOdoo),
                 'meta' => __('Database'),
                 'ports' => ['in' => true, 'out' => false],
@@ -266,30 +354,27 @@ class EnvironmentCanvasGraph
                     'label' => 'db',
                 ]);
             }
-            self::appendVolumeNodes($database->persistentStorages ?? collect(), $dbKey, $nodes, $edges);
+            self::appendVolumeNodes(
+                $database->persistentStorages ?? collect(),
+                $dbKey,
+                $nodes,
+                $edges,
+                (string) $service->uuid,
+                route('project.service.configuration', $configParams),
+            );
         }
 
         $volumeParent = $hubKey;
         if ($volumeParent !== null) {
+            $configHref = route('project.service.configuration', $configParams);
             foreach (self::namedVolumesFromCompose((string) $service->docker_compose_raw) as $volumeName) {
                 $volKey = 'compose-vol:'.$service->uuid.':'.$volumeName;
-                if ($nodes->contains(fn (array $node): bool => $node['id'] === $volKey)) {
-                    continue;
-                }
-                $nodes->push(self::withIcon([
+                self::attachVolumeSummary($nodes, $volumeParent, [
                     'id' => $volKey,
-                    'kind' => 'volume',
                     'label' => $volumeName,
-                    'status' => 'idle',
-                    'status_label' => __('Mounted'),
-                    'meta' => __('Persistent volume'),
-                    'ports' => ['in' => true, 'out' => false],
-                ], 'volume'));
-                $edges->push([
-                    'id' => $volumeParent.'->'.$volKey,
-                    'from' => $volumeParent,
-                    'to' => $volKey,
-                    'label' => 'mount',
+                    'mount_path' => null,
+                    'service_uuid' => $service->uuid,
+                    'config_href' => $configHref,
                 ]);
             }
         }
@@ -341,8 +426,14 @@ class EnvironmentCanvasGraph
      * @param  Collection<int, array<string, mixed>>  $nodes
      * @param  Collection<int, array<string, mixed>>  $edges
      */
-    private static function appendDomainNodes(ServiceApplication $application, string $serviceKey, Collection $nodes, Collection $edges): void
-    {
+    private static function appendDomainNodes(
+        ServiceApplication $application,
+        string $serviceKey,
+        Collection $nodes,
+        Collection $edges,
+        ?string $serviceUuid = null,
+        ?string $domainsHref = null,
+    ): void {
         $fqdns = collect(explode(',', (string) ($application->fqdn ?? '')))
             ->map(fn (string $value): string => trim($value))
             ->filter()
@@ -354,24 +445,76 @@ class EnvironmentCanvasGraph
             if ($host === '') {
                 $host = $fqdn;
             }
+            $scheme = strtolower((string) (parse_url($fqdn, PHP_URL_SCHEME) ?: 'https'));
+            // Domains stay on the service card summary / inspector — not as
+            // separate canvas nodes (avoids long FQDN chips and edge spaghetti).
             $domKey = 'domain:'.$application->uuid.':'.$index;
-            $nodes->push(self::withIcon([
+            self::attachDomainSummary($nodes, $serviceKey, [
                 'id' => $domKey,
-                'kind' => 'domain',
                 'label' => $host,
-                'status' => 'idle',
-                'status_label' => 'HTTPS',
-                'href' => $fqdn,
-                'meta' => __('Public domain'),
-                'external' => true,
-                'ports' => ['in' => false, 'out' => true],
-            ], 'domain'));
-            $edges->push([
-                'id' => $domKey.'->'.$serviceKey,
-                'from' => $domKey,
-                'to' => $serviceKey,
-                'label' => '443',
+                'fqdn' => $fqdn,
+                'scheme' => $scheme,
+                'config_href' => $domainsHref,
+                'service_uuid' => $serviceUuid,
             ]);
+        }
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $nodes
+     * @param  array{id: string, label: string, fqdn: string}  $summary
+     */
+    private static function attachDomainSummary(Collection $nodes, string $parentKey, array $summary): void
+    {
+        $index = $nodes->search(fn (array $node): bool => ($node['id'] ?? null) === $parentKey);
+        if ($index === false) {
+            return;
+        }
+
+        $node = $nodes->get($index);
+        if (! is_array($node)) {
+            return;
+        }
+
+        $domains = collect($node['domains'] ?? [])
+            ->filter(fn (mixed $row): bool => is_array($row))
+            ->values();
+        if ($domains->contains(fn (array $row): bool => ($row['id'] ?? null) === $summary['id'])) {
+            return;
+        }
+
+        $node['domains'] = $domains->push($summary)->values()->all();
+        $nodes->put($index, $node);
+    }
+
+    /**
+     * Volumes kept after a service delete (resource morph = Environment).
+     *
+     * @param  Collection<int, array<string, mixed>>  $nodes
+     */
+    private static function appendOrphanVolumes(Environment $environment, Collection $nodes): void
+    {
+        foreach ($environment->orphanVolumes as $storage) {
+            $id = (string) ($storage->id ?? uniqid('orphan', true));
+            $volKey = 'volume:'.$id;
+            if ($nodes->contains(fn (array $node): bool => $node['id'] === $volKey)) {
+                continue;
+            }
+            $nodes->push(self::withIcon([
+                'id' => $volKey,
+                'kind' => 'volume',
+                'label' => (string) ($storage->name ?? 'volume'),
+                'status' => 'idle',
+                'status_label' => __('Orphan'),
+                'meta' => __('Orphan volume — delete separately'),
+                'parent_id' => null,
+                'orphan' => true,
+                'service_uuid' => null,
+                'storage_id' => is_numeric($storage->id ?? null) ? (int) $storage->id : null,
+                'mount_path' => filled($storage->mount_path ?? null) ? (string) $storage->mount_path : null,
+                'panels' => ['settings'],
+                'ports' => ['in' => false, 'out' => false],
+            ], 'volume'));
         }
     }
 
@@ -380,37 +523,57 @@ class EnvironmentCanvasGraph
      * @param  Collection<int, array<string, mixed>>  $nodes
      * @param  Collection<int, array<string, mixed>>  $edges
      */
-    private static function appendVolumeNodes(Collection $storages, string $parentKey, Collection $nodes, Collection $edges): void
-    {
+    private static function appendVolumeNodes(
+        Collection $storages,
+        string $parentKey,
+        Collection $nodes,
+        Collection $edges,
+        ?string $serviceUuid = null,
+        ?string $configHref = null,
+    ): void {
         foreach ($storages as $storage) {
             $id = (string) ($storage->id ?? $storage->name ?? uniqid('vol', true));
             $volKey = 'volume:'.$id;
-            if ($nodes->contains(fn (array $node): bool => $node['id'] === $volKey)) {
-                $edges->push([
-                    'id' => $parentKey.'->'.$volKey,
-                    'from' => $parentKey,
-                    'to' => $volKey,
-                    'label' => 'mount',
-                ]);
-
-                continue;
-            }
-            $nodes->push(self::withIcon([
+            $label = (string) ($storage->name ?? $storage->mount_path ?? 'volume');
+            $mountPath = filled($storage->mount_path ?? null) ? (string) $storage->mount_path : null;
+            // Attached volumes live in the inspector, not as canvas satellites.
+            // Orphan volumes (no parent service) still get their own nodes.
+            self::attachVolumeSummary($nodes, $parentKey, [
                 'id' => $volKey,
-                'kind' => 'volume',
-                'label' => (string) ($storage->name ?? $storage->mount_path ?? 'volume'),
-                'status' => 'idle',
-                'status_label' => __('Mounted'),
-                'meta' => __('Persistent volume'),
-                'ports' => ['in' => true, 'out' => false],
-            ], 'volume'));
-            $edges->push([
-                'id' => $parentKey.'->'.$volKey,
-                'from' => $parentKey,
-                'to' => $volKey,
-                'label' => 'mount',
+                'label' => $label,
+                'mount_path' => $mountPath,
+                'storage_id' => is_numeric($storage->id ?? null) ? (int) $storage->id : null,
+                'service_uuid' => $serviceUuid,
+                'config_href' => $configHref,
             ]);
         }
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $nodes
+     * @param  array{id: string, label: string, mount_path: ?string}  $summary
+     */
+    private static function attachVolumeSummary(Collection $nodes, string $parentKey, array $summary): void
+    {
+        $index = $nodes->search(fn (array $node): bool => ($node['id'] ?? null) === $parentKey);
+        if ($index === false) {
+            return;
+        }
+
+        $node = $nodes->get($index);
+        if (! is_array($node)) {
+            return;
+        }
+
+        $volumes = collect($node['volumes'] ?? [])
+            ->filter(fn (mixed $row): bool => is_array($row))
+            ->values();
+        if ($volumes->contains(fn (array $row): bool => ($row['id'] ?? null) === $summary['id'])) {
+            return;
+        }
+
+        $node['volumes'] = $volumes->push($summary)->values()->all();
+        $nodes->put($index, $node);
     }
 
     /**
@@ -463,6 +626,9 @@ class EnvironmentCanvasGraph
         }
         if ($kind === 'monitor') {
             return ['icon' => null, 'glyph' => 'monitor'];
+        }
+        if ($kind === 'agent') {
+            return ['icon' => null, 'glyph' => 'agent'];
         }
 
         $candidates = match ($kind) {
@@ -533,35 +699,85 @@ class EnvironmentCanvasGraph
     }
 
     /**
-     * Horizontal flow layout: domains → services → data (n8n / Railway style).
+     * Left-to-right flow: ingress → apps → data → agent / orphans.
+     * Child domains/volumes cluster around their parent so new services stack
+     * in lanes instead of sprawling into spaghetti.
      *
      * @param  Collection<int, array<string, mixed>>  $nodes
      * @return array<string, array{x: float, y: float}>
      */
     private static function defaultPositions(Collection $nodes): array
     {
-        $lanes = [
-            'github' => 0,
-            'domain' => 0,
-            'odoo' => 1,
-            'service' => 1,
-            'application' => 1,
-            'jupyter' => 1,
-            'monitor' => 1,
-            'database' => 2,
-            'volume' => 3,
-        ];
+        $laneFor = static function (string $kind): int {
+            return match ($kind) {
+                'github' => 0,
+                'odoo', 'application', 'jupyter', 'monitor', 'service' => 1,
+                'database' => 2,
+                'agent' => 3,
+                default => 1,
+            };
+        };
+
         $counters = [];
         $out = [];
+        $volumeChildren = [];
+        $domainChildren = [];
+        $orphanVolumes = [];
+
         foreach ($nodes as $node) {
             $kind = (string) ($node['kind'] ?? 'service');
-            $lane = $lanes[$kind] ?? 1;
-            $counters[$lane] = ($counters[$lane] ?? 0);
+            $parentId = is_string($node['parent_id'] ?? null) ? $node['parent_id'] : null;
+            if ($kind === 'volume') {
+                if ($parentId !== null) {
+                    $volumeChildren[$parentId][] = (string) $node['id'];
+                } else {
+                    $orphanVolumes[] = (string) $node['id'];
+                }
+
+                continue;
+            }
+            if ($kind === 'domain') {
+                if ($parentId !== null) {
+                    $domainChildren[$parentId][] = (string) $node['id'];
+                }
+
+                continue;
+            }
+            $lane = $laneFor($kind);
+            $row = $counters[$lane] ?? 0;
             $out[(string) $node['id']] = [
-                'x' => 72.0 + $lane * 320.0,
-                'y' => 72.0 + $counters[$lane] * 150.0,
+                'x' => 96.0 + $lane * 340.0,
+                'y' => 88.0 + $row * 190.0,
             ];
-            $counters[$lane]++;
+            $counters[$lane] = $row + 1;
+        }
+
+        foreach ($domainChildren as $parentId => $childIds) {
+            $parent = $out[$parentId] ?? ['x' => 96.0 + 340.0, 'y' => 88.0];
+            foreach (array_values($childIds) as $index => $childId) {
+                $out[$childId] = [
+                    'x' => $parent['x'] - 240.0,
+                    'y' => $parent['y'] + ($index * 64.0),
+                ];
+            }
+        }
+
+        foreach ($volumeChildren as $parentId => $childIds) {
+            $parent = $out[$parentId] ?? ['x' => 96.0 + 340.0, 'y' => 88.0];
+            foreach (array_values($childIds) as $index => $childId) {
+                $out[$childId] = [
+                    'x' => $parent['x'] + 36.0 + ($index % 2) * 180.0,
+                    'y' => $parent['y'] + 126.0 + intdiv($index, 2) * 64.0,
+                ];
+            }
+        }
+
+        $orphanLane = 4;
+        foreach (array_values($orphanVolumes) as $index => $childId) {
+            $out[$childId] = [
+                'x' => 96.0 + $orphanLane * 340.0,
+                'y' => 88.0 + $index * 100.0,
+            ];
         }
 
         return $out;

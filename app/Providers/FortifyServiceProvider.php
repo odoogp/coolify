@@ -8,8 +8,8 @@ use App\Actions\Fortify\UpdateUserPassword;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Models\OauthSetting;
 use App\Models\TeamInvitation;
-use App\Services\AdminCreationQuota;
 use App\Models\User;
+use App\Services\AdminCreationQuota;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -87,6 +87,7 @@ class FortifyServiceProvider extends ServiceProvider
                 if ($invitation && $invitation->isValid()) {
                     // User is logging in for the first time after being invited
                     // Attach them to the invited team if not already attached
+                    $team = $invitation->team;
                     DB::transaction(function () use ($user, $invitation): void {
                         if (! $user->teams()->where('team_id', $invitation->team->id)->exists()) {
                             $user->teams()->attach($invitation->team->id, app(AdminCreationQuota::class)->attributesForAcceptedInvitation($invitation));
@@ -94,11 +95,12 @@ class FortifyServiceProvider extends ServiceProvider
                         $invitation->delete();
                     });
                     $user->unsetRelation('teams');
-                    $user->currentTeam = $invitation->team;
+                    session(['currentTeam' => $team]);
                 } else {
-                    $user->currentTeam = $user->teams->firstWhere('personal_team', true) ?? $user->teams->first();
-                    if (! $user->currentTeam) {
-                        $user->currentTeam = $user->recreate_personal_team();
+                    // Restore the last active team; only fall back when unambiguous.
+                    $team = $user->resolveStoredTeam();
+                    if (! $team && $user->teams->isEmpty()) {
+                        $team = $user->recreate_personal_team();
                     }
                     if ($team) {
                         session(['currentTeam' => $team]);

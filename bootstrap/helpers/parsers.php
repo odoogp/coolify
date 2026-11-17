@@ -1974,14 +1974,14 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                         $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                             uuid: $labelUuid,
                             domains: $fqdns,
-                            onlyPort: $proxyPort,
+                            onlyPort: $proxyPort ?: $onlyPort,
                             is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                             serviceLabels: $serviceLabels,
                             is_gzip_enabled: $originalResource->isGzipEnabled(),
                             is_stripprefix_enabled: $originalResource->isStripprefixEnabled(),
                             service_name: $serviceName,
                             image: $image,
-                            onlyPort: $onlyPort,
+
                             noindex_domains: $noindexDomains,
                             redirect_direction: $redirectDirection,
                             tlsCertResolver: $server,
@@ -2012,14 +2012,14 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                     uuid: $labelUuid,
                     domains: $fqdns,
-                    onlyPort: $proxyPort,
+                    onlyPort: $proxyPort ?: $onlyPort,
                     is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                     serviceLabels: $serviceLabels,
                     is_gzip_enabled: $originalResource->isGzipEnabled(),
                     is_stripprefix_enabled: $originalResource->isStripprefixEnabled(),
                     service_name: $serviceName,
                     image: $image,
-                    onlyPort: $onlyPort,
+
                     noindex_domains: $noindexDomains,
                     redirect_direction: $redirectDirection,
                     tlsCertResolver: $server,
@@ -2171,6 +2171,9 @@ function serviceParser(Service $resource): Collection
     $resource->resetComposeVolumeWarnings();
     $uuid = data_get($resource, 'uuid');
     $compose = data_get($resource, 'docker_compose_raw');
+    // Catalog templates (ports / metadata). Must be defined before the service loops —
+    // catalogTemplatePort() receives this collection for stack service_type resolution.
+    $allServices = get_service_templates();
     // Store original compose for later use to update docker_compose_raw with content removed
     $originalCompose = $compose;
     if (is_string($compose)) {
@@ -2340,7 +2343,6 @@ function serviceParser(Service $resource): Collection
         if ($serviceName === 'supabase-kong') {
             $tempServiceName = 'supabase';
         }
-        $serviceDefinition = data_get($allServices, $tempServiceName);
         // Prefer stack service_type (catalog key) over compose service name so
         // authentik-server / similar sidecars resolve the template port without aliases.
         $predefinedPort = catalogTemplatePort(
@@ -2749,7 +2751,6 @@ function serviceParser(Service $resource): Collection
         if ($serviceName === 'supabase-kong') {
             $tempServiceName = 'supabase';
         }
-        $serviceDefinition = data_get($allServices, $tempServiceName);
         $predefinedPort = catalogTemplatePort(
             serviceType: $resource instanceof Service ? ($resource->service_type ?: null) : null,
             composeServiceName: $tempServiceName,
@@ -3341,15 +3342,14 @@ function serviceParser(Service $resource): Collection
                         $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                             uuid: $uuid,
                             domains: $fqdns,
-                            onlyPort: $proxyPort,
+                            onlyPort: $proxyPort ?: $onlyPort,
                             is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                             serviceLabels: $serviceLabels,
                             is_gzip_enabled: $originalResource->isGzipEnabled(),
                             is_stripprefix_enabled: $originalResource->isStripprefixEnabled(),
                             service_name: $serviceName,
                             image: $image,
-                            onlyPort: $onlyPort,
-                            domainPortOverrides: $originalResource->domain_port_overrides ?? [],
+
                             noindex_domains: $noindexDomains,
                             redirect_direction: $redirectDirection,
                             tlsCertResolver: $server,
@@ -3380,15 +3380,14 @@ function serviceParser(Service $resource): Collection
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                     uuid: $uuid,
                     domains: $fqdns,
-                    onlyPort: $proxyPort,
+                    onlyPort: $proxyPort ?: $onlyPort,
                     is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                     serviceLabels: $serviceLabels,
                     is_gzip_enabled: $originalResource->isGzipEnabled(),
                     is_stripprefix_enabled: $originalResource->isStripprefixEnabled(),
                     service_name: $serviceName,
                     image: $image,
-                    onlyPort: $onlyPort,
-                    domainPortOverrides: $originalResource->domain_port_overrides ?? [],
+
                     noindex_domains: $noindexDomains,
                     redirect_direction: $redirectDirection,
                     tlsCertResolver: $server,

@@ -40,6 +40,13 @@ class Configuration extends Component
     /** When true, render only the GitHub panel (canvas inspector embed). */
     public bool $embedded = false;
 
+    /** Set by the canvas embed; ignored on the full configuration page route. */
+    public ?string $embedProjectUuid = null;
+
+    public ?string $embedEnvironmentUuid = null;
+
+    public ?string $embedServiceUuid = null;
+
     public function getListeners(): array
     {
         return [
@@ -139,28 +146,29 @@ class Configuration extends Component
             : 'livewire.project.service.configuration');
     }
 
-    public function mount(
-        ?string $project_uuid = null,
-        ?string $environment_uuid = null,
-        ?string $service_uuid = null,
-        bool $embedded = false,
-    ) {
+    public function mount()
+    {
         try {
-            $this->embedded = $embedded;
-            $this->parameters = $embedded
-                ? [
-                    'project_uuid' => (string) $project_uuid,
-                    'environment_uuid' => (string) $environment_uuid,
-                    'service_uuid' => (string) $service_uuid,
-                ]
-                : get_route_parameters();
-            $this->currentRoute = $embedded
-                ? 'project.service.configuration'
-                : request()->route()->getName();
+            // Do not accept route params as mount() arguments: Livewire unpacks them as
+            // named args and PHP 8.4 rejects mixing that with later positional defaults.
+            if ($this->embedded) {
+                $projectUuid = (string) $this->embedProjectUuid;
+                $environmentUuid = (string) $this->embedEnvironmentUuid;
+                $serviceUuid = (string) $this->embedServiceUuid;
+                $this->parameters = [
+                    'project_uuid' => $projectUuid,
+                    'environment_uuid' => $environmentUuid,
+                    'service_uuid' => $serviceUuid,
+                ];
+                $this->currentRoute = 'project.service.configuration';
+            } else {
+                $this->parameters = get_route_parameters();
+                $this->currentRoute = request()->route()->getName();
+                $projectUuid = (string) request()->route('project_uuid');
+                $environmentUuid = (string) request()->route('environment_uuid');
+                $serviceUuid = (string) request()->route('service_uuid');
+            }
             $this->query = request()->query();
-            $projectUuid = $embedded ? (string) $project_uuid : (string) request()->route('project_uuid');
-            $environmentUuid = $embedded ? (string) $environment_uuid : (string) request()->route('environment_uuid');
-            $serviceUuid = $embedded ? (string) $service_uuid : (string) request()->route('service_uuid');
             $project = currentTeam()
                 ->projects()
                 ->select('id', 'uuid', 'name', 'team_id')
@@ -202,16 +210,16 @@ class Configuration extends Component
             if ($this->odooGithubIsPersonal && ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub || $this->needsEnvironmentGithubLink)) {
                 $this->odooRepoMode = 'existing';
             }
-            if (
-                $this->odooAccountChanged
-                || $this->awaitingRepositoryChoice
-                || $this->associatingWithoutGithub
-                || $this->needsEnvironmentGithubLink
-                || request()->query('odooPanel') === 'github'
-            ) {
+            // General (mounted) stays the default Config view. Only open the GitHub
+            // panel when the user asked for it, during launch=choose, or after
+            // changing the GitHub account — never hide stack-form behind association.
+            $requestedPanel = (string) request()->query('odooPanel', '');
+            if ($this->embedded || $this->odooAccountChanged || $this->awaitingRepositoryChoice || $requestedPanel === 'github') {
                 $this->odooPanel = 'github';
-            } elseif (request()->query('odooPanel') === 'owner-package' && isInstanceOwner()) {
+            } elseif ($requestedPanel === 'owner-package' && isInstanceOwner()) {
                 $this->odooPanel = 'owner-package';
+            } elseif ($requestedPanel === 'mounted' || $requestedPanel === '') {
+                $this->odooPanel = 'mounted';
             }
             if ($this->associatingWithoutGithub || $this->needsEnvironmentGithubLink) {
                 if ($this->awaitingRepositoryChoice || $this->associatingWithoutGithub) {
@@ -832,6 +840,22 @@ class Configuration extends Component
             if (is_array($redirect) && is_string($redirect['name'] ?? null)) {
                 $parameters = is_array($redirect['parameters'] ?? null) ? $redirect['parameters'] : [];
                 $this->redirectRoute($redirect['name'], $parameters);
+
+                return;
+            }
+            // After linking a branch from the canvas GitHub panel, open the full
+            // service configuration (Railway-style: repo → branch → config).
+            if ($this->embedded) {
+                $this->redirectRoute(
+                    'project.service.configuration',
+                    [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $this->environment->uuid,
+                        'service_uuid' => $this->service->uuid,
+                    ],
+                    absolute: true,
+                    navigate: true,
+                );
 
                 return;
             }

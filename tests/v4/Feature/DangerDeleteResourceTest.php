@@ -75,9 +75,10 @@ test('delete redirects before dispatching resource cleanup after the response', 
     $component = Livewire::test(Danger::class, ['resource' => $service])
         ->set('projectUuid', $this->project->uuid)
         ->set('environmentUuid', $this->environment->uuid)
+        ->assertSet('delete_volumes', false)
         ->call('delete', 'test-password')
         ->assertHasNoErrors()
-        ->assertRedirectToRoute('project.resource.index', [
+        ->assertRedirectToRoute('project.environment.canvas', [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $this->environment->uuid,
         ]);
@@ -85,7 +86,10 @@ test('delete redirects before dispatching resource cleanup after the response', 
     expect($component->effects)->toHaveKey('redirectUsingNavigate', true);
 
     expect(Service::find($service->id))->not->toBeNull();
-    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job) => $job->resource->is($service));
+    Queue::assertPushed(
+        DeleteResourceJob::class,
+        fn (DeleteResourceJob $job): bool => $job->resource->is($service) && $job->deleteVolumes === false
+    );
 });
 
 test('delete succeeds without password for an oauth user', function () {
@@ -129,7 +133,7 @@ test('service can be removed from Coolify without remote cleanup', function () {
         ->assertSee('Remove from Coolify only')
         ->call('deleteFromCoolifyOnly', 'test-password')
         ->assertHasNoErrors()
-        ->assertRedirectToRoute('project.resource.index', [
+        ->assertRedirectToRoute('project.environment.canvas', [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $this->environment->uuid,
         ]);
@@ -138,4 +142,20 @@ test('service can be removed from Coolify without remote cleanup', function () {
         DeleteResourceJob::class,
         fn (DeleteResourceJob $job): bool => $job->resource->is($service) && $job->deleteFromCoolifyOnly
     );
+});
+
+test('service danger zone requires typing the service name and keeps volumes by default', function () {
+    $service = Service::factory()->create([
+        'environment_id' => $this->environment->id,
+        'server_id' => $this->server->id,
+        'destination_id' => $this->destination->id,
+        'destination_type' => $this->destination->getMorphClass(),
+        'name' => 'billing-api',
+    ]);
+
+    Livewire::test(Danger::class, ['resource' => $service])
+        ->assertSee('billing-api')
+        ->assertSee(__('Enter the resource name to confirm permanent deletion'))
+        ->assertSee(__('Also permanently delete Docker volumes (otherwise they stay as orphans on the canvas).'))
+        ->assertSee(__('Volumes stay alive unless you check “delete volumes”. Orphan volumes remain on the canvas for a separate delete.'));
 });

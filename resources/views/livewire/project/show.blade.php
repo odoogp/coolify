@@ -35,11 +35,13 @@
             @endcan
             @can('createAnyResource')
                 @if ($hasProduction || ! $project->odooProfile)
-                    <x-modal-input title="{{ __('New') }}" :wireIgnore="false" data-listbox-portal-root>
+                    <x-modal-input title="{{ __('Add') }}" :wireIgnore="false" :inline="true"
+                        data-listbox-portal-root>
                         <x-slot:content>
-                            <button type="button" class="button whitespace-nowrap button-highlighted">
+                            <button type="button" class="button whitespace-nowrap button-highlighted"
+                                title="{{ __('Add to project') }}">
                                 <x-reicon name="plus" class="size-3.5" />
-                                {{ __('New') }}
+                                {{ __('Add') }}
                             </button>
                         </x-slot:content>
                         <div class="flex flex-col gap-4">
@@ -429,16 +431,16 @@
                                         title="{{ __('Open') }}">{{ __('Open') }}</a>
                                     <a x-show="environment.addResourceHref" :href="environment.addResourceHref"
                                         {{ wireNavigate() }}
-                                        class="flex size-7.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                        class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-dim dark:hover:bg-white/[0.08] dark:hover:text-fg"
                                         title="{{ __('Add resource') }}" :aria-label="`Add resource to ${environment.name}`">
-                                        <x-reicon name="plus" class="size-3" />
+                                        <x-reicon name="plus" class="size-3.5" />
                                     </a>
                                     <a x-show="environment.settingsHref" :href="environment.settingsHref"
                                         {{ wireNavigate() }}
-                                        class="flex size-7.5 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                        class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-dim dark:hover:bg-white/[0.08] dark:hover:text-fg"
                                         title="{{ __('Environment settings') }}"
                                         :aria-label="`Open settings for ${environment.name}`">
-                                        <x-reicon name="settings" class="size-3" />
+                                        <x-reicon name="settings" class="size-3.5" />
                                     </a>
                                 </div>
                                 @include('livewire.project.environment-activity')
@@ -519,12 +521,12 @@
                                 class="button h-7 px-2 text-[11px]">{{ __('Open') }}</a>
                             <a x-show="environment.addResourceHref" :href="environment.addResourceHref"
                                 {{ wireNavigate() }}
-                                class="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-dim dark:hover:bg-white/[0.08] dark:hover:text-fg"
                                 title="{{ __('Add resource') }}" :aria-label="`Add resource to ${environment.name}`">
                                 <x-reicon name="plus" class="size-3.5" />
                             </a>
                             <a x-show="environment.settingsHref" :href="environment.settingsHref" {{ wireNavigate() }}
-                                class="flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
+                                class="flex size-8 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-dim dark:hover:bg-white/[0.08] dark:hover:text-fg"
                                 title="{{ __('Environment settings') }}"
                                 :aria-label="`Open settings for ${environment.name}`">
                                 <x-reicon name="settings" class="size-3.5" />

@@ -63,9 +63,21 @@
                                     </div>
                                 @endif
                                 @if (! $odooGithubConnected)
-                                    <div>
-                                        <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$service">
-                                            {{ __('Connect GitHub') }}
+                                    <div class="gc-github-app-card">
+                                        <div class="flex items-start gap-3">
+                                            <div class="gc-github-app-icon" aria-hidden="true">
+                                                <img src="/svgs/github.svg" alt="" class="size-7 dark:invert" loading="lazy">
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <p class="text-sm font-semibold">{{ __('GitHub App') }}</p>
+                                                <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                                    {{ __('Install and authorize the GitHub App for this team. That is how getcloud.sh lists repositories and syncs the selected branch into this environment.') }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$service" isHighlighted class="mt-3 w-full justify-center sm:w-auto">
+                                            <img src="/svgs/github.svg" alt="" class="size-3.5 dark:invert" loading="lazy">
+                                            {{ __('Connect with GitHub App') }}
                                         </x-forms.button>
                                     </div>
                                 @else
@@ -153,37 +165,54 @@
                                                     ->take(20);
                                             @endphp
                                             @if ($repositoryMatches->isNotEmpty())
-                                                <ul class="overflow-hidden rounded-lg border border-neutral-200 dark:border-white/[0.08]">
-                                                    @foreach ($repositoryMatches as $repository)
-                                                        <li>
-                                                            <button type="button" wire:click="pickOdooRepository({{ $repository['id'] }})"
-                                                                class="flex w-full items-center px-3 py-2 text-left font-mono text-[13px] hover:bg-neutral-100 dark:hover:bg-white/[0.06] {{ (int) $odooRepositoryId === (int) $repository['id'] ? 'bg-neutral-100 dark:bg-white/[0.06]' : '' }}">
-                                                                {{ $repository['full_name'] }}
-                                                            </button>
-                                                        </li>
-                                                    @endforeach
-                                                </ul>
+                                                <div class="overflow-hidden rounded-xl border border-neutral-200 dark:border-white/[0.08]">
+                                                    <div class="border-b border-neutral-200 px-3 py-2 text-[11px] font-medium tracking-wide text-neutral-500 uppercase dark:border-white/[0.08] dark:text-fg-dim">
+                                                        {{ __('GitHub Repository') }}
+                                                    </div>
+                                                    <ul class="max-h-72 divide-y divide-neutral-200 overflow-y-auto dark:divide-white/[0.06]">
+                                                        @foreach ($repositoryMatches as $repository)
+                                                            <li>
+                                                                <button type="button" wire:click="pickOdooRepository({{ $repository['id'] }})"
+                                                                    class="group flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-neutral-100 dark:hover:bg-white/[0.06] {{ (int) $odooRepositoryId === (int) $repository['id'] ? 'bg-neutral-100 dark:bg-white/[0.06]' : '' }}">
+                                                                    <img src="/svgs/github.svg" alt="" class="size-4 shrink-0 opacity-80 dark:invert" loading="lazy">
+                                                                    <span class="min-w-0 flex-1 truncate font-mono text-[13px]">{{ $repository['full_name'] }}</span>
+                                                                    <x-reicon name="arrow-right" class="size-3.5 shrink-0 text-neutral-400 opacity-70 transition group-hover:translate-x-0.5 group-hover:opacity-100 dark:text-fg-faint" />
+                                                                </button>
+                                                            </li>
+                                                        @endforeach
+                                                    </ul>
+                                                </div>
                                             @elseif ($odooRepositoriesLoaded)
                                                 <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No matching repositories.') }}</p>
                                             @endif
                                             @if ($odooGithubBranches !== [])
-                                                <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
-                                                    searchPlaceholder="{{ __('Search branches') }}"
-                                                    emptyText="{{ __('No matching branch') }}"
-                                                    :options="collect($odooGithubBranches)->map(function (string $branch) use ($takenGithubBranches): array {
-                                                        $taken = in_array($branch, $takenGithubBranches, true);
-
-                                                        return [
-                                                            'value' => $branch,
-                                                            'label' => $taken ? $branch.' ('.__('in use').')' : $branch,
-                                                            'disabled' => $taken,
-                                                        ];
-                                                    })->all()" />
-                                                @if ($takenGithubBranches !== [])
-                                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
-                                                        {{ __('Each environment needs its own tip on the same repository. The same branch name on another repository is fine.') }}
+                                                <div class="rounded-xl border border-neutral-200 p-3 dark:border-white/[0.08]"
+                                                    x-data
+                                                    x-init="$el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })">
+                                                    <p class="mb-2 text-[11px] font-medium tracking-wide text-neutral-500 uppercase dark:text-fg-dim">
+                                                        {{ __('Branch for this environment') }}
                                                     </p>
-                                                @endif
+                                                    <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
+                                                        searchPlaceholder="{{ __('Search branches') }}"
+                                                        emptyText="{{ __('No matching branch') }}"
+                                                        :options="collect($odooGithubBranches)->map(function (string $branch) use ($takenGithubBranches): array {
+                                                            $taken = in_array($branch, $takenGithubBranches, true);
+
+                                                            return [
+                                                                'value' => $branch,
+                                                                'label' => $taken ? $branch.' ('.__('in use').')' : $branch,
+                                                                'disabled' => $taken,
+                                                            ];
+                                                        })->all()" />
+                                                    @if ($takenGithubBranches !== [])
+                                                        <p class="mt-2 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                            {{ __('Each environment needs its own tip on the same repository. The same branch name on another repository is fine.') }}
+                                                        </p>
+                                                    @endif
+                                                    <p class="mt-2 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                        {{ __('After you associate the branch, the full configuration panel opens for this environment.') }}
+                                                    </p>
+                                                </div>
                                             @endif
                                         </div>
                                     @endif

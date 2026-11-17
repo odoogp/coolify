@@ -137,7 +137,10 @@ class DeleteResourceJob implements ShouldBeEncrypted, ShouldQueue
     {
         DB::transaction(function (): void {
             if ($this->resource instanceof Service) {
-                app(DeleteService::class)->deleteLocal($this->resource);
+                app(DeleteService::class)->deleteLocal(
+                    $this->resource,
+                    preserveVolumes: ! $this->deleteVolumes || $this->deleteFromCoolifyOnly,
+                );
 
                 return;
             }

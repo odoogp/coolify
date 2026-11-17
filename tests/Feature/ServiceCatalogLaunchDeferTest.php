@@ -127,7 +127,7 @@ it('keeps Launch as the only action that creates services, with live service sel
 
     expect($blade)->toContain('id="selectedService"')
         ->and($blade)->toContain('wire:click="launchService"')
-        ->and($blade)->toContain("{{ __('New') }}")
+        ->and($blade)->toContain("{{ __('Add') }}")
         ->and($blade)->toContain('projectServerLocked')
         ->and($blade)->toContain('catalog-version-fields')
         ->and($blade)->toMatch('/id="selectedService"[^>]*\blive\b/');

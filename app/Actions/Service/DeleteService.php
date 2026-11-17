@@ -2,6 +2,8 @@
 
 namespace App\Actions\Service;
 
+use App\Models\Environment;
+use App\Models\LocalPersistentVolume;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
@@ -67,8 +69,12 @@ class DeleteService
         instant_remote_process(['sh -c '.escapeshellarg($script)], $service->server);
     }
 
-    public function deleteLocal(Service $service): void
+    public function deleteLocal(Service $service, bool $preserveVolumes = false): void
     {
+        if ($preserveVolumes) {
+            $this->orphanVolumesToEnvironment($service);
+        }
+
         foreach ($service->applications()->get() as $application) {
             $application->forceDelete();
         }
@@ -81,5 +87,30 @@ class DeleteService
         $service->environment_variables()->delete();
         $service->tags()->detach();
         $service->forceDelete();
+    }
+
+    /**
+     * Keep Docker volumes trackable after the service is gone — they become
+     * environment orphans with a separate delete path on the canvas.
+     */
+    public function orphanVolumesToEnvironment(Service $service): void
+    {
+        $environment = $service->environment;
+        if (! $environment instanceof Environment) {
+            return;
+        }
+
+        $service->loadMissing(['applications.persistentStorages', 'databases.persistentStorages']);
+        $volumes = collect()
+            ->merge($service->applications->flatMap->persistentStorages)
+            ->merge($service->databases->flatMap->persistentStorages)
+            ->filter(fn ($volume): bool => $volume instanceof LocalPersistentVolume);
+
+        foreach ($volumes as $volume) {
+            $volume->resource_type = $environment->getMorphClass();
+            $volume->resource_id = $environment->id;
+            // Keep the last known mount path for display; orphan deletes use the volume name.
+            $volume->save();
+        }
     }
 }

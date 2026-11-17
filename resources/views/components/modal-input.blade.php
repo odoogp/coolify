@@ -9,6 +9,8 @@
     'content' => null,
     'closeOutside' => true,
     'isFullWidth' => false,
+    // When content is a toolbar/control trigger, keep the wrapper shrink-wrapped.
+    'inline' => false,
     'wireIgnore' => true,
     // Optional Livewire bool property to entangle open state (survives Livewire re-renders).
     'wireOpen' => null,
@@ -20,15 +22,26 @@
 
 @php
     $modalId = 'modal-'.uniqid();
+    $stretchContent = (bool) $content && ! $inline && ! $isFullWidth;
 @endphp
 
 <div x-data="{ modalOpen: @if ($wireOpen) $wire.entangle(@js($wireOpen)) @else false @endif }"
     @if ($notifyClosed) x-init="$watch('modalOpen', value => { if (!value) { $wire.dispatch('modalClosed') } })" @endif
     :class="{ 'z-40': modalOpen }" @keydown.window.escape="modalOpen=false"
-    {{ $attributes->class(['relative', $isFullWidth ? 'h-full w-full' : 'h-auto w-auto']) }}
+    {{ $attributes->class([
+        'relative',
+        'h-full w-full' => $isFullWidth,
+        // Resource cards / grid triggers stretch; toolbar triggers stay inline.
+        'w-full' => $stretchContent,
+        'h-auto w-auto' => ! $isFullWidth && ! $stretchContent,
+    ]) }}
     @close-modal.window="modalOpen=false" @if ($wireIgnore) wire:ignore @endif>
     @if ($content)
-        <div @if ($contentClicks) @click="modalOpen=true" @endif @class(['h-full w-full' => $isFullWidth])>
+        <div @if ($contentClicks) @click="modalOpen=true" @endif @class([
+            'h-full w-full' => $isFullWidth,
+            'w-full min-w-0' => $stretchContent,
+            'inline-flex w-auto' => $inline && ! $isFullWidth,
+        ])>
             {{ $content }}
         </div>
     @else

@@ -595,13 +595,13 @@ it('lets an odoo project open New for other catalog services from the environmen
         ->html();
 
     expect($html)
-        ->toContain(__('New'))
+        ->toContain(__('Add'))
         ->toContain($resources);
 
     expect(file_get_contents(app_path('Livewire/Project/Show.php')))
         ->toContain("auth()->user()->can('createAnyResource')")
         ->not->toContain("can('createAnyResource') && ! \$odooOnly")
         ->and(file_get_contents(resource_path('views/livewire/project/resource/index.blade.php')))
-        ->toContain("{{ __('New') }}")
+        ->toContain("{{ __('Add') }}")
         ->toContain('wire:click="launchService"');
 });

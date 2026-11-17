@@ -139,10 +139,23 @@
                                         'environment_uuid' => $serviceRouteParameters['environment_uuid'],
                                     ]
                                     : $serviceRouteParameters;
+                                $isOdooGeneral = $odooIsOdoo
+                                    && $menuItem['route'] === 'project.service.configuration'
+                                    && $currentRoute === 'project.service.configuration';
                             @endphp
+                            @if ($isOdooGeneral)
+                                <button type="button" wire:click="$set('odooPanel', 'mounted')" @class([
+                                    'menu-item',
+                                    'menu-item-active' => $odooPanel === 'mounted',
+                                ])>
+                                    <x-reicon :name="$menuItem['icon']" class="menu-item-icon" />
+                                    <span class="menu-item-label">{{ $menuItem['label'] }}</span>
+                                </button>
+                            @else
                             <a @class([
                                 'menu-item',
-                                'menu-item-active' => $menuItem['active'],
+                                'menu-item-active' => $menuItem['active']
+                                    && (! $odooIsOdoo || $menuItem['route'] !== 'project.service.configuration' || $odooPanel === 'mounted'),
                             ])
                                 @if ($menuItem['navigate'] ?? true) {{ wireNavigate() }} @endif
                                 href="{{ route($menuItem['route'], $menuRouteParameters) }}">
@@ -152,6 +165,7 @@
                                     <span class="ml-auto size-2 shrink-0 rounded-full bg-error" title="{{ __('Required environment variables missing') }}"></span>
                                 @endif
                             </a>
+                            @endif
                             @if ($menuItem['active'] && $menuItem['route'] === 'project.service.storages' && $storageSections->isNotEmpty())
                                 <div class="nav-children hidden flex-col gap-0.5 py-1 xl:flex"
                                     x-data="{ activeSection: '' }">
@@ -234,23 +248,24 @@
                     @if (! $odooIsOdoo || $odooPanel === 'mounted')
                     <livewire:project.service.stack-form :service="$service" />
 
-                    <div class="mt-8" x-data="{
-                        viewMode: localStorage.getItem('service-compose-resources-view') || 'table',
-                        setViewMode(mode) {
-                            this.viewMode = mode;
-                            localStorage.setItem('service-compose-resources-view', mode);
-                        }
-                    }">
+                    <div class="compose-resources mt-8 min-w-0"
+                        x-bind:class="viewMode === 'grid' ? 'compose-resources--grid' : 'compose-resources--table'"
+                        x-data="{
+                            viewMode: localStorage.getItem('service-compose-resources-view') || 'table',
+                            setViewMode(mode) {
+                                this.viewMode = mode;
+                                localStorage.setItem('service-compose-resources-view', mode);
+                            }
+                        }">
                         <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
+                            <div class="min-w-0">
                                 <h2 class="text-base font-semibold text-black dark:text-fg">{{ __('Compose resources') }}</h2>
                                 <p class="mt-1 text-sm text-neutral-500 dark:text-fg-dim">
                                     {{ __('Applications and databases defined in this service.') }}
                                 </p>
                             </div>
-                            <div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-                                <div
-                                    class="view-toggle">
+                            <div class="flex w-full shrink-0 items-center justify-between gap-2 sm:w-auto sm:justify-start">
+                                <div class="view-toggle">
                                     <button type="button" x-on:click="setViewMode('table')"
                                         class="flex size-7.5 items-center justify-center rounded-md transition-colors"
                                         :class="viewMode === 'table'
@@ -275,22 +290,23 @@
                             </div>
                         </div>
 
-                        <div :class="viewMode === 'grid'
-                            ? 'grid grid-cols-1 gap-3 sm:grid-cols-2'
-                            : 'overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05]'">
+                        {{--
+                          Layout toggles via CSS classes on .compose-resources so Livewire
+                          resource cards (nested Alpine scopes) still show the right view.
+                        --}}
+                        <div class="compose-resources-list min-w-0">
                             @if ($applications->isNotEmpty() || $databases->isNotEmpty())
-                                <div x-cloak x-show="viewMode === 'table'"
-                                    class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_5rem] dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+                                <div
+                                    class="compose-resources-table-header hidden grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(8rem,auto)_auto] gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint sm:grid">
                                     <div>{{ __('Resource') }}</div>
-                                    <div class="hidden sm:block">{{ __('Image') }}</div>
-                                    <div class="justify-self-start">{{ __('Status') }}</div>
-                                    <div></div>
+                                    <div>{{ __('Image') }}</div>
+                                    <div>{{ __('Status') }}</div>
+                                    <div class="sr-only">{{ __('Actions') }}</div>
                                 </div>
                             @endif
 
                             @if ($applications->isEmpty() && $databases->isEmpty())
-                                <div
-                                    class="application-settings-section overflow-hidden sm:col-span-2">
+                                <div class="application-settings-section overflow-hidden">
                                     <x-empty title="{{ __('No compose resources') }}"
                                         description="{{ __('No applications or databases are defined in this Docker Compose file.') }}"
                                         icon-name="grid" />

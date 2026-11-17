@@ -1346,7 +1346,7 @@ it('serializes addon clones and retries once after a stale index.lock', function
         ->toContain("str_contains(\$e->getMessage(), 'index.lock')");
 });
 
-it('fails cloneIntoService when github is only half linked', function () {
+it('skips cloneIntoService when github is only half linked so deploy still works', function () {
     $environment = $this->project->environments()->where('name', 'production')->firstOrFail();
     $this->project->odooProfile?->update([
         'git_repository' => 'Arielmim97/odoogp20',
@@ -1358,8 +1358,7 @@ it('fails cloneIntoService when github is only half linked', function () {
         'docker_compose_raw' => "services:\n  odoo:\n    image: odoo:20\n  postgresql:\n    image: postgres:16-alpine\n",
     ]);
 
-    expect(fn () => OdooGit::cloneIntoService($service))
-        ->toThrow(RuntimeException::class, 'GitHub is linked incompletely');
+    expect(fn () => OdooGit::cloneIntoService($service))->not->toThrow(Throwable::class);
 });
 
 it('requires a non-empty addons volume after clone verification', function () {
@@ -2169,6 +2168,66 @@ it('keeps non-odoo services off the project odoo subdomain so Traefik Host rules
         ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
 });
 
+it('promotes coolify-generated sslip hosts to a paas subdomain when the base domain is set', function () {
+    instanceSettings()->update(['odoo_base_domain' => 'getodoo.sh']);
+    $this->project->odooProfile->update(['subdomain' => 'acme']);
+
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '203.0.113.55',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'portainer',
+        'uuid' => 'abcd1234ef',
+        'docker_compose_raw' => "services:\n  portainer:\n    image: portainer/portainer-ce:alpine\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'portainer',
+        'image' => 'portainer/portainer-ce:alpine',
+        'fqdn' => 'http://portainer-abcd1234ef.203.0.113.55.sslip.io',
+    ]);
+
+    expect(OdooGit::useHttps($service->fresh(['applications', 'server', 'environment.project.odooProfile'])))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://acme-portainer-abcd1234.getodoo.sh')
+        ->and($application->fresh()->fqdn)->not->toBe('https://acme.getodoo.sh');
+});
+
+it('assigns portainer a paas subdomain under the base domain for public admin access', function () {
+    instanceSettings()->update(['odoo_base_domain' => 'getcloud.sh']);
+    $this->project->odooProfile->update(['subdomain' => 'acme']);
+
+    $server = Server::factory()->create([
+        'team_id' => $this->team->id,
+        'ip' => '203.0.113.77',
+    ]);
+    $production = $this->project->environments()->where('name', 'production')->first();
+    $service = Service::factory()->create([
+        'environment_id' => $production->id,
+        'server_id' => $server->id,
+        'service_type' => 'portainer',
+        'uuid' => 'ptnr0001abcd',
+        'docker_compose_raw' => "services:\n  portainer:\n    image: portainer/portainer-ce:alpine\n",
+    ]);
+    $application = ServiceApplication::create([
+        'service_id' => $service->id,
+        'name' => 'portainer',
+        'image' => 'portainer/portainer-ce:alpine',
+        'fqdn' => null,
+        'ports' => '9000',
+    ]);
+
+    expect(OdooGit::paasServiceHost($service->fresh(['environment.project.odooProfile'])))
+        ->toBe('acme-portainer-ptnr0001.getcloud.sh')
+        ->and(OdooGit::useHttps($service->fresh(['applications', 'server', 'environment.project.odooProfile'])))->toBeTrue()
+        ->and($application->fresh()->fqdn)->toBe('https://acme-portainer-ptnr0001.getcloud.sh')
+        ->and($application->fresh()->fqdn)->not->toBe('https://acme.getcloud.sh')
+        ->and($application->fresh()->is_force_https_enabled)->toBeTrue();
+});
+
 it('assigns a coolify https url when a non-odoo app has no fqdn yet', function () {
     $server = Server::factory()->create([
         'team_id' => $this->team->id,
@@ -2689,15 +2748,26 @@ it('shows a launch or a clone on the environment row', function () {
     Cache::put('odoo-clone-'.$this->project->id.'-'.$this->user->id, [
         'step' => 2,
         'done' => false,
-        'error' => 'The staging service did not start.',
+        'error' => 'The new staging environment did not start.',
         'redirect' => null,
         'environment' => null,
     ], now()->addMinutes(30));
 
     $failed = Livewire::test(Show::class, ['project_uuid' => $this->project->uuid])->html();
 
-    expect($failed)->toContain('The staging service did not start.')
+    expect($failed)->toContain('The new staging environment did not start.')
         ->and($failed)->toContain('pending-clone');
+});
+
+it('wording for start failures matches the environment role', function () {
+    $production = $this->project->environments()->where('name', 'production')->firstOrFail();
+    $staging = $this->project->createNextStagingEnvironment();
+    $prodService = Service::factory()->create(['environment_id' => $production->id]);
+    $stagingService = Service::factory()->create(['environment_id' => $staging->id]);
+
+    expect(OdooGit::startFailureMessage($prodService))->toBe('The production service did not start.')
+        ->and(OdooGit::startFailureMessage($stagingService))->toBe('The new staging environment did not start.')
+        ->and(OdooGit::startFailureMessage(null))->toBe('Odoo did not start on this environment.');
 });
 
 it('shows open odoo when the odoo container is up and the rest of the stack is not', function () {

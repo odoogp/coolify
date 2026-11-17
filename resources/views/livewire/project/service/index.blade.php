@@ -77,7 +77,9 @@
                     </section>
                 @else
                     <form wire:submit="submitApplication" class="space-y-6">
-                        <x-unsaved-bar action="submitApplication" />
+                        @unless ($embedded)
+                            <x-unsaved-bar action="submitApplication" />
+                        @endunless
                         <section class="application-settings-section">
                             <div class="application-settings-section-header">
                                 <div>
@@ -102,7 +104,7 @@
                                 </div>
                             </div>
                             <div class="application-settings-section-body space-y-4">
-                            @if ($requiredPort && !$serviceApplication->serviceType()?->contains(str($serviceApplication->image)->before(':')))
+                            @if (! $embedded && $requiredPort && ! $serviceApplication->serviceType()?->contains(str($serviceApplication->image)->before(':')))
                                 <x-callout type="info" title="Required Port: {{ $requiredPort }}" class="mb-2">
                                     This service requires port <strong>{{ $requiredPort }}</strong> to function correctly. All domains must include this port number (or any other port if you know what you're doing).
                                     <br><br>
@@ -241,6 +243,7 @@
                             </template>
                         </div>
                     @endif
+                @endif
             @elseif ($resourceType === 'database')
                 @unless ($embedded)
                     <x-slot:title>
@@ -273,7 +276,9 @@
                     </section>
                 @else
                     <form wire:submit="submitDatabase" class="space-y-6">
-                        <x-unsaved-bar action="submitDatabase" />
+                        @unless ($embedded)
+                            <x-unsaved-bar action="submitDatabase" />
+                        @endunless
                         <section class="application-settings-section">
                             <div class="application-settings-section-header">
                                 <div>

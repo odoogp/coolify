@@ -251,6 +251,14 @@ class SshMultiplexingHelper
     }
 
     /**
+     * Prefer bash when present (Coolify scripts use bashisms); fall back to sh.
+     */
+    private static function remoteShellCommand(): string
+    {
+        return 'if command -v bash >/dev/null 2>&1; then exec bash -se; else exec sh -se; fi';
+    }
+
+    /**
      * Run a script from generateSshCommand without blowing ARG_MAX.
      *
      * Process::run(string) wraps the whole heredoc in `sh -c`, so large Odoo

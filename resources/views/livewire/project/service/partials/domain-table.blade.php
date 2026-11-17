@@ -1,6 +1,7 @@
 @php
     $showServiceColumn = $showServiceColumn ?? false;
     $showHeader = $showHeader ?? true;
+    $showDirection = $showDirection ?? true;
     $gridClass = 'service-domains-overview-grid';
 @endphp
 

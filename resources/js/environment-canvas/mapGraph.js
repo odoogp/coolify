@@ -34,11 +34,19 @@ import { MarkerType } from '@xyflow/react';
 
 /**
  * @param {CanvasGraph|null|undefined} graph
- * @param {{ canUpdate?: boolean, onInspect?: (nodeId: string, panel: string) => void }} [options]
+ * @param {{
+ *   canUpdate?: boolean,
+ *   onInspect?: (nodeId: string, panel: string) => void,
+ *   onRemoveConnection?: (from: string, to: string, edgeId: string) => void,
+ *   removeLabel?: string,
+ * }} [options]
  */
 export function graphToFlow(graph, options = {}) {
     const canUpdate = !!options.canUpdate;
     const onInspect = typeof options.onInspect === 'function' ? options.onInspect : null;
+    const onRemoveConnection =
+        typeof options.onRemoveConnection === 'function' ? options.onRemoveConnection : null;
+    const removeLabel = options.removeLabel || 'Remove connection';
     const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
     const edges = Array.isArray(graph?.edges) ? graph.edges : [];
     const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
@@ -57,11 +65,17 @@ export function graphToFlow(graph, options = {}) {
                 statusLabel: node.status_label || node.status,
                 href: node.href || null,
                 openHref: node.open_href || null,
+                configHref: node.config_href || null,
                 panels: Array.isArray(node.panels) ? node.panels : [],
                 monitorUrl: node.monitor_url || null,
                 github: node.github || null,
                 serviceUuid: node.service_uuid || null,
                 container: node.container || null,
+                parentId: node.parent_id || null,
+                mountPath: node.mount_path || null,
+                fqdn: node.fqdn || null,
+                volumes: Array.isArray(node.volumes) ? node.volumes : [],
+                domains: Array.isArray(node.domains) ? node.domains : [],
                 meta: node.meta || null,
                 icon: node.icon || null,
                 glyph: node.glyph || null,
@@ -78,19 +92,28 @@ export function graphToFlow(graph, options = {}) {
                 const kind =
                     source?.kind === 'github' || edge.label === 'git'
                         ? 'git'
-                        : target?.kind === 'volume' || edge.label === 'mount'
-                          ? 'mount'
-                          : target?.kind === 'database' || edge.label === 'db'
-                            ? 'db'
-                            : 'http';
+                        : edge.label === 'intranet' || edge.label === 'tunnel'
+                          ? 'intranet'
+                          : source?.kind === 'agent' || target?.kind === 'agent' || edge.label === 'context'
+                            ? 'context'
+                            : edge.label === 'link'
+                              ? 'intranet'
+                              : target?.kind === 'volume' || edge.label === 'mount'
+                                ? 'mount'
+                                : target?.kind === 'database' || edge.label === 'db'
+                                  ? 'db'
+                                  : 'http';
+                const removable = canUpdate && (kind === 'intranet' || kind === 'context');
 
                 return {
                     id: edge.id,
                     source: edge.from,
                     target: edge.to,
                     type: 'flow',
-                    animated: kind === 'http' && (target?.status === 'running' || target?.status === 'building'),
-                    className: `gc-flow-edge is-${kind}`,
+                    animated:
+                        (kind === 'http' || kind === 'intranet') &&
+                        (target?.status === 'running' || target?.status === 'building'),
+                    className: `gc-flow-edge is-${kind}${removable ? ' is-removable' : ''}`,
                     markerEnd: {
                         type: MarkerType.ArrowClosed,
                         width: 14,
@@ -98,13 +121,22 @@ export function graphToFlow(graph, options = {}) {
                         color:
                             kind === 'http'
                                 ? '#34d399'
-                                : kind === 'db'
-                                  ? '#60a5fa'
-                                  : kind === 'git'
-                                    ? '#c4b5fd'
-                                    : '#94a3b8',
+                                : kind === 'intranet'
+                                  ? '#2dd4bf'
+                                  : kind === 'db'
+                                    ? '#60a5fa'
+                                    : kind === 'git'
+                                      ? '#c4b5fd'
+                                      : kind === 'context'
+                                        ? '#f472b6'
+                                        : '#94a3b8',
                     },
-                    data: { kind },
+                    data: {
+                        kind,
+                        removable,
+                        removeLabel,
+                        onRemove: removable ? onRemoveConnection : null,
+                    },
                 };
             }),
     };
@@ -116,7 +148,13 @@ export function graphToFlow(graph, options = {}) {
  * @param {import('@xyflow/react').Node[]} currentNodes
  * @param {import('@xyflow/react').Edge[]} currentEdges
  * @param {CanvasGraph} graph
- * @param {{ canUpdate?: boolean, replacePositions?: boolean }} [options]
+ * @param {{
+ *   canUpdate?: boolean,
+ *   replacePositions?: boolean,
+ *   onInspect?: (nodeId: string, panel: string) => void,
+ *   onRemoveConnection?: (from: string, to: string, edgeId: string) => void,
+ *   removeLabel?: string,
+ * }} [options]
  */
 export function mergeGraphIntoFlow(currentNodes, currentEdges, graph, options = {}) {
     const mapped = graphToFlow(graph, options);

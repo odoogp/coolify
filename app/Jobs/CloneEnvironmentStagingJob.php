@@ -168,12 +168,12 @@ class CloneEnvironmentStagingJob implements ShouldQueue
                 return;
             }
             if (in_array($status, [ProcessStatus::ERROR->value, ProcessStatus::KILLED->value, ProcessStatus::CANCELLED->value], true)) {
-                throw new RuntimeException('The staging service did not start.');
+                throw new RuntimeException('The new staging environment did not start.');
             }
             sleep(3);
         }
 
-        throw new RuntimeException('The staging service did not start.');
+        throw new RuntimeException('The new staging environment did not start.');
     }
 
     private function progress(int $step, bool $done = false, ?string $error = null, ?array $redirect = null, ?string $environment = null): void

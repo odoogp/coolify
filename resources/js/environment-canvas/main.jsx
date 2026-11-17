@@ -12,6 +12,9 @@ const roots = new Map();
  *   canUpdate: boolean,
  *   savePosition?: (id: string, x: number, y: number) => void|Promise<void>,
  *   onInspect?: (nodeId: string, panel: string) => void|Promise<void>,
+ *   onConnectNodes?: (from: string, to: string) => void|Promise<void>,
+ *   onDisconnectNodes?: (from: string, to: string, edgeId?: string) => void|Promise<void>,
+ *   removeLabel?: string,
  *   bootKey?: string|number,
  * }} options
  */
@@ -32,6 +35,9 @@ export function mountEnvironmentCanvas(el, options) {
             canUpdate={!!options.canUpdate}
             savePosition={options.savePosition}
             onInspect={options.onInspect}
+            onConnectNodes={options.onConnectNodes}
+            onDisconnectNodes={options.onDisconnectNodes}
+            removeLabel={options.removeLabel || 'Remove connection'}
             bootKey={options.bootKey || Date.now()}
         />,
     );

@@ -107,6 +107,11 @@ class Project extends BaseModel
         return $this->hasOne(OdooProfile::class);
     }
 
+    public function agent(): HasOne
+    {
+        return $this->hasOne(ProjectAgent::class);
+    }
+
     /**
      * Save the Odoo profile. Does not create environments, services, or deployments.
      * An environment is created later, when it is launched as a GitHub branch.

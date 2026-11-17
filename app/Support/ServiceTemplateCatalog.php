@@ -221,7 +221,7 @@ class ServiceTemplateCatalog
     /**
      * Picker rows: Odoo first, then the rest of the launchable catalog.
      *
-     * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string}>
+     * @return list<array{value: string, label: string, description: ?string, category: ?string, logo: ?string, services: list<string>, volumes: list<string>, parameters: list<string>, needs_github: bool}>
      */
     public static function launchOptions(): array
     {
@@ -235,6 +235,7 @@ class ServiceTemplateCatalog
                     $label = $name === 'odoo' ? 'Odoo' : Str::headline($name);
                 }
                 $logo = data_get($template, 'logo');
+                $preview = self::launchPreview($name);
 
                 return [
                     'value' => $name,
@@ -242,11 +243,57 @@ class ServiceTemplateCatalog
                     'description' => is_string(data_get($template, 'description')) ? data_get($template, 'description') : null,
                     'category' => is_string(data_get($template, 'category')) ? data_get($template, 'category') : null,
                     'logo' => self::logoUrl(is_string($logo) ? $logo : null),
+                    'services' => $preview['services'],
+                    'volumes' => $preview['volumes'],
+                    'parameters' => $preview['parameters'],
+                    'needs_github' => $preview['needs_github'],
                 ];
             })
             ->sortBy(fn (array $row): array => [$row['value'] === 'odoo' ? 0 : 1, strtolower($row['label'])])
             ->values()
             ->all();
+    }
+
+    /**
+     * Railway-style launch preview: containers, volumes, and parameters Coolify will wire.
+     *
+     * @return array{services: list<string>, volumes: list<string>, parameters: list<string>, needs_github: bool}
+     */
+    public static function launchPreview(string $name): array
+    {
+        $name = self::normalizeName($name);
+        $compose = '';
+        try {
+            $compose = (string) (self::composeFor($name) ?? '');
+        } catch (InvalidArgumentException) {
+            $compose = '';
+        }
+
+        $services = [];
+        if (preg_match('/^services:\s*\n((?:[ \t]+.+\n?)+)/mi', $compose, $block)) {
+            preg_match_all('/^\s{2}([A-Za-z0-9._-]+):/m', $block[1], $matches);
+            $services = array_values(array_unique($matches[1] ?? []));
+        }
+
+        $volumes = [];
+        if (preg_match('/^volumes:\s*\n((?:[ \t]+.+\n?)+)/mi', $compose, $block)) {
+            preg_match_all('/^\s{2}([A-Za-z0-9._-]+):/m', $block[1], $matches);
+            $volumes = array_values(array_unique($matches[1] ?? []));
+        }
+
+        preg_match_all('/\$\{?(SERVICE_(?:PASSWORD|USER|FQDN|URL|BASE64)_[A-Z0-9_]+)\}?/', $compose, $paramMatches);
+        $parameters = collect($paramMatches[1] ?? [])
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        return [
+            'services' => $services,
+            'volumes' => $volumes,
+            'parameters' => $parameters,
+            'needs_github' => $name === 'odoo',
+        ];
     }
 
     /**
