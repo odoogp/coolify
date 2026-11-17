@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Domain\Odoo\OdooStaging;
 use App\Services\AdminCreationQuota;
+use App\Traits\Auditable;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -359,11 +360,6 @@ class Project extends BaseModel
     public function mariadbs()
     {
         return $this->hasManyThrough(StandaloneMariadb::class, Environment::class);
-    }
-
-    public function sqlites()
-    {
-        return $this->hasManyThrough(StandaloneSqlite::class, Environment::class);
     }
 
     public function isEmpty()

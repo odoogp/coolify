@@ -6,7 +6,6 @@ use App\Models\InstanceSettings;
 use App\Models\OauthSetting;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class SettingsOauth extends Component
@@ -309,7 +308,7 @@ class SettingsOauth extends Component
             $this->updateOauthSettings();
             $this->dispatch('success', __('Instance settings updated successfully!'));
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            handleError($e, $this);
         }
     }
 

@@ -10,7 +10,6 @@
             ['label' => __('Backup'), 'route' => 'settings.backup', 'icon' => 'database'],
             ['label' => __('Email'), 'route' => 'settings.email', 'icon' => 'mail'],
             ['label' => __('Authentication'), 'route' => 'settings.oauth', 'icon' => 'keys'],
-            ['label' => __('Scheduled Jobs'), 'route' => 'settings.scheduled-jobs', 'icon' => 'calendar'],
         ],
     ];
 

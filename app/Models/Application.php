@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\ApplicationDeploymentStatus;
+use App\Enums\BuildPackTypes;
+use App\Enums\ProxyTypes;
 use App\Services\AdminCreationQuota;
 use App\Services\ConfigurationGenerator;
 use App\Services\DeploymentConfiguration\ApplicationConfigurationSnapshot;

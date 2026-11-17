@@ -18,7 +18,7 @@
             <div class="flex w-fit shrink-0 items-center gap-2">
                 <a href="{{ route('project.environment.canvas', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
                     {{ wireNavigate() }}
-                    class="button whitespace-nowrap"
+                    class="button button-highlighted whitespace-nowrap"
                     title="{{ __('Canvas') }}"
                     aria-label="{{ __('Open canvas for :environment', ['environment' => $environment->name]) }}">
                     <x-reicon name="dashboard" class="size-3.5" />

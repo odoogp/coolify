@@ -8,6 +8,7 @@ use App\Actions\Service\StopService;
 use App\Jobs\DeleteResourceJob;
 use App\Services\AdminCreationQuota;
 use App\Support\OdooJupyter;
+use App\Traits\Auditable;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;

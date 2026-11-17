@@ -10,6 +10,7 @@ use App\Enums\ProcessStatus;
 use App\Jobs\WatchOdooServiceStartJob;
 use App\Models\Service;
 use App\Support\GpshNotices;
+use App\Traits\ListensToTeamChannel;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;

@@ -1,5 +1,6 @@
 @props([
     'title' => __('Are you sure?'),
+    'subtitle' => null,
     'buttonTitle' => 'Open Modal',
     'isErrorButton' => false,
     'isHighlightedButton' => false,
@@ -13,8 +14,13 @@
     'wireOpen' => null,
     'contentClicks' => true,
     'isLarge' => false,
+    'fixedHeight' => false,
     'notifyClosed' => true,
 ])
+
+@php
+    $modalId = 'modal-'.uniqid();
+@endphp
 
 <div x-data="{ modalOpen: @if ($wireOpen) $wire.entangle(@js($wireOpen)) @else false @endif }"
     @if ($notifyClosed) x-init="$watch('modalOpen', value => { if (!value) { $wire.dispatch('modalClosed') } })" @endif

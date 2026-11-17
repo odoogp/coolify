@@ -177,14 +177,17 @@
                             @endcan
                             @if ($serviceStatus->contains('running'))
                                 <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                    @click="$wire.dispatch('pullAndRestartEvent'); open = false" role="menuitem">
+                                    @disabled(!auth()->user()->can('deploy', $service))
+                                    @click="$wire.dispatch('pullAndRestartEvent'); open = false"
+                                    role="menuitem">
                                     <x-reicon name="refresh" class="size-3.5 opacity-70" />
                                     {{ __('Pull latest and restart') }}
                                 </button>
-                            @endif
-                            @if ($serviceStatus->contains('degraded'))
+                            @else
                                 <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                    @click="$wire.dispatch('forceDeployEvent'); open = false" role="menuitem">
+                                    @disabled(!auth()->user()->can('deploy', $service))
+                                    @click="$wire.dispatch('forceDeployEvent'); open = false"
+                                    role="menuitem">
                                     <x-reicon name="refresh" class="size-3.5 opacity-70" />
                                     {{ __('Force Restart') }}
                                 </button>
@@ -218,18 +221,7 @@
                                 </button>
                             @endcan
                             <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                @disabled(!auth()->user()->can('stop', $service))
-                                @click="open = false; document.getElementById('service-stop-trigger')?.click()" role="menuitem">
-                                <x-reicon name="stop-circle" class="size-3.5 text-error" />
-                                Stop
-                            </button>
-                        @else
-                            <x-slot:main x-bind:disabled="deploying" @click="deploying = true; $wire.dispatch('startEvent')">
-                                <x-loading-on-button x-show="deploying" x-cloak />
-                                <x-reicon name="play-circle" class="size-3.5" x-show="!deploying" />
-                                <span x-text="deploying ? 'Deploying…' : 'Deploy'">Deploy</span>
-                            </x-slot:main>
-                            <button type="button" class="listbox-option justify-start! gap-2.5!"
+                                @disabled(!auth()->user()->can('deploy', $service))
                                 @click="$wire.dispatch('forceDeployEvent'); open = false" role="menuitem">
                                 <x-reicon name="refresh" class="size-3.5 opacity-70" />
                                 {{ __('Force Start') }}
@@ -241,7 +233,8 @@
                                 {{ __('Force Cleanup Containers') }}
                             </button>
                         @endif
-                    </x-split-action>
+                    </div>
+                </div>
                 @endcan
             @else
                 <a href="{{ $environmentVariablesUrl }}" {{ wireNavigate() }}
@@ -298,62 +291,7 @@
                         </div>
                         @endunless
                         @can('deploy', $service)
-                            <x-split-action id="service-desktop-actions">
-                                @if ($selectedResource && $selectedResource->container_present !== false && $selectedResourceStatus->startsWith('exited'))
-                            <x-slot:main @click="document.getElementById('selected-resource-remove-trigger')?.click()">
-                                <x-reicon name="trash" class="size-3.5" />
-                                Remove container
-                            </x-slot:main>
-                        @elseif ($serviceStatus->contains('running') || $serviceStatus->contains('degraded'))
-                                    <x-slot:main x-bind:disabled="deploying"
-                                        @click="document.getElementById('service-restart-trigger')?.click()">
-                                        <x-loading-on-button x-show="deploying" x-cloak />
-                                        <x-reicon name="restart" class="size-3.5" x-show="!deploying" />
-                                        <span x-text="deploying ? 'Restarting…' : 'Restart current version'">Restart current version</span>
-                                    </x-slot:main>
-                                    @if ($serviceStatus->contains('running'))
-                                        <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                            @click="$wire.dispatch('pullAndRestartEvent'); open = false" role="menuitem">
-                                            <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                                            Pull latest and restart
-                                        </button>
-                                    @endif
-                                    @if ($serviceStatus->contains('degraded'))
-                                        <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                            @click="$wire.dispatch('forceDeployEvent'); open = false" role="menuitem">
-                                            <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                                            Force Restart
-                                        </button>
-                                    @endif
-                                    <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                        @disabled(!auth()->user()->can('stop', $service))
-                                        @click="open = false; document.getElementById('service-stop-trigger')?.click()" role="menuitem">
-                                        <x-reicon name="stop-circle" class="size-3.5 text-error" />
-                                        Stop
-                                    </button>
-                                @else
-                                    <x-slot:main x-bind:disabled="deploying" @click="deploying = true; $wire.dispatch('startEvent')">
-                                        <x-loading-on-button x-show="deploying" x-cloak />
-                                        <x-reicon name="play-circle" class="size-3.5" x-show="!deploying" />
-                                        <span x-text="deploying ? 'Deploying…' : 'Deploy'">Deploy</span>
-                                    </x-slot:main>
-                                    <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                        @click="$wire.dispatch('forceDeployEvent'); open = false" role="menuitem">
-                                        <x-reicon name="refresh" class="size-3.5 opacity-70" />
-                                        Force Deploy
-                                    </button>
-                                    <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                        @disabled(!auth()->user()->can('stop', $service))
-                                        @click="$wire.dispatch('cleanupEvent'); open = false" role="menuitem">
-                                        <x-reicon name="trash" class="size-3.5 opacity-70" />
-                                        Force Cleanup Containers
-                                    </button>
-                                @endif
-                            </x-split-action>
-                        @endcan
-                    @else
-                        @can('deploy', $service)
-                            <div id="service-desktop-actions" class="relative" x-data="{ open: false }"
+                        <div id="service-desktop-actions" class="relative" x-data="{ open: false }"
                                 x-effect="$dispatch('resource-actions-toggled', { open })"
                                 @click.outside="open = false" @keydown.escape.window="open = false">
                                 <button type="button" class="button button-highlighted" @click="open = !open" :aria-expanded="open">
@@ -416,7 +354,7 @@
                                         </button>
                                     @endif
                                 </div>
-                            </div>
+                        </div>
                         @endcan
                     @else
                         <a href="{{ $environmentVariablesUrl }}" {{ wireNavigate() }}
@@ -448,17 +386,6 @@
                     <button id="service-stop-trigger" type="button">{{ __('Stop') }}</button>
                 </x-slot:trigger>
             </x-modal-confirmation>
-            @if ($selectedResource)
-                <x-modal-confirmation title="Confirm Container Removal?" buttonTitle="Remove container"
-                    canGate="deploy" :canResource="$service" submitAction="removeSelectedResourceContainer"
-                    :actions="['The exited service resource container will be removed.', __('resource.non_persistent')]"
-                    :confirmWithText="false" :confirmWithPassword="false" step1ButtonText="Continue"
-                    step2ButtonText="Confirm">
-                    <x-slot:trigger>
-                        <button id="selected-resource-remove-trigger" type="button">Remove container</button>
-                    </x-slot:trigger>
-                </x-modal-confirmation>
-            @endif
         </div>
     @endif
 
@@ -493,7 +420,6 @@
                     return;
                 }
 
-                window.dispatchEvent(new CustomEvent('service-restarting'));
                 $wire.$dispatch('info',
                     @js(__('Gracefully stopping service.<br/><br/>It could take a while depending on the service.')));
                 $wire.$call('restart');

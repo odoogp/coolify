@@ -117,46 +117,6 @@ class Heading extends Component
         }
     }
 
-    public function checkDeployments()
-    {
-        try {
-            $activity = ResourceStartActivity::latestRunning($this->database->uuid);
-            $this->isDeploymentProgress = $activity !== null;
-            $this->runningActivityId = $activity?->id;
-        } catch (\Throwable) {
-            $this->isDeploymentProgress = false;
-            $this->runningActivityId = null;
-        }
-
-        return $this->isDeploymentProgress;
-    }
-
-    /**
-     * Re-attach the live log dialog to a start/restart that is already running,
-     * so the log reappears after the dialog was closed.
-     */
-    public function reopenDeployment()
-    {
-        $this->authorize('view', $this->database);
-
-        $this->checkDeployments();
-
-        if ($this->isDeploymentProgress && $this->runningActivityId) {
-            $this->dispatch('activityMonitor', $this->runningActivityId, ServiceStatusChanged::class);
-            $this->js("window.dispatchEvent(new CustomEvent('startdatabase'))");
-        } else {
-            $this->dispatch('info', 'No operation is currently running.');
-        }
-    }
-
-    private function markDeploymentRunning($activity): void
-    {
-        if (is_object($activity)) {
-            $this->isDeploymentProgress = true;
-            $this->runningActivityId = $activity->id;
-        }
-    }
-
     public function manualCheckStatus()
     {
         $this->checkStatus();

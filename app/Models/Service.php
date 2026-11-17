@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Enums\ProcessStatus;
 use App\Services\AdminCreationQuota;
 use App\Services\ContainerStatusAggregator;
+use App\Support\DomainPortOverrides;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
+use App\Traits\Auditable;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasComposeVolumeWarnings;
 use App\Traits\HasSafeStringAttribute;
@@ -17,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 use OpenApi\Attributes as OA;
+use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\Yaml\Yaml;
 
 #[OA\Schema(

@@ -138,6 +138,9 @@ class GetLogs extends Component
         if (! $this->canReadThisServer()) {
             $this->outputs = 'Unauthorized.';
 
+            return $this->outputs;
+        }
+
         return $this->getLogs();
     }
 
@@ -179,23 +182,6 @@ class GetLogs extends Component
     public function copyLogs(): string
     {
         return sanitizeLogsForExport($this->outputs);
-    }
-
-    public function downloadAllLogs(): string
-    {
-        if (! $this->canReadThisServer()) {
-            return '';
-        }
-        if (! $this->server->isFunctional() || ! $this->container) {
-            return '';
-        }
-        if (! ValidationPatterns::isValidContainerName($this->container)) {
-            return '';
-        }
-
-        $options = "-n {$this->resolveLogTail()}".($this->showTimeStamps ? ' -t' : '');
-
-        return sanitizeLogsForExport($this->runLogCommand($this->logCommand($options), self::MAX_DISPLAY_SIZE_BYTES, '5MB', $this->showTimeStamps));
     }
 
     public function downloadAllLogs(): string

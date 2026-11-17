@@ -289,28 +289,6 @@ class Advanced extends Component
         }
     }
 
-    public function saveCustomNamePrefix()
-    {
-        try {
-            $this->authorize('update', $this->application);
-
-            $this->customContainerNamePrefix = str($this->customContainerNamePrefix)->slug()->value() ?: null;
-
-            if ($this->customContainerNamePrefix && ApplicationSetting::isContainerNamePrefixInUse($this->customContainerNamePrefix, $this->application->destination->server, $this->application->id)) {
-                $this->customContainerNamePrefix = $this->application->settings->custom_container_name_prefix;
-                $this->dispatch('error', 'This container name prefix is already in use by another application on this Coolify instance.');
-
-                return;
-            }
-
-            $this->syncData(true);
-            $this->dispatch('success', 'Container name prefix saved.');
-            $this->dispatch('configurationChanged');
-        } catch (\Throwable $e) {
-            return handleError($e, $this);
-        }
-    }
-
     public function saveStopGracePeriod()
     {
         try {
