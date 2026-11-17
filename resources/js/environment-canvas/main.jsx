@@ -11,6 +11,7 @@ const roots = new Map();
  *   graph: object,
  *   canUpdate: boolean,
  *   savePosition?: (id: string, x: number, y: number) => void|Promise<void>,
+ *   onInspect?: (nodeId: string, panel: string) => void|Promise<void>,
  *   bootKey?: string|number,
  * }} options
  */
@@ -30,6 +31,7 @@ export function mountEnvironmentCanvas(el, options) {
             graph={options.graph || { nodes: [], edges: [], meta: {} }}
             canUpdate={!!options.canUpdate}
             savePosition={options.savePosition}
+            onInspect={options.onInspect}
             bootKey={options.bootKey || Date.now()}
         />,
     );

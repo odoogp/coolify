@@ -1235,8 +1235,8 @@ it('shows getcloud.sh branding and odoo row fields without coolify chrome for cl
         ->and($config)->not->toContain('| Coolify')
         ->and($index)->toContain('Odoo is not installed yet')
         ->and($index)->toContain('product_name()')
-        ->and($resourceIndex)->toContain('project.service.deployments')
-        ->and($resourceIndex)->toContain("redirect()->route('project.service.configuration'");
+        ->and($resourceIndex)->toContain('project.environment.canvas')
+        ->and($resourceIndex)->toContain("redirect()->route('project.environment.canvas'");
 });
 
 it('does not ask for the branch or github while deploying', function () {

@@ -360,17 +360,16 @@ it('keeps an odoo environment on the project and lets a member open odoo', funct
         ->assertDontSee('Clone')
         ->assertSee('Open Odoo')
         ->assertSee('production')
-        ->assertSee(route('project.service.deployments', [
+        ->assertSee(route('project.environment.canvas', [
             'project_uuid' => $this->project->uuid,
             'environment_uuid' => $production->uuid,
-            'service_uuid' => $service->uuid,
         ], false));
 
     expect(file_get_contents(app_path('Livewire/Project/Resource/Index.php')))
-        ->toContain("redirect()->route(\$route,")
-        ->toContain('project.service.deployments')
-        ->toContain('primaryServiceForEnvironment')
-        ->toContain("request()->boolean('catalog')");
+        ->toContain("redirect()->route('project.environment.canvas'")
+        ->toContain('environmentHasResources')
+        ->toContain("request()->boolean('catalog')")
+        ->toContain("request()->boolean('list')");
 });
 
 it('clears a selected environment from the project', function () {

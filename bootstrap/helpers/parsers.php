@@ -3,7 +3,6 @@
 use App\Enums\ProxyTypes;
 use App\Jobs\ServerFilesFromServerJob;
 use App\Models\Application;
-use App\Models\ApplicationPreview;
 use App\Models\GpshOwnerModule;
 use App\Models\LocalFileVolume;
 use App\Models\LocalPersistentVolume;
@@ -2179,7 +2178,11 @@ function serviceParser(Service $resource): Collection
             $compose = OdooJupyter::inject($compose);
         }
         $compose = OdooJupyter::injectOwner($compose);
-        $compose = OdooMonitor::inject($compose, (string) $uuid);
+        // Prefer Coolify Sentinel metrics over the Beszel monitor sidecar when Sentinel is enabled.
+        $serverHasSentinel = $resource->server && $resource->server->isSentinelEnabled();
+        if (! $serverHasSentinel) {
+            $compose = OdooMonitor::inject($compose, (string) $uuid);
+        }
     }
     OdooGit::useHttps($resource);
     if (! $compose) {

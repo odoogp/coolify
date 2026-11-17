@@ -27,6 +27,36 @@ compact divided list, not legacy green check SVGs or fixed-width status rows.
 
 ---
 
+## 1a. GetCloud auth and shell
+
+GetCloud (`product_name()` / getcloud.sh) keeps Coolify’s dense settings
+anatomy, and adds a premium auth + shell layer on top of existing motion:
+
+- Login: immersive full-bleed NASA Artemis scene (`.auth-mission--bleed`) -
+  edge-to-edge `mission-hero.jpg`, compact glass card (content-sized, vertically
+  centered) with locale in `.auth-card-heading-row`. Discreet
+  `.auth-mission-tagline` (`Artemis III · EVA`). Open: `.auth-open-brand` bursts
+  center-stage then flies into the card wordmark (`playAuthOpen`). Stars live
+  only in the upper black sky band (`.auth-orbit-sky` ~36% height + mask), never
+  over the suit/ground. Parallax / optional gyro via `bootImmersiveParallax`.
+  Soft visor on focus. Submit dives into the starfield (`.auth-dive-veil` /
+  `.gc-star-veil`); app lands on the same star plate and assembles out of it
+  (no spinner page). Mobile uses a downward card exit + gentler sky rush.
+  No auth audio.
+- Other tunnel pages may still use `<x-flow-tunnel>` video behind the form.
+- Motion owner: anime.js timelines in `resources/js/auth-stage.js`,
+  lazy-loaded only when an `.auth-shell` is present. CSS remains the
+  fallback; `.auth-stage--anime` marks the live scene;
+  `.auth-shell--static` for `prefers-reduced-motion` / `prefers-reduced-data`.
+- Real auth states only (`data-auth-state` on `.auth-shell`): `idle`,
+  `email-focus`, `password-focus`, `submitting`, `error`. Never invent server
+  progress. Respect reduced-motion (static scene, no anime.js).
+- Tokens: `--gc-motion-*`, `--gc-auth-*`, `--gc-z-*`, `--gc-radius-*` in
+  `resources/css/app.css` (`:root`). Do not replace `--coollabs-*` settings
+  surfaces.
+- Brand lockups use `product_logo_url()` / `product_mark_url()`, not Coolify
+  wordmarks, on GetCloud-facing auth and the app topbar.
+
 ## 1. Visual direction
 
 ### Obsidian Crystal (app interior)
@@ -117,11 +147,15 @@ Global search Functions include **Deploys** → `/deployments`.
 ### Environment canvas
 
 `/project/{uuid}/environment/{uuid}/canvas` (`App\Livewire\Project\Environment\Canvas`)
-is an n8n / Railway-style flow canvas powered by a React island
-(`@xyflow/react` + `resources/js/environment-canvas/`):
+is the **primary environment workspace** (Railway-style), powered by a React
+island (`@xyflow/react` + `resources/js/environment-canvas/`). Dashboard /
+project Overview stays the panel; opening an environment lands on the full
+canvas, not a small widget or the advanced config screens.
 
-- custom nodes with service-type logos from `public/svgs` (via
-  `ServiceTemplateCatalog::logoUrl`) and glyph marks for domain / volume;
+- **one node per stack unit** (compose app, DB, domain, volume) — never a
+  single Coolify Service config blob;
+- **GitHub is its own node** (source lane → Odoo), not a settings tab;
+- logos from `public/svgs` + glyphs for domain / volume / GitHub / Monitor;
 - bezier edges, handles, Controls, MiniMap, dotted Background;
 - pan / wheel zoom / pinch, multi-select with Shift, Open + double-click;
 - Livewire polls status every 10s and pushes `canvas-graph-updated` into the
@@ -129,12 +163,16 @@ is an n8n / Railway-style flow canvas powered by a React island
 - graph data from `EnvironmentCanvasGraph`; lane auto-layout on reset;
   positions in `environment_canvas_layouts`;
 - admins drag nodes; members are view-only;
-- entry points: Resources header **Canvas**, and the Odoo hub Overview.
+- selecting a node opens an **in-canvas inspector** for **Logs** (docker),
+  **Monitor** (iframe), or **GitHub** (link status) — same window, not a
+  redirect to Coolify configuration screens;
+- toolbar: **Sync**, **Create** (`?catalog=1`), **List** (`?list=1`), Project
+  back, Reset layout;
+- entry: env name / **Open environment** / `Show::navigateToEnvironment` open
+  canvas; `project.resource.index` redirects populated envs here.
 
 Styles: `.gc-canvas-*` / `.gc-flow-*` in `resources/css/app.css` plus XYFlow
-base CSS. Custom bezier edges (`FlowEdge`) use color by kind (http / db /
-mount) with no label chips. Selecting a service/Odoo node reveals **Logs** /
-**Monitor** / **Open** (observability entry without a second screen).
+base CSS. Edge kinds: http / db / mount / git.
 
 ### Pending (keep simple)
 
@@ -144,8 +182,14 @@ mount) with no label chips. Selecting a service/Odoo node reveals **Logs** /
   environment per PR (reuse `CloneOdooStagingJob` + existing webhook
   `pull_request`), never required to launch. Do not invent a second webhook.
 - **Canvas:** groups, staged-change banner on the graph, typed variable edges.
-- **Observability depth:** deeper metrics inside Monitor; keep Runtime Logs as
-  the default log surface from the canvas.
+- **Observability:** Metrics tab prefers **Sentinel** on the server; Beszel
+  monitor sidecars are not injected when Sentinel is enabled. Deeper in-panel
+  charts come next.
+- **Consumption agent (external servers):** when an external server is attached,
+  a lightweight agent should schedule selected workloads onto that host (Swarm-
+  style replicas / placement), without requiring the whole stack to move. Keep
+  connection UX one-shot (SSH key + agent install). Do not build a second
+  orchestrator — reuse Docker Swarm / Coolify destination placement.
 
 The interface is otherwise compact and product-focused:
 

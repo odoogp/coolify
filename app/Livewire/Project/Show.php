@@ -758,19 +758,10 @@ class Show extends Component
     {
         $environment = $this->project->environments->firstWhere('uuid', $environmentUuid);
         if ($environment instanceof Environment && (string) $this->project->uuid === (string) $projectUuid) {
-            $service = $environment->services->first(fn (Service $service): bool => $service->supportsOdooJupyter())
-                ?? $environment->services->first();
-            if ($service instanceof Service) {
-                $route = $service->supportsOdooJupyter()
-                    ? 'project.service.deployments'
-                    : 'project.service.configuration';
-
-                return redirectRoute($this, $route, [
-                    'project_uuid' => $projectUuid,
-                    'environment_uuid' => $environmentUuid,
-                    'service_uuid' => $service->uuid,
-                ]);
-            }
+            return redirectRoute($this, 'project.environment.canvas', [
+                'project_uuid' => $projectUuid,
+                'environment_uuid' => $environmentUuid,
+            ]);
         }
 
         return redirectRoute($this, 'project.resource.index', [
@@ -946,6 +937,8 @@ class Show extends Component
                 ? (string) ($environment->odooBranch?->odoo_version
                     ?: ($this->project->odooProfile?->odoo_version ?? ''))
                 : '';
+            // Advanced service panel (Deployments / Configuration). Environment name
+            // and Open environment use the canvas workspace instead.
             $serviceHref = $service instanceof Service
                 ? route(
                     $isOdooService
@@ -958,6 +951,11 @@ class Show extends Component
                     ]
                 )
                 : null;
+            // Environment name / Open always enter the canvas workspace (empty → Create on canvas).
+            $canvasHref = route('project.environment.canvas', [
+                'project_uuid' => $this->project->uuid,
+                'environment_uuid' => $environment->uuid,
+            ]);
             $enterHref = null;
             $enterLabel = null;
             if ($service instanceof Service && $service->canOpenPublicSite()) {
@@ -1013,16 +1011,10 @@ class Show extends Component
                 'monitorHref' => $monitorHref,
                 'logsHref' => $logsHref,
                 'terminalHref' => $terminalHref,
-                // Open environment → service panel (not the resource list). Empty envs keep the catalog index.
-                'environmentHref' => $serviceHref ?? route('project.resource.index', [
-                    'project_uuid' => $this->project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                ]),
+                // Environment name / Open → canvas admin when populated; empty envs keep the catalog.
+                'environmentHref' => $canvasHref,
                 'resourceCount' => $resourceCount,
-                'href' => $odooOnly ? null : ($serviceHref ?? route('project.resource.index', [
-                    'project_uuid' => $this->project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                ])),
+                'href' => $odooOnly ? null : $canvasHref,
                 'settingsHref' => $canUpdateProject
                     ? route('project.environment.edit', [
                         'project_uuid' => $this->project->uuid,

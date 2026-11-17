@@ -34,10 +34,11 @@ import { MarkerType } from '@xyflow/react';
 
 /**
  * @param {CanvasGraph|null|undefined} graph
- * @param {{ canUpdate?: boolean }} [options]
+ * @param {{ canUpdate?: boolean, onInspect?: (nodeId: string, panel: string) => void }} [options]
  */
 export function graphToFlow(graph, options = {}) {
     const canUpdate = !!options.canUpdate;
+    const onInspect = typeof options.onInspect === 'function' ? options.onInspect : null;
     const nodes = Array.isArray(graph?.nodes) ? graph.nodes : [];
     const edges = Array.isArray(graph?.edges) ? graph.edges : [];
     const byId = Object.fromEntries(nodes.map((node) => [node.id, node]));
@@ -55,31 +56,38 @@ export function graphToFlow(graph, options = {}) {
                 status: node.status,
                 statusLabel: node.status_label || node.status,
                 href: node.href || null,
-                logsHref: node.logs_href || null,
-                monitorHref: node.monitor_href || null,
+                openHref: node.open_href || null,
+                panels: Array.isArray(node.panels) ? node.panels : [],
+                monitorUrl: node.monitor_url || null,
+                github: node.github || null,
+                serviceUuid: node.service_uuid || null,
+                container: node.container || null,
                 meta: node.meta || null,
                 icon: node.icon || null,
                 glyph: node.glyph || null,
                 external: !!node.external,
                 ports: node.ports || { in: true, out: true },
+                onInspect,
             },
         })),
         edges: edges
             .filter((edge) => byId[edge.from] && byId[edge.to])
             .map((edge) => {
                 const target = byId[edge.to];
+                const source = byId[edge.from];
                 const kind =
-                    target?.kind === 'volume' || edge.label === 'mount'
-                        ? 'mount'
-                        : target?.kind === 'database' || edge.label === 'db'
-                          ? 'db'
-                          : 'http';
+                    source?.kind === 'github' || edge.label === 'git'
+                        ? 'git'
+                        : target?.kind === 'volume' || edge.label === 'mount'
+                          ? 'mount'
+                          : target?.kind === 'database' || edge.label === 'db'
+                            ? 'db'
+                            : 'http';
 
                 return {
                     id: edge.id,
                     source: edge.from,
                     target: edge.to,
-                    // No edge labels — XYFlow's default label chips look noisy vs Railway/n8n.
                     type: 'flow',
                     animated: kind === 'http' && (target?.status === 'running' || target?.status === 'building'),
                     className: `gc-flow-edge is-${kind}`,
@@ -87,7 +95,14 @@ export function graphToFlow(graph, options = {}) {
                         type: MarkerType.ArrowClosed,
                         width: 14,
                         height: 14,
-                        color: kind === 'http' ? '#34d399' : kind === 'db' ? '#60a5fa' : '#94a3b8',
+                        color:
+                            kind === 'http'
+                                ? '#34d399'
+                                : kind === 'db'
+                                  ? '#60a5fa'
+                                  : kind === 'git'
+                                    ? '#c4b5fd'
+                                    : '#94a3b8',
                     },
                     data: { kind },
                 };
@@ -117,6 +132,10 @@ export function mergeGraphIntoFlow(currentNodes, currentEdges, graph, options = 
             ...node,
             position: previous.position,
             selected: previous.selected,
+            data: {
+                ...node.data,
+                onInspect: options.onInspect || node.data.onInspect,
+            },
         };
     });
 

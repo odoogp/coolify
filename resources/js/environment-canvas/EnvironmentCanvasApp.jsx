@@ -47,8 +47,20 @@ function FitController({ bootKey }) {
     return null;
 }
 
-function CanvasInner({ graph, canUpdate, savePosition, bootKey }) {
-    const initial = useMemo(() => graphToFlow(graph, { canUpdate }), []);
+function CanvasInner({ graph, canUpdate, savePosition, onInspect, bootKey }) {
+    const inspectRef = useRef(onInspect);
+    inspectRef.current = onInspect;
+
+    const stableInspect = useCallback((nodeId, panel) => {
+        inspectRef.current?.(nodeId, panel);
+    }, []);
+
+    const initial = useMemo(
+        () => graphToFlow(graph, { canUpdate, onInspect: stableInspect }),
+        // boot once; later updates arrive via gc-canvas:update
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [],
+    );
     const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
     const saveTimer = useRef(null);
@@ -65,6 +77,7 @@ function CanvasInner({ graph, canUpdate, savePosition, bootKey }) {
                 const merged = mergeGraphIntoFlow(currentNodes, [], nextGraph, {
                     canUpdate,
                     replacePositions,
+                    onInspect: stableInspect,
                 });
                 setEdges(merged.edges);
                 return merged.nodes;
@@ -76,7 +89,7 @@ function CanvasInner({ graph, canUpdate, savePosition, bootKey }) {
 
         window.addEventListener('gc-canvas:update', onUpdate);
         return () => window.removeEventListener('gc-canvas:update', onUpdate);
-    }, [canUpdate, setEdges, setNodes]);
+    }, [canUpdate, setEdges, setNodes, stableInspect]);
 
     const persistPosition = useCallback(
         (node) => {
@@ -105,14 +118,30 @@ function CanvasInner({ graph, canUpdate, savePosition, bootKey }) {
         [persistPosition],
     );
 
+    const onNodeClick = useCallback(
+        (_event, node) => {
+            if (!node?.id) {
+                return;
+            }
+            const kind = node.data?.kind;
+            stableInspect(node.id, kind === 'github' ? 'github' : 'details');
+        },
+        [stableInspect],
+    );
+
     const minimapNodeColor = useCallback((node) => {
         switch (node.data?.kind) {
+            case 'github':
+                return '#c4b5fd';
             case 'domain':
                 return '#34d399';
             case 'odoo':
             case 'service':
             case 'application':
+            case 'jupyter':
                 return '#a78bfa';
+            case 'monitor':
+                return '#fbbf24';
             case 'database':
                 return '#60a5fa';
             case 'volume':
@@ -130,6 +159,7 @@ function CanvasInner({ graph, canUpdate, savePosition, bootKey }) {
             onEdgesChange={onEdgesChange}
             onNodeDragStop={onNodeDragStop}
             onSelectionDragStop={onSelectionDragStop}
+            onNodeClick={onNodeClick}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             nodesDraggable={canUpdate}

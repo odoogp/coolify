@@ -9,6 +9,7 @@ use App\Models\Server;
 use App\Models\Service;
 use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 
@@ -52,7 +53,7 @@ class Index extends Component
     public function mount(): mixed
     {
         $missingEnvironment = $this->loadResources();
-        if ($missingEnvironment instanceof \Illuminate\Http\RedirectResponse) {
+        if ($missingEnvironment instanceof RedirectResponse) {
             return $missingEnvironment;
         }
         $this->defaultCatalogServerId($this->project, $this->environment);
@@ -79,19 +80,13 @@ class Index extends Component
             ]);
         }
 
-        // Skip the resource list when the environment already has a primary service.
-        // New / catalog stays on this page via ?catalog=1. Odoo opens Deployments first.
-        if (! request()->boolean('catalog')) {
-            $primary = $this->primaryServiceForEnvironment();
-            if ($primary instanceof Service) {
-                $route = $primary->supportsOdooJupyter()
-                    ? 'project.service.deployments'
-                    : 'project.service.configuration';
-
-                return redirect()->route($route, [
+        // Populated environments open the canvas as the primary workspace.
+        // ?catalog=1 keeps New / one-click launch here; ?list=1 keeps the classic resource list.
+        if (! request()->boolean('catalog') && ! request()->boolean('list')) {
+            if ($this->environmentHasResources()) {
+                return redirect()->route('project.environment.canvas', [
                     'project_uuid' => $this->project->uuid,
                     'environment_uuid' => $this->environment->uuid,
-                    'service_uuid' => $primary->uuid,
                 ]);
             }
         }
@@ -100,32 +95,21 @@ class Index extends Component
     }
 
     /**
-     * Prefer the Odoo service; otherwise a lone service when the environment has no other resources.
+     * True when the environment already has anything to show on the canvas.
      */
-    private function primaryServiceForEnvironment(): ?Service
+    private function environmentHasResources(): bool
     {
-        $odoo = $this->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
-        if ($this->project->odooProfile()->exists() && $odoo instanceof Service) {
-            return $odoo;
-        }
-
-        $otherResources = $this->applications->count()
-            + $this->postgresqls->count()
-            + $this->redis->count()
-            + $this->mongodbs->count()
-            + $this->mysqls->count()
-            + $this->mariadbs->count()
-            + $this->keydbs->count()
-            + $this->dragonflies->count()
-            + $this->clickhouses->count();
-
-        if ($otherResources === 0 && $this->services->count() === 1) {
-            $only = $this->services->first();
-
-            return $only instanceof Service ? $only : null;
-        }
-
-        return null;
+        return $this->applications->isNotEmpty()
+            || $this->postgresqls->isNotEmpty()
+            || $this->redis->isNotEmpty()
+            || $this->mongodbs->isNotEmpty()
+            || $this->mysqls->isNotEmpty()
+            || $this->mariadbs->isNotEmpty()
+            || $this->keydbs->isNotEmpty()
+            || $this->dragonflies->isNotEmpty()
+            || $this->clickhouses->isNotEmpty()
+            || $this->sqlites->isNotEmpty()
+            || $this->services->isNotEmpty();
     }
 
     private function loadResources(): mixed

@@ -3452,7 +3452,7 @@
     "New GitHub app": "Nueva GitHub App",
     "New S3 storage": "Nuevo almacenamiento S3",
     "New private key": "Nueva clave privada",
-    "New to Coolify?": "¿Nuevo en Coolify?",
+    "New to Coolify?": "¿Nuevo en getcloud.sh?",
     "New version": "Nueva versión",
     "No Vendor Lock-in": "Sin dependencia de proveedor",
     "No destinations available": "No hay destinos disponibles",
@@ -5276,5 +5276,7 @@
     "Drag nodes to arrange the canvas. Positions are saved for this environment.": "Arrastra los nodos para ordenar el canvas. Las posiciones se guardan en este entorno.",
     "View only. Ask an admin to rearrange the canvas.": "Solo lectura. Pide a un admin que reordene el canvas.",
     "Drag nodes to arrange. Scroll to zoom, drag the canvas to pan. Double-click or Open to visit a resource. Status refreshes live.": "Arrastra nodos para ordenar. Rueda para zoom, arrastra el lienzo para pan. Doble clic o Open para abrir un recurso. El estado se actualiza en vivo.",
-    "View only. Scroll to zoom and drag the canvas to pan. Ask an admin to rearrange the canvas.": "Solo lectura. Rueda para zoom y arrastra el lienzo para pan. Pide a un admin que reordene el canvas."
+    "View only. Scroll to zoom and drag the canvas to pan. Ask an admin to rearrange the canvas.": "Solo lectura. Rueda para zoom y arrastra el lienzo para pan. Pide a un admin que reordene el canvas.",
+    "New to :product?": "¿Nuevo en :product?",
+    "Artemis III · EVA": "Artemis III · EVA"
 }

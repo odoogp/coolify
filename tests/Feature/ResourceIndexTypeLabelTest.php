@@ -101,6 +101,7 @@ test('resource index type labels use category names not engine names for databas
     $response = $this->get(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $this->environment->uuid,
+        'list' => 1,
     ]));
 
     $response->assertSuccessful();
@@ -119,9 +120,9 @@ test('resource index type labels use category names not engine names for databas
     expect($html)->toContain($mysql->name);
 });
 
-test('resource index redirects to the primary odoo service unless catalog is requested', function () {
+test('resource index redirects populated environments to the canvas unless catalog or list is requested', function () {
     $this->project->enableOdoo('20');
-    $service = Service::create([
+    Service::create([
         'name' => 'odoo-primary',
         'environment_id' => $this->environment->id,
         'server_id' => $this->server->id,
@@ -135,15 +136,20 @@ test('resource index redirects to the primary odoo service unless catalog is req
     $this->get(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $this->environment->uuid,
-    ]))->assertRedirect(route('project.service.deployments', [
+    ]))->assertRedirect(route('project.environment.canvas', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $this->environment->uuid,
-        'service_uuid' => $service->uuid,
     ]));
 
     $this->get(route('project.resource.index', [
         'project_uuid' => $this->project->uuid,
         'environment_uuid' => $this->environment->uuid,
         'catalog' => 1,
+    ]))->assertSuccessful();
+
+    $this->get(route('project.resource.index', [
+        'project_uuid' => $this->project->uuid,
+        'environment_uuid' => $this->environment->uuid,
+        'list' => 1,
     ]))->assertSuccessful();
 });

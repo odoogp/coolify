@@ -9,6 +9,7 @@ use App\Jobs\SyncOdooAddonsJob;
 use App\Models\GithubApp;
 use App\Models\Service;
 use App\Support\OdooGit;
+use App\Traits\ListensToTeamChannel;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use InvalidArgumentException;
@@ -35,6 +36,9 @@ class Configuration extends Component
     public array $query;
 
     public array $parameters;
+
+    /** When true, render only the GitHub panel (canvas inspector embed). */
+    public bool $embedded = false;
 
     public function getListeners(): array
     {
@@ -130,25 +134,43 @@ class Configuration extends Component
 
     public function render()
     {
-        return view('livewire.project.service.configuration');
+        return view($this->embedded
+            ? 'livewire.project.service.configuration-github-embed'
+            : 'livewire.project.service.configuration');
     }
 
-    public function mount()
-    {
+    public function mount(
+        ?string $project_uuid = null,
+        ?string $environment_uuid = null,
+        ?string $service_uuid = null,
+        bool $embedded = false,
+    ) {
         try {
-            $this->parameters = get_route_parameters();
-            $this->currentRoute = request()->route()->getName();
+            $this->embedded = $embedded;
+            $this->parameters = $embedded
+                ? [
+                    'project_uuid' => (string) $project_uuid,
+                    'environment_uuid' => (string) $environment_uuid,
+                    'service_uuid' => (string) $service_uuid,
+                ]
+                : get_route_parameters();
+            $this->currentRoute = $embedded
+                ? 'project.service.configuration'
+                : request()->route()->getName();
             $this->query = request()->query();
+            $projectUuid = $embedded ? (string) $project_uuid : (string) request()->route('project_uuid');
+            $environmentUuid = $embedded ? (string) $environment_uuid : (string) request()->route('environment_uuid');
+            $serviceUuid = $embedded ? (string) $service_uuid : (string) request()->route('service_uuid');
             $project = currentTeam()
                 ->projects()
                 ->select('id', 'uuid', 'name', 'team_id')
-                ->where('uuid', request()->route('project_uuid'))
+                ->where('uuid', $projectUuid)
                 ->firstOrFail();
             $environment = $project->environments()
                 ->select('id', 'uuid', 'name', 'project_id')
-                ->where('uuid', request()->route('environment_uuid'))
+                ->where('uuid', $environmentUuid)
                 ->firstOrFail();
-            $this->service = $environment->services()->whereUuid(request()->route('service_uuid'))->firstOrFail();
+            $this->service = $environment->services()->whereUuid($serviceUuid)->firstOrFail();
 
             $this->authorize('view', $this->service);
 
@@ -158,12 +180,15 @@ class Configuration extends Component
             $environment->loadMissing('odooBranch');
             $this->odooIsOdoo = $this->service->supportsOdooJupyter();
             $this->syncOdooGithub();
-            if ($this->odooIsOdoo) {
+            if ($this->odooIsOdoo && ! $this->embedded) {
                 $this->launchKey = 'launch-odoo-'.$this->service->uuid;
                 $status = Cache::get($this->launchKey);
                 if (is_array($status) && ($status['done'] ?? false) !== true && request()->query('launch') !== 'choose') {
                     return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
                 }
+            }
+            if ($this->embedded) {
+                $this->odooPanel = 'github';
             }
             $this->awaitingRepositoryChoice = request()->query('launch') === 'choose'
                 && blank($project->odooProfile?->git_repository);
@@ -313,12 +338,19 @@ class Configuration extends Component
     {
         try {
             $this->authorize('update', $this->service);
+            $returnRoute = $this->embedded ? 'project.environment.canvas' : 'project.service.configuration';
             $parameters = [
                 'project_uuid' => $this->project->uuid,
                 'environment_uuid' => $this->environment->uuid,
-                'service_uuid' => $this->service->uuid,
             ];
-            $githubApp = OdooGit::beginConnect($this->project, 'project.service.configuration', $parameters);
+            if ($this->embedded) {
+                $parameters['inspect'] = 'github';
+                $parameters['node'] = 'github:'.$this->service->uuid;
+            } else {
+                $parameters['service_uuid'] = $this->service->uuid;
+                $parameters['odooPanel'] = 'github';
+            }
+            $githubApp = OdooGit::beginConnect($this->project, $returnRoute, $parameters);
             if (filled($githubApp->installation_id) && filled($githubApp->private_key_id)) {
                 $this->syncOdooGithub();
 
@@ -342,15 +374,22 @@ class Configuration extends Component
     {
         try {
             $this->authorize('update', $this->service);
+            $returnRoute = $this->embedded ? 'project.environment.canvas' : 'project.service.configuration';
+            $parameters = [
+                'project_uuid' => $this->project->uuid,
+                'environment_uuid' => $this->environment->uuid,
+            ];
+            if ($this->embedded) {
+                $parameters['inspect'] = 'github';
+                $parameters['node'] = 'github:'.$this->service->uuid;
+            } else {
+                $parameters['service_uuid'] = $this->service->uuid;
+                $parameters['odooPanel'] = 'github';
+            }
             $githubApp = OdooGit::beginConnect(
                 $this->project,
-                'project.service.configuration',
-                [
-                    'project_uuid' => $this->project->uuid,
-                    'environment_uuid' => $this->environment->uuid,
-                    'service_uuid' => $this->service->uuid,
-                    'odooPanel' => 'github',
-                ],
+                $returnRoute,
+                $parameters,
                 forceNew: true,
             );
             $this->odooGithubConnected = false;

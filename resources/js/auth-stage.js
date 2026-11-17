@@ -305,9 +305,17 @@ function playAuthOpen(parts) {
             brand.style.visibility = 'visible';
         }
         if (card instanceof HTMLElement) {
-            card.style.opacity = '1';
             card.style.visibility = 'visible';
             card.style.pointerEvents = '';
+            card.animate(
+                [
+                    { opacity: 0, transform: 'translateY(22px) scale(0.97)' },
+                    { opacity: 1, transform: 'translateY(0) scale(1)' },
+                ],
+                { duration: 720, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' },
+            );
+            card.style.opacity = '1';
+            card.style.transform = 'none';
         }
         if (locale instanceof HTMLElement) {
             locale.style.opacity = '0.85';
@@ -334,6 +342,7 @@ function playAuthOpen(parts) {
         card.style.opacity = '0';
         card.style.visibility = 'hidden';
         card.style.pointerEvents = 'none';
+        card.style.transform = 'translateY(22px) scale(0.97)';
     }
 
     const open = createTimeline({

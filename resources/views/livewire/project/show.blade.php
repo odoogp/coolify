@@ -259,17 +259,11 @@
                             @endcan
                             @if ($project->odooProfile)
                             <a class="button" {{ wireNavigate() }}
-                                href="{{ $selectedOdoo
-                                    ? route('project.service.configuration', [
-                                        'project_uuid' => $project->uuid,
-                                        'environment_uuid' => $selectedEnvironment->uuid,
-                                        'service_uuid' => $selectedOdoo->uuid,
-                                    ])
-                                    : route('project.resource.index', [
-                                        'project_uuid' => $project->uuid,
-                                        'environment_uuid' => $selectedEnvironment->uuid,
-                                    ]) }}">
-                                {{ $selectedOdoo ? __('Open environment') : __('Go to configuration') }}
+                                href="{{ route('project.environment.canvas', [
+                                    'project_uuid' => $project->uuid,
+                                    'environment_uuid' => $selectedEnvironment->uuid,
+                                ]) }}">
+                                {{ __('Open environment') }}
                             </a>
                             @endif
                         @endunless

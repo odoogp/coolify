@@ -27,7 +27,8 @@ class EnvironmentCanvasGraph
     public static function build(Environment $environment): array
     {
         $environment->loadMissing([
-            'project',
+            'project.odooProfile',
+            'odooBranch',
             'services.applications.persistentStorages',
             'services.databases.persistentStorages',
             'applications',
@@ -56,17 +57,25 @@ class EnvironmentCanvasGraph
                 continue;
             }
             $key = 'application:'.$application->uuid;
+            $appParams = [
+                'project_uuid' => $environment->project->uuid,
+                'environment_uuid' => $environment->uuid,
+                'application_uuid' => $application->uuid,
+            ];
             $nodes->push(self::withIcon([
                 'id' => $key,
                 'kind' => 'application',
                 'label' => (string) $application->name,
                 'status' => self::normalizeStatus((string) ($application->status ?? '')),
                 'status_label' => self::statusLabel((string) ($application->status ?? '')),
-                'href' => route('project.application.configuration', [
-                    'project_uuid' => $environment->project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                    'application_uuid' => $application->uuid,
-                ]),
+                'panels' => ['logs', 'github'],
+                'open_href' => filled($application->fqdn) ? (string) str($application->fqdn)->explode(',')->first() : null,
+                'github' => [
+                    'repository' => null,
+                    'branch' => null,
+                    'linked' => false,
+                    'source_href' => route('project.application.source', $appParams),
+                ],
                 'meta' => trim((string) ($application->fqdn ?? '')) ?: __('Application'),
                 'ports' => ['in' => true, 'out' => true],
             ], 'application', (string) ($application->build_pack ?? '')));
@@ -85,11 +94,7 @@ class EnvironmentCanvasGraph
                 'label' => (string) ($database->name ?? class_basename($database)),
                 'status' => self::normalizeStatus((string) ($database->status ?? '')),
                 'status_label' => self::statusLabel((string) ($database->status ?? '')),
-                'href' => route('project.database.configuration', [
-                    'project_uuid' => $environment->project->uuid,
-                    'environment_uuid' => $environment->uuid,
-                    'database_uuid' => $uuid,
-                ]),
+                'panels' => ['logs'],
                 'meta' => class_basename($database),
                 'ports' => ['in' => true, 'out' => false],
             ], 'database', $kindKey));
@@ -111,102 +116,225 @@ class EnvironmentCanvasGraph
     }
 
     /**
+     * One node per stack unit (compose app / DB / GitHub / domain / volume).
+     * Never collapse the Coolify Service into a single config blob.
+     *
      * @param  Collection<int, array<string, mixed>>  $nodes
      * @param  Collection<int, array<string, mixed>>  $edges
      */
     private static function appendServiceCluster(Service $service, Collection $nodes, Collection $edges): void
     {
-        $serviceKey = 'service:'.$service->uuid;
         $isOdoo = $service->supportsOdooJupyter() || OdooJupyter::isOdooCompose((string) $service->docker_compose_raw);
-        $type = (string) ($service->service_type ?? '');
-        if ($type === '' && $isOdoo) {
-            $type = 'odoo';
-        }
-        $projectUuid = $service->environment->project->uuid;
-        $environmentUuid = $service->environment->uuid;
-        $href = $isOdoo
-            ? route('project.service.deployments', [
-                'project_uuid' => $projectUuid,
-                'environment_uuid' => $environmentUuid,
-                'service_uuid' => $service->uuid,
-            ])
-            : route('project.service.configuration', [
-                'project_uuid' => $projectUuid,
-                'environment_uuid' => $environmentUuid,
-                'service_uuid' => $service->uuid,
-            ]);
-
-        $logsHref = route('project.service.logs', array_filter([
+        $clientOnly = $isOdoo && ! isInstanceOwner();
+        $environment = $service->environment;
+        $projectUuid = $environment->project->uuid;
+        $environmentUuid = $environment->uuid;
+        $configParams = [
             'project_uuid' => $projectUuid,
             'environment_uuid' => $environmentUuid,
             'service_uuid' => $service->uuid,
-            'only' => $isOdoo ? 'odoo' : null,
-        ]));
-        $monitorHref = $isOdoo ? OdooMonitor::urlFor($service) : null;
-
-        $iconHint = $type !== '' ? $type : self::guessTypeFromCompose((string) $service->docker_compose_raw);
-        $nodes->push(self::withIcon([
-            'id' => $serviceKey,
-            'kind' => $isOdoo ? 'odoo' : 'service',
-            'label' => (string) $service->name,
-            'status' => self::normalizeStatus((string) ($service->status ?? '')),
-            'status_label' => self::statusLabel((string) ($service->status ?? '')),
-            'href' => $href,
-            'logs_href' => $logsHref,
-            'monitor_href' => $monitorHref,
-            'meta' => $isOdoo ? 'Odoo' : ($type !== '' ? Str::headline($type) : __('Service')),
-            'ports' => ['in' => true, 'out' => true],
-        ], $isOdoo ? 'odoo' : 'service', $iconHint));
+        ];
+        $server = $service->server;
+        $sentinelEnabled = $server && $server->isSentinelEnabled();
+        $monitorUrl = (! $sentinelEnabled && $isOdoo) ? OdooMonitor::urlFor($service) : null;
+        $hubKey = null;
+        $stackAppKeys = [];
 
         foreach ($service->applications as $application) {
-            self::appendDomainNodes($application, $serviceKey, $nodes, $edges);
-            self::appendVolumeNodes($application->persistentStorages ?? collect(), $serviceKey, $nodes, $edges, $href);
+            $appName = (string) $application->name;
+            if ($clientOnly && ! OdooGit::clientSeesLog($appName)) {
+                continue;
+            }
+            // Prefer Sentinel metrics — hide legacy Beszel monitor nodes when Sentinel is on.
+            if ($sentinelEnabled && str_contains(strtolower($appName), 'monitor')) {
+                continue;
+            }
+
+            $appKey = 'stack-app:'.$application->uuid;
+            $stackAppKeys[] = $appKey;
+            $kind = self::stackAppKind($appName, $isOdoo);
+            $container = $appName.'-'.$service->uuid;
+            $panels = ['logs', 'metrics'];
+            if ($kind === 'odoo' && filled($monitorUrl)) {
+                $panels[] = 'monitor';
+            }
+            if ($kind === 'monitor' && filled($monitorUrl)) {
+                $panels[] = 'monitor';
+            }
+            $rules = self::stackRulesFor($kind, $isOdoo);
+
+            $openHref = null;
+            if ($kind === 'odoo' && $service->canOpenPublicSite()) {
+                $openHref = route('project.service.odoo.enter', $configParams);
+            } elseif (filled($application->fqdn) && $kind !== 'monitor') {
+                $openHref = (string) str($application->fqdn)->explode(',')->map(fn ($v) => trim((string) $v))->first();
+            }
+
+            $nodes->push(self::withIcon([
+                'id' => $appKey,
+                'kind' => $kind,
+                'label' => $appName,
+                'status' => self::normalizeStatus((string) ($application->status ?? $service->status ?? '')),
+                'status_label' => self::statusLabel((string) ($application->status ?? $service->status ?? '')),
+                'service_uuid' => $service->uuid,
+                'container' => $container,
+                'panels' => $panels,
+                'rules' => $rules,
+                'monitor_url' => in_array('monitor', $panels, true) ? $monitorUrl : null,
+                'open_href' => $openHref,
+                'meta' => match ($kind) {
+                    'odoo' => 'Odoo',
+                    'monitor' => __('Monitor'),
+                    'jupyter' => 'Jupyter',
+                    default => Str::headline($appName),
+                },
+                'ports' => ['in' => true, 'out' => true],
+            ], $kind, $appName));
+
+            if ($kind === 'odoo' || ($hubKey === null && $kind !== 'monitor' && $kind !== 'jupyter')) {
+                $hubKey = $appKey;
+            }
+
+            self::appendDomainNodes($application, $appKey, $nodes, $edges);
+            self::appendVolumeNodes($application->persistentStorages ?? collect(), $appKey, $nodes, $edges);
+        }
+
+        if ($hubKey === null && $stackAppKeys !== []) {
+            $hubKey = $stackAppKeys[0];
+        }
+
+        if ($isOdoo) {
+            $githubKey = 'github:'.$service->uuid;
+            $environment->loadMissing('odooBranch', 'project.odooProfile');
+            $repo = (string) ($environment->odooBranch?->git_repository
+                ?: $environment->project?->odooProfile?->git_repository
+                ?: '');
+            $branch = (string) ($environment->odooBranch?->git_branch ?: '');
+            $linked = $repo !== '' && $branch !== '';
+            $nodes->push(self::withIcon([
+                'id' => $githubKey,
+                'kind' => 'github',
+                'label' => $linked ? ($repo.($branch !== '' ? ':'.$branch : '')) : __('GitHub'),
+                'status' => $linked ? 'running' : 'idle',
+                'status_label' => $linked ? __('Linked') : __('Not linked'),
+                'service_uuid' => $service->uuid,
+                'panels' => ['github'],
+                'github' => [
+                    'repository' => $repo !== '' ? $repo : null,
+                    'branch' => $branch !== '' ? $branch : null,
+                    'linked' => $linked,
+                ],
+                'meta' => __('Source'),
+                'ports' => ['in' => false, 'out' => true],
+            ], 'github'));
+
+            if ($hubKey !== null) {
+                $edges->push([
+                    'id' => $githubKey.'->'.$hubKey,
+                    'from' => $githubKey,
+                    'to' => $hubKey,
+                    'label' => 'git',
+                ]);
+            }
         }
 
         foreach ($service->databases as $database) {
-            $dbKey = 'service-db:'.$database->uuid;
-            $dbType = Str::of((string) $database->name)->lower()->toString();
+            $dbName = (string) $database->name;
+            if ($clientOnly && ! OdooGit::clientSeesLog($dbName)) {
+                continue;
+            }
+            $dbKey = 'stack-db:'.$database->uuid;
             $nodes->push(self::withIcon([
                 'id' => $dbKey,
                 'kind' => 'database',
-                'label' => (string) $database->name,
+                'label' => $dbName,
                 'status' => self::normalizeStatus((string) ($database->status ?? '')),
                 'status_label' => self::statusLabel((string) ($database->status ?? '')),
-                'href' => $href,
-                'meta' => __('Compose database'),
+                'service_uuid' => $service->uuid,
+                'container' => $dbName.'-'.$service->uuid,
+                'panels' => ['logs', 'metrics'],
+                'rules' => self::stackRulesFor('database', $isOdoo),
+                'meta' => __('Database'),
                 'ports' => ['in' => true, 'out' => false],
-            ], 'database', $dbType));
-            $edges->push([
-                'id' => $serviceKey.'->'.$dbKey,
-                'from' => $serviceKey,
-                'to' => $dbKey,
-                'label' => 'db',
-            ]);
-            self::appendVolumeNodes($database->persistentStorages ?? collect(), $dbKey, $nodes, $edges, $href);
+            ], 'database', $dbName));
+
+            if ($hubKey !== null) {
+                $edges->push([
+                    'id' => $hubKey.'->'.$dbKey,
+                    'from' => $hubKey,
+                    'to' => $dbKey,
+                    'label' => 'db',
+                ]);
+            }
+            self::appendVolumeNodes($database->persistentStorages ?? collect(), $dbKey, $nodes, $edges);
         }
 
-        foreach (self::namedVolumesFromCompose((string) $service->docker_compose_raw) as $volumeName) {
-            $volKey = 'compose-vol:'.$service->uuid.':'.$volumeName;
-            if ($nodes->contains(fn (array $node): bool => $node['id'] === $volKey)) {
-                continue;
+        $volumeParent = $hubKey;
+        if ($volumeParent !== null) {
+            foreach (self::namedVolumesFromCompose((string) $service->docker_compose_raw) as $volumeName) {
+                $volKey = 'compose-vol:'.$service->uuid.':'.$volumeName;
+                if ($nodes->contains(fn (array $node): bool => $node['id'] === $volKey)) {
+                    continue;
+                }
+                $nodes->push(self::withIcon([
+                    'id' => $volKey,
+                    'kind' => 'volume',
+                    'label' => $volumeName,
+                    'status' => 'idle',
+                    'status_label' => __('Mounted'),
+                    'meta' => __('Persistent volume'),
+                    'ports' => ['in' => true, 'out' => false],
+                ], 'volume'));
+                $edges->push([
+                    'id' => $volumeParent.'->'.$volKey,
+                    'from' => $volumeParent,
+                    'to' => $volKey,
+                    'label' => 'mount',
+                ]);
             }
-            $nodes->push(self::withIcon([
-                'id' => $volKey,
-                'kind' => 'volume',
-                'label' => $volumeName,
-                'status' => 'idle',
-                'status_label' => __('Mounted'),
-                'href' => $href,
-                'meta' => __('Persistent volume'),
-                'ports' => ['in' => true, 'out' => false],
-            ], 'volume'));
-            $edges->push([
-                'id' => $serviceKey.'->'.$volKey,
-                'from' => $serviceKey,
-                'to' => $volKey,
-                'label' => 'mount',
-            ]);
         }
+    }
+
+    private static function stackAppKind(string $name, bool $isOdooStack): string
+    {
+        $lower = strtolower($name);
+        if (str_contains($lower, 'jupyter')) {
+            return 'jupyter';
+        }
+        if ($lower === 'monitor' || str_contains($lower, 'monitor')) {
+            return 'monitor';
+        }
+        if ($isOdooStack && str_contains($lower, 'odoo')) {
+            return 'odoo';
+        }
+
+        return 'service';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function stackRulesFor(string $kind, bool $isOdooStack): array
+    {
+        if (! $isOdooStack) {
+            return [];
+        }
+
+        return match ($kind) {
+            'odoo' => [
+                __('Requires PostgreSQL in the same stack.'),
+                __('Public HTTPS terminates on this service.'),
+                __('Optional GitHub addons sync into the extra-addons volume.'),
+            ],
+            'database' => [
+                __('Holds the Odoo database for this environment.'),
+                __('Must stay on the same Docker network as Odoo.'),
+            ],
+            'jupyter' => [
+                __('Shares the Odoo addons volume for editing.'),
+            ],
+            default => [],
+        };
     }
 
     /**
@@ -252,7 +380,7 @@ class EnvironmentCanvasGraph
      * @param  Collection<int, array<string, mixed>>  $nodes
      * @param  Collection<int, array<string, mixed>>  $edges
      */
-    private static function appendVolumeNodes(Collection $storages, string $parentKey, Collection $nodes, Collection $edges, ?string $href = null): void
+    private static function appendVolumeNodes(Collection $storages, string $parentKey, Collection $nodes, Collection $edges): void
     {
         foreach ($storages as $storage) {
             $id = (string) ($storage->id ?? $storage->name ?? uniqid('vol', true));
@@ -273,7 +401,6 @@ class EnvironmentCanvasGraph
                 'label' => (string) ($storage->name ?? $storage->mount_path ?? 'volume'),
                 'status' => 'idle',
                 'status_label' => __('Mounted'),
-                'href' => $href,
                 'meta' => __('Persistent volume'),
                 'ports' => ['in' => true, 'out' => false],
             ], 'volume'));
@@ -331,9 +458,20 @@ class EnvironmentCanvasGraph
         if ($kind === 'volume') {
             return ['icon' => null, 'glyph' => 'disk'];
         }
+        if ($kind === 'github') {
+            return ['icon' => null, 'glyph' => 'github'];
+        }
+        if ($kind === 'monitor') {
+            return ['icon' => null, 'glyph' => 'monitor'];
+        }
 
         $candidates = match ($kind) {
             'odoo' => ['svgs/odoo.svg'],
+            'jupyter' => array_values(array_filter([
+                'svgs/jupyter.svg',
+                'svgs/jupyter.png',
+                'svgs/default.webp',
+            ])),
             'database' => array_values(array_filter([
                 $hint !== '' ? "svgs/{$hint}.svg" : null,
                 $hint === 'postgresql' ? 'svgs/postgres.svg' : null,
@@ -403,12 +541,15 @@ class EnvironmentCanvasGraph
     private static function defaultPositions(Collection $nodes): array
     {
         $lanes = [
+            'github' => 0,
             'domain' => 0,
             'odoo' => 1,
             'service' => 1,
             'application' => 1,
+            'jupyter' => 1,
+            'monitor' => 1,
             'database' => 2,
-            'volume' => 2,
+            'volume' => 3,
         ];
         $counters = [];
         $out = [];
@@ -417,7 +558,7 @@ class EnvironmentCanvasGraph
             $lane = $lanes[$kind] ?? 1;
             $counters[$lane] = ($counters[$lane] ?? 0);
             $out[(string) $node['id']] = [
-                'x' => 72.0 + $lane * 360.0,
+                'x' => 72.0 + $lane * 320.0,
                 'y' => 72.0 + $counters[$lane] * 150.0,
             ];
             $counters[$lane]++;
