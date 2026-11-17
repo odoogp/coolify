@@ -3,6 +3,8 @@
 namespace App\Livewire\Server;
 
 use App\Models\CloudProviderToken;
+use App\Models\Server;
+use App\Services\Cloud\AdditionalCloudCatalog;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
 
@@ -22,19 +24,22 @@ class CreatePage extends Component
 
     public function mount(?string $type = null, ?string $token_uuid = null): void
     {
+        $this->authorize('create', Server::class);
+
         $this->type = $type;
         $this->token_uuid = $token_uuid;
+        $additional = AdditionalCloudCatalog::supports($type) ? AdditionalCloudCatalog::find($type) : null;
         $this->tokenProvider = match ($type) {
             'hetzner' => 'hetzner',
             'vultr' => 'vultr',
             'digital-ocean' => 'digitalocean',
-            default => null,
+            default => $additional['slug'] ?? null,
         };
         $this->tokenProviderName = match ($type) {
             'hetzner' => 'Hetzner',
             'vultr' => 'Vultr',
             'digital-ocean' => 'DigitalOcean',
-            default => null,
+            default => $additional['label'] ?? null,
         };
         $this->hasProviderTokens = $this->tokenProvider
             ? CloudProviderToken::ownedByCurrentTeam()->where('provider', $this->tokenProvider)->exists()
@@ -44,7 +49,8 @@ class CreatePage extends Component
             'vultr' => 'Vultr',
             'digital-ocean' => 'DigitalOcean',
             'manual' => 'Manual',
-            default => 'New Server',
+            'getodoo' => 'GetOdoo',
+            default => $additional['label'] ?? 'New Server',
         };
     }
 

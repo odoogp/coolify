@@ -1,6 +1,39 @@
 <?php
 
-use App\Livewire\Project\Service\Storage;
+it('stacks volume backup executions on a narrow screen and keeps the desktop min width', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/shared/storages/volume-backups/executions.blade.php'));
+    $css = file_get_contents(resource_path('css/app.css'));
+
+    expect($view)
+        ->toContain('volume-backup-executions-grid')
+        ->toContain('data-table w-full overflow-x-auto')
+        ->and($css)
+        ->toContain('.volume-backup-executions-grid')
+        ->toContain('min-width: 50rem;')
+        ->toContain('.data-table-header.volume-backup-executions-grid')
+        ->toContain('.data-table-row.volume-backup-executions-grid');
+});
+
+it('uses compact icon actions for volume backup executions', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/shared/storages/volume-backups/executions.blade.php'));
+
+    expect($view)
+        ->toContain('title="{{ __(\'Download backup\') }}" aria-label="{{ __(\'Download backup\') }}"')
+        ->toContain('<x-reicon name="upload" class="size-3.5 rotate-180" />')
+        ->toContain('title="{{ __(\'Delete backup\') }}" aria-label="{{ __(\'Delete backup\') }}"')
+        ->toContain('<x-reicon name="trash" class="size-3.5" />');
+});
+
+it('keeps storage backup schedule tables horizontally scrollable on mobile', function () {
+    $applicationView = file_get_contents(resource_path('views/livewire/project/application/backup/index.blade.php'));
+    $serviceView = file_get_contents(resource_path('views/livewire/project/service/volume-backup/index.blade.php'));
+    $css = file_get_contents(resource_path('css/app.css'));
+
+    expect($applicationView)->toContain('class="data-table w-full overflow-x-auto"')
+        ->and($serviceView)->toContain('class="data-table w-full overflow-x-auto"')
+        ->and($css)->toMatch('/\.backup-table-grid\s*\{[^}]*min-width:\s*50rem;/');
+});
+
 use App\Livewire\Project\Service\VolumeBackup\Create as CreateServiceVolumeBackup;
 use App\Livewire\Project\Shared\Storages\All;
 use App\Models\Application;

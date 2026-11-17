@@ -267,9 +267,22 @@ it('hides the HTTP redirect control for HTTP-only service applications', functio
         ->assertDontSee('Redirect HTTP to HTTPS');
 });
 
-it('opens address fields and service-wide redirects in the same settings dialog for every domain', function () {
-    $domains = ['https://api.example.com', 'https://www.api.example.com', 'https://admin.example.com', 'https://www.admin.example.com'];
-    $this->apiApp->update(['fqdn' => implode(',', $domains)]);
+it('gives the www direction control enough room for its label', function () {
+    $styles = file_get_contents(resource_path('css/app.css'));
+
+    expect($styles)
+        ->toContain('.domains-table-grid {
+    grid-template-columns: minmax(0, 1.8fr) 8.5rem 10rem 15.5rem 6.5rem;
+}')
+        ->toContain('.domains-table-grid-compose {
+    grid-template-columns: minmax(0, 1.6fr) minmax(6rem, 0.8fr) 8.5rem 10rem 15.5rem 6.5rem;
+}');
+});
+
+it('shows one redirect control for each www and non-www pair', function () {
+    $this->apiApp->update([
+        'fqdn' => 'https://api.example.com,https://www.api.example.com,https://admin.example.com,https://www.admin.example.com',
+    ]);
 
     $component = Livewire::test(Domains::class, ['service' => $this->service->fresh(['applications', 'server'])]);
 
@@ -486,6 +499,25 @@ it('keeps a stable key for the rendered domain list', function () {
         ->toContain('wire:key="service-domains-list"')
         ->toContain('wire:key="service-domain-rows-{{ $appId }}"')
         ->not->toContain('md5(serialize($domainRows))');
+});
+
+it('provides client-side search for service domains', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/service/domains.blade.php'));
+
+    expect($view)
+        ->toContain('x-model="domainSearch"')
+        ->toContain('class="ml-auto flex flex-wrap items-center gap-2"')
+        ->toContain('<div class="relative shrink-0">')
+        ->toContain('placeholder="{{ __(\'Search services or domains\') }}"')
+        ->toContain('x-show="matchesDomainSearch(')
+        ->toContain('title="{{ __(\'No domains found\') }}"')
+        ->toContain('hasDomainSearchResults(');
+});
+
+it('does not duplicate the service name as a badge in the domain cell', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/service/partials/domain-table.blade.php'));
+
+    expect($view)->not->toContain('domains-service-mobile table-badge');
 });
 
 it('rolls back a domain change when compose regeneration fails', function () {

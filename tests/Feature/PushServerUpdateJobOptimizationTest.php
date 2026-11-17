@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ProxyTypes;
 use App\Jobs\ConnectProxyToNetworksJob;
 use App\Jobs\PushServerUpdateJob;
 use App\Jobs\ServerStorageCheckJob;
@@ -227,4 +228,50 @@ it('uses default queue for PushServerUpdateJob', function () {
     $job = new PushServerUpdateJob($server, ['containers' => []]);
 
     expect($job->queue)->toBeNull();
+});
+
+it('dispatches ConnectProxyToNetworksJob for Custom proxy with external_proxy_name', function () {
+    $team = Team::factory()->create();
+    $server = Server::factory()->create(['team_id' => $team->id]);
+    $server->settings->update([
+        'is_reachable' => true,
+        'is_usable' => true,
+        'force_disabled' => false,
+        'is_build_server' => false,
+    ]);
+    $server->proxy->type = ProxyTypes::NONE->value;
+    $server->proxy->external_proxy_name = 'easypanel-traefik';
+    $server->save();
+    $server = $server->fresh(['settings']);
+
+    expect($server->usesExternalProxyNetworkConnect())->toBeTrue()
+        ->and($server->isProxyShouldRun())->toBeFalse();
+
+    $data = [
+        'containers' => [],
+        'filesystem_usage_root' => ['used_percentage' => 10],
+    ];
+
+    (new PushServerUpdateJob($server, $data))->handle();
+
+    Queue::assertPushed(ConnectProxyToNetworksJob::class, 1);
+});
+
+it('does not dispatch ConnectProxyToNetworksJob for Custom proxy without external name', function () {
+    $team = Team::factory()->create();
+    $server = Server::factory()->create(['team_id' => $team->id]);
+    $server->settings->update([
+        'is_reachable' => true,
+        'is_usable' => true,
+    ]);
+    $server->proxy->type = ProxyTypes::NONE->value;
+    $server->save();
+    $server = $server->fresh(['settings']);
+
+    (new PushServerUpdateJob($server, [
+        'containers' => [],
+        'filesystem_usage_root' => ['used_percentage' => 10],
+    ]))->handle();
+
+    Queue::assertNotPushed(ConnectProxyToNetworksJob::class);
 });

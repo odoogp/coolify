@@ -5,11 +5,14 @@ $sshCommandTimeout = (int) env('SSH_COMMAND_TIMEOUT', 3600);
 
 return [
     'coolify' => [
-        'version' => env('COOLIFY_VERSION') ?: '4.4',
-        'helper_version' => '1.0.17',
+        'version' => ($version = env('COOLIFY_VERSION')) && $version !== 'local' ? $version : '4.3.12',
+        'helper_version' => '1.0.15',
+        'realtime_version' => '1.0.17',
         'railpack_version' => '0.23.0',
         'self_hosted' => env('SELF_HOSTED', true),
         'autoupdate' => env('AUTOUPDATE'),
+        'local_build' => env('COOLIFY_LOCAL_BUILD', false),
+        'image' => env('COOLIFY_IMAGE'),
         'base_config_path' => env('BASE_CONFIG_PATH', '/data/coolify'),
         // Development only: Docker volumes that the testing-host server mounts at /data/coolify and /data/coolify/backups.
         // devHostDockerPath() uses them only for that server. The defaults are the legacy docker-compose.dev.yml names.
@@ -26,12 +29,13 @@ return [
 
     'urls' => [
         'docs' => 'https://coolify.io/docs',
-        'contact' => 'https://coolify.io/docs/contact',
+        'contact' => 'https://getdte.com.sv',
     ],
 
     'services' => [
         'official' => 'https://cdn.coollabs.io/coolify/service-templates-latest.json',
         'file_name' => 'service-templates-latest.json',
+        'compose_path' => base_path('templates/compose'),
         // Shared across HTTP/Horizon nodes when CACHE_DRIVER is redis (default).
         'cache_key' => 'coolify:service-templates-bundle',
     ],
@@ -148,5 +152,10 @@ return [
         //   - 1000 servers: 200s
         //   - 2000 servers: 300s (hits maximum)
         'notification_delay_scaling' => 0.2,
+    ],
+
+    'getodoo' => [
+        // ISO 3166-1 alpha-2 override for plan signup geo (tests / local without CF-IPCountry).
+        'force_country_iso' => env('GETODOO_FORCE_COUNTRY_ISO'),
     ],
 ];

@@ -7,6 +7,7 @@ use App\Actions\Server\InstallDocker;
 use App\Actions\Server\InstallPrerequisites;
 use App\Actions\Server\StartSentinel;
 use App\Actions\Server\ValidatePrerequisites;
+use App\Domain\Odoo\OdooDomains;
 use App\Enums\ProxyTypes;
 use App\Enums\ServerRole;
 use App\Events\ServerReachabilityChanged;
@@ -26,6 +27,7 @@ use App\Traits\Auditable;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasMetrics;
 use App\Traits\HasSafeStringAttribute;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -283,7 +285,9 @@ class Server extends BaseModel
         'delete_unused_volumes' => 'boolean',
         'delete_unused_networks' => 'boolean',
         'force_disabled' => 'boolean',
-        'sentinel_waiting_since' => 'datetime',
+        'getodoo_paid_until' => 'date',
+        'getodoo_billing_anchor' => 'date',
+        'getodoo_recurring_starts_at' => 'date',
     ];
 
     /**
@@ -315,6 +319,17 @@ class Server extends BaseModel
         'vultr_instance_status',
         'digitalocean_droplet_id',
         'digitalocean_droplet_status',
+        'provider_server_id',
+        'provider_server_status',
+        'getodoo_offer_id',
+        'getodoo_monthly_price',
+        'getodoo_paid_until',
+        'getodoo_billing_anchor',
+        'getodoo_billing_preference',
+        'getodoo_recurring_starts_at',
+        'n1co_plan_id',
+        'n1co_subscription_id',
+        'n1co_subscription_status',
         'is_validating',
         'validation_logs',
         'detected_traefik_version',
@@ -591,6 +606,112 @@ class Server extends BaseModel
         return $this->proxyType() && $this->proxyType() !== 'NONE' && $this->isFunctional() && ! $this->isSwarmWorker() && $this->canHostResources();
     }
 
+    /**
+     * Docker name filter for an external reverse proxy (Custom / NONE).
+     * Used with `docker ps --filter name=…` (substring match), e.g. easypanel-traefik.
+     */
+    public function externalProxyName(): ?string
+    {
+        $name = trim((string) data_get($this->proxy, 'external_proxy_name', ''));
+        if ($name === '' || preg_match('/\A[A-Za-z0-9][A-Za-z0-9_.-]{0,127}\z/', $name) !== 1) {
+            return null;
+        }
+
+        return $name;
+    }
+
+    public function usesExternalProxyNetworkConnect(): bool
+    {
+        return $this->proxyType() === ProxyTypes::NONE->value
+            && $this->externalProxyName() !== null
+            && $this->isFunctional()
+            && ! $this->isSwarmWorker()
+            && ! $this->settings->is_build_server;
+    }
+
+    /**
+     * Traefik tls.certresolver for generated labels.
+     *
+     * Custom + external proxy (EasyPanel):
+     * - Explicit proxy.cert_resolver → always that ACME resolver.
+     * - Hosts like sslip.io / nip.io → ACME (`letsencrypt`) so the default
+     *   public URL still gets a real certificate without a project subdomain.
+     * - Hosts under Settings → Odoo base domain (project subdomains) → ACME,
+     *   because EasyPanel rarely has a mounted cert per client subdomain.
+     * - Other custom hosts → omit resolver so file-mounted / store certs match
+     *   by SNI (e.g. a one-off domain you terminated in EasyPanel).
+     *
+     * @return string|null Null means do not emit tls.certresolver=
+     */
+    public function traefikTlsCertResolver(?string $host = null, ?string $odooBaseDomain = null): ?string
+    {
+        if (! $this->usesExternalProxyNetworkConnect()) {
+            return 'letsencrypt';
+        }
+
+        $configured = data_get($this->proxy, 'cert_resolver');
+        if (is_string($configured) && trim($configured) !== '') {
+            $name = trim($configured);
+            if (preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,63}\z/', $name) === 1) {
+                return $name;
+            }
+        }
+
+        if (is_string($host) && $host !== '' && self::hostNeedsAcmeOnExternalProxy($host, $odooBaseDomain)) {
+            return 'letsencrypt';
+        }
+
+        return null;
+    }
+
+    /**
+     * Hosts that need ACME on EasyPanel when no explicit proxy.cert_resolver is set.
+     *
+     * @param  string|null  $odooBaseDomain  Override for tests; production reads InstanceSettings.
+     */
+    public static function hostNeedsAcmeOnExternalProxy(string $host, ?string $odooBaseDomain = null): bool
+    {
+        $host = strtolower(trim($host));
+        if ($host === '') {
+            return false;
+        }
+
+        if (
+            str_ends_with($host, '.sslip.io')
+            || $host === 'sslip.io'
+            || str_ends_with($host, '.nip.io')
+            || $host === 'nip.io'
+        ) {
+            return true;
+        }
+
+        // Project subdomains: {subdomain}.{odoo_base_domain} and staging variants.
+        $raw = $odooBaseDomain;
+        if ($raw === null) {
+            try {
+                $raw = (string) (instanceSettings()->odoo_base_domain ?? '');
+            } catch (\Throwable) {
+                $raw = '';
+            }
+        }
+
+        $base = OdooDomains::normalizedBaseDomain((string) $raw);
+        if ($base === '') {
+            return false;
+        }
+
+        return $host === $base || str_ends_with($host, '.'.$base);
+    }
+
+    /**
+     * Whether Coolify should attach a proxy container to coolify.managed networks.
+     * Managed Traefik/Caddy use coolify-proxy; Custom uses external_proxy_name when set.
+     */
+    public function shouldReconcileProxyNetworks(): bool
+    {
+        return $this->proxySet() || $this->usesExternalProxyNetworkConnect();
+    }
+
     public function setupDefaultRedirect()
     {
         $banner =
@@ -720,27 +841,6 @@ class Server extends BaseModel
                                 'service' => 'coolify',
                                 'rule' => "Host(`{$host}`)",
                             ],
-                            'coolify-reverb-ws' => [
-                                'entryPoints' => [
-                                    0 => 'http',
-                                ],
-                                'service' => 'coolify-reverb',
-                                'rule' => "Host(`{$host}`) && PathPrefix(`/app`)",
-                            ],
-                            'coolify-reverb-api' => [
-                                'entryPoints' => [
-                                    0 => 'http',
-                                ],
-                                'service' => 'coolify-reverb',
-                                'rule' => "Host(`{$host}`) && PathPrefix(`/apps`)",
-                            ],
-                            'coolify-terminal-ws' => [
-                                'entryPoints' => [
-                                    0 => 'http',
-                                ],
-                                'service' => 'coolify-terminal',
-                                'rule' => "Host(`{$host}`) && PathPrefix(`/terminal/ws`)",
-                            ],
                         ],
                         'services' => [
                             'coolify' => [
@@ -748,24 +848,6 @@ class Server extends BaseModel
                                     'servers' => [
                                         0 => [
                                             'url' => 'http://coolify:8080',
-                                        ],
-                                    ],
-                                ],
-                            ],
-                            'coolify-reverb' => [
-                                'loadBalancer' => [
-                                    'servers' => [
-                                        0 => [
-                                            'url' => 'http://coolify:6001',
-                                        ],
-                                    ],
-                                ],
-                            ],
-                            'coolify-terminal' => [
-                                'loadBalancer' => [
-                                    'servers' => [
-                                        0 => [
-                                            'url' => 'http://coolify:6002',
                                         ],
                                     ],
                                 ],
@@ -786,36 +868,6 @@ class Server extends BaseModel
                         ],
                         'service' => 'coolify',
                         'rule' => "Host(`{$host}`)",
-                        'tls' => [
-                            'certresolver' => 'letsencrypt',
-                        ],
-                    ];
-                    $traefik_dynamic_conf['http']['routers']['coolify-reverb-wss'] = [
-                        'entryPoints' => [
-                            0 => 'https',
-                        ],
-                        'service' => 'coolify-reverb',
-                        'rule' => "Host(`{$host}`) && PathPrefix(`/app`)",
-                        'tls' => [
-                            'certresolver' => 'letsencrypt',
-                        ],
-                    ];
-                    $traefik_dynamic_conf['http']['routers']['coolify-reverb-api-https'] = [
-                        'entryPoints' => [
-                            0 => 'https',
-                        ],
-                        'service' => 'coolify-reverb',
-                        'rule' => "Host(`{$host}`) && PathPrefix(`/apps`)",
-                        'tls' => [
-                            'certresolver' => 'letsencrypt',
-                        ],
-                    ];
-                    $traefik_dynamic_conf['http']['routers']['coolify-terminal-wss'] = [
-                        'entryPoints' => [
-                            0 => 'https',
-                        ],
-                        'service' => 'coolify-terminal',
-                        'rule' => "Host(`{$host}`) && PathPrefix(`/terminal/ws`)",
                         'tls' => [
                             'certresolver' => 'letsencrypt',
                         ],
@@ -848,15 +900,6 @@ class Server extends BaseModel
                 $caddy_file = "
 $siteAddress {
     encode zstd gzip
-    handle /app/* {
-        reverse_proxy coolify:6001
-    }
-    handle /apps* {
-        reverse_proxy coolify:6001
-    }
-    handle /terminal/ws {
-        reverse_proxy coolify:6002
-    }
     reverse_proxy coolify:8080
 }";
                 $base64 = base64_encode($caddy_file);
@@ -1553,6 +1596,28 @@ $siteAddress {
     public function team()
     {
         return $this->belongsTo(Team::class);
+    }
+
+    public function getodooOffer()
+    {
+        return $this->belongsTo(GetOdooServerOffer::class, 'getodoo_offer_id');
+    }
+
+    public function prefersRecurringBilling(): bool
+    {
+        return ($this->getodoo_billing_preference ?: 'once') === 'recurring';
+    }
+
+    /**
+     * First day a recurring charge may run — never earlier than the current paid period end.
+     */
+    public function recurringBillingStartsAt(): ?CarbonInterface
+    {
+        if (! $this->prefersRecurringBilling()) {
+            return null;
+        }
+
+        return $this->getodoo_recurring_starts_at ?? $this->getodoo_paid_until;
     }
 
     /**

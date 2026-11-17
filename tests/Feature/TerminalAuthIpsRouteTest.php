@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\PrivateKey;
+use App\Models\Project;
 use App\Models\Server;
+use App\Models\Service;
+use App\Models\StandaloneDocker;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -47,5 +50,33 @@ it('includes development terminal host aliases for authenticated users', functio
         ->toContain('coolify-testing-host')
         ->toContain('localhost')
         ->toContain('127.0.0.1')
+        ->toContain('host.docker.internal');
+});
+
+it('authorizes a host the team does not own when one of its services runs there', function () {
+    config()->set('app.env', 'production');
+
+    $hostTeam = Team::factory()->create();
+    $host = Server::factory()->create([
+        'name' => 'GPSH host',
+        'ip' => 'host.docker.internal',
+        'team_id' => $hostTeam->id,
+        'private_key_id' => $this->privateKey->id,
+    ]);
+
+    expect($this->postJson('/terminal/auth/ips')->assertSuccessful()->json('ipAddresses'))
+        ->not->toContain('host.docker.internal');
+
+    $project = Project::factory()->create(['team_id' => $this->team->id]);
+    $environment = $project->environments()->first();
+    $destination = StandaloneDocker::query()->where('server_id', $host->id)->first();
+    Service::factory()->create([
+        'environment_id' => $environment->id,
+        'server_id' => $host->id,
+        'destination_id' => $destination->id,
+        'destination_type' => $destination->getMorphClass(),
+    ]);
+
+    expect($this->postJson('/terminal/auth/ips')->json('ipAddresses'))
         ->toContain('host.docker.internal');
 });

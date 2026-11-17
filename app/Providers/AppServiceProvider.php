@@ -2,9 +2,7 @@
 
 namespace App\Providers;
 
-use App\Auth\Oidc\OidcDiscoveryService;
-use App\Auth\Oidc\OidcTokenValidator;
-use App\Auth\Oidc\Socialite\OidcProvider;
+use App\Filesystem\ResilientFilesystem;
 use App\Models\PersonalAccessToken;
 use App\Models\Server;
 use App\Rules\SafeExternalUrl;
@@ -25,6 +23,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(StripeClient::class, fn () => new StripeClient(config('subscription.stripe_api_key')));
+        $this->app->extend('files', fn ($files, $app) => new ResilientFilesystem);
     }
 
     public function boot(): void

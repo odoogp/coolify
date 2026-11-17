@@ -1,24 +1,245 @@
 @php use App\Enums\ProxyTypes; @endphp
 <x-slot:title>
-    Onboarding | Coolify
-    </x-slot>
+    {{ __('Onboarding') }} | {{ product_name() }}
+</x-slot>
+
+@if ($getOdooBoarding)
+    <x-auth.shell wide scroll tunnel="split" :title="product_name()" :description="$getOdooShellDescription">
+        @if ($currentState === 'getodoo-welcome')
+            <x-slot:overlay>
+                <div class="getodoo-fireworks" x-cloak x-show="on" x-init="arm()" x-data="{
+                    on: false,
+                    begin() {
+                        if (this.on) {
+                            return;
+                        }
+                        this.on = true;
+                        setTimeout(() => { this.on = false }, 4000);
+                    },
+                    arm() {
+                        const begin = () => this.begin();
+                        document.querySelectorAll('.flow-tunnel video').forEach((video) => {
+                            if (!video.paused && video.currentTime > 0) {
+                                begin();
+                            }
+                            video.addEventListener('playing', begin, { once: true });
+                        });
+                    }
+                }">
+                    <span class="getodoo-firework-glow"></span>
+                    @foreach ([
+                        ['x' => '8%', 'y' => '16%', 'c' => '#ff4fd8', 'd' => '0s'],
+                        ['x' => '90%', 'y' => '14%', 'c' => '#7af0ff', 'd' => '0.18s'],
+                        ['x' => '22%', 'y' => '10%', 'c' => '#ffe14a', 'd' => '0.4s'],
+                        ['x' => '74%', 'y' => '12%', 'c' => '#ff7a3c', 'd' => '0.62s'],
+                        ['x' => '4%', 'y' => '46%', 'c' => '#c084fc', 'd' => '0.88s'],
+                        ['x' => '96%', 'y' => '50%', 'c' => '#7dffb3', 'd' => '1.12s'],
+                        ['x' => '16%', 'y' => '84%', 'c' => '#ff5a7a', 'd' => '1.38s'],
+                        ['x' => '84%', 'y' => '82%', 'c' => '#ffe14a', 'd' => '1.62s'],
+                        ['x' => '36%', 'y' => '6%', 'c' => '#7af0ff', 'd' => '1.9s'],
+                        ['x' => '64%', 'y' => '90%', 'c' => '#ff4fd8', 'd' => '2.15s'],
+                        ['x' => '12%', 'y' => '64%', 'c' => '#ffffff', 'd' => '2.4s'],
+                        ['x' => '88%', 'y' => '32%', 'c' => '#ffd166', 'd' => '2.65s'],
+                    ] as $burst)
+                        <span class="getodoo-firework"
+                            style="--x: {{ $burst['x'] }}; --y: {{ $burst['y'] }}; --c: {{ $burst['c'] }}; --d: {{ $burst['d'] }};"></span>
+                    @endforeach
+                </div>
+            </x-slot:overlay>
+        @endif
+        <div class="mx-auto w-full max-w-xl">
+            @php
+                $tourStep = match ($currentState) {
+                    'getodoo-welcome' => 1,
+                    'getodoo-project' => 2,
+                    'getodoo-invite' => 3,
+                    'getodoo-servers' => 4,
+                    default => 1,
+                };
+                $tourLabels = [__('Welcome'), __('Project'), __('Team'), __('Server')];
+            @endphp
+            <div class="auth-boarding-path">
+                <p class="auth-boarding-kicker">{{ __('Step :current of :total', ['current' => $tourStep, 'total' => count($tourLabels)]) }}</p>
+                <ol class="auth-boarding-steps">
+                    @foreach ($tourLabels as $index => $label)
+                        <li @class([
+                            'auth-boarding-step',
+                            'is-current' => $tourStep === $index + 1,
+                            'is-done' => $tourStep > $index + 1,
+                        ])>
+                            <span class="auth-boarding-num">{{ $index + 1 }}</span>
+                            <span class="auth-boarding-label">{{ $label }}</span>
+                        </li>
+                    @endforeach
+                </ol>
+            </div>
+
+            @if ($currentState === 'getodoo-welcome')
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Getting started') }}</p>
+                        <h2 class="auth-plan-name">{{ __('Welcome to :product', ['product' => product_name()]) }}</h2>
+                        <p class="auth-plan-copy mt-2">
+                            {{ __('Your account is ready.') }}
+                        </p>
+                    </div>
+
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="startGetOdooProject" isHighlighted
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <path d="M5.8 11.3 2 22l10.7-3.79" />
+                            <path d="M4 3h.01" />
+                            <path d="M22 8h.01" />
+                            <path d="M15 2h.01" />
+                            <path d="M22 20h.01" />
+                            <path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" />
+                            <path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11-.11.7-.72 1.22-1.43 1.22H17" />
+                            <path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7" />
+                            <path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z" />
+                        </svg>
+                        {{ __('Continue to create your first project') }}
+                    </x-forms.button>
+                    <button type="button" wire:click="finishGetOdooBoarding"
+                        class="auth-text-link self-center text-center text-[13px]">
+                        {{ __('Skip setup') }}
+                    </button>
+                </div>
+            @elseif ($currentState === 'getodoo-project')
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Project') }}</p>
+                        <h2 class="auth-plan-name">{{ __('Project name') }}</h2>
+                        <p class="auth-plan-copy mt-2">
+                            {{ __('Name the project. A production environment is created with it.') }}
+                        </p>
+                    </div>
+                    <x-forms.input id="projectName" label="{{ __('Project name') }}" required />
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="createGetOdooProject" isHighlighted
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                        {{ __('Continue to invite your team') }}
+                    </x-forms.button>
+                </div>
+            @elseif ($currentState === 'getodoo-invite')
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Team') }}</p>
+                        <h2 class="auth-plan-name">{{ __('Invite your team') }}</h2>
+                        <p class="auth-plan-copy mt-2">
+                            {{ __('Add each person. The list shows who is already invited.') }}
+                        </p>
+                    </div>
+                    <x-forms.input id="inviteName" label="{{ __('Name') }}" required />
+                    <x-forms.input id="inviteEmail" type="email" label="{{ __('Email') }}" required />
+                    <x-forms.listbox id="inviteRole" label="{{ __('Profile') }}" :options="[
+                        ['value' => 'admin', 'label' => __('Admin')],
+                        ['value' => 'member', 'label' => __('Guest')],
+                    ]" />
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="inviteGetOdooTeammate"
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                            <circle cx="9" cy="7" r="4" />
+                            <line x1="19" x2="19" y1="8" y2="14" />
+                            <line x1="22" x2="16" y1="11" y2="11" />
+                        </svg>
+                        {{ __('Add person') }}
+                    </x-forms.button>
+                    <div class="flex flex-col gap-2">
+                        <p class="text-[13px] font-semibold">{{ __('People already invited') }}</p>
+                        @if (count($invitedTeammates) === 0)
+                            <p class="text-[13px] leading-5 text-neutral-600">{{ __('No one invited yet.') }}</p>
+                        @else
+                            <ul class="flex flex-col gap-2">
+                                @foreach ($invitedTeammates as $person)
+                                    <li wire:key="invited-{{ $person['email'] }}"
+                                        class="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-white/70 px-3 py-2 text-[13px]">
+                                        <span class="min-w-0">
+                                            <span class="block truncate font-semibold">{{ $person['name'] }}</span>
+                                            <span class="block truncate text-neutral-600">{{ $person['email'] }}</span>
+                                        </span>
+                                        <span class="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-[12px] font-semibold">
+                                            {{ $person['role'] === 'admin' ? __('Admin') : __('Guest') }}
+                                        </span>
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @endif
+                    </div>
+                    <x-forms.button class="w-full justify-center gap-2" wire:click="continueToGetOdooServer" isHighlighted
+                        :showLoadingIndicator="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="size-4 shrink-0"
+                            aria-hidden="true">
+                            <rect width="20" height="8" x="2" y="2" rx="2" />
+                            <rect width="20" height="8" x="2" y="14" rx="2" />
+                            <path d="M6 6h.01" />
+                            <path d="M6 18h.01" />
+                        </svg>
+                        {{ __('Continue to create a server') }}
+                    </x-forms.button>
+                </div>
+            @else
+                <div class="auth-plan-account flex flex-col gap-5">
+                    <div>
+                        <p class="auth-plan-kicker">{{ __('Server') }}</p>
+                        <h2 class="auth-plan-name">{{ __('This finishes the assistant.') }}</h2>
+                        <p class="auth-plan-copy mt-2">
+                            {{ __('Thank you for being part of the :product team.', ['product' => product_name()]) }}
+                        </p>
+                    </div>
+                    <div class="flex w-full flex-col gap-3">
+                        @if ($canAddServers)
+                            <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
+                                isHighlighted>
+                                {{ __('Create a new server') }}
+                            </x-forms.button>
+                            <button type="button" wire:click="finishGetOdooBoarding"
+                                class="auth-text-link self-center text-center text-[13px]">
+                                {{ __('Go to the dashboard') }}
+                            </button>
+                        @else
+                            <p class="text-[13px] leading-5">
+                                {{ __('Adding new servers is not included in this plan. Contact an advisor if you need that.') }}
+                            </p>
+                            <x-forms.button class="w-full justify-center" wire:click="finishGetOdooBoarding" isHighlighted>
+                                {{ __('Go to the dashboard') }}
+                            </x-forms.button>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </div>
+    </x-auth.shell>
+@else
     <section class="application-settings-form w-full py-6">
         <div class="flex w-full flex-col items-center space-y-6">
             @if ($currentState === 'welcome')
                 <div class="w-full max-w-3xl">
                     <div class="mb-6 text-center">
-                        <h1 class="text-2xl! font-semibold!">Welcome to Coolify</h1>
+                        <h1 class="text-2xl! font-semibold!">{{ __('Welcome to :product', ['product' => product_name()]) }}</h1>
                         <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
-                            Connect your first server and start deploying in minutes.
+                            {{ __('Connect your first server and start deploying in minutes.') }}
                         </p>
                     </div>
 
-                    <x-application.settings-section title="What you will set up" flush>
+                    <x-application.settings-section title="{{ __('What you will set up') }}" flush>
                         <div class="divide-y divide-neutral-200 dark:divide-white/[0.07]">
                             @foreach ([
-                                ['icon' => 'servers', 'title' => 'Server connection', 'description' => 'Connect through SSH to host your resources.'],
-                                ['icon' => 'settings', 'title' => 'Docker environment', 'description' => 'Validate and configure the deployment runtime.'],
-                                ['icon' => 'projects', 'title' => 'Project structure', 'description' => 'Create a project and its first environment.'],
+                                ['icon' => 'servers', 'title' => __('Server connection'), 'description' => __('Connect through SSH to host your resources.')],
+                                ['icon' => 'settings', 'title' => __('Docker environment'), 'description' => __('Validate and configure the deployment runtime.')],
+                                ['icon' => 'projects', 'title' => __('Project structure'), 'description' => __('Create a project and its first environment.')],
                             ] as $onboardingItem)
                                 <div class="flex min-h-14 items-center gap-3 px-4 py-3">
                                     <span
@@ -37,21 +258,21 @@
                     <div class="mt-5 flex flex-col items-center gap-4">
                         <x-forms.button class="w-full justify-center sm:w-auto sm:min-w-36" wire:click="explanation"
                             isHighlighted>
-                            Continue
+                            {{ __('Continue') }}
                         </x-forms.button>
                         <div
                             class="inline-flex flex-wrap items-center justify-center gap-0.5 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-white/[0.08] dark:bg-white/[0.05]">
                             <button type="button" wire:click="skipBoarding"
                                 class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                                 <x-reicon name="arrow-right" class="size-3.5 shrink-0" />
-                                Skip setup
+                                {{ __('Skip setup') }}
                             </button>
-                            <x-modal-input title="Need Help?">
+                            <x-modal-input title="{{ __('Need Help?') }}">
                                 <x-slot:content>
                                     <button type="button"
                                         class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                                         <x-reicon name="feedback" class="size-3.5 shrink-0" />
-                                        Contact support
+                                        {{ __('Contact support') }}
                                     </button>
                                 </x-slot:content>
                                 <livewire:help />
@@ -61,49 +282,47 @@
                 </div>
             @elseif ($currentState === 'explanation')
                 <x-boarding-progress :currentStep="0" />
-                <x-boarding-step title="Platform Overview">
+                <x-boarding-step title="{{ __('Platform Overview') }}">
                     <x-slot:question>
-                        Coolify automates deployment and infrastructure management on your own servers. Deploy applications
-                        from Git, manage databases, and monitor everything without vendor lock-in.
+                        {{ __(':product automates deployment and infrastructure on your own servers.', ['product' => product_name()]) }}
                     </x-slot:question>
                     <x-slot:explanation>
                         <p>
-                            <x-highlighted text="Automation:" /> Coolify handles server configuration, Docker management,
-                            and
-                            deployments automatically.
+                            <x-highlighted text="{{ __('Automation:') }}" />
+                            {{ __('Server configuration, Docker, and deployments stay on your infrastructure.') }}
                         </p>
                         <p>
-                            <x-highlighted text="Self-hosted:" /> All data and configurations live on your infrastructure.
-                            Works offline except for external integrations.
+                            <x-highlighted text="{{ __('Self-hosted:') }}" />
+                            {{ __('Works offline except for external integrations.') }}
                         </p>
                         <p>
-                            <x-highlighted text="Monitoring & Alerts:" /> Get real-time notifications via Discord, Telegram,
-                            Email, and other platforms.
+                            <x-highlighted text="{{ __('Monitoring & Alerts:') }}" />
+                            {{ __('Get real-time notifications via Discord, Telegram, Email, and other platforms.') }}
                         </p>
                     </x-slot:explanation>
                     <x-slot:actions>
                         <x-forms.button class="w-full justify-center lg:w-auto" wire:click="explanation"
                             isHighlighted>
-                            Continue
+                            {{ __('Continue') }}
                         </x-forms.button>
                     </x-slot:actions>
                 </x-boarding-step>
             @elseif ($currentState === 'select-server-type')
                 <x-boarding-progress :currentStep="1" />
-                <x-boarding-step title="Choose Server Type">
+                <x-boarding-step title="{{ __('Choose Server Type') }}">
                     <x-slot:question>
-                        Select where to deploy your applications and databases. You can add more servers later.
+                        {{ __('Select where to deploy your applications and databases. You can add more servers later.') }}
                     </x-slot:question>
                     <x-slot:actions>
                         <div class="w-full space-y-6">
                             <section>
-                                <h3 class="text-base font-semibold">Add a server</h3>
-                                <p class="mb-3 text-sm text-neutral-500 dark:text-neutral-400">Use this machine or connect a server you already manage.</p>
+                                <h3 class="text-base font-semibold">{{ __('Add a server') }}</h3>
+                                <p class="mb-3 text-sm text-neutral-500 dark:text-neutral-400">{{ __('Use this machine or connect a server you already manage.') }}</p>
                                 <div class="grid w-full grid-cols-1 gap-4 lg:grid-cols-2">
                             <button
                                 class="group relative cursor-pointer min-h-36 rounded-[10px] border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"
                                 wire:target="setServerType('localhost')" wire:click="setServerType('localhost')">
-                                <span role="button" tabindex="0" aria-label="About this machine"
+                                <span role="button" tabindex="0" aria-label="{{ __('About this machine') }}"
                                     data-tooltip="The machine running Coolify. Not recommended for production workloads due to resource contention."
                                     @click.stop @keydown.enter.stop @keydown.space.prevent.stop
                                     class="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border border-neutral-200 text-[11px] font-semibold text-neutral-500 hover:border-coollabs/35 hover:text-coollabs dark:border-white/[0.1] dark:text-fg-dim dark:hover:border-warning/30 dark:hover:text-warning">i</span>
@@ -114,9 +333,9 @@
                                             d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.7L5.737 5.1a3.375 3.375 0 012.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 01.9 2.7m0 0a3 3 0 01-3 3m0 3h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008zm-3 6h.008v.008h-.008v-.008zm0-6h.008v.008h-.008v-.008z" />
                                     </svg>
                                     <div>
-                                        <h3 class="mb-1 text-[14px] font-semibold">This machine</h3>
+                                        <h3 class="mb-1 text-[14px] font-semibold">{{ __('This machine') }}</h3>
                                         <p class="text-sm dark:text-neutral-400">
-                                            Deploy on the server running Coolify. Best for testing and single-server setups.
+                                            {{ __('Deploy on the server running Coolify. Best for testing and single-server setups.') }}
                                         </p>
                                     </div>
                                 </div>
@@ -127,7 +346,7 @@
                             <button
                                 class="group relative cursor-pointer min-h-36 rounded-[10px] border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"
                                 wire:target="setServerType('remote')" wire:click="setServerType('remote')">
-                                <span role="button" tabindex="0" aria-label="About remote servers"
+                                <span role="button" tabindex="0" aria-label="{{ __('About remote servers') }}"
                                     data-tooltip="Any SSH-accessible server, including cloud VPS, bare metal, and self-hosted infrastructure."
                                     @click.stop @keydown.enter.stop @keydown.space.prevent.stop
                                     class="absolute top-3 right-3 flex size-6 items-center justify-center rounded-full border border-neutral-200 text-[11px] font-semibold text-neutral-500 hover:border-coollabs/35 hover:text-coollabs dark:border-white/[0.1] dark:text-fg-dim dark:hover:border-warning/30 dark:hover:text-warning">i</span>
@@ -138,9 +357,9 @@
                                             d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z" />
                                     </svg>
                                     <div>
-                                        <h3 class="mb-1 text-[14px] font-semibold">IP address or domain</h3>
+                                        <h3 class="mb-1 text-[14px] font-semibold">{{ __('IP address or domain') }}</h3>
                                         <p class="text-sm dark:text-neutral-400">
-                                            Connect via SSH using a server IP address or domain.
+                                            {{ __('Connect via SSH using a server IP address or domain.') }}
                                         </p>
                                     </div>
                                 </div>
@@ -150,21 +369,21 @@
 
                             @can('viewAny', App\Models\CloudProviderToken::class)
                                 <section>
-                                    <h3 class="text-base font-semibold">Provision a server</h3>
-                                    <p class="mb-3 text-sm text-neutral-500 dark:text-neutral-400">Create a server with a cloud provider.</p>
+                                    <h3 class="text-base font-semibold">{{ __('Provision a server') }}</h3>
+                                    <p class="mb-3 text-sm text-neutral-500 dark:text-neutral-400">{{ __('Create a server with a cloud provider.') }}</p>
                                     <div class="grid w-full grid-cols-1 gap-4 lg:grid-cols-2">
                                 @if ($currentState === 'select-server-type')
-                                    <x-modal-input title="Connect a Hetzner Server" isFullWidth>
+                                    <x-modal-input title="{{ __('Connect a Hetzner Server') }}" isFullWidth>
                                         <x-slot:content>
                                             <div
                                                 class="group relative cursor-pointer flex h-full min-h-36 flex-col rounded-[10px] border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]">
                                                 <div class="flex h-full flex-col gap-4 text-left">
-                                                    <img src="{{ asset('svgs/hetzner.svg') }}" alt="Hetzner"
+                                                    <img src="{{ asset('svgs/hetzner.svg') }}" alt="{{ __('Hetzner') }}"
                                                         class="size-10 shrink-0">
                                                     <div class="min-h-0 flex-1">
-                                                        <h3 class="mb-1 text-[14px] font-semibold">Hetzner Cloud</h3>
+                                                        <h3 class="mb-1 text-[14px] font-semibold">{{ __('Hetzner Cloud') }}</h3>
                                                         <p class="text-sm dark:text-neutral-400">
-                                                            Deploy servers directly from your Hetzner Cloud account.
+                                                            {{ __('Deploy servers directly from your Hetzner Cloud account.') }}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -172,17 +391,17 @@
                                         </x-slot:content>
                                         <livewire:server.new.by-hetzner :limit_reached="false" :from_onboarding="true" />
                                     </x-modal-input>
-                                    <x-modal-input title="Connect a Vultr Server" isFullWidth>
+                                    <x-modal-input title="{{ __('Connect a Vultr Server') }}" isFullWidth>
                                         <x-slot:content>
                                             <div
                                                 class="group relative cursor-pointer flex h-full min-h-36 flex-col rounded-[10px] border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]">
                                                 <div class="flex h-full flex-col gap-4 text-left">
-                                                    <img src="https://www.vultr.com/media/logo_ondark.svg" alt="Vultr"
+                                                    <img src="https://www.vultr.com/media/logo_ondark.svg" alt="{{ __('Vultr') }}"
                                                         class="h-10 w-28 shrink-0 object-contain object-left">
                                                     <div class="min-h-0 flex-1">
-                                                        <h3 class="mb-1 text-[14px] font-semibold">Vultr Cloud</h3>
+                                                        <h3 class="mb-1 text-[14px] font-semibold">{{ __('Vultr Cloud') }}</h3>
                                                         <p class="text-sm dark:text-neutral-400">
-                                                            Deploy servers directly from your Vultr account.
+                                                            {{ __('Deploy servers directly from your Vultr account.') }}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -190,16 +409,16 @@
                                         </x-slot:content>
                                         <livewire:server.new.by-vultr :limit_reached="false" :from_onboarding="true" />
                                     </x-modal-input>
-                                    <x-modal-input title="Connect a DigitalOcean Server" isFullWidth>
+                                    <x-modal-input title="{{ __('Connect a DigitalOcean Server') }}" isFullWidth>
                                         <x-slot:content>
                                             <div
                                                 class="group relative cursor-pointer flex h-full min-h-36 flex-col rounded-[10px] border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]">
                                                 <div class="flex h-full flex-col gap-4 text-left">
                                                     <x-digital-ocean-icon class="size-10 shrink-0" />
                                                     <div class="min-h-0 flex-1">
-                                                        <h3 class="mb-1 text-[14px] font-semibold">DigitalOcean</h3>
+                                                        <h3 class="mb-1 text-[14px] font-semibold">{{ __('DigitalOcean') }}</h3>
                                                         <p class="text-sm dark:text-neutral-400">
-                                                            Deploy servers directly from your DigitalOcean account.
+                                                            {{ __('Deploy servers directly from your DigitalOcean account.') }}
                                                         </p>
                                                     </div>
                                                 </div>
@@ -215,15 +434,15 @@
 
                         @if (!$serverReachable)
                             <div class="mt-6 p-4 border border-error rounded-lg text-gray-800 dark:text-gray-200">
-                                <h2 class="text-lg font-bold mb-2">Server is not reachable</h2>
+                                <h2 class="text-lg font-bold mb-2">{{ __('Server is not reachable') }}</h2>
                                 <p class="mb-4">Please check the connection details below and correct them if they are
                                     incorrect.</p>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                    <x-forms.input placeholder="Default is 22" label="Port" id="remoteServerPort"
+                                    <x-forms.input placeholder="{{ __('Default is 22') }}" label="{{ __('Port') }}" id="remoteServerPort"
                                         wire:model="remoteServerPort" :value="$remoteServerPort" />
                                     <div>
-                                        <x-forms.input placeholder="Default is root" label="User" id="remoteServerUser"
+                                        <x-forms.input placeholder="{{ __('Default is root') }}" label="{{ __('User') }}" id="remoteServerUser"
                                             wire:model="remoteServerUser" :value="$remoteServerUser" />
                                         <p class="text-xs mt-1">
                                             Non-root user is experimental:
@@ -234,9 +453,9 @@
                                 </div>
 
                                 <div class="mb-4">
-                                    <p class="mb-2">If the connection details are correct, please ensure:</p>
+                                    <p class="mb-2">{{ __('If the connection details are correct, please ensure:') }}</p>
                                     <ul class="list-disc list-inside">
-                                        <li>The correct public key is in your <code
+                                        <li>{{ __('The correct public key is in your') }} <code
                                                 class="bg-red-200 dark:bg-red-900 px-1 rounded-sm">~/.ssh/authorized_keys</code>
                                             file for the specified user</li>
                                         <li>Or skip the boarding process and manually add a new private key to Coolify and
@@ -250,11 +469,11 @@
                                 </p>
 
                                 <x-forms.input readonly id="serverPublicKey" class="mb-4"
-                                    label="Current Public Key"></x-forms.input>
+                                    label="{{ __('Current Public Key') }}"></x-forms.input>
 
                                 <x-forms.button class="w-full justify-center" wire:click="saveAndValidateServer"
                                     isHighlighted>
-                                    Check again
+                                    {{ __('Check again') }}
                                 </x-forms.button>
                             </div>
                         @endif
@@ -262,9 +481,9 @@
                 </x-boarding-step>
             @elseif ($currentState === 'private-key')
                 <x-boarding-progress :currentStep="2" />
-                <x-boarding-step title="SSH Authentication">
+                <x-boarding-step title="{{ __('SSH Authentication') }}">
                     <x-slot:question>
-                        Configure SSH key-based authentication for secure server access.
+                        {{ __('Configure SSH key-based authentication for secure server access.') }}
                     </x-slot:question>
                     <x-slot:actions>
                         @if ($privateKeys && $privateKeys->count() > 0)
@@ -284,9 +503,9 @@
                                         class="flex flex-col gap-3 sm:flex-row sm:items-end">
                                         <div class="min-w-0 flex-1">
                                             <x-forms.listbox id="selectedExistingPrivateKey"
-                                                label="Existing SSH key" :options="$privateKeyOptions" :tooltip="false" />
+                                                label="{{ __('Existing SSH key') }}" :options="$privateKeyOptions" :tooltip="false" />
                                         </div>
-                                        <x-forms.button type="submit">Use selected key</x-forms.button>
+                                        <x-forms.button type="submit">{{ __('Use selected key') }}</x-forms.button>
                                     </form>
                                 </div>
                                 <div class="relative py-1">
@@ -296,7 +515,7 @@
                                     <div class="relative flex justify-center">
                                         <span
                                             class="bg-[var(--coollabs-base)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-fg-faint">
-                                            Or
+                                            {{ __('Or') }}
                                         </span>
                                     </div>
                                 </div>
@@ -311,9 +530,9 @@
                                     <x-reicon name="keys" class="size-4" />
                                 </span>
                                 <span class="min-w-0">
-                                    <span class="block text-[13px] font-semibold">Use existing key</span>
+                                    <span class="block text-[13px] font-semibold">{{ __('Use existing key') }}</span>
                                     <span class="mt-0.5 block text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
-                                        Paste a private key you already manage.
+                                        {{ __('Paste a private key you already manage.') }}
                                     </span>
                                 </span>
                             </button>
@@ -325,9 +544,9 @@
                                     <x-reicon name="plus" class="size-4" />
                                 </span>
                                 <span class="min-w-0">
-                                    <span class="block text-[13px] font-semibold">Generate new key</span>
+                                    <span class="block text-[13px] font-semibold">{{ __('Generate new key') }}</span>
                                     <span class="mt-0.5 block text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
-                                        Create an ED25519 key pair in Coolify.
+                                        {{ __('Create an ED25519 key pair in Coolify.') }}
                                     </span>
                                 </span>
                             </button>
@@ -352,21 +571,21 @@
                 </x-boarding-step>
             @elseif ($currentState === 'create-private-key')
                 <x-boarding-progress :currentStep="2" />
-                <x-boarding-step title="SSH Key Configuration">
+                <x-boarding-step title="{{ __('SSH Key Configuration') }}">
                     <x-slot:question>
-                        Configure your SSH key for server authentication.
+                        {{ __('Configure your SSH key for server authentication.') }}
                     </x-slot:question>
                     <x-slot:actions>
                         <form wire:submit='savePrivateKey' class="flex flex-col w-full gap-4">
-                            <x-forms.input required placeholder="e.g., production-server-key" label="Key Name"
+                            <x-forms.input required placeholder="{{ __('e.g., production-server-key') }}" label="{{ __('Key Name') }}"
                                 id="privateKeyName" />
-                            <x-forms.input placeholder="Optional: Note what this key is used for" label="Description"
+                            <x-forms.input placeholder="{{ __('Optional: Note what this key is used for') }}" label="{{ __('Description') }}"
                                 id="privateKeyDescription" />
                             @if ($privateKeyType === 'create')
-                                <x-forms.textarea required readonly label="Private Key" id="privateKey" rows="8" />
-                                <x-forms.textarea rows="7" readonly label="Public Key" id="publicKey" />
+                                <x-forms.textarea required readonly label="{{ __('Private Key') }}" id="privateKey" rows="8" />
+                                <x-forms.textarea rows="7" readonly label="{{ __('Public Key') }}" id="publicKey" />
                             @else
-                                <x-forms.textarea required placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" label="Private Key"
+                                <x-forms.textarea required placeholder="-----BEGIN OPENSSH PRIVATE KEY-----" label="{{ __('Private Key') }}"
                                     id="privateKey" rows="8" />
                             @endif
                             @if ($privateKeyType === 'create')
@@ -379,9 +598,9 @@
                                                 clip-rule="evenodd" />
                                         </svg>
                                         <div>
-                                            <p class="font-bold text-warning mb-1">Action Required</p>
+                                            <p class="font-bold text-warning mb-1">{{ __('Action Required') }}</p>
                                             <p class="text-sm dark:text-white text-black">
-                                                Copy the public key above and add it to your server's
+                                                {{ __('Copy the public key above and add it to your server\'s') }}
                                                 <code
                                                     class="text-xs bg-coolgray-300 dark:bg-coolgray-400 px-1 py-0.5 rounded">~/.ssh/authorized_keys</code>
                                                 file.
@@ -390,7 +609,7 @@
                                     </div>
                                 </div>
                             @endif
-                            <x-forms.button type="submit" class="w-full lg:w-auto">Save SSH Key</x-forms.button>
+                            <x-forms.button type="submit" class="w-full lg:w-auto">{{ __('Save SSH Key') }}</x-forms.button>
                         </form>
                     </x-slot:actions>
                     <x-slot:explanation>
@@ -411,37 +630,37 @@
                 </x-boarding-step>
             @elseif ($currentState === 'create-server')
                 <x-boarding-progress :currentStep="2" />
-                <x-boarding-step title="Server Configuration">
+                <x-boarding-step title="{{ __('Server Configuration') }}">
                     <x-slot:question>
-                        Provide connection details for your remote server.
+                        {{ __('Provide connection details for your remote server.') }}
                     </x-slot:question>
                     <x-slot:actions>
                         <form wire:submit='saveServer' class="flex flex-col w-full gap-4">
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <x-forms.input required placeholder="e.g., production-app-server" label="Server Name"
+                                <x-forms.input required placeholder="{{ __('e.g., production-app-server') }}" label="{{ __('Server Name') }}"
                                     id="remoteServerName" wire:model="remoteServerName" />
-                                <x-forms.input required placeholder="IP address or hostname" label="IP Address/Hostname"
+                                <x-forms.input required placeholder="{{ __('IP address or hostname') }}" label="{{ __('IP Address/Hostname') }}"
                                     id="remoteServerHost" wire:model="remoteServerHost" />
                             </div>
-                            <x-forms.input placeholder="Optional: Note what this server hosts" label="Description"
+                            <x-forms.input placeholder="{{ __('Optional: Note what this server hosts') }}" label="{{ __('Description') }}"
                                 id="remoteServerDescription" wire:model="remoteServerDescription" />
 
-                            <x-forms.collapsible title="Advanced Settings"
+                            <x-forms.collapsible title="{{ __('Advanced Settings') }}"
                                 content-class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                <x-forms.input placeholder="Default: 22" label="SSH Port" type="number"
+                                <x-forms.input placeholder="{{ __('Default: 22') }}" label="{{ __('SSH Port') }}" type="number"
                                     id="remoteServerPort" wire:model="remoteServerPort" />
                                 <div>
-                                    <x-forms.input placeholder="Default: root" label="SSH User" id="remoteServerUser"
+                                    <x-forms.input placeholder="{{ __('Default: root') }}" label="{{ __('SSH User') }}" id="remoteServerUser"
                                         wire:model="remoteServerUser" />
                                 </div>
                             </x-forms.collapsible>
-                            <x-forms.button type="submit" class="w-full lg:w-auto">Validate Connection</x-forms.button>
+                            <x-forms.button type="submit" class="w-full lg:w-auto">{{ __('Validate Connection') }}</x-forms.button>
                         </form>
                     </x-slot:actions>
                 </x-boarding-step>
             @elseif ($currentState === 'validate-server')
                 <x-boarding-progress :currentStep="2" />
-                <x-boarding-step title="Server Validation">
+                <x-boarding-step title="{{ __('Server Validation') }}">
                     <x-slot:question>
                         Coolify will automatically install Docker {{ $minDockerVersion }}+ if not present.
                     </x-slot:question>
@@ -453,15 +672,15 @@
                                     class="border-b border-neutral-200 px-4 py-2.5 dark:border-white/[0.08]">
                                     <p
                                         class="text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-fg-faint">
-                                        Validation checkpoints
+                                        {{ __('Validation checkpoints') }}
                                     </p>
                                 </div>
                                 <div class="divide-y divide-neutral-200 dark:divide-white/[0.07]">
                                     @foreach ([
-                                        ['icon' => 'keys', 'title' => 'Test SSH connection', 'description' => 'Verify key-based authentication'],
-                                        ['icon' => 'servers', 'title' => 'Check OS compatibility', 'description' => 'Verify supported Linux distribution'],
-                                        ['icon' => 'layers', 'title' => 'Install Docker Engine', 'description' => 'Auto-install if version '.$minDockerVersion.'+ not found'],
-                                        ['icon' => 'globe', 'title' => 'Configure network', 'description' => 'Set up Docker networks and proxy'],
+                                        ['icon' => 'keys', 'title' => __('Test SSH connection'), 'description' => __('Verify key-based authentication')],
+                                        ['icon' => 'servers', 'title' => __('Check OS compatibility'), 'description' => __('Verify supported Linux distribution')],
+                                        ['icon' => 'layers', 'title' => __('Install Docker Engine'), 'description' => __('Auto-install if version ').$minDockerVersion.'+ not found'],
+                                        ['icon' => 'globe', 'title' => __('Configure network'), 'description' => __('Set up Docker networks and proxy')],
                                     ] as $validationCheckpoint)
                                         <x-checkpoint-item :icon="$validationCheckpoint['icon']"
                                             :title="$validationCheckpoint['title']"
@@ -474,7 +693,7 @@
                                 <section class="application-settings-section">
                                     <header>
                                         <div class="flex items-center gap-2">
-                                            <h3>Installing prerequisites</h3>
+                                            <h3>{{ __('Installing prerequisites') }}</h3>
                                         </div>
                                     </header>
                                     <div class="application-settings-section-body">
@@ -491,7 +710,7 @@
                                 </x-slot:content>
                                 <x-forms.button @click="processDialogOpen = true" class="w-full justify-center"
                                     wire:click.prevent="installServer" isHighlighted>
-                                    Start validation
+                                    {{ __('Start validation') }}
                                 </x-forms.button>
                             </x-process-dialog>
                         </div>
@@ -505,7 +724,7 @@
                             <x-highlighted text="Version Requirements:" /> Minimum Docker Engine {{ $minDockerVersion }}.x
                             required.
                             <a target="_blank" class="underline hover:text-coollabs"
-                                href="https://docs.docker.com/engine/install/#server">Manual installation guide</a>
+                                href="https://docs.docker.com/engine/install/#server">{{ __('Manual installation guide') }}</a>
                         </p>
                         <p>
                             <x-highlighted text="System Configuration:" /> Sets up Docker networks, proxy configuration, and
@@ -515,12 +734,12 @@
                 </x-boarding-step>
             @elseif ($currentState === 'create-project')
                 <x-boarding-progress :currentStep="3" />
-                <x-boarding-step title="Project Setup">
+                <x-boarding-step title="{{ __('Project Setup') }}">
                     <x-slot:question>
                         @if ($projects && $projects->count() > 0)
-                            You have existing projects. Select one or create a new project to organize your resources.
+                            {{ __('You have existing projects. Select one or create a new project to organize your resources.') }}
                         @else
-                            Create your first project to organize applications, databases, and services.
+                            {{ __('Create your first project to organize applications, databases, and services.') }}
                         @endif
                     </x-slot:question>
                     <x-slot:actions>
@@ -545,16 +764,16 @@
                                         <div class="w-full border-t border-neutral-300 dark:border-coolgray-400"></div>
                                     </div>
                                     <div class="relative flex justify-center text-sm">
-                                        <span class="px-2 text-neutral-500 dark:text-neutral-400">Or use existing</span>
+                                        <span class="px-2 text-neutral-500 dark:text-neutral-400">{{ __('Or use existing') }}</span>
                                     </div>
                                 </div>
                                 <form wire:submit="selectExistingProject"
                                     class="flex flex-col gap-3 sm:flex-row sm:items-end">
                                     <div class="min-w-0 flex-1">
-                                        <x-forms.listbox id="selectedProject" label="Existing project"
+                                        <x-forms.listbox id="selectedProject" label="{{ __('Existing project') }}"
                                             :options="$projectOptions" />
                                     </div>
-                                    <x-forms.button type="submit">Use selected project</x-forms.button>
+                                    <x-forms.button type="submit">{{ __('Use selected project') }}</x-forms.button>
                                 </form>
                             @endif
                         </div>
@@ -568,9 +787,9 @@
                             class="mx-auto mb-4 flex size-12 items-center justify-center rounded-[10px] border border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
                             <x-reicon name="check-circle" class="size-6" />
                         </div>
-                        <h1 class="text-2xl! font-semibold!">Setup complete</h1>
+                        <h1 class="text-2xl! font-semibold!">{{ __('Setup complete') }}</h1>
                         <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
-                            Your server is connected and ready. Start deploying your first resource.
+                            {{ __('Your server is connected and ready. Start deploying your first resource.') }}
                         </p>
                     </div>
 
@@ -579,36 +798,36 @@
                         <div class="border-b border-neutral-200 px-4 py-2.5 dark:border-white/[0.08]">
                             <p
                                 class="text-[10px] font-semibold uppercase tracking-[0.08em] text-neutral-400 dark:text-fg-faint">
-                                What's configured
+                                {{ __('What\'s configured') }}
                             </p>
                         </div>
                         <div class="divide-y divide-neutral-200 dark:divide-white/[0.07]">
                             <x-checkpoint-item status="success" title="Server: {{ $createdServer->name }}"
                                 :description="$createdServer->ip" />
                             <x-checkpoint-item status="success" title="Project: {{ $createdProject->name }}"
-                                description="Production environment ready" />
-                            <x-checkpoint-item status="success" title="Docker Engine"
-                                description="Installed and running" />
+                                description="{{ __('Production environment ready') }}" />
+                            <x-checkpoint-item status="success" title="{{ __('Docker Engine') }}"
+                                description="{{ __('Installed and running') }}" />
                         </div>
                     </div>
 
                     <div class="mt-5 flex flex-col items-center gap-4">
                         <x-forms.button class="justify-center px-6" wire:click="showNewResource" isHighlighted>
-                            Deploy your first resource
+                            {{ __('Deploy your first resource') }}
                         </x-forms.button>
                         <div
                             class="inline-flex flex-wrap items-center justify-center gap-0.5 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-white/[0.08] dark:bg-white/[0.05]">
                             <button type="button" wire:click="skipBoarding"
                                 class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                                 <x-reicon name="arrow-right" class="size-3.5 shrink-0" />
-                                Go to dashboard
+                                {{ __('Go to dashboard') }}
                             </button>
-                            <x-modal-input title="Need Help?">
+                            <x-modal-input title="{{ __('Need Help?') }}">
                                 <x-slot:content>
                                     <button type="button"
                                         class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                                         <x-reicon name="feedback" class="size-3.5 shrink-0" />
-                                        Contact support
+                                        {{ __('Contact support') }}
                                     </button>
                                 </x-slot:content>
                                 <livewire:help />
@@ -626,19 +845,19 @@
                     <button type="button" wire:click="skipBoarding"
                         class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                         <x-reicon name="arrow-right" class="size-3.5 shrink-0" />
-                        Skip setup
+                        {{ __('Skip setup') }}
                     </button>
                     <button type="button" wire:click="restartBoarding"
                         class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                         <x-reicon name="restart" class="size-3.5 shrink-0" />
-                        Restart
+                        {{ __('Restart') }}
                     </button>
-                    <x-modal-input title="Need Help?">
+                    <x-modal-input title="{{ __('Need Help?') }}">
                         <x-slot:content>
                             <button type="button"
                                 class="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-medium text-neutral-500 transition-colors hover:bg-white hover:text-coollabs dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-warning">
                                 <x-reicon name="feedback" class="size-3.5 shrink-0" />
-                                Contact support
+                                {{ __('Contact support') }}
                             </button>
                         </x-slot:content>
                         <livewire:help />
@@ -647,3 +866,4 @@
             </div>
         @endif
     </section>
+@endif

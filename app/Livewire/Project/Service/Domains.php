@@ -12,6 +12,9 @@ use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Support\DomainPortOverrides;
 use App\Support\DomainUrlParts;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
+use App\Support\OdooRuntime;
 use App\Support\ValidationPatterns;
 use App\Traits\ListensToTeamChannel;
 use Illuminate\Database\Eloquent\Model;
@@ -117,6 +120,20 @@ class Domains extends Component
     /** Pending save payload after conflict/port confirmation */
     public ?string $pendingAction = null;
 
+    public bool $isOdooService = false;
+
+    public string $odooSubdomain = '';
+
+    public int $odooWorkers = 0;
+
+    public string $odooBaseDomain = '';
+
+    public string $odooProductionHost = '';
+
+    public string $odooEnvironmentHost = '';
+
+    public bool $odooIsProduction = false;
+
     protected $listeners = [
         'refresh' => 'refreshDomains',
         'refreshServices' => 'refreshDomains',
@@ -140,6 +157,8 @@ class Domains extends Component
             'serviceRedirects.*' => 'string|in:both,www,non-www',
             'forceHttpsRedirects' => 'array',
             'forceHttpsRedirects.*' => 'boolean',
+            'odooSubdomain' => 'nullable|string|max:63',
+            'odooWorkers' => 'integer|min:0|max:32',
         ];
     }
 
@@ -147,6 +166,7 @@ class Domains extends Component
     {
         $this->authorize('view', $this->service);
         $this->loadDomainState();
+        $this->loadOdooRuntimeState();
     }
 
     public function refreshDomains(): void
@@ -156,11 +176,66 @@ class Domains extends Component
         $this->service->refresh();
         $this->service->load(['applications', 'server']);
         $this->loadDomainState();
+        $this->loadOdooRuntimeState();
+    }
 
-        if ($editingRow !== null) {
-            $index = collect($this->domainRows)->search(fn (array $row): bool => $row['url'] === $editingRow['url']
-                && (int) $row['service_application_id'] === (int) $editingRow['service_application_id']);
-            $this->editingIndex = $index === false ? null : (int) $index;
+    protected function loadOdooRuntimeState(): void
+    {
+        $this->isOdooService = OdooJupyter::isOdooCompose((string) $this->service->docker_compose_raw);
+        if (! $this->isOdooService) {
+            $this->odooSubdomain = '';
+            $this->odooWorkers = 0;
+            $this->odooBaseDomain = '';
+            $this->odooProductionHost = '';
+            $this->odooEnvironmentHost = '';
+            $this->odooIsProduction = false;
+
+            return;
+        }
+
+        $this->service->loadMissing(['environment.project.odooProfile', 'environment.odooBranch']);
+        $environment = $this->service->environment;
+        $project = $environment?->project;
+        $profile = $project?->odooProfile;
+        $branch = $environment?->odooBranch;
+
+        $this->odooIsProduction = (bool) $environment?->isProduction();
+        $this->odooSubdomain = $project !== null && $environment !== null
+            ? OdooGit::environmentSubdomain($project, $environment)
+            : (string) ($profile?->subdomain ?? '');
+        $this->odooWorkers = (int) ($branch?->workers ?? $profile?->workers ?? 0);
+        $this->odooBaseDomain = OdooGit::baseDomain();
+        $this->odooProductionHost = $project !== null && $environment !== null && $environment->isProduction()
+            ? OdooGit::projectHost($this->odooSubdomain, $this->odooBaseDomain, $environment->name, (int) $environment->id, true)
+            : ($project !== null
+                ? OdooGit::projectHost($this->odooSubdomain, $this->odooBaseDomain, 'production', 0, true)
+                : '');
+        $this->odooEnvironmentHost = $project !== null && $environment !== null
+            ? OdooGit::hostFor($project, $environment)
+            : '';
+    }
+
+    public function saveOdooRuntime(): void
+    {
+        try {
+            $this->authorize('update', $this->service);
+            $result = OdooRuntime::save($this->service, $this->odooSubdomain, (int) $this->odooWorkers);
+            if (! ($result['ok'] ?? false)) {
+                if (filled($result['error'] ?? null)) {
+                    $this->dispatch('error', $result['error']);
+                }
+
+                return;
+            }
+
+            $this->odooSubdomain = (string) ($result['subdomain'] ?? '');
+            $this->odooWorkers = (int) ($result['workers'] ?? 0);
+            $this->loadOdooRuntimeState();
+            $this->dispatch('success', ($result['address_changed'] ?? false)
+                ? __('Environment address saved. Odoo is restarting so the proxy takes the address.')
+                : __('Environment runtime saved. The next start applies the workers and the address.'));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
         }
     }
 
@@ -211,7 +286,7 @@ class Domains extends Component
         $this->service->parse();
         $this->refreshDomains();
         $this->dispatch('configurationChanged')->to(ConfigurationChecker::class);
-        $this->dispatch('success', 'Search engine indexing updated.');
+        $this->dispatch('success', __('Search engine indexing updated.'));
     }
 
     public function updateForceHttps(int $serviceApplicationId, bool $enabled): void
@@ -227,7 +302,7 @@ class Domains extends Component
         $this->service->parse();
         $this->refreshDomains();
         $this->dispatch('configurationChanged')->to(ConfigurationChecker::class);
-        $this->dispatch('success', 'HTTP to HTTPS redirect updated.');
+        $this->dispatch('success', __('HTTP to HTTPS redirect updated.'));
     }
 
     public function loadDomainState(): void
@@ -791,7 +866,7 @@ class Domains extends Component
 
             $app = $this->findServiceApp($serviceApplicationId);
             if (! $app) {
-                $this->dispatch('error', 'Service application not found.');
+                $this->dispatch('error', __('Service application not found.'));
 
                 return;
             }
@@ -835,7 +910,7 @@ class Domains extends Component
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
             if ($this->notifyRedirectUpdate) {
-                $this->dispatch('success', 'Redirect updated.');
+                $this->dispatch('success', __('Redirect updated.'));
             }
             $this->dispatch('configurationChanged');
             $this->pruneDomainDnsStatusesToCurrentDomains();
@@ -1038,7 +1113,7 @@ class Domains extends Component
 
             $app = $this->findServiceApp($this->newServiceApplicationId);
             if (! $app) {
-                $this->dispatch('error', 'Select a service application.');
+                $this->dispatch('error', __('Select a service application.'));
 
                 return;
             }
@@ -1125,7 +1200,7 @@ class Domains extends Component
 
             if ($failedDnsChecks > 0) {
                 $this->persistAllDomainDnsStatuses();
-                $this->dispatch('error', 'Some DNS checks could not be started. Try again from the Domains page.');
+                $this->dispatch('error', __('Some DNS checks could not be started. Try again from the Domains page.'));
             }
 
             $this->dispatch('success', $failedDnsChecks === $dnsChecks->count()
@@ -1335,7 +1410,7 @@ class Domains extends Component
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
             $this->pendingAction = null;
-            $this->dispatch('success', 'Domain updated.');
+            $this->dispatch('success', __('Domain updated.'));
             $this->refreshDomains();
             if ($urlsToCheck !== []) {
                 $this->queueUrlsDns($urlsToCheck, $app);
@@ -1372,7 +1447,7 @@ class Domains extends Component
 
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
-            $this->dispatch('success', 'Domain removed.');
+            $this->dispatch('success', __('Domain removed.'));
             $this->pruneDomainDnsStatusesToCurrentDomains();
             $this->refreshDomains();
         } catch (\Throwable $e) {
@@ -1472,7 +1547,7 @@ class Domains extends Component
             $this->pendingAction = null;
             $this->forceSaveDomains = false;
             $this->forceRemovePort = false;
-            $this->dispatch('success', 'Domain added.');
+            $this->dispatch('success', __('Domain added.'));
             $this->refreshDomains();
             $this->checkUrlsDns($newUrls, (int) $app->id);
         } catch (\Throwable $e) {
@@ -1488,7 +1563,7 @@ class Domains extends Component
             $app = $this->findServiceApp($this->newServiceApplicationId);
             $server = $this->service->server;
             if (! $app || ! $server) {
-                $this->dispatch('error', 'Service application or server not found.');
+                $this->dispatch('error', __('Service application or server not found.'));
 
                 return;
             }
@@ -1599,7 +1674,7 @@ class Domains extends Component
         });
 
         if (str($app->fqdn)->contains(',')) {
-            $this->dispatch('warning', 'Some services do not support multiple domains, which can lead to problems and is NOT RECOMMENDED.<br><br>Only use multiple domains if you know what you are doing.');
+            $this->dispatch('warning', __('Some services do not support multiple domains, which can lead to problems and is NOT RECOMMENDED.<br><br>Only use multiple domains if you know what you are doing.'));
         }
 
         $this->dispatch('configurationChanged');

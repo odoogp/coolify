@@ -1,9 +1,14 @@
 <div>
-    <x-slot:title>{{ data_get_str($project, 'name')->limit(10) }} > Edit | Coolify</x-slot>
+    <x-slot:title>{{ data_get_str($project, 'name')->limit(10) }} > Edit | {{ product_name() }}</x-slot>
     <div class="w-full max-w-none">
         <header class="mb-5">
             <h1 class="truncate text-[24px]! leading-7! font-semibold! tracking-tight!">{{ $project->name }}</h1>
-            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">Project settings</p>
+            <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                {{ __('Project settings') }}
+                @if (filled($planName))
+                    · {{ __('Plan') }}: {{ $planName }}
+                @endif
+            </p>
         </header>
 
         <div class="flex flex-col gap-6">
@@ -57,13 +62,13 @@
         }">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Project icon</h2>
-                    <p>Upload a JPG, PNG, or WebP image. It will appear in the projects list.</p>
+                    <h2>{{ __('Project icon') }}</h2>
+                    <p>{{ __('Upload a JPG, PNG, or WebP image. It will appear in the projects list.') }}</p>
                 </div>
             </div>
             <div class="application-settings-section-body flex items-center gap-4">
                 <div class="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-fg-dim">
-                    <img x-cloak x-show="preview" :src="preview" alt="Project icon preview" class="h-full w-full object-cover">
+                    <img x-cloak x-show="preview" :src="preview" alt="{{ __('Project icon preview') }}" class="h-full w-full object-cover">
                     @if ($project->icon_path)
                         <img x-show="!preview" src="{{ project_icon_url($project) }}"
                             alt="{{ $project->name }} icon" class="h-full w-full object-cover">
@@ -75,10 +80,10 @@
                     <div class="flex flex-wrap gap-2">
                         <input x-ref="iconInput" type="file" x-on:change="prepareIcon($event)" accept="image/jpeg,image/png,image/webp" class="hidden">
                         <x-forms.button type="button" x-on:click="$refs.iconInput.click()" x-bind:disabled="processing">
-                            <span x-text="processing ? 'Uploading…' : 'Browse…'"></span>
+                            <span x-text="processing ? @js(__('Uploading…')) : @js(__('Browse…'))"></span>
                         </x-forms.button>
                         @if ($project->icon_path)
-                            <x-forms.button type="button" wire:click="removeIcon" x-bind:disabled="processing" isError>Remove</x-forms.button>
+                            <x-forms.button type="button" wire:click="removeIcon" x-bind:disabled="processing" isError>{{ __('Remove') }}</x-forms.button>
                         @endif
                     </div>
                     <p x-cloak x-show="uploadError" x-text="uploadError" class="text-xs text-red-500"></p>
@@ -92,24 +97,81 @@
             <section class="application-settings-section">
                 <div class="application-settings-section-header">
                     <div>
-                        <h2>Project details</h2>
-                        <p>Name and describe this project across the dashboard.</p>
+                        <h2>{{ __('Project details') }}</h2>
+                        <p>{{ __('Name and describe this project across the dashboard.') }}</p>
                     </div>
                 </div>
                 <div class="application-settings-section-body grid gap-4 sm:grid-cols-2">
-                    <x-forms.input label="Name" id="name" />
-                    <x-forms.input label="Description" id="description" />
+                    <x-forms.input label="{{ __('Name') }}" id="name" />
+                    <x-forms.input label="{{ __('Description') }}" id="description" />
+                    <div class="sm:col-span-2">
+                        <p class="mb-1 text-[13px] font-medium text-neutral-700 dark:text-fg">{{ __('Plan') }}</p>
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ $planName ?? __('No plan') }}
+                            @if (filled($planBackupPolicy))
+                                · {{ $planBackupPolicy }}
+                            @endif
+                        </p>
+                        <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('The plan is set when the team signs up. Contact an advisor to change it.') }}
+                        </p>
+                    </div>
                 </div>
             </section>
         </form>
+
+        <section class="application-settings-section">
+            <div class="application-settings-section-header">
+                <div>
+                    <h2>{{ __('Odoo') }}</h2>
+                    <p>{{ __('GitHub is optional. Without it, JupyterLab stays on and shows the addon files. Connecting later creates a repository named after the project, and each environment becomes a branch of that same folder.') }}</p>
+                </div>
+            </div>
+            <div class="application-settings-section-body flex flex-col gap-4">
+                @unless ($project->odooProfile)
+                    <div class="max-w-sm">
+                        <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
+                            :disabled="! auth()->user()->can('update', $project)" :options="$odooVersionOptions" />
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <x-forms.button type="button" wire:click="enableOdoo" canGate="update" :canResource="$project" isHighlighted>
+                            {{ __('Enable Odoo') }}
+                        </x-forms.button>
+                    </div>
+                @endunless
+                @if ($project->odooProfile)
+                    <div class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                        @if ($odooVersionLocked)
+                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('This project runs Odoo :version. The version is locked because environments are already launched. Staging and new environments keep using the same Compose.', ['version' => $project->odooProfile->odoo_version]) }}
+                            </p>
+                        @else
+                            <div class="max-w-sm space-y-3">
+                                <x-forms.listbox canGate="update" :canResource="$project" id="odooVersion" label="{{ __('Odoo version') }}"
+                                    :disabled="! auth()->user()->can('update', $project)" :options="$odooVersionOptions" />
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('You can change this while no environment has been launched yet. After the first launch, every environment reuses this version.') }}
+                                </p>
+                                <x-forms.button type="button" wire:click="saveOdooVersion" canGate="update" :canResource="$project" isHighlighted>
+                                    {{ __('Save Odoo version') }}
+                                </x-forms.button>
+                            </div>
+                        @endif
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Subdomain, workers, GitHub, and Migrate live on the Odoo service (Domains, GitHub, and Migrate in the sidebar).') }}
+                        </p>
+                    </div>
+                @endif
+            </div>
+        </section>
 
         <section
             class="overflow-hidden rounded-[10px] border border-red-300 bg-red-50/80 dark:border-red-500/25 dark:bg-red-500/[0.06]">
             <div class="flex items-start justify-between gap-4 px-5 py-4">
                 <div>
-                    <h2 class="text-sm font-semibold text-red-800 dark:text-red-300">Delete project</h2>
+                    <h2 class="text-sm font-semibold text-red-800 dark:text-red-300">{{ __('Delete project') }}</h2>
                     <p class="mt-1 max-w-2xl text-sm text-red-700/80 dark:text-red-200/70">
-                        Empty the project before permanently deleting it.
+                        {{ __('Empty the project before permanently deleting it.') }}
                     </p>
                 </div>
                 <livewire:project.delete-project :disabled="! $project->isEmpty()" :project_id="$project->id" />

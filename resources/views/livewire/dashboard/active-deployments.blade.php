@@ -19,15 +19,31 @@
         return [$label, $type];
     };
 
-    $hasActiveDeployments = $activeDeployments->isNotEmpty();
-    $hasRecentDeployments = $recentDeployments->isNotEmpty();
+    $perPage = \App\Livewire\Dashboard\ActiveDeployments::PER_PAGE;
+    $activeLastPage = max(1, (int) ceil($activeTotal / $perPage));
+    $recentLastPage = max(1, (int) ceil($recentTotal / $perPage));
+    $activeFrom = $activeTotal === 0 ? 0 : (($activePage - 1) * $perPage) + 1;
+    $activeTo = min($activePage * $perPage, $activeTotal);
+    $recentFrom = $recentTotal === 0 ? 0 : (($recentPage - 1) * $perPage) + 1;
+    $recentTo = min($recentPage * $perPage, $recentTotal);
+    $hasActiveDeployments = $activeTotal > 0;
+    $hasRecentDeployments = $recentTotal > 0;
     $hasAnyDeployments = $hasActiveDeployments || $hasRecentDeployments;
 @endphp
 
 <div wire:poll.3000ms="refreshDeployments" @class(['mb-0! min-w-0' => $hasAnyDeployments, 'hidden' => ! $hasAnyDeployments])>
     @if ($hasAnyDeployments)
         <section class="mb-0! min-w-0">
-            <x-section-heading title="Deployments" subtitle="Active and recent deployment activity" />
+            <div class="mb-3">
+                <div>
+                    <h2 class="text-[14px]! leading-5! font-semibold! text-black dark:text-fg">
+                        {{ __('Deployments') }}
+                    </h2>
+                    <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
+                        {{ __('Active and recent deployment activity') }}
+                    </p>
+                </div>
+            </div>
 
             <div class="flex min-w-0 flex-col gap-4">
                 @if ($hasActiveDeployments)
@@ -35,20 +51,20 @@
                         class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05]">
                         <div class="border-b border-neutral-200 px-4 py-2.5 dark:border-white/[0.08]">
                             <h3 class="text-[12px]! leading-4! font-semibold! text-black dark:text-fg">
-                                Active
+                                {{ __('Active') }}
                             </h3>
                             <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                                Running or queued right now
+                                {{ __('Running or queued right now') }}
                             </p>
                         </div>
 
                         <div
-                            class="dashboard-deployment-table-grid hidden items-center gap-4 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 md:grid dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-fg-faint">
-                            <span>Application</span>
-                            <span>Environment</span>
-                            <span>Server</span>
-                            <span>Status</span>
-                            <span>Started</span>
+                            class="dashboard-deployment-table-grid hidden items-center gap-4 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 md:grid dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+                            <span>{{ __('Application') }}</span>
+                            <span>{{ __('Environment') }}</span>
+                            <span>{{ __('Server') }}</span>
+                            <span>{{ __('Status') }}</span>
+                            <span>{{ __('Started') }}</span>
                         </div>
 
                         @foreach ($activeDeployments as $deployment)
@@ -96,6 +112,11 @@
                                 </div>
                             </a>
                         @endforeach
+
+                        <x-table-pagination :from="$activeFrom" :to="$activeTo" :total="$activeTotal"
+                            :current-page="$activePage" :last-page="$activeLastPage"
+                            wire-target="previousActivePage,nextActivePage,refreshDeployments"
+                            previous-action="previousActivePage" next-action="nextActivePage" />
                     </div>
                 @endif
 
@@ -104,20 +125,20 @@
                         class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05]">
                         <div class="border-b border-neutral-200 px-4 py-2.5 dark:border-white/[0.08]">
                             <h3 class="text-[12px]! leading-4! font-semibold! text-black dark:text-fg">
-                                Recent
+                                {{ __('Recent') }}
                             </h3>
                             <p class="mt-0.5 text-[11px] text-neutral-500 dark:text-fg-faint">
-                                Latest completed deployments
+                                {{ __('Latest completed deployments') }}
                             </p>
                         </div>
 
                         <div
-                            class="dashboard-deployment-table-grid hidden items-center gap-4 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 md:grid dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-fg-faint">
-                            <span>Application</span>
-                            <span>Environment</span>
-                            <span>Server</span>
-                            <span>Status</span>
-                            <span>Started</span>
+                            class="dashboard-deployment-table-grid hidden items-center gap-4 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 md:grid dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+                            <span>{{ __('Application') }}</span>
+                            <span>{{ __('Environment') }}</span>
+                            <span>{{ __('Server') }}</span>
+                            <span>{{ __('Status') }}</span>
+                            <span>{{ __('Started') }}</span>
                         </div>
 
                         @foreach ($recentDeployments as $deployment)
@@ -165,6 +186,11 @@
                                 </div>
                             </a>
                         @endforeach
+
+                        <x-table-pagination :from="$recentFrom" :to="$recentTo" :total="$recentTotal"
+                            :current-page="$recentPage" :last-page="$recentLastPage"
+                            wire-target="previousRecentPage,nextRecentPage,refreshDeployments"
+                            previous-action="previousRecentPage" next-action="nextRecentPage" />
                     </div>
                 @endif
             </div>

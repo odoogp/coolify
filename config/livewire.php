@@ -132,7 +132,10 @@ return [
     |
     */
 
-    'inject_morph_markers' => true,
+    // GPSH has enough Blade conditionals that Livewire's morph-marker regex
+    // exceeds PCRE's compiled size ("regular expression is too large") and
+    // kills view compilation / healthchecks on boot.
+    'inject_morph_markers' => false,
 
     /*
     |---------------------------------------------------------------------------

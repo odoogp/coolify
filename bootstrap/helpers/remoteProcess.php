@@ -9,6 +9,8 @@ use App\Models\Application;
 use App\Models\ApplicationDeploymentQueue;
 use App\Models\PrivateKey;
 use App\Models\Server;
+use App\Models\Service;
+use App\Models\StandaloneDocker;
 use App\Support\RemoteProcessCommand;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
@@ -38,11 +40,8 @@ function remote_process(
 
     $command_string = implode("\n", $command);
 
-    if (Auth::check()) {
-        $teams = Auth::user()->teams->pluck('id');
-        if (! $teams->contains($server->team_id) && ! $teams->contains(0)) {
-            throw new Exception('User is not part of the team that owns this server');
-        }
+    if (! userCanUseServer($server)) {
+        throw new Exception('User is not part of the team that owns this server');
     }
 
     SshMultiplexingHelper::ensureMultiplexedConnection($server);
@@ -77,6 +76,35 @@ function remote_process(
     $activity->refresh();
 
     return $activity;
+}
+
+/**
+ * The GPSH host is server id 0 and belongs to the instance team. A client can
+ * still run their own service there when that service is already on the server.
+ */
+function userCanUseServer(Server $server): bool
+{
+    if (! Auth::check()) {
+        return true;
+    }
+
+    $teamIds = Auth::user()->teams()->pluck('teams.id');
+    if ($teamIds->contains($server->team_id) || $teamIds->contains(0)) {
+        return true;
+    }
+
+    $destinationIds = StandaloneDocker::query()->where('server_id', $server->id)->select('id');
+
+    return Service::query()
+        ->where(function ($query) use ($server, $destinationIds) {
+            $query->where('server_id', $server->id)
+                ->orWhere(function ($query) use ($destinationIds) {
+                    $query->where('destination_type', StandaloneDocker::class)
+                        ->whereIn('destination_id', $destinationIds);
+                });
+        })
+        ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
+        ->exists();
 }
 
 function instant_scp(string $source, string $dest, Server $server, $throwError = true)
@@ -145,19 +173,22 @@ function instant_remote_process_with_timeout(Collection|array $command, Server $
     return SshRetryHandler::retry(
         function () use ($server, $command_string) {
             $sshCommand = SshMultiplexingHelper::generateSshCommand($server, $command_string);
-            $process = Process::timeout(30)->run($sshCommand);
 
-            $output = trim($process->output());
-            $exitCode = $process->exitCode();
+            return SshMultiplexingHelper::withProcessCommand($sshCommand, function (string|array $command) {
+                $process = Process::timeout(30)->run($command);
 
-            if ($exitCode !== 0) {
-                excludeCertainErrors($process->errorOutput(), $exitCode);
-            }
+                $output = trim($process->output());
+                $exitCode = $process->exitCode();
 
-            // Sanitize output to ensure valid UTF-8 encoding
-            $output = $output === 'null' ? null : sanitize_utf8_text($output);
+                if ($exitCode !== 0) {
+                    excludeCertainErrors($process->errorOutput(), $exitCode);
+                }
 
-            return $output;
+                // Sanitize output to ensure valid UTF-8 encoding
+                $output = $output === 'null' ? null : sanitize_utf8_text($output);
+
+                return $output;
+            });
         },
         [
             'server' => $server->ip,
@@ -181,19 +212,22 @@ function instant_remote_process(Collection|array $command, Server $server, bool 
     return SshRetryHandler::retry(
         function () use ($server, $command_string, $effectiveTimeout, $disableMultiplexing) {
             $sshCommand = SshMultiplexingHelper::generateSshCommand($server, $command_string, $disableMultiplexing, (int) $effectiveTimeout);
-            $process = Process::timeout($effectiveTimeout)->run($sshCommand);
 
-            $output = trim($process->output());
-            $exitCode = $process->exitCode();
+            return SshMultiplexingHelper::withProcessCommand($sshCommand, function (string|array $command) use ($effectiveTimeout) {
+                $process = Process::timeout($effectiveTimeout)->run($command);
 
-            if ($exitCode !== 0) {
-                excludeCertainErrors($process->errorOutput(), $exitCode);
-            }
+                $output = trim($process->output());
+                $exitCode = $process->exitCode();
 
-            // Sanitize output to ensure valid UTF-8 encoding
-            $output = $output === 'null' ? null : sanitize_utf8_text($output);
+                if ($exitCode !== 0) {
+                    excludeCertainErrors($process->errorOutput(), $exitCode);
+                }
 
-            return $output;
+                // Sanitize output to ensure valid UTF-8 encoding
+                $output = $output === 'null' ? null : sanitize_utf8_text($output);
+
+                return $output;
+            });
         },
         [
             'server' => $server->ip,
@@ -261,8 +295,25 @@ function decode_remote_command_output(?ApplicationDeploymentQueue $application_d
                 flags: JSON_THROW_ON_ERROR
             );
         } catch (JsonException $e) {
-            // If it still fails, return empty collection to prevent crashes
-            return collect([]);
+            // Legacy Odoo sync jobs stored plain text instead of JSON log lines.
+            $plain = trim(sanitize_utf8_text((string) $logs));
+            if ($plain === '') {
+                return collect([]);
+            }
+
+            $decoded = collect(preg_split("/\r\n|\n|\r/", $plain) ?: [])
+                ->filter(fn ($line) => trim((string) $line) !== '')
+                ->values()
+                ->map(fn ($line, int $index) => [
+                    'command' => null,
+                    'output' => $line,
+                    'type' => 'stdout',
+                    'timestamp' => data_get($application_deployment_queue, 'updated_at') ?? now('UTC'),
+                    'hidden' => false,
+                    'batch' => 1,
+                    'order' => $index + 1,
+                ])
+                ->all();
         }
     }
 

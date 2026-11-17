@@ -177,13 +177,57 @@ class LogDrains extends Component
             $this->auditLogDrain('updated');
             if ($this->server->isLogDrainEnabled()) {
                 StartLogDrain::run($this->server);
+                $this->dispatch('success', __('Log drain service started.'));
+            } else {
+                StopLogDrain::run($this->server);
+                $this->dispatch('success', __('Log drain service stopped.'));
+            }
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
+        }
+    }
+
+    public function toggleLogDrain(string $type): void
+    {
+        $previousNewRelicEnabled = $this->server->settings->is_logdrain_newrelic_enabled;
+        $previousAxiomEnabled = $this->server->settings->is_logdrain_axiom_enabled;
+        $previousCustomEnabled = $this->server->settings->is_logdrain_custom_enabled;
+
+        try {
+            $this->authorize('update', $this->server);
+            $this->resetErrorBag();
+
+            $enabledProperty = $this->enabledProperty($type);
+
+            if ($this->{$enabledProperty}) {
+                $this->{$enabledProperty} = false;
+            } else {
+                $this->validateLogDrainSettings($type);
+                $this->isLogDrainNewRelicEnabled = $type === 'newrelic';
+                $this->isLogDrainAxiomEnabled = $type === 'axiom';
+                $this->isLogDrainCustomEnabled = $type === 'custom';
+            }
+
+            $this->syncData(true);
+            $this->auditLogDrain($this->{$enabledProperty} ? 'enabled' : 'disabled', $type);
+
+            if ($this->server->isLogDrainEnabled()) {
+                StartLogDrain::run($this->server);
                 $this->dispatch('success', 'Log drain service started.');
             } else {
                 StopLogDrain::run($this->server);
                 $this->dispatch('success', 'Log drain service stopped.');
             }
         } catch (\Throwable $e) {
-            return handleError($e, $this);
+            // Restore the previously persisted enabled flags so the UI/DB never
+            // claim a runtime state that the Start/StopLogDrain action failed to apply.
+            $this->server->settings->is_logdrain_newrelic_enabled = $previousNewRelicEnabled;
+            $this->server->settings->is_logdrain_axiom_enabled = $previousAxiomEnabled;
+            $this->server->settings->is_logdrain_custom_enabled = $previousCustomEnabled;
+            $this->server->settings->save();
+            $this->syncData();
+
+            handleError($e, $this);
         }
     }
 
@@ -236,7 +280,7 @@ class LogDrains extends Component
         try {
             $this->authorize('update', $this->server);
             $this->syncData(true);
-            $this->dispatch('success', 'Settings saved.');
+            $this->dispatch('success', __('Settings saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

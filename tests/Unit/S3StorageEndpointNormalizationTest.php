@@ -8,7 +8,14 @@ uses(TestCase::class);
 it('gates the S3 storage edit form behind the update permission', function () {
     $editView = file_get_contents(resource_path('views/livewire/storage/form.blade.php'));
 
-    expect($editView)->toContain('@can(\'update\', $storage)');
+    expect($createView)
+        ->not->toContain('wire:model.blur="endpoint"')
+        ->toContain('<x-forms.domain-input id="endpointParts"')
+        ->toContain('host-label="{{ __(\'Host\') }}"')
+        ->toContain('host-placeholder="{{ __(\'minio.internal or 192.168.1.50\') }}"')
+        ->and($editView)
+        ->toContain('<x-forms.domain-input id="endpointParts"')
+        ->toContain('@can(\'update\', $storage)');
 });
 
 it('normalizes endpoints again on the backend', function (string $endpoint, string $expected) {

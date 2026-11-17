@@ -9,7 +9,7 @@
     @elseif ($type === 'database')
         <livewire:project.database.heading :database="$resource" />
     @elseif ($type === 'service')
-        <livewire:project.service.heading :service="$resource" :parameters="$parameters" title="Terminal" />
+        <livewire:project.service.heading :service="$resource" :parameters="$parameters" title="{{ __('Terminal') }}" />
     @else
         <livewire:server.navbar :server="$servers->first()" />
     @endif
@@ -34,8 +34,8 @@
         $consoleThemeNames = collect($consoleThemes)->pluck('name', 'key');
         $consoleThemeAccents = collect($consoleThemes)->pluck('accent', 'key');
         $containerOptions = $containers->map(fn ($container) => [
-            'value' => data_get($container, 'server.uuid').':'.data_get($container, 'container.Names'),
-            'label' => data_get($container, 'container.Names').' · '.data_get($container, 'server.name'),
+            'value' => data_get($container, 'container.Names'),
+            'label' => (data_get($container, 'container.Label') ?: data_get($container, 'container.Names')).' · '.data_get($container, 'server.name'),
         ])->values();
     @endphp
 
@@ -57,12 +57,12 @@
     @if ($consoleUnavailable)
         <section class="mt-8 w-full max-w-none xl:mt-0">
             @if ($type === 'server')
-                <x-empty size="lg" title="Terminal unavailable"
-                    description="This server is not functional or terminal access is disabled."
+                <x-empty size="lg" title="{{ __('Terminal unavailable') }}"
+                    description="{{ __('This server is not functional or terminal access is disabled.') }}"
                     icon-name="browser-terminal" />
             @else
-                <x-empty size="lg" title="Terminal unavailable"
-                    description="No containers are running, or terminal access is disabled on the destination server."
+                <x-empty size="lg" title="{{ __('Terminal unavailable') }}"
+                    description="{{ __('No containers are running, or terminal access is disabled on the destination server.') }}"
                     icon-name="browser-terminal" />
             @endif
         </section>
@@ -131,7 +131,7 @@
                                 <div class="terminal-session-target-trigger flex h-8 min-w-0 max-w-sm items-center gap-2 rounded-md px-2.5 text-xs font-medium text-white/70">
                                 <x-reicon name="browser-terminal" class="size-3.5 shrink-0 text-white/55" />
                                 <span class="min-w-0 truncate font-semibold text-white/80">
-                                    {{ data_get($containers->first(), 'container.Names') }}
+                                    {{ data_get($containers->first(), 'container.Label') ?: data_get($containers->first(), 'container.Names') }}
                                     · {{ data_get($containers->first(), 'server.name') }}
                                 </span>
                                 </div>
@@ -177,14 +177,14 @@
 
                 <div class="terminal-session-panel flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-6">
                 <div class="application-console-block min-h-0 flex-1">
-                    @if ($type !== 'server' && $containers->count() > 1)
+                    @if ($type !== 'server' && $containers->count() > 1 && $shell !== 'odoo')
                         <div x-cloak x-show="!targetChosen" data-terminal-target-picker="launcher"
                             class="absolute inset-0 z-20 flex items-start justify-start p-6 sm:p-10">
                             <div class="terminal-target-picker w-full max-w-md rounded-lg border p-2 shadow-[var(--shadow-dropdown)]">
                                 <div class="px-2 pt-1 pb-2">
-                                    <div class="text-sm font-semibold text-white/80">Start a terminal session</div>
+                                    <div class="text-sm font-semibold text-white/80">{{ __('Start a terminal session') }}</div>
                                     <div class="mt-0.5 text-[11px] text-white/45">
-                                    Choose a container to start a session
+                                    {{ __('Choose a container to start a session') }}
                                     </div>
                                 </div>
                                 <div class="max-h-64 overflow-y-auto">
@@ -201,7 +201,7 @@
                         </div>
                     @endif
                     <livewire:project.shared.terminal variant="application"
-                        :auto-start="$type === 'server' || ! $containersLoaded || $containers->count() === 1" />
+                        :auto-start="$type === 'server' || ! $containersLoaded || $containers->count() === 1 || $shell === 'odoo'" />
                 </div>
                 </div>
             </div>

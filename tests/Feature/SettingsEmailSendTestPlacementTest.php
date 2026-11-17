@@ -38,7 +38,16 @@ test('send test is available when transactional email is enabled', function () {
     Livewire::test(SettingsEmail::class)
         ->assertOk()
         ->assertSee('Sender')
-        ->assertSee('Send test');
+        ->assertSee('Send test')
+        ->assertSeeHtml('wire:submit.prevent="sendTestEmail"');
+
+    $view = file_get_contents(resource_path('views/livewire/settings-email.blade.php'));
+
+    expect($view)
+        ->toContain('<x-settings.layout>')
+        ->toContain('settings-section title="{{ __(\'Sender\') }}"')
+        ->toContain('settings-email-send-test')
+        ->not->toContain('<x-settings.navbar');
 });
 
 test('send test is not rendered when transactional email is disabled', function () {

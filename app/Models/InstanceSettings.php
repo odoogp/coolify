@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SanitizeTermsHtml;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Once;
@@ -41,6 +42,8 @@ class InstanceSettings extends Model
         'custom_dns_servers',
         'domain_connect_private_key',
         'instance_name',
+        'platform_logo',
+        'terms_and_conditions_html',
         'is_api_enabled',
         'allowed_ips',
         'auto_update_frequency',
@@ -59,6 +62,29 @@ class InstanceSettings extends Model
         'avatar_s3_storage_id',
         'image_cdn_url',
         'is_dashboard_force_https_enabled',
+        'github_app_name',
+        'github_app_icon',
+        'whatsapp_support_number',
+        'odoo_base_domain',
+        'odoo_owner_repository',
+        'odoo_owner_branch',
+        'odoo_owner_github_app_id',
+        'odoo_mail_daily_limit',
+        'getodoo_hetzner_token_id',
+        'getodoo_eur_usd_rate',
+        'getodoo_tax_percent',
+        'getodoo_margin_percent',
+        'wompi_client_id',
+        'wompi_client_secret',
+        'n1co_secret',
+        'n1co_webhook_secret',
+        'n1co_sandbox',
+        'n1co_charges',
+        'n1co_location_id',
+        'n1co_server_charge_mode',
+        'n1co_client_id',
+        'n1co_client_secret',
+        'bank_transfer_instructions',
     ];
 
     protected $hidden = [
@@ -71,6 +97,10 @@ class InstanceSettings extends Model
         'resend_api_key',
         'domain_connect_private_key',
         'sentinel_token',
+        'wompi_client_secret',
+        'n1co_secret',
+        'n1co_webhook_secret',
+        'n1co_client_secret',
     ];
 
     protected $casts = [
@@ -87,6 +117,14 @@ class InstanceSettings extends Model
         'resend_enabled' => 'boolean',
         'resend_api_key' => 'encrypted',
         'domain_connect_private_key' => 'encrypted',
+        'wompi_client_secret' => 'encrypted',
+        'n1co_secret' => 'encrypted',
+        'n1co_webhook_secret' => 'encrypted',
+        'n1co_sandbox' => 'boolean',
+        'n1co_charges' => 'boolean',
+        'n1co_location_id' => 'integer',
+        'n1co_server_charge_mode' => 'string',
+        'n1co_client_secret' => 'encrypted',
 
         'allowed_ip_ranges' => 'array',
         'is_auto_update_enabled' => 'boolean',
@@ -168,6 +206,16 @@ class InstanceSettings extends Model
     public static function get()
     {
         return once(fn () => InstanceSettings::findOrFail(0));
+    }
+
+    public function hasTermsAndConditions(): bool
+    {
+        return SanitizeTermsHtml::isPresent($this->terms_and_conditions_html);
+    }
+
+    public function sanitizedTermsAndConditionsHtml(): string
+    {
+        return SanitizeTermsHtml::clean($this->terms_and_conditions_html);
     }
 
     // public function getRecipients($notification)

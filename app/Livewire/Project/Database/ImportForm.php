@@ -341,13 +341,13 @@ class ImportForm extends Component
         if (filled($this->customLocation)) {
             // Validate the custom location to prevent command injection
             if (! $this->validateServerPath($this->customLocation)) {
-                $this->dispatch('error', 'Invalid file path. Path must be absolute and contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).');
+                $this->dispatch('error', __('Invalid file path. Path must be absolute and contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).'));
 
                 return;
             }
 
             if (! $this->server) {
-                $this->dispatch('error', 'Server not found. Please refresh the page.');
+                $this->dispatch('error', __('Server not found. Please refresh the page.'));
 
                 return;
             }
@@ -356,12 +356,12 @@ class ImportForm extends Component
                 $escapedPath = escapeshellarg($this->customLocation);
                 $result = instant_remote_process(["ls -l {$escapedPath}"], $this->server, throwError: false);
                 if (blank($result)) {
-                    $this->dispatch('error', 'The file does not exist or has been deleted.');
+                    $this->dispatch('error', __('The file does not exist or has been deleted.'));
 
                     return;
                 }
                 $this->filename = $this->customLocation;
-                $this->dispatch('success', 'The file exists.');
+                $this->dispatch('success', __('The file exists.'));
             } catch (\Throwable $e) {
                 return handleError($e, $this);
             }
@@ -377,42 +377,90 @@ class ImportForm extends Component
         $this->authorize('update', $this->resource);
 
         if (! ValidationPatterns::isValidContainerName($this->container)) {
-            $this->dispatch('error', 'Invalid container name.');
+            $this->dispatch('error', __('Invalid container name.'));
 
             return true;
         }
 
         if ($this->filename === '') {
-            $this->dispatch('error', 'Please select a file to import.');
+            $this->dispatch('error', __('Please select a file to import.'));
 
             return true;
         }
 
         if (! $this->server) {
-            $this->dispatch('error', 'Server not found. Please refresh the page.');
+            $this->dispatch('error', __('Server not found. Please refresh the page.'));
 
             return true;
         }
 
         try {
             $this->importRunning = true;
-            $source = Storage::exists("upload/{$this->resourceUuid}/restore")
-                ? new DatabaseImportSource('upload', dumpAll: $this->dumpAll, replaceExisting: $this->replaceExisting)
-                : new DatabaseImportSource('server', path: $this->customLocation, dumpAll: $this->dumpAll, replaceExisting: $this->replaceExisting);
-            $activity = StartDatabaseImport::run($this->resource, $source, (int) currentTeam()->id);
-            $this->activityId = $activity->id;
-            $this->dispatch('activityMonitor', $activity->id);
-            $this->dispatch('databaserestore');
-            auditLog('ui.database.import_started', [
-                'team_id' => $this->resource->team()?->id,
-                'database_uuid' => $this->resource->uuid,
-                'database_name' => $this->resource->name,
-                'source' => 'file',
-                'replace_existing' => $this->replaceExisting,
-            ]);
-        } catch (DatabaseImportException $e) {
-            $this->importRunning = false;
-            $this->dispatch('error', $e->getMessage());
+            $this->importCommands = [];
+            $backupFileName = "upload/{$this->resourceUuid}/restore";
+
+            // Check if an uploaded file exists first (takes priority over custom location)
+            if (Storage::exists($backupFileName)) {
+                $path = Storage::path($backupFileName);
+
+                // Reject malicious PostgreSQL payloads before transferring the file anywhere.
+                if ($this->isPostgresqlRestore() && DatabaseBackupFileValidator::fileContainsPostgresqlProgramExecution($path)) {
+                    Storage::delete($backupFileName);
+                    $this->dispatch('error', __('The uploaded backup contains disallowed PostgreSQL restore directives (COPY ... PROGRAM or psql shell commands) and was rejected.'));
+
+                    return true;
+                }
+
+                $tmpPath = '/tmp/'.basename($backupFileName).'_'.$this->resourceUuid;
+                instant_scp($path, $tmpPath, $this->server);
+                Storage::delete($backupFileName);
+                $this->importCommands[] = "docker cp {$tmpPath} {$this->container}:{$tmpPath}";
+                $this->addRestoreSafetyCheckCommand($this->importCommands, $tmpPath);
+            } elseif (filled($this->customLocation)) {
+                // Validate the custom location to prevent command injection
+                if (! $this->validateServerPath($this->customLocation)) {
+                    $this->dispatch('error', __('Invalid file path. Path must be absolute and contain only safe characters.'));
+
+                    return true;
+                }
+                $tmpPath = '/tmp/restore_'.$this->resourceUuid;
+                $escapedCustomLocation = escapeshellarg($this->customLocation);
+                $this->importCommands[] = "docker cp {$escapedCustomLocation} {$this->container}:{$tmpPath}";
+                $this->addRestoreSafetyCheckCommand($this->importCommands, $tmpPath);
+            } else {
+                $this->dispatch('error', __('The file does not exist or has been deleted.'));
+
+                return true;
+            }
+
+            // Copy the restore command to a script file
+            $scriptPath = "/tmp/restore_{$this->resourceUuid}.sh";
+
+            $restoreCommand = $this->buildRestoreCommand($tmpPath);
+
+            $restoreCommandBase64 = base64_encode($restoreCommand);
+            $this->importCommands[] = "echo \"{$restoreCommandBase64}\" | base64 -d > {$scriptPath}";
+            $this->importCommands[] = "chmod +x {$scriptPath}";
+            $this->importCommands[] = "docker cp {$scriptPath} {$this->container}:{$scriptPath}";
+
+            $this->importCommands[] = "docker exec {$this->container} sh -c '{$scriptPath}'";
+            $this->importCommands[] = "docker exec {$this->container} sh -c 'echo \"Import finished with exit code $?\"'";
+
+            if (! empty($this->importCommands)) {
+                $activity = remote_process($this->importCommands, $this->server, ignore_errors: true, callEventOnFinish: 'RestoreJobFinished', callEventData: [
+                    'scriptPath' => $scriptPath,
+                    'tmpPath' => $tmpPath,
+                    'container' => $this->container,
+                    'serverId' => $this->server->id,
+                ]);
+
+                // Track the activity ID
+                $this->activityId = $activity->id;
+
+                // Dispatch activity to the monitor and open slide-over
+                $this->dispatch('activityMonitor', $activity->id);
+                $this->dispatch('databaserestore');
+            }
         } catch (\Throwable $e) {
             $this->importRunning = false;
             handleError($e, $this);
@@ -459,13 +507,13 @@ class ImportForm extends Component
     public function checkS3File()
     {
         if (! $this->s3StorageId) {
-            $this->dispatch('error', 'Please select an S3 storage.');
+            $this->dispatch('error', __('Please select an S3 storage.'));
 
             return;
         }
 
         if (blank($this->s3Path)) {
-            $this->dispatch('error', 'Please provide an S3 path.');
+            $this->dispatch('error', __('Please provide an S3 path.'));
 
             return;
         }
@@ -475,7 +523,7 @@ class ImportForm extends Component
 
         // Validate the S3 path early to prevent command injection in subsequent operations
         if (! $this->validateS3Path($cleanPath)) {
-            $this->dispatch('error', 'Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).');
+            $this->dispatch('error', __('Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).'));
 
             return;
         }
@@ -485,7 +533,7 @@ class ImportForm extends Component
 
             // Validate bucket name early
             if (! $this->validateBucketName($s3Storage->bucket)) {
-                $this->dispatch('error', 'Invalid S3 bucket name. Bucket name must contain only letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.');
+                $this->dispatch('error', __('Invalid S3 bucket name. Bucket name must contain only lowercase letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.'));
 
                 return;
             }
@@ -507,7 +555,7 @@ class ImportForm extends Component
 
             // Check if file exists
             if (! $disk->exists($cleanPath)) {
-                $this->dispatch('error', 'File not found in S3. Please check the path.');
+                $this->dispatch('error', __('File not found in S3. Please check the path.'));
 
                 return;
             }
@@ -532,48 +580,144 @@ class ImportForm extends Component
         $this->authorize('update', $this->resource);
 
         if (! ValidationPatterns::isValidContainerName($this->container)) {
-            $this->dispatch('error', 'Invalid container name.');
+            $this->dispatch('error', __('Invalid container name.'));
 
             return true;
         }
 
         if (! $this->s3StorageId || blank($this->s3Path)) {
-            $this->dispatch('error', 'Please select S3 storage and provide a path first.');
+            $this->dispatch('error', __('Please select S3 storage and provide a path first.'));
 
             return true;
         }
 
         if (is_null($this->s3FileSize)) {
-            $this->dispatch('error', 'Please check the file first by clicking "Check File".');
+            $this->dispatch('error', __('Please check the file first by clicking "Check File".'));
 
             return true;
         }
 
         if (! $this->server) {
-            $this->dispatch('error', 'Server not found. Please refresh the page.');
+            $this->dispatch('error', __('Server not found. Please refresh the page.'));
 
             return true;
         }
 
         try {
             $this->importRunning = true;
-            $source = new DatabaseImportSource('s3', path: $this->s3Path, s3StorageUuid: (string) $this->s3StorageId, dumpAll: $this->dumpAll, replaceExisting: $this->replaceExisting);
-            $activity = StartDatabaseImport::run($this->resource, $source, (int) currentTeam()->id);
+
+            $s3Storage = S3Storage::ownedByCurrentTeam()->findOrFail($this->s3StorageId);
+
+            $key = $s3Storage->key;
+            $secret = $s3Storage->secret;
+            $bucket = $s3Storage->bucket;
+            $endpoint = $s3Storage->endpoint;
+
+            // Validate bucket name to prevent command injection
+            if (! $this->validateBucketName($bucket)) {
+                $this->dispatch('error', __('Invalid S3 bucket name. Bucket name must contain only lowercase letters, numbers, dots, and dashes, and must follow S3 bucket naming rules.'));
+
+                return true;
+            }
+
+            // Clean the S3 path
+            $cleanPath = ltrim($this->s3Path, '/');
+
+            // Validate the S3 path to prevent command injection
+            if (! $this->validateS3Path($cleanPath)) {
+                $this->dispatch('error', __('Invalid S3 path. Path must contain only safe characters (alphanumerics, dots, dashes, underscores, slashes).'));
+
+                return true;
+            }
+
+            // Get helper image
+            $helperImage = coolifyHelperImage();
+            $latestVersion = getHelperVersion();
+            $fullImageName = "{$helperImage}:{$latestVersion}";
+
+            // Get the database destination network
+            if ($this->resource->getMorphClass() === ServiceDatabase::class) {
+                $destinationNetwork = $this->resource->service->destination->network ?? 'coolify';
+            } else {
+                $destinationNetwork = $this->resource->destination->network ?? 'coolify';
+            }
+
+            // Generate unique names for this operation
+            $containerName = "s3-restore-{$this->resourceUuid}";
+            $helperTmpPath = '/tmp/'.basename($cleanPath);
+            $serverTmpPath = "/tmp/s3-restore-{$this->resourceUuid}-".basename($cleanPath);
+            $containerTmpPath = "/tmp/restore_{$this->resourceUuid}-".basename($cleanPath);
+            $scriptPath = "/tmp/restore_{$this->resourceUuid}.sh";
+
+            $escapedServerTmpPath = escapeshellarg($serverTmpPath);
+            $escapedContainerTmpPath = escapeshellarg($containerTmpPath);
+            $escapedScriptPath = escapeshellarg($scriptPath);
+            $escapedHelperContainerPath = escapeshellarg("{$containerName}:{$helperTmpPath}");
+            $escapedDatabaseContainerTmpPath = escapeshellarg("{$this->container}:{$containerTmpPath}");
+            $escapedDatabaseContainerScriptPath = escapeshellarg("{$this->container}:{$scriptPath}");
+            $restoreAndCleanupCommand = escapeshellarg("{$escapedScriptPath} && rm -f {$escapedContainerTmpPath} {$escapedScriptPath}");
+
+            // Prepare all commands in sequence
+            $commands = [];
+
+            // 1. Clean up any existing helper container and temp files from previous runs
+            $commands[] = "docker rm -f {$containerName} 2>/dev/null || true";
+            $commands[] = "rm -f {$escapedServerTmpPath} 2>/dev/null || true";
+            $commands[] = "docker exec {$this->container} rm -f {$escapedContainerTmpPath} {$escapedScriptPath} 2>/dev/null || true";
+
+            // 2. Start helper container on the database network
+            $commands[] = "docker run -d --network {$destinationNetwork} --name {$containerName} {$fullImageName} sleep 3600";
+
+            // 3. Configure S3 access in helper container
+            $escapedEndpoint = escapeshellarg($endpoint);
+            $escapedKey = escapeshellarg($key);
+            $escapedSecret = escapeshellarg($secret);
+            $commands[] = "docker exec {$containerName} mc alias set s3temp {$escapedEndpoint} {$escapedKey} {$escapedSecret}";
+
+            // 4. Check file exists in S3 (bucket and path already validated above)
+            $escapedS3Source = escapeshellarg("s3temp/{$bucket}/{$cleanPath}");
+            $commands[] = "docker exec {$containerName} mc stat {$escapedS3Source}";
+
+            // 5. Download from S3 to helper container (progress shown by default)
+            $escapedHelperTmpPath = escapeshellarg($helperTmpPath);
+            $commands[] = "docker exec {$containerName} mc cp {$escapedS3Source} {$escapedHelperTmpPath}";
+
+            // 6. Copy from helper to server, then immediately to database container
+            $commands[] = "docker cp {$escapedHelperContainerPath} {$escapedServerTmpPath}";
+            $commands[] = "docker cp {$escapedServerTmpPath} {$escapedDatabaseContainerTmpPath}";
+            $this->addRestoreSafetyCheckCommand($commands, $containerTmpPath);
+
+            // 7. Cleanup helper container and server temp file immediately (no longer needed)
+            $commands[] = "docker rm -f {$containerName} 2>/dev/null || true";
+            $commands[] = "rm -f {$escapedServerTmpPath} 2>/dev/null || true";
+
+            // 8. Build and execute restore command inside database container
+            $restoreCommand = $this->buildRestoreCommand($containerTmpPath);
+
+            $restoreCommandBase64 = base64_encode($restoreCommand);
+            $commands[] = "echo \"{$restoreCommandBase64}\" | base64 -d > {$escapedScriptPath}";
+            $commands[] = "chmod +x {$escapedScriptPath}";
+            $commands[] = "docker cp {$escapedScriptPath} {$escapedDatabaseContainerScriptPath}";
+
+            // 9. Execute restore and cleanup temp files immediately after completion
+            $commands[] = "docker exec {$this->container} sh -c {$restoreAndCleanupCommand}";
+            $commands[] = "docker exec {$this->container} sh -c 'echo \"Import finished with exit code $?\"'";
+
+            // Execute all commands with cleanup event (as safety net for edge cases)
+            $activity = remote_process($commands, $this->server, ignore_errors: true, callEventOnFinish: 'S3RestoreJobFinished', callEventData: [
+                'containerName' => $containerName,
+                'serverTmpPath' => $serverTmpPath,
+                'scriptPath' => $scriptPath,
+                'containerTmpPath' => $containerTmpPath,
+                'container' => $this->container,
+                'serverId' => $this->server->id,
+            ]);
+
+            // Track the activity ID
             $this->activityId = $activity->id;
             $this->dispatch('activityMonitor', $activity->id);
             $this->dispatch('databaserestore');
-            auditLog('ui.database.restore_started', [
-                'team_id' => $this->resource->team()?->id,
-                'database_uuid' => $this->resource->uuid,
-                'database_name' => $this->resource->name,
-                'source' => 's3',
-                'replace_existing' => $this->replaceExisting,
-                'storage_id' => $this->s3StorageId,
-            ]);
-            $this->dispatch('info', 'Restoring database from S3. Progress will be shown in the activity monitor...');
-        } catch (DatabaseImportException $e) {
-            $this->importRunning = false;
-            $this->dispatch('error', $e->getMessage());
+            $this->dispatch('info', __('Restoring database from S3. Progress will be shown in the activity monitor...'));
         } catch (\Throwable $e) {
             $this->importRunning = false;
             handleError($e, $this);

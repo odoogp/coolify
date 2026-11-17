@@ -13,41 +13,41 @@
 @php
     $items = match ($section) {
         'team' => [
-            ['label' => 'General', 'route' => 'team.index', 'active' => request()->routeIs('team.index', 'team.member.index', 'team.admin-view', 'team.danger-zone')],
+            ['label' => __('General'), 'route' => 'team.index', 'active' => request()->routeIs('team.index', 'team.member.index', 'team.admin-view', 'team.danger-zone')],
         ],
         'profile' => [
-            ['label' => 'General', 'route' => 'profile', 'active' => request()->routeIs('profile')],
-            ['label' => 'Appearance', 'route' => 'profile.appearance', 'active' => request()->routeIs('profile.appearance')],
+            ['label' => __('General'), 'route' => 'profile', 'active' => request()->routeIs('profile')],
+            ['label' => __('Appearance'), 'route' => 'profile.appearance', 'active' => request()->routeIs('profile.appearance')],
         ],
         'notifications' => [
-            ['label' => 'Email', 'route' => 'notifications.email', 'active' => request()->routeIs('notifications.*')],
+            ['label' => __('Email'), 'route' => 'notifications.email', 'active' => request()->routeIs('notifications.*')],
         ],
         'security' => [
-            ['label' => 'Private Keys', 'route' => 'security.private-key.index', 'active' => request()->routeIs('security.*')],
+            ['label' => __('Private Keys'), 'route' => 'security.private-key.index', 'active' => request()->routeIs('security.*')],
         ],
         'settings' => [
-            ['label' => 'General', 'route' => 'settings.index', 'active' => request()->routeIs('settings.*')],
+            ['label' => __('General'), 'route' => 'settings.index', 'active' => request()->routeIs('settings.*')],
         ],
         'source' => [
             [
-                'label' => 'General',
+                'label' => __('General'),
                 'route' => 'source.github.show',
                 'active' => request()->routeIs('source.github.show', 'source.github.permissions', 'source.github.resources', 'source.github.danger'),
             ],
         ],
         'destination' => [
-            ['label' => 'General', 'route' => 'destination.show', 'active' => request()->routeIs('destination.show', 'destination.resources', 'destination.danger')],
+            ['label' => __('General'), 'route' => 'destination.show', 'active' => request()->routeIs('destination.show', 'destination.resources', 'destination.danger')],
         ],
         'storage' => [
             [
-                'label' => 'General',
+                'label' => __('General'),
                 'route' => 'storage.show',
                 'active' => request()->routeIs('storage.show', 'storage.danger', 'storage.resources'),
             ],
         ],
         'subscription' => [
             [
-                'label' => 'Plan',
+                'label' => __('Plan'),
                 'route' => 'subscription.show',
                 'active' => request()->routeIs('subscription.show'),
                 'icon' => 'subscription',
@@ -55,7 +55,7 @@
                 'visible' => isSubscriptionActive() || isSubscriptionOnGracePeriod(),
             ],
             [
-                'label' => 'Pricing',
+                'label' => __('Pricing'),
                 'route' => 'subscription.index',
                 'active' => request()->routeIs('subscription.index'),
                 'icon' => 'dashboard',

@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Proxy Dynamic Configuration | Coolify
+        {{ __('Proxy Dynamic Configuration | Coolify') }}
     </x-slot>
 
     <livewire:server.navbar :server="$server" />
@@ -14,19 +14,19 @@
                 <div class="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
                         <h2 class="text-sm! font-medium text-neutral-950 dark:text-fg">
-                            Dynamic configurations
+                            {{ __('Dynamic configurations') }}
                         </h2>
                         <p class="mt-1 text-xs text-neutral-500 dark:text-fg-dim">
-                            Manage additional proxy routes, middleware, and services loaded at runtime.
+                            {{ __('Manage additional proxy routes, middleware, and services loaded at runtime.') }}
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
                         <x-forms.button wire:click="loadDynamicConfigurations">
                             <x-reicon name="refresh" class="size-3.5" />
-                            Reload
+                            {{ __('Reload') }}
                         </x-forms.button>
                         @can('update', $server)
-                            <x-modal-input buttonTitle="+ Add" title="New Dynamic Configuration">
+                            <x-modal-input buttonTitle="+ Add" title="{{ __('New Dynamic Configuration') }}">
                                 <livewire:server.proxy.new-dynamic-configuration :server_id="$server->id" />
                             </x-modal-input>
                         @endcan
@@ -68,18 +68,18 @@
                             </x-application.settings-section>
                         @endforeach
                     @else
-                        <x-application.settings-section wire:loading.remove title="Dynamic configurations">
-                            <x-empty size="sm" title="No dynamic configurations"
-                                description="Add a configuration file to extend the proxy at runtime."
+                        <x-application.settings-section wire:loading.remove title="{{ __('Dynamic configurations') }}">
+                            <x-empty size="sm" title="{{ __('No dynamic configurations') }}"
+                                description="{{ __('Add a configuration file to extend the proxy at runtime.') }}"
                                 icon-name="file-content" />
                         </x-application.settings-section>
                     @endif
                 </div>
             @else
-                <x-application.settings-section title="Dynamic configurations"
-                    helper="Manage additional runtime proxy configuration.">
-                    <x-empty size="sm" title="Server validation required"
-                        description="Validate this server before loading proxy configuration."
+                <x-application.settings-section title="{{ __('Dynamic configurations') }}"
+                    helper="{{ __('Manage additional runtime proxy configuration.') }}">
+                    <x-empty size="sm" title="{{ __('Server validation required') }}"
+                        description="{{ __('Validate this server before loading proxy configuration.') }}"
                         icon-name="file-content" />
                 </x-application.settings-section>
             @endif

@@ -20,3 +20,116 @@ test('searchable listbox renders its label, search field, and options', function
         ->toContain('Berlin')
         ->toContain('New_York');
 });
+
+test('server timezone fields use the searchable listbox component', function () {
+    $localhost = file_get_contents(resource_path('views/livewire/server/partials/localhost-general.blade.php'));
+    $show = file_get_contents(resource_path('views/livewire/server/show.blade.php'));
+
+    expect($localhost)
+        ->toContain('x-forms.searchable-listbox id="serverTimezone"')
+        ->toContain('searchPlaceholder="Search timezones"')
+        ->not->toContain('<x-forms.listbox id="serverTimezone"');
+
+    expect($show)
+        ->toContain('x-forms.searchable-listbox id="serverTimezone"')
+        ->toContain('searchPlaceholder="Search timezones"')
+        ->not->toMatch('/<x-forms\.listbox id="serverTimezone"/');
+});
+
+test('searchable listbox keeps the helper outside the label association', function () {
+    $html = Blade::render(<<<'BLADE'
+        <x-forms.searchable-listbox id="tz" label="Timezone"
+            helper="Used for cron jobs." searchPlaceholder="Search"
+            :options="[['value' => 'UTC', 'label' => 'UTC']]" :wire="false" value="UTC" />
+    BLADE);
+
+    expect($html)
+        ->toContain('Used for cron jobs.')
+        ->toContain('aria-label="More information"')
+        ->not->toMatch('/<label[^>]*for="tz-trigger"[^>]*>[\s\S]*aria-label="More information"[\s\S]*<\/label>/');
+});
+
+test('searchable listbox serializes change handlers', function () {
+    $listbox = file_get_contents(resource_path('views/components/forms/searchable-listbox.blade.php'));
+
+    expect($listbox)
+        ->toContain('saving: false')
+        ->toContain('async choose(option)')
+        ->toContain('if (this.saving || option?.disabled)')
+        ->toContain('await this.$wire.')
+        ->toContain("'pointer-events-none opacity-70': saving")
+        ->toContain('@elseif ($live && ! $onChange) @entangle($id).live')
+        ->toContain('@mousedown.prevent.stop="choose(option)"')
+        ->toContain("this.\$wire.set('{{ \$id }}', next)")
+        ->toContain('searchable-listbox-preview');
+});
+
+test('searchable listbox renders catalog logo name and description for rich options', function () {
+    $html = Blade::render(<<<'BLADE'
+        <x-forms.searchable-listbox id="selectedService" label="Service"
+            searchPlaceholder="Search" emptyText="None"
+            :options="[
+                [
+                    'value' => 'obsidian',
+                    'label' => 'Obsidian',
+                    'category' => 'productivity',
+                    'description' => 'Notes that stick.',
+                    'logo' => 'https://example.test/obsidian.png',
+                ],
+            ]" :wire="false" value="obsidian" />
+    BLADE);
+
+    expect($html)
+        ->toContain('searchable-listbox-preview')
+        ->toContain('example.test')
+        ->toContain('obsidian.png')
+        ->toContain('selected?.description')
+        ->toContain('@mousedown.prevent.stop="choose(option)"');
+});
+
+test('portaled searchable listbox stays inside focus traps so search stays editable', function () {
+    $listbox = file_get_contents(resource_path('views/components/forms/searchable-listbox.blade.php'));
+    $modal = file_get_contents(resource_path('views/components/modal-input.blade.php'));
+
+    expect($listbox)
+        ->toContain('portalHost()')
+        ->toContain('portalSurface(host)')
+        ->toContain('[data-listbox-portal-root]')
+        ->toContain('[data-listbox-portal-surface]')
+        ->toContain("attr.name.startsWith('x-trap.')")
+        ->toContain("setProperty('min-width', width, 'important')")
+        ->toContain('@click.outside')
+        ->toContain('isInsidePanel')
+        ->toContain('nodeType === 1')
+        ->toContain('data-searchable-listbox-panel')
+        ->toContain("this.\$wire.set('{{ \$id }}', next)")
+        ->not->toContain('x-teleport="body"');
+
+    // Trap shell keeps the root; panels mount on a non-flex surface so they stay clickable.
+    expect($modal)
+        ->toContain('data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"')
+        ->toContain('data-listbox-portal-surface')
+        ->not->toContain('sm:scale-95');
+});
+
+test('project New modal only launches when Launch is clicked', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/show.blade.php'));
+
+    expect($view)
+        ->toContain('id="selectedService"')
+        ->toContain('wire:click="launchService"')
+        ->toContain('catalog-version-fields')
+        // GPSH: catalog picker is deferred — no live — so selecting does not morph the modal.
+        ->not->toMatch('/id="selectedService"[^>]*\blive\b/')
+        ->toContain('ignoreMorph')
+        ->toContain('portal ignoreMorph');
+});
+
+test('catalog service listbox keeps Alpine across Livewire morphs', function () {
+    $listbox = file_get_contents(resource_path('views/components/forms/searchable-listbox.blade.php'));
+
+    expect($listbox)
+        ->toContain("'ignoreMorph' => false")
+        ->toContain('@if ($ignoreMorph) wire:ignore @endif')
+        ->toContain('Set value before close');
+});

@@ -28,7 +28,7 @@ class S3StoragePolicy
      */
     public function create(User $user): bool
     {
-        return $user->isAdmin();
+        return $user->isOwner();
     }
 
     /**
@@ -36,7 +36,7 @@ class S3StoragePolicy
      */
     public function update(User $user, S3Storage $storage): bool
     {
-        return $user->teams->contains('id', $storage->team_id) && $user->isAdminOfTeam($storage->team_id);
+        return $user->teams->contains('id', $storage->team_id) && $user->isOwnerOfTeam($storage->team_id);
     }
 
     /**
@@ -44,7 +44,7 @@ class S3StoragePolicy
      */
     public function delete(User $user, S3Storage $storage): bool
     {
-        return $user->teams->contains('id', $storage->team_id) && $user->isAdminOfTeam($storage->team_id);
+        return $user->teams->contains('id', $storage->team_id) && $user->isOwnerOfTeam($storage->team_id);
     }
 
     /**
@@ -68,6 +68,6 @@ class S3StoragePolicy
      */
     public function validateConnection(User $user, S3Storage $storage): bool
     {
-        return $user->teams->contains('id', $storage->team_id) && $user->isAdminOfTeam($storage->team_id);
+        return $user->teams->contains('id', $storage->team_id) && $user->isOwnerOfTeam($storage->team_id);
     }
 }

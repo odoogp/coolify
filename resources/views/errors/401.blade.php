@@ -5,7 +5,7 @@
         <x-toast />
         <x-error-page
             code="401"
-            title="You shall not pass!"
-            description="You don't have permission to access this page." />
+            title="{{ __('You shall not pass!') }}"
+            description="{{ __('Contact an advisor if you need access to this page.') }}" />
     </body>
 @endsection

@@ -41,8 +41,9 @@ RUN docker-php-serversideup-set-id www-data $USER_ID:$GROUP_ID && \
 
 WORKDIR /var/www/html
 COPY --chown=www-data:www-data composer.json composer.lock ./
-RUN --mount=type=cache,target=/tmp/cache \
-    COMPOSER_CACHE_DIR=/tmp/cache composer install --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist
+# No BuildKit cache mounts: many self-hosted hosts only have the legacy builder
+# (DOCKER_BUILDKIT=1 alone is not enough without the buildx plugin).
+RUN composer install --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist
 
 USER www-data
 
@@ -53,15 +54,34 @@ FROM node:24-alpine AS static-assets
 
 WORKDIR /app
 COPY package*.json vite.config.js postcss.config.cjs ./
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci
+RUN npm ci
 COPY . .
 RUN npm run build
 
 # =================================================================
 # Stage 3: Get MinIO client
+# dl.min.io returns 410 for this archived release. The binary comes from the
+# official minio/mc GitHub release for MINIO_VERSION.
 # =================================================================
-FROM quay.io/minio/aistor/mc:RELEASE.2026-09-06T02-44-40Z AS minio-client
+FROM alpine:3 AS minio-client
+
+ARG MINIO_VERSION
+# Empty default: BuildKit/buildx fills TARGETARCH; legacy docker build leaves it empty.
+ARG TARGETARCH=
+
+RUN set -eux; \
+    apk add --no-cache ca-certificates curl; \
+    arch="${TARGETARCH}"; \
+    if [ -z "${arch}" ]; then \
+        case "$(uname -m)" in \
+            x86_64|amd64) arch=amd64 ;; \
+            aarch64|arm64) arch=arm64 ;; \
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+        esac; \
+    fi; \
+    curl -fsSL "https://github.com/minio/mc/releases/download/${MINIO_VERSION}/mc.linux-${arch}.${MINIO_VERSION}" -o /usr/bin/mc; \
+    chmod +x /usr/bin/mc; \
+    mc --version
 
 # =================================================================
 # Final Stage: Production image
@@ -70,7 +90,8 @@ FROM serversideup/php:${SERVERSIDEUP_PHP_VERSION}
 
 ARG USER_ID
 ARG GROUP_ID
-ARG TARGETPLATFORM
+# Empty default for legacy docker build (no buildx); BuildKit fills linux/amd64|arm64.
+ARG TARGETPLATFORM=
 ARG POSTGRES_VERSION
 ARG CLOUDFLARED_VERSION
 ARG NGINX_VERSION
@@ -104,8 +125,7 @@ RUN apk add --no-cache gnupg && \
     curl -fSsL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor > /usr/share/keyrings/postgresql.gpg
 
 # Install system dependencies
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk upgrade && \
+RUN apk upgrade && \
     apk add --no-cache \
     postgresql${POSTGRES_VERSION}-client \
     nodejs \
@@ -126,20 +146,33 @@ RUN echo "alias ll='ls -al'" >> /etc/profile && \
     echo "alias logs='tail -f storage/logs/laravel.log'" >> /etc/profile
 
 # Install Cloudflared based on architecture
-RUN mkdir -p /usr/local/bin && \
-    if [ "${TARGETPLATFORM}" = "linux/amd64" ]; then \
-    curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" -o /usr/local/bin/cloudflared; \
-    elif [ "${TARGETPLATFORM}" = "linux/arm64" ]; then \
-    curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-arm64" -o /usr/local/bin/cloudflared; \
-    fi && \
+RUN set -eux; \
+    mkdir -p /usr/local/bin; \
+    platform="${TARGETPLATFORM}"; \
+    if [ -z "${platform}" ]; then \
+        case "$(uname -m)" in \
+            x86_64|amd64) platform=linux/amd64 ;; \
+            aarch64|arm64) platform=linux/arm64 ;; \
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+        esac; \
+    fi; \
+    if [ "${platform}" = "linux/amd64" ]; then \
+        curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" -o /usr/local/bin/cloudflared; \
+    elif [ "${platform}" = "linux/arm64" ]; then \
+        curl -sSL "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-arm64" -o /usr/local/bin/cloudflared; \
+    else \
+        echo "Unsupported TARGETPLATFORM: ${platform}" >&2; \
+        exit 1; \
+    fi; \
     chmod +x /usr/local/bin/cloudflared
 
 # Configure PHP
 COPY docker/production/etc/php/conf.d/zzz-custom-php.ini /usr/local/etc/php/conf.d/zzz-custom-php.ini
 ENV PHP_OPCACHE_ENABLE=1
 
-# Configure entrypoint
-COPY --chmod=755 docker/production/entrypoint.d/ /etc/entrypoint.d
+# Configure entrypoint (chmod via RUN: COPY --chmod needs BuildKit)
+COPY docker/production/entrypoint.d/ /etc/entrypoint.d
+RUN chmod -R 755 /etc/entrypoint.d
 
 # Copy application files from previous stages
 COPY --from=base --chown=www-data:www-data /var/www/html/vendor ./vendor
@@ -157,11 +190,21 @@ COPY --chown=www-data:www-data routes ./routes
 COPY --chown=www-data:www-data storage ./storage
 COPY --chown=www-data:www-data templates ./templates
 COPY --chown=www-data:www-data resources/views ./resources/views
+COPY --chown=www-data:www-data scripts ./scripts
 COPY --chown=www-data:www-data artisan artisan
 COPY --chown=www-data:www-data openapi.yaml ./openapi.yaml
 COPY --chown=www-data:www-data changelogs/ ./changelogs/
 
-RUN composer dump-autoload
+# Empty gitignored dirs (e.g. cache/data) are missing from COPY; Purify/file cache needs them.
+RUN mkdir -p \
+        storage/framework/cache/data \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+    && chown -R www-data:www-data storage bootstrap/cache \
+    && composer dump-autoload \
+    && chmod 755 scripts/upgrade-local.sh
 
 # Install terminal WebSocket server dependencies
 COPY docker/coolify-terminal/package*.json /terminal/
@@ -174,15 +217,18 @@ RUN chown -R www-data:www-data /terminal
 # Configure Nginx and S6 overlay
 COPY docker/production/etc/nginx/conf.d/custom.conf /etc/nginx/conf.d/custom.conf
 COPY docker/production/etc/nginx/site-opts.d/http.conf /etc/nginx/site-opts.d/http.conf
-COPY --chmod=755 docker/production/etc/s6-overlay/ /etc/s6-overlay/
+COPY docker/production/etc/s6-overlay/ /etc/s6-overlay/
 
-RUN mkdir -p /etc/nginx/conf.d && \
+RUN mkdir -p /etc/nginx/conf.d /etc/s6-overlay/s6-rc.d/user && \
+    printf 'bundle\n' > /etc/s6-overlay/s6-rc.d/user/type && \
     chown -R www-data:www-data /etc/nginx && \
-    chmod -R 755 /etc/nginx
+    chmod -R 755 /etc/nginx /etc/s6-overlay
 
 # Install MinIO client
 COPY --from=minio-client /usr/bin/mc /usr/bin/mc
 RUN chmod +x /usr/bin/mc
 
-# Switch to non-root user
-USER www-data
+# Stay as root for s6 init. PHP-FPM/nginx still run as www-data via their
+# service configs. USER www-data here makes s6-rc fail with
+# "can't create /etc/s6-overlay/s6-rc.d/user/type: Permission denied".
+USER root

@@ -821,58 +821,151 @@ function fqdnLabelsForCaddy(string $network, string $uuid, Collection $domains, 
     return $labels->sort();
 }
 
-function firstDockerComposeServicePort(mixed $service): ?int
+/**
+ * Container port Traefik should dial when the public URL does not name one.
+ * Short syntax keeps the last segment (`80:8069`, `127.0.0.1:80:8069`). Long syntax uses `target`.
+ */
+function containerListenPort(mixed $ports, mixed $expose = null): ?string
 {
-    $portDefinitions = collect(data_get($service, 'expose', []))
-        ->merge(data_get($service, 'ports', []));
-
-    foreach ($portDefinitions as $definition) {
-        $protocol = is_array($definition)
-            ? data_get($definition, 'protocol', 'tcp')
-            : (str_contains((string) $definition, '/') ? str((string) $definition)->afterLast('/')->value() : 'tcp');
-        if ($protocol !== 'tcp') {
-            continue;
+    foreach (collect($expose ?? []) as $port) {
+        if (is_numeric($port)) {
+            return (string) (int) $port;
         }
+        if (is_string($port) && preg_match('/^(\d+)/', $port, $matches) === 1) {
+            return $matches[1];
+        }
+    }
 
-        $port = is_array($definition)
-            ? data_get($definition, 'target')
-            : str((string) $definition)->before('/')->afterLast(':')->value();
-
-        if (is_numeric($port) && (int) $port >= 1 && (int) $port <= 65535) {
-            return (int) $port;
+    foreach (collect($ports ?? []) as $port) {
+        if (is_numeric($port)) {
+            return (string) (int) $port;
+        }
+        if (is_array($port)) {
+            $target = data_get($port, 'target');
+            if (is_numeric($target)) {
+                return (string) (int) $target;
+            }
+        }
+        if (is_string($port)) {
+            $withoutProtocol = explode('/', $port, 2)[0];
+            $segments = explode(':', $withoutProtocol);
+            $containerPort = $segments[array_key_last($segments)];
+            if (is_numeric($containerPort)) {
+                return (string) (int) $containerPort;
+            }
         }
     }
 
     return null;
 }
 
-function dockerComposeServicePort(?string $compose, ?string $serviceName): ?int
+/**
+ * Listen port declared by Coolify magic vars on a compose service
+ * (`SERVICE_URL_APP_3000` / `SERVICE_FQDN_APP_3000`), including list form without `=`.
+ *
+ * Templates often name the compose service differently from the catalog key
+ * (e.g. authentik-server vs authentik). The port suffix on the magic var is
+ * authoritative for that container and must not require per-service aliases.
+ */
+function serviceMagicUrlPort(mixed $environment): ?string
 {
-    return dockerComposeServicePorts($compose, $serviceName)[0] ?? null;
-}
-
-function dockerComposeServicePorts(?string $compose, ?string $serviceName): array
-{
-    if (blank($compose) || blank($serviceName)) {
-        return [];
+    foreach (collect($environment ?? []) as $key => $value) {
+        $name = is_int($key) || ctype_digit((string) $key)
+            ? (string) str((string) $value)->before('=')->trim()
+            : (string) $key;
+        if ($name === '' || (! str_starts_with($name, 'SERVICE_URL_') && ! str_starts_with($name, 'SERVICE_FQDN_'))) {
+            continue;
+        }
+        $parsed = parseServiceEnvironmentVariable($name);
+        if ($parsed['has_port'] && filled($parsed['port']) && ctype_digit((string) $parsed['port'])) {
+            return (string) $parsed['port'];
+        }
     }
 
+    return null;
+}
+
+/**
+ * Catalog `port` for a one-click service. Prefer the stack's service_type
+ * (template key) over the compose service name so sidecars like
+ * authentik-server still resolve authentik.port=9000 without hardcoding.
+ */
+function catalogTemplatePort(?string $serviceType, ?string $composeServiceName = null, mixed $templates = null): ?string
+{
+    $templates ??= function_exists('get_service_templates') ? get_service_templates() : [];
+    foreach (array_filter([$serviceType, $composeServiceName], fn ($key) => filled($key)) as $key) {
+        $port = data_get($templates, "{$key}.port");
+        if (filled($port) && is_numeric($port)) {
+            return (string) $port;
+        }
+    }
+
+    return null;
+}
+
+/**
+ * Port Traefik / Caddy should dial for a public compose app when the FQDN
+ * has no :port (typical after HTTPS upgrade strips it).
+ *
+ * Order: compose ports/expose → magic SERVICE_URL_*_<port> → stored app ports → catalog.
+ */
+function resolveComposeProxyPort(
+    mixed $composePorts = null,
+    mixed $composeExpose = null,
+    mixed $environment = null,
+    mixed $storedPorts = null,
+    ?string $catalogPort = null,
+): ?string {
+    $fromCompose = containerListenPort($composePorts, $composeExpose);
+    if ($fromCompose !== null) {
+        return $fromCompose;
+    }
+
+    $fromMagic = serviceMagicUrlPort($environment);
+    if ($fromMagic !== null) {
+        return $fromMagic;
+    }
+
+    $stored = $storedPorts;
+    if (is_string($stored)) {
+        $stored = str($stored)->explode(',')->map(fn ($port) => trim((string) $port))->filter()->values()->all();
+    }
+    $fromStored = containerListenPort($stored);
+    if ($fromStored !== null) {
+        return $fromStored;
+    }
+
+    return filled($catalogPort) && is_numeric($catalogPort) ? (string) $catalogPort : null;
+}
+
+/**
+ * parse_url() treats a scheme-less `host:port` as scheme=host, so the backend port is dropped.
+ */
+function proxyUrlFromDomain(string $domain): ?Url
+{
+    $domain = trim($domain);
+    if ($domain === '') {
+        return null;
+    }
+    if (! str_contains($domain, '://')) {
+        $domain = 'http://'.$domain;
+    }
     try {
-        $services = data_get(Yaml::parse($compose), 'services', []);
+        $url = Url::fromString($domain);
     } catch (Throwable) {
-        return [];
+        return null;
+    }
+    if (blank($url->getHost())) {
+        return null;
     }
 
-    $service = is_array($services) ? ($services[$serviceName] ?? []) : [];
-
-    return collect(data_get($service, 'expose', []))
-        ->merge(data_get($service, 'ports', []))
-        ->map(fn ($definition) => firstDockerComposeServicePort(['expose' => [$definition]]))
-        ->filter(fn ($port) => $port !== null)
-        ->unique()->values()->all();
+    return $url;
 }
 
-function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_https_enabled = false, $onlyPort = null, ?Collection $serviceLabels = null, ?bool $is_gzip_enabled = true, ?bool $is_stripprefix_enabled = true, ?string $service_name = null, bool $generate_unique_uuid = false, ?string $image = null, string $redirect_direction = 'both', bool $is_http_basic_auth_enabled = false, ?string $http_basic_auth_username = null, ?string $http_basic_auth_password = null, ?Collection $noindex_domains = null, bool $escape_redirect_replacement_for_compose = true, array $domainPortOverrides = [])
+/**
+ * @param  string|Server|null  $tlsCertResolver  Resolver name, or a Server to pick per Host (sslip / odoo_base_domain → ACME; other custom → mounted store).
+ */
+function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_https_enabled = false, $onlyPort = null, ?Collection $serviceLabels = null, ?bool $is_gzip_enabled = true, ?bool $is_stripprefix_enabled = true, ?string $service_name = null, bool $generate_unique_uuid = false, ?string $image = null, string $redirect_direction = 'both', bool $is_http_basic_auth_enabled = false, ?string $http_basic_auth_username = null, ?string $http_basic_auth_password = null, ?Collection $noindex_domains = null, bool $escape_redirect_replacement_for_compose = true, string|Server|null $tlsCertResolver = 'letsencrypt')
 {
     $labels = collect([]);
     $labels->push('traefik.enable=true');
@@ -923,7 +1016,10 @@ function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_
                 $uuid = new_public_id();
             }
 
-            $url = Url::fromString($domain);
+            $url = proxyUrlFromDomain((string) $domain);
+            if ($url === null) {
+                continue;
+            }
             $host = $url->getHost();
             $path = $url->getPath();
             $schema = $url->getScheme();
@@ -1038,10 +1134,22 @@ function fqdnLabelsForTraefik(string $uuid, Collection $domains, bool $is_force_
                     }
                 }
                 $labels->push("traefik.http.routers.{$https_label}.tls=true");
-                $labels->push("traefik.http.routers.{$https_label}.tls.certresolver=letsencrypt");
+                // Null/empty: use Traefik's certificate store (file-mounted / prior ACME) by SNI.
+                $resolverForHost = $tlsCertResolver instanceof Server
+                    ? $tlsCertResolver->traefikTlsCertResolver($host)
+                    : $tlsCertResolver;
+                if (is_string($resolverForHost) && $resolverForHost !== '') {
+                    $labels->push("traefik.http.routers.{$https_label}.tls.certresolver={$resolverForHost}");
+                }
+                $labels->push("traefik.http.routers.{$https_label}.tls.domains[0].main={$host}");
 
-                // Set labels for http (redirect to https)
-                $labels->push("traefik.http.routers.{$http_label}.rule=Host(`{$host}`) && PathPrefix(`{$path}`)");
+                // Set labels for http (redirect to https).
+                // The ACME HTTP-01 path must stay on port 80. Redirecting it makes Traefik keep its default certificate.
+                $httpRule = "Host(`{$host}`) && PathPrefix(`{$path}`)";
+                if ($is_force_https_enabled) {
+                    $httpRule .= ' && !PathPrefix(`/.well-known/acme-challenge/`)';
+                }
+                $labels->push("traefik.http.routers.{$http_label}.rule={$httpRule}");
                 $labels->push("traefik.http.routers.{$http_label}.entryPoints=http");
                 if ($port) {
                     $labels->push("traefik.http.services.{$http_label}.loadbalancer.server.port=$port");
@@ -1171,7 +1279,7 @@ function generateLabelsApplication(Application $application, ?ApplicationPreview
                             http_basic_auth_username: $application->http_basic_auth_username,
                             http_basic_auth_password: $application->http_basic_auth_password,
                             noindex_domains: $noindexDomains,
-                            domainPortOverrides: $application->domain_port_overrides ?? [],
+                            tlsCertResolver: $application->destination->server,
                         ));
                         break;
                     case ProxyTypes::CADDY->value:
@@ -1209,7 +1317,7 @@ function generateLabelsApplication(Application $application, ?ApplicationPreview
                     http_basic_auth_password: $application->http_basic_auth_password,
                     noindex_domains: $noindexDomains,
                     escape_redirect_replacement_for_compose: false,
-                    domainPortOverrides: $application->domain_port_overrides ?? [],
+                    tlsCertResolver: $application->destination->server,
                 ));
                 $labels = $labels->merge(fqdnLabelsForCaddy(
                     network: $application->destination->network,
@@ -1255,7 +1363,7 @@ function generateLabelsApplication(Application $application, ?ApplicationPreview
                         http_basic_auth_password: $application->http_basic_auth_password,
                         noindex_domains: $noindexDomains,
                         escape_redirect_replacement_for_compose: false,
-                        domainPortOverrides: $preview->domain_port_overrides ?? [],
+                        tlsCertResolver: $application->destination->server,
                     ));
                     break;
                 case ProxyTypes::CADDY->value:
@@ -1291,7 +1399,7 @@ function generateLabelsApplication(Application $application, ?ApplicationPreview
                 http_basic_auth_password: $application->http_basic_auth_password,
                 noindex_domains: $noindexDomains,
                 escape_redirect_replacement_for_compose: false,
-                domainPortOverrides: $preview->domain_port_overrides ?? [],
+                tlsCertResolver: $application->destination->server,
             ));
             $labels = $labels->merge(fqdnLabelsForCaddy(
                 network: $application->destination->network,

@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        {{ data_get_str($service, 'name')->limit(10) }} > Configuration | Coolify
+        {{ data_get_str($service, 'name')->limit(10) }} > Configuration | {{ product_name() }}
     </x-slot>
 
     <livewire:project.service.heading :service="$service" :parameters="$parameters" :query="$query" />
@@ -12,38 +12,57 @@
             'service_uuid' => $service->uuid,
         ];
 
+        $clientOdooNav = $odooIsOdoo && ! isInstanceOwner();
         $configurationItems = collect([
-            ['label' => 'General', 'route' => 'project.service.configuration', 'icon' => 'settings'],
-            ['label' => 'Domains', 'route' => 'project.service.domains', 'icon' => 'globe'],
-            ['label' => 'Environment Variables', 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
-            ['label' => 'Persistent Storage', 'route' => 'project.service.storages', 'icon' => 'storages'],
-            ['label' => 'Backups', 'route' => 'project.service.volume-backups.index', 'icon' => 'database'],
-            ['label' => 'Import Backup', 'route' => 'project.service.import-backup', 'icon' => 'upload', 'navigate' => false],
-            ['label' => 'Runtime Logs', 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
-            ['label' => 'Terminal', 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->can('canAccessTerminal')],
-            ['label' => 'Analytics', 'route' => 'project.service.analytics', 'icon' => 'analytics'],
-            ['label' => 'Scheduled Tasks', 'route' => 'project.service.scheduled-tasks.show', 'icon' => 'calendar'],
-            ['label' => 'Webhooks', 'route' => 'project.service.webhooks', 'icon' => 'notifications'],
-            ['label' => 'Resource Operations', 'route' => 'project.service.resource-operations', 'icon' => 'server-update'],
-            ['label' => 'Tags', 'route' => 'project.service.tags', 'icon' => 'tags'],
-            ['label' => 'Danger Zone', 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
-        ])->filter(fn (array $item): bool => $item['visible'] ?? true)->map(fn (array $item): array => [
-            ...$item,
-            'active' => $currentRoute === $item['route']
-                || ($item['route'] === 'project.service.scheduled-tasks.show'
-                    && str($currentRoute)->startsWith('project.service.scheduled-tasks')),
-        ]);
+            ['label' => __('Deployments'), 'route' => 'project.service.deployments', 'icon' => 'time-back', 'visible' => $odooIsOdoo],
+            ['label' => __('General'), 'route' => 'project.service.configuration', 'icon' => 'settings'],
+            ['label' => __('Domains'), 'route' => 'project.service.domains', 'icon' => 'globe'],
+            ['label' => __('Environment Variables'), 'route' => 'project.service.environment-variables', 'icon' => 'variables', 'hasWarning' => ! $service->isDeployable],
+            ['label' => __('Persistent Storage'), 'route' => 'project.service.storages', 'icon' => 'storages'],
+            ['label' => __('Backups'), 'route' => $odooIsOdoo ? 'project.odoo.backups' : 'project.service.volume-backups.index', 'icon' => 'database'],
+            ['label' => __('Runtime Logs'), 'route' => 'project.service.logs', 'icon' => 'unordered-list', 'navigate' => false],
+            ['label' => __('Terminal'), 'route' => 'project.service.command', 'icon' => 'browser-terminal', 'navigate' => false, 'visible' => auth()->user()?->canOpenTerminal($service)],
+            ['label' => __('Scheduled Tasks'), 'route' => 'project.service.scheduled-tasks.show', 'icon' => 'calendar'],
+            ['label' => __('Webhooks'), 'route' => 'project.service.webhooks', 'icon' => 'notifications'],
+            ['label' => __('Resource Operations'), 'route' => 'project.service.resource-operations', 'icon' => 'server-update'],
+            ['label' => __('Tags'), 'route' => 'project.service.tags', 'icon' => 'tags'],
+            ['label' => __('Danger Zone'), 'route' => 'project.service.danger', 'icon' => 'shield-alert'],
+        ])->filter(fn (array $item): bool => $item['visible'] ?? true)
+            ->when($clientOdooNav, fn ($items) => $items->filter(fn (array $item): bool => in_array($item['route'], [
+                'project.service.deployments',
+                'project.service.configuration',
+                'project.odoo.backups',
+                'project.service.logs',
+                'project.service.command',
+                'project.service.danger',
+            ], true)))
+            ->map(fn (array $item): array => [
+                ...$item,
+                'active' => $currentRoute === $item['route']
+                    || ($item['route'] === 'project.service.scheduled-tasks.show'
+                        && str($currentRoute)->startsWith('project.service.scheduled-tasks')),
+            ]);
 
-        $menuGroups = [
-            'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
-            'Observe & troubleshoot' => ['Runtime Logs', 'Terminal', 'Analytics'],
-            'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups', 'Import Backup'],
-            'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
-        ];
+        $menuGroups = $clientOdooNav
+            ? [
+                'Updates' => ['Deployments'],
+                'Settings' => ['General'],
+                'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+                'Automation' => ['Backups'],
+                'Operations' => ['Danger Zone'],
+            ]
+            : [
+                'Updates' => ['Deployments'],
+                'Settings' => ['General', 'Domains', 'Environment Variables', 'Persistent Storage'],
+                'Observe & troubleshoot' => ['Runtime Logs', 'Terminal'],
+                'Automation' => ['Scheduled Tasks', 'Webhooks', 'Backups'],
+                'Operations' => ['Resource Operations', 'Tags', 'Danger Zone'],
+            ];
 
         $groupedItems = collect($menuGroups)
             ->map(fn (array $labels) => collect($labels)
-                ->map(fn (string $label) => $configurationItems->firstWhere('label', $label))
+                ->map(fn (string $label) => $configurationItems->firstWhere('label', __($label))
+                    ?? $configurationItems->firstWhere('label', $label))
                 ->filter()
                 ->values())
             ->filter(fn ($items) => $items->isNotEmpty());
@@ -62,10 +81,42 @@
     <section class="application-settings-workspace mt-4 w-full max-w-none lg:mt-0">
         <div class="grid min-w-0 gap-8 xl:grid-cols-[210px_minmax(0,1fr)] xl:gap-8">
             <aside class="application-settings-navigation min-w-0 xl:self-start">
-                <nav aria-label="Service settings"
-                    x-data="settingsSidebarAccordion({ activeGroup: @js($activeGroup), storageKey: 'coolify.settings-sidebar.service' })"
+                <nav aria-label="{{ __('Service settings') }}"
                     class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
+                    @if ($odooIsOdoo)
+                        @php
+                            $deploymentsItem = $configurationItems->firstWhere('route', 'project.service.deployments');
+                        @endphp
+                        @if ($deploymentsItem)
+                            <a @class(['menu-item', 'menu-item-active' => $deploymentsItem['active']])
+                                {{ wireNavigate() }}
+                                href="{{ route('project.service.deployments', $serviceRouteParameters) }}">
+                                <x-reicon name="time-back" class="menu-item-icon" />
+                                <span class="menu-item-label">{{ __('Deployments') }}</span>
+                            </a>
+                            <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]"
+                                aria-hidden="true"></div>
+                        @endif
+                        <button type="button" wire:click="$set('odooPanel', 'github')" @class([
+                            'menu-item',
+                            'menu-item-active' => $currentRoute === 'project.service.configuration' && $odooPanel === 'github',
+                        ])>
+                            <x-reicon name="sources" class="menu-item-icon" />
+                            <span class="menu-item-label">{{ __('GitHub') }}</span>
+                        </button>
+                        @if (isInstanceOwner())
+                            <button type="button" wire:click="$set('odooPanel', 'owner-package')" @class([
+                                'menu-item',
+                                'menu-item-active' => $currentRoute === 'project.service.configuration' && $odooPanel === 'owner-package',
+                            ])>
+                                <x-reicon name="layers" class="menu-item-icon" />
+                                <span class="menu-item-label">{{ __('Owner package') }}</span>
+                            </button>
+                        @endif
+                    @endif
                     @foreach ($groupedItems as $groupLabel => $groupItems)
+                        {{-- Deployments is already rendered above GitHub for Odoo. --}}
+                        @continue($odooIsOdoo && $groupLabel === 'Updates')
                         @unless ($loop->first)
                             <div class="my-2 hidden border-t border-neutral-200 xl:block dark:border-white/[0.06]"
                                 aria-hidden="true"></div>
@@ -81,16 +132,24 @@
                         </button>
                         <div class="contents" :class="isOpen(@js($groupLabel)) ? 'xl:block' : 'xl:hidden'">
                         @foreach ($groupItems as $menuItem)
+                            @php
+                                $menuRouteParameters = $menuItem['route'] === 'project.odoo.backups'
+                                    ? [
+                                        'project_uuid' => $serviceRouteParameters['project_uuid'],
+                                        'environment_uuid' => $serviceRouteParameters['environment_uuid'],
+                                    ]
+                                    : $serviceRouteParameters;
+                            @endphp
                             <a @class([
                                 'menu-item',
                                 'menu-item-active' => $menuItem['active'],
                             ])
                                 @if ($menuItem['navigate'] ?? true) {{ wireNavigate() }} @endif
-                                href="{{ route($menuItem['route'], $serviceRouteParameters) }}">
+                                href="{{ route($menuItem['route'], $menuRouteParameters) }}">
                                 <x-reicon :name="$menuItem['icon']" class="menu-item-icon" />
                                 <span class="menu-item-label">{{ $menuItem['label'] }}</span>
                                 @if ($menuItem['hasWarning'] ?? false)
-                                    <span class="ml-auto size-2 shrink-0 rounded-full bg-error" title="Required environment variables missing"></span>
+                                    <span class="ml-auto size-2 shrink-0 rounded-full bg-error" title="{{ __('Required environment variables missing') }}"></span>
                                 @endif
                             </a>
                             @if ($menuItem['active'] && $menuItem['route'] === 'project.service.storages' && $storageSections->isNotEmpty())
@@ -114,6 +173,288 @@
 
             <div class="min-w-0">
                 @if ($currentRoute === 'project.service.configuration')
+                    @if ($odooIsOdoo && $odooPanel === 'github')
+                        <section class="application-settings-section mb-6">
+                            <div class="application-settings-section-body flex flex-col gap-4">
+                                <div>
+                                    <p class="text-sm font-medium">{{ __('GitHub') }}</p>
+                                    <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('The environment name and the GitHub branch are stored separately. A push updates the addon folder.') }}
+                                    </p>
+                                </div>
+                                @php
+                                    $githubBranch = (string) ($environment->odooBranch?->git_branch ?? '');
+                                    $linkedRepository = \App\Support\OdooGit::environmentGitRepository($environment);
+                                    $odooGithubLinked = $githubBranch !== '' && filled($linkedRepository);
+                                    $odooGithubUrl = $odooGithubLinked
+                                        ? \App\Support\OdooGit::repositoryUrl((string) $linkedRepository, $githubBranch)
+                                        : '';
+                                @endphp
+                                @if ($odooGithubLinked && ! $odooAccountChanged)
+                                    <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                                        <div>
+                                            <p class="auth-plan-kicker mb-1">{{ __('Repository') }}</p>
+                                            <p class="font-mono text-[13px]">{{ $linkedRepository }}</p>
+                                        </div>
+                                        <p class="text-[13px]">{{ __('Environment :name.', ['name' => $environment->name]) }}</p>
+                                        <p class="text-[13px]">{{ __('GitHub branch :branch.', ['branch' => $githubBranch]) }}</p>
+                                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                            {{ __('This environment is linked. Repository and branch stay as set at association.') }}
+                                        </p>
+                                        @if ($odooGithubUrl !== '')
+                                            <a class="button w-fit" href="{{ $odooGithubUrl }}" target="_blank" rel="noopener noreferrer">
+                                                {{ __('Open on GitHub') }}
+                                            </a>
+                                        @endif
+                                    </div>
+                                    <div class="flex flex-col gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-white/[0.08] dark:bg-white/[0.025]">
+                                        <div>
+                                            <p class="auth-plan-kicker mb-1">{{ __('Collaborators') }}</p>
+                                            <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                                {{ __('Invite a GitHub username to this repository. Removing someone asks for confirmation.') }}
+                                            </p>
+                                        </div>
+                                        <form wire:submit="inviteGithubUser" class="flex max-w-xl flex-col gap-3 sm:flex-row sm:items-end">
+                                            <div class="min-w-0 flex-1">
+                                                <x-forms.input canGate="update" :canResource="$service" id="githubLogin" label="{{ __('GitHub username') }}"
+                                                    placeholder="ronaldleongg" />
+                                            </div>
+                                            <x-forms.button type="submit" canGate="update" :canResource="$service" isHighlighted>
+                                                {{ __('Invite') }}
+                                            </x-forms.button>
+                                        </form>
+                                        <ul class="max-w-xl divide-y divide-neutral-200 dark:divide-white/10">
+                                            @forelse ($odooCollaborators as $collaborator)
+                                                <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="github-collaborator-{{ $collaborator['login'] }}">
+                                                    <span class="font-mono">{{ $collaborator['login'] }}</span>
+                                                    <button type="button" class="text-red-500"
+                                                        wire:click="removeGithubUser('{{ $collaborator['login'] }}')"
+                                                        wire:confirm="{{ __('Remove :login from this GitHub repository?', ['login' => $collaborator['login']]) }}">
+                                                        {{ __('Remove') }}
+                                                    </button>
+                                                </li>
+                                            @empty
+                                                <li class="py-2 text-sm text-neutral-500 dark:text-fg-dim">{{ __('No collaborators yet.') }}</li>
+                                            @endforelse
+                                        </ul>
+                                    </div>
+                                @endif
+                                @if (! $odooGithubConnected)
+                                    <div>
+                                        <x-forms.button type="button" wire:click="connectOdooGithub" canGate="update" :canResource="$service">
+                                            {{ __('Connect GitHub') }}
+                                        </x-forms.button>
+                                    </div>
+                                @else
+                                    <div class="flex flex-wrap items-center justify-between gap-3">
+                                        <p class="text-[13px]">
+                                            {{ __('GitHub account :login, linked to :user.', [
+                                                'login' => $odooGithubLogin !== '' ? $odooGithubLogin : __('this account'),
+                                                'user' => auth()->user()->email,
+                                            ]) }}
+                                        </p>
+                                        <x-forms.button type="button" wire:click="changeOdooGithubAccount" canGate="update" :canResource="$service">
+                                            {{ __('Change account') }}
+                                        </x-forms.button>
+                                    </div>
+                                    @if (! $odooGithubLinked || $odooAccountChanged)
+                                    @if ($odooAccountChanged)
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            {{ __('This GitHub account is not the one linked to the repository. Associate a new repository, or choose an existing repository and a branch.') }}
+                                        </p>
+                                    @elseif ($associatingWithoutGithub)
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            {{ $odooGithubIsPersonal
+                                                ? __('This project started without GitHub. On a personal GitHub account, create the repository yourself, then associate it here so custom addons can be pushed.')
+                                                : __('This project started without GitHub. Create a repository and push the custom addons that are already on the instance.') }}
+                                        </p>
+                                    @else
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            {{ $awaitingRepositoryChoice
+                                                ? __('GitHub is connected. Launch production on a new repository, or search an existing one.')
+                                                : __('Choose the GitHub repository and branch for this environment. You only set this once.') }}
+                                        </p>
+                                    @endif
+                                    @if ($awaitingRepositoryChoice && filled($service->environment?->odooBranch?->odoo_version ?: $project->odooProfile?->odoo_version))
+                                        <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                                            {{ __('This environment installs Odoo :version. Launch another environment from the project if you need a different Compose.', ['version' => $service->environment?->odooBranch?->odoo_version ?: $project->odooProfile->odoo_version]) }}
+                                        </p>
+                                    @endif
+                                    @php
+                                        // Create is a separate path (org + no project repo yet). Personal / already-linked → existing only.
+                                        $canCreateOdooRepository = ! $odooGithubIsPersonal && blank($project->odooProfile?->git_repository);
+                                        $showCreateOdooRepository = $canCreateOdooRepository && $odooRepoMode === 'new';
+                                        $takenGithubBranches = $this->takenOdooGithubBranches();
+                                    @endphp
+                                    @if ($canCreateOdooRepository)
+                                        <div class="flex flex-wrap gap-4 text-sm">
+                                            <label class="inline-flex items-center gap-2">
+                                                <input type="radio" wire:model.live="odooRepoMode" value="new" class="rounded-full">
+                                                {{ __('Create a new repository') }}
+                                            </label>
+                                            <label class="inline-flex items-center gap-2">
+                                                <input type="radio" wire:model.live="odooRepoMode" value="existing" class="rounded-full">
+                                                {{ __('Use an existing repository') }}
+                                            </label>
+                                        </div>
+                                    @else
+                                        <p class="text-[13px] font-medium">{{ __('Associate an existing repository') }}</p>
+                                    @endif
+                                    @if ($showCreateOdooRepository)
+                                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                            @if ($environment->isProduction())
+                                                {{ __('The new repository is named :name. This environment tracks its default branch.', ['name' => \App\Support\OdooGit::repositoryName($project)]) }}
+                                            @else
+                                                {{ __('The new repository is named :name. This environment gets the branch :branch.', ['name' => \App\Support\OdooGit::repositoryName($project), 'branch' => $environment->name]) }}
+                                            @endif
+                                        </p>
+                                    @else
+                                        <div class="max-w-sm space-y-2">
+                                            <div class="flex items-end gap-2">
+                                                <div class="min-w-0 flex-1">
+                                                    <label class="mb-1.5 block text-sm font-medium" for="odoo-repository-query">{{ __('Repository') }}</label>
+                                                    <input id="odoo-repository-query" type="search" wire:model.live.debounce.200ms="odooRepositoryQuery"
+                                                        placeholder="{{ __('Search repositories') }}" class="input">
+                                                </div>
+                                                <x-forms.button type="button" wire:click="reloadOdooRepositories" canGate="update" :canResource="$service">
+                                                    {{ __('Refresh repositories') }}
+                                                </x-forms.button>
+                                            </div>
+                                            <p wire:loading wire:target="reloadOdooRepositories,odooRepoMode" class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                {{ __('Loading repositories…') }}
+                                            </p>
+                                            @php
+                                                $repositoryQuery = strtolower($odooRepositoryQuery);
+                                                $repositoryMatches = collect($odooRepositories)
+                                                    ->filter(fn (array $repository): bool => $repositoryQuery === '' || str_contains(strtolower($repository['full_name']), $repositoryQuery))
+                                                    ->take(20);
+                                            @endphp
+                                            @if ($repositoryMatches->isNotEmpty())
+                                                <ul class="overflow-hidden rounded-lg border border-neutral-200 dark:border-white/[0.08]">
+                                                    @foreach ($repositoryMatches as $repository)
+                                                        <li>
+                                                            <button type="button" wire:click="pickOdooRepository({{ $repository['id'] }})"
+                                                                class="flex w-full items-center px-3 py-2 text-left font-mono text-[13px] hover:bg-neutral-100 dark:hover:bg-white/[0.06] {{ (int) $odooRepositoryId === (int) $repository['id'] ? 'bg-neutral-100 dark:bg-white/[0.06]' : '' }}">
+                                                                {{ $repository['full_name'] }}
+                                                            </button>
+                                                        </li>
+                                                    @endforeach
+                                                </ul>
+                                            @elseif ($odooRepositoriesLoaded)
+                                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('No matching repositories.') }}</p>
+                                            @endif
+                                            @if ($odooGithubBranches !== [])
+                                                <x-forms.searchable-listbox id="odooBranch" label="{{ __('GitHub branch') }}"
+                                                    searchPlaceholder="{{ __('Search branches') }}"
+                                                    emptyText="{{ __('No matching branch') }}"
+                                                    :options="collect($odooGithubBranches)->map(function (string $branch) use ($takenGithubBranches): array {
+                                                        $taken = in_array($branch, $takenGithubBranches, true);
+
+                                                        return [
+                                                            'value' => $branch,
+                                                            'label' => $taken ? $branch.' ('.__('in use').')' : $branch,
+                                                            'disabled' => $taken,
+                                                        ];
+                                                    })->all()" />
+                                                @if ($takenGithubBranches !== [])
+                                                    <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                                        {{ __('Each environment needs its own tip on the same repository. The same branch name on another repository is fine.') }}
+                                                    </p>
+                                                @endif
+                                            @endif
+                                        </div>
+                                    @endif
+                                    @if ($associateError)
+                                        <div class="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-[13px] text-red-900 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-100">
+                                            <p>{{ __($associateError) }}</p>
+                                            <button type="button" class="mt-2 text-[12px] underline" wire:click="dismissAssociateError">
+                                                {{ __('Dismiss') }}
+                                            </button>
+                                        </div>
+                                    @endif
+                                    <div class="flex flex-wrap items-center gap-3"
+                                        @if ($associateRunning) wire:poll.2s="refreshAssociateProgress" @endif>
+                                        <x-forms.button type="button" wire:click="associateOdooRepository" canGate="update" :canResource="$service" isHighlighted
+                                            :disabled="$associateRunning || ($showCreateOdooRepository && $odooGithubIsPersonal)">
+                                            {{ $showCreateOdooRepository
+                                                ? ($associatingWithoutGithub ? __('Create repository') : __('Create repository and launch'))
+                                                : __('Associate repository') }}
+                                        </x-forms.button>
+                                        @unless ($associatingWithoutGithub || ($needsEnvironmentGithubLink && filled($project->odooProfile?->git_repository)))
+                                        <x-forms.button type="button" wire:click="launchWithoutGithub" canGate="update" :canResource="$service">
+                                            {{ __('Launch without GitHub') }}
+                                        </x-forms.button>
+                                        @endunless
+                                        @if ($associateRunning)
+                                            <p class="inline-flex items-center gap-1.5 text-[13px]">
+                                                <span class="size-1.5 animate-pulse rounded-full bg-sky-500"></span>
+                                                {{ $showCreateOdooRepository ? __('Creating the repository…') : __('Linking repository…') }}
+                                            </p>
+                                        @else
+                                            <p wire:loading wire:target="associateOdooRepository" class="text-[13px]">
+                                                {{ $showCreateOdooRepository ? __('Creating the repository…') : __('Linking repository…') }}
+                                            </p>
+                                        @endif
+                                    </div>
+                                    @endif
+                                @endif
+                            </div>
+                        </section>
+                    @endif
+                    @if ($odooIsOdoo && $odooPanel === 'owner-package' && isInstanceOwner())
+                        <section class="application-settings-section mb-6">
+                            <div class="application-settings-section-body flex flex-col gap-4">
+                                <div>
+                                    <p class="text-sm font-medium">{{ __('Owner package') }}</p>
+                                    <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Copy a branch of the house package into this project’s addon volume. Only the instance owner sees this. Client addons stay untouched.') }}
+                                    </p>
+                                </div>
+                                @if ($ownerPackageRepository === '')
+                                    <p class="text-sm text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Set the owner package repository in Settings → Odoo first.') }}
+                                    </p>
+                                @else
+                                    <p class="text-sm">
+                                        <span class="text-neutral-500 dark:text-fg-dim">{{ __('Repository') }}:</span>
+                                        <span class="font-mono">{{ $ownerPackageRepository }}</span>
+                                    </p>
+                                    @if (filled($environment->odooBranch?->owner_package_branch))
+                                        <p class="text-sm">
+                                            <span class="text-neutral-500 dark:text-fg-dim">{{ __('Installed branch') }}:</span>
+                                            <span class="font-mono">{{ $environment->odooBranch->owner_package_branch }}</span>
+                                        </p>
+                                    @endif
+                                    <div class="flex max-w-xl items-end gap-2">
+                                        <div class="min-w-0 flex-1">
+                                            @if ($ownerPackageBranches !== [])
+                                                <label class="mb-1.5 block text-sm font-medium" for="owner-package-branch">{{ __('Branch') }}</label>
+                                                <select id="owner-package-branch" wire:model="ownerPackageBranch" class="input">
+                                                    @foreach ($ownerPackageBranches as $branch)
+                                                        <option value="{{ $branch }}">{{ $branch }}</option>
+                                                    @endforeach
+                                                </select>
+                                            @else
+                                                <x-forms.input id="ownerPackageBranch" label="{{ __('Branch') }}" placeholder="19.0" />
+                                            @endif
+                                        </div>
+                                        <x-forms.button type="button" wire:click="loadOwnerPackageBranches">{{ __('Load branches') }}</x-forms.button>
+                                    </div>
+                                    <div>
+                                        <x-forms.button type="button" wire:click="installOwnerPackage" canGate="update"
+                                            :canResource="$service" isHighlighted
+                                            wire:confirm="{{ __('Copy this owner package branch into the project volume and restart Odoo?') }}">
+                                            {{ __('Install into project') }}
+                                        </x-forms.button>
+                                        <p wire:loading wire:target="installOwnerPackage" class="mt-2 text-[13px]">
+                                            {{ __('Queuing the owner package install…') }}
+                                        </p>
+                                    </div>
+                                @endif
+                            </div>
+                        </section>
+                    @endif
+                    @if (! $odooIsOdoo || $odooPanel === 'mounted')
                     <livewire:project.service.stack-form :service="$service" />
 
                     <div class="mt-8" x-data="{
@@ -125,9 +466,9 @@
                     }">
                         <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div>
-                                <h2 class="text-base font-semibold text-black dark:text-fg">Compose resources</h2>
+                                <h2 class="text-base font-semibold text-black dark:text-fg">{{ __('Compose resources') }}</h2>
                                 <p class="mt-1 text-sm text-neutral-500 dark:text-fg-dim">
-                                    Applications and databases defined in this service.
+                                    {{ __('Applications and databases defined in this service.') }}
                                 </p>
                             </div>
                             <div class="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
@@ -138,7 +479,7 @@
                                         :class="viewMode === 'table'
                                             ? 'control-selected'
                                             : 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                                        aria-label="Table view" title="Table view">
+                                        aria-label="{{ __('Table view') }}" title="{{ __('Table view') }}">
                                         <x-reicon name="unordered-list" class="size-3.5" />
                                     </button>
                                     <button type="button" x-on:click="setViewMode('grid')"
@@ -146,12 +487,12 @@
                                         :class="viewMode === 'grid'
                                             ? 'control-selected'
                                             : 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                                        aria-label="Grid view" title="Grid view">
+                                        aria-label="{{ __('Grid view') }}" title="{{ __('Grid view') }}">
                                         <x-reicon name="grid" class="size-3.5" />
                                     </button>
                                 </div>
                                 <a class="button" target="_blank" href="{{ $service->documentation() }}">
-                                    Documentation
+                                    {{ __('Documentation') }}
                                     <x-reicon name="external-link" class="size-4" />
                                 </a>
                             </div>
@@ -162,10 +503,10 @@
                             : 'overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05]'">
                             @if ($applications->isNotEmpty() || $databases->isNotEmpty())
                                 <div x-cloak x-show="viewMode === 'table'"
-                                    class="grid min-w-[48rem] grid-cols-[minmax(14rem,1fr)_minmax(12rem,1fr)_12rem_5rem] gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-fg-faint">
-                                    <div>Resource</div>
-                                    <div>Image</div>
-                                    <div class="justify-self-start">Status</div>
+                                    class="grid grid-cols-[minmax(0,1fr)_auto] gap-3 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_5rem] dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+                                    <div>{{ __('Resource') }}</div>
+                                    <div class="hidden sm:block">{{ __('Image') }}</div>
+                                    <div class="justify-self-start">{{ __('Status') }}</div>
                                     <div></div>
                                 </div>
                             @endif
@@ -173,8 +514,8 @@
                             @if ($applications->isEmpty() && $databases->isEmpty())
                                 <div
                                     class="application-settings-section overflow-hidden sm:col-span-2">
-                                    <x-empty title="No compose resources"
-                                        description="No applications or databases are defined in this Docker Compose file."
+                                    <x-empty title="{{ __('No compose resources') }}"
+                                        description="{{ __('No applications or databases are defined in this Docker Compose file.') }}"
                                         icon-name="grid" />
                                 </div>
                             @endif
@@ -191,9 +532,7 @@
                             @endforeach
                         </div>
                     </div>
-                @elseif ($currentRoute === 'project.service.analytics')
-                    <livewire:project.service.analytics :service="$service"
-                        :lazy="(bool) ($service->server ?? $service->destination?->server)?->isTrafficAnalyticsEnabled()" />
+                    @endif
                 @elseif ($currentRoute === 'project.service.domains')
                     <livewire:project.service.domains :service="$service" />
                 @elseif ($currentRoute === 'project.service.environment-variables')
@@ -203,7 +542,7 @@
                     <div class="space-y-6">
                         <div
                             class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] leading-5 text-amber-800 dark:border-warning/15 dark:bg-warning/[0.07] dark:text-amber-300/90">
-                            Service volume mounts are read-only here. Edit the Docker Compose file and reload it to change volumes.
+                            {{ __('Service volume mounts are read-only here. Edit the Docker Compose file and reload it to change volumes.') }}
                         </div>
                         @foreach ($applications as $application)
                             <livewire:project.service.storage wire:key="application-{{ $application->id }}"

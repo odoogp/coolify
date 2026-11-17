@@ -58,7 +58,7 @@ class Show extends Component
     {
         $ownedToken = CloudProviderToken::ownedByCurrentTeam()->find($tokenId);
         if (is_null($ownedToken)) {
-            $this->dispatch('error', 'You are not allowed to use this token.');
+            $this->dispatch('error', __('You are not allowed to use this token.'));
 
             return;
         }

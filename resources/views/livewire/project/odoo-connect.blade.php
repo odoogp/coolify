@@ -1,0 +1,77 @@
+<div class="relative inline-flex" x-data="{
+    menu: false,
+    panelStyle: 'position: fixed; visibility: hidden;',
+    toggle() {
+        if (this.menu) {
+            this.menu = false;
+            return;
+        }
+        this.panelStyle = 'position: fixed; visibility: hidden;';
+        this.menu = true;
+        this.$nextTick(() => this.place());
+    },
+    place() {
+        const trigger = this.$root.getBoundingClientRect();
+        const panel = this.$refs.panel.getBoundingClientRect();
+        const pad = 8;
+        let left = trigger.left;
+        if (left + panel.width + pad > window.innerWidth) {
+            left = window.innerWidth - panel.width - pad;
+        }
+        left = Math.max(pad, left);
+        const below = window.innerHeight - trigger.bottom - pad;
+        const top = below >= panel.height
+            ? trigger.bottom + 4
+            : Math.max(pad, trigger.top - panel.height - 4);
+        this.panelStyle = `position: fixed; left: ${left}px; top: ${top}px;`;
+    },
+}" @click.outside="menu = false" @keydown.escape.window="menu = false"
+    x-on:resize.window="if (menu) place()" x-on:scroll.window="if (menu) place()">
+    <a class="button button-highlighted" target="_blank" rel="noopener noreferrer" href="{{ $enterUrl }}"
+        style="border-top-right-radius:0;border-bottom-right-radius:0;border-right-width:0">
+        {{ __('Open Odoo') }}
+    </a>
+    <button type="button" class="button button-highlighted" x-on:click="toggle()" :aria-expanded="menu"
+        aria-label="{{ __('Connect as') }}" aria-haspopup="menu"
+        style="border-top-left-radius:0;border-bottom-left-radius:0;padding-left:0.4rem;padding-right:0.45rem">
+        <x-reicon name="chevron-down" class="size-3 opacity-70" />
+    </button>
+    <div x-ref="panel" x-cloak x-show="menu" :style="panelStyle"
+        class="listbox-panel fixed! right-auto! bottom-auto! z-[90]! mt-0! w-44! min-w-0!" role="menu">
+        <a class="listbox-option justify-start!" target="_blank" rel="noopener noreferrer" role="menuitem"
+            href="{{ $enterUrl }}" x-on:click="menu = false">{{ __('Open') }}</a>
+        <button type="button" class="listbox-option justify-start!" role="menuitem"
+            wire:click="connectAs" x-on:click="menu = false">{{ __('Connect as') }}</button>
+    </div>
+    @if ($open)
+        {{-- Teleport out of #resource-action-hud-slot: header backdrop-blur makes position:fixed relative to the bar. --}}
+        <template x-teleport="body">
+            <div class="fixed inset-0 z-[1200] flex items-center justify-center bg-black/50 p-4"
+                wire:click="$set('open', false)" role="dialog" aria-modal="true"
+                aria-label="{{ __('Internal Users') }}">
+                <div wire:click.stop
+                    class="w-full max-w-lg rounded-xl border border-neutral-200 bg-white p-5 shadow-xl dark:border-white/10 dark:bg-neutral-900">
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <h2 class="text-base font-semibold">{{ __('Internal Users') }} ({{ count($users) }})</h2>
+                        <button type="button" class="text-sm" wire:click="$set('open', false)">{{ __('Close') }}</button>
+                    </div>
+                    @forelse ($users as $user)
+                        <div class="flex items-center justify-between gap-3 border-t border-neutral-200 py-3 text-sm dark:border-white/10"
+                            wire:key="odoo-user-{{ $user['login'] }}">
+                            <span>
+                                <span class="font-medium">{{ $user['name'] }}</span>
+                                <span class="ml-3 font-mono text-neutral-500">{{ $user['login'] }}</span>
+                            </span>
+                            <a class="font-medium text-emerald-700 dark:text-emerald-300" target="_blank"
+                                rel="noopener noreferrer"
+                                href="{{ $enterUrl }}?login={{ urlencode($user['login']) }}">{{ __('Connect') }}</a>
+                        </div>
+                    @empty
+                        <p class="text-sm text-neutral-500">
+                            {{ __('Odoo has no internal users yet, or it is still starting.') }}</p>
+                    @endforelse
+                </div>
+            </div>
+        </template>
+    @endif
+</div>

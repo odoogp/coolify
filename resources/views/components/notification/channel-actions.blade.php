@@ -26,12 +26,12 @@
                 .then(() => $wire.$call(toggleMethod))
                 .catch(() => { enabled = !next; });
         ">
-        <span x-text="enabled ? 'Disable' : 'Enable'">{{ $enabled ? 'Disable' : 'Enable' }}</span>
+        {{ $enabled ? __('Disable') : __('Enable') }}
     </x-forms.button>
     <x-forms.button type="button" :disabled="!$enabled" :canGate="$canResource ? 'sendTest' : null"
         :canResource="$canResource"
         x-on:click="if ($el.closest('form').reportValidity()) $wire.$call(testMethod)">
         <x-reicon name="notifications" class="size-3.5" />
-        Send test
+        {{ __('Send test') }}
     </x-forms.button>
 </div>

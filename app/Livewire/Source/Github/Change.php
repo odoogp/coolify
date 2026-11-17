@@ -4,6 +4,7 @@ namespace App\Livewire\Source\Github;
 
 use App\Jobs\GithubAppPermissionJob;
 use App\Models\GithubApp;
+use App\Support\OdooGit;
 use App\Models\PrivateKey;
 use App\Rules\SafeExternalUrl;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -82,6 +83,8 @@ class Change extends Component
     public string $activeTab = 'general';
 
     public bool $isConnected = false;
+
+    public bool $forOdooProject = false;
 
     private bool $shouldDeriveApiUrlAfterHtmlUrlUpdate = false;
 
@@ -218,7 +221,7 @@ class Change extends Component
 
             // Verify the private key exists and is accessible
             if (! $this->github_app->privateKey) {
-                $this->dispatch('error', 'Private Key not found. Please select a valid private key.');
+                $this->dispatch('error', __('Private Key not found. Please select a valid private key.'));
 
                 return;
             }
@@ -231,13 +234,13 @@ class Change extends Component
             $this->isConnected = $this->github_app->isConnected();
             $this->name = str($this->github_app->name)->kebab();
 
-            $this->dispatch('success', 'Github App permissions updated.');
+            $this->dispatch('success', __('Github App permissions updated.'));
         } catch (\Throwable $e) {
             // Provide better error message for unsupported key formats
             $errorMessage = $e->getMessage();
             if (str_contains($errorMessage, 'DECODER routines::unsupported') ||
                 str_contains($errorMessage, 'parse your key')) {
-                $this->dispatch('error', 'The selected private key format is not supported for GitHub Apps. <br><br>Please use an RSA private key in PEM format (BEGIN RSA PRIVATE KEY). <br><br>OpenSSH format keys (BEGIN OPENSSH PRIVATE KEY) are not supported.');
+                $this->dispatch('error', __('The selected private key format is not supported for GitHub Apps. <br><br>Please use an RSA private key in PEM format (BEGIN RSA PRIVATE KEY). <br><br>OpenSSH format keys (BEGIN OPENSSH PRIVATE KEY) are not supported.'));
 
                 return;
             }
@@ -252,13 +255,13 @@ class Change extends Component
             $this->authorize('view', $this->github_app);
 
             if (! $this->github_app->isConnected()) {
-                $this->dispatch('error', 'GitHub App is not fully set up. Please complete installation first.');
+                $this->dispatch('error', __('GitHub App is not fully set up. Please complete installation first.'));
 
                 return;
             }
 
             if (! $this->github_app->private_key_id || ! $this->github_app->privateKey) {
-                $this->dispatch('error', 'Private Key not found. Please select a valid private key.');
+                $this->dispatch('error', __('Private Key not found. Please select a valid private key.'));
 
                 return;
             }
@@ -286,7 +289,7 @@ class Change extends Component
             $errorMessage = $e->getMessage();
             if (str_contains($errorMessage, 'DECODER routines::unsupported') ||
                 str_contains($errorMessage, 'parse your key')) {
-                $this->dispatch('error', 'The selected private key format is not supported for GitHub Apps. <br><br>Please use an RSA private key in PEM format (BEGIN RSA PRIVATE KEY). <br><br>OpenSSH format keys (BEGIN OPENSSH PRIVATE KEY) are not supported.');
+                $this->dispatch('error', __('The selected private key format is not supported for GitHub Apps. <br><br>Please use an RSA private key in PEM format (BEGIN RSA PRIVATE KEY). <br><br>OpenSSH format keys (BEGIN OPENSSH PRIVATE KEY) are not supported.'));
 
                 return;
             }
@@ -300,7 +303,9 @@ class Change extends Component
         try {
             $github_app_uuid = request()->github_app_uuid;
             $this->github_app = GithubApp::ownedByCurrentTeam()->whereUuid($github_app_uuid)->firstOrFail();
-            $this->authorize('view', $this->github_app);
+            $this->forOdooProject = (bool) data_get(session('from'), 'odoo')
+                && (int) data_get(session('from'), 'source_id') === (int) $this->github_app->id;
+            $this->github_app->makeVisible(['client_secret', 'webhook_secret']);
             $this->privateKeys = PrivateKey::ownedByCurrentTeamCached();
 
             $this->applications = $this->github_app->applications;
@@ -321,25 +326,34 @@ class Change extends Component
             if ($settings->public_ipv6) {
                 $this->ipv6 = 'http://'.$settings->public_ipv6.':'.config('app.port');
             }
+            if (data_get(session('from'), 'odoo')
+                && (int) data_get(session('from'), 'source_id') === (int) $this->github_app->id
+                && blank($this->github_app->installation_id)
+                && filled($this->github_app->app_id)) {
+                return redirect()->away(getInstallationPath($this->github_app));
+            }
             if ($this->github_app->installation_id && session('from')) {
                 $source_id = data_get(session('from'), 'source_id');
-                if (! $source_id || $this->github_app->id !== $source_id) {
+                if (! $source_id || (int) $this->github_app->id !== (int) $source_id) {
                     session()->forget('from');
+                } elseif (data_get(session('from'), 'odoo')) {
+                    $redirect = OdooGit::resumeLaunchRedirect();
+                    if ($redirect !== null) {
+                        return $redirect;
+                    }
                 } else {
                     $parameters = data_get(session('from'), 'parameters');
                     $back = data_get(session('from'), 'back');
-                    $environment_uuid = data_get($parameters, 'environment_uuid');
-                    $project_uuid = data_get($parameters, 'project_uuid');
-                    $type = data_get($parameters, 'type');
-                    $destination = data_get($parameters, 'destination');
                     session()->forget('from');
+                    $routeParameters = array_filter([
+                        'environment_uuid' => data_get($parameters, 'environment_uuid'),
+                        'project_uuid' => data_get($parameters, 'project_uuid'),
+                        'service_uuid' => data_get($parameters, 'service_uuid'),
+                        'type' => data_get($parameters, 'type'),
+                        'destination' => data_get($parameters, 'destination'),
+                    ], fn ($value) => filled($value));
 
-                    return redirect()->route($back, [
-                        'environment_uuid' => $environment_uuid,
-                        'project_uuid' => $project_uuid,
-                        'type' => $type,
-                        'destination' => $destination,
-                    ]);
+                    return redirect()->route($back, $routeParameters);
                 }
             }
             $this->parameters = get_route_parameters();
@@ -386,13 +400,13 @@ class Change extends Component
             $this->github_app->unsetRelation('privateKey');
 
             if (! $this->appId) {
-                $this->dispatch('error', 'App ID is required before synchronizing the GitHub App name.');
+                $this->dispatch('error', __('App ID is required before synchronizing the GitHub App name.'));
 
                 return;
             }
 
             if (! PrivateKey::ownedByCurrentTeam()->find($this->privateKeyId)) {
-                $this->dispatch('error', 'No private key found for this GitHub App.');
+                $this->dispatch('error', __('No private key found for this GitHub App.'));
 
                 return;
             }
@@ -401,9 +415,9 @@ class Change extends Component
 
             if ($appSlug) {
                 $this->name = str($appSlug)->kebab();
-                $this->dispatch('success', 'GitHub App name and private key name synchronized successfully.');
+                $this->dispatch('success', __('GitHub App name and private key name synchronized successfully.'));
             } else {
-                $this->dispatch('info', 'Could not find App Name (slug) in GitHub response.');
+                $this->dispatch('info', __('Could not find App Name (slug) in GitHub response.'));
             }
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -424,7 +438,7 @@ class Change extends Component
             $this->syncData(true);
             $this->github_app->save();
             $this->isConnected = $this->github_app->isConnected();
-            $this->dispatch('success', 'Github App updated.');
+            $this->dispatch('success', __('Github App updated.'));
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable $e) {
@@ -455,7 +469,7 @@ class Change extends Component
             $this->syncData(true);
             $this->github_app->save();
             $this->isConnected = $this->github_app->isConnected();
-            $this->dispatch('success', 'Github App updated.');
+            $this->dispatch('success', __('Github App updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -467,7 +481,8 @@ class Change extends Component
             $this->authorize('delete', $this->github_app);
 
             if ($this->github_app->applications->isNotEmpty()) {
-                $this->dispatch('error', 'This source is being used by an application. Please delete all applications first.');
+                $this->dispatch('error', __('This source is being used by an application. Please delete all applications first.'));
+                $this->github_app->makeVisible('client_secret')->makeVisible('webhook_secret');
 
                 return;
             }

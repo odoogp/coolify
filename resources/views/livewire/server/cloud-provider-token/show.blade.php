@@ -13,13 +13,13 @@
             @if ($server->hetzner_server_id || $server->vultr_instance_id)
                 <x-application.settings-section id="server-cloud-token-section"
                     title="{{ $providerName }} token"
-                    helper="Choose the cloud credential used to manage this server." flush>
+                    helper="{{ __('Choose the cloud credential used to manage this server.') }}" flush>
                     <x-slot:actions>
                         <div class="flex items-center gap-2">
                             <x-forms.button canGate="update" :canResource="$server"
                                 wire:click.prevent="validateToken">
                                 <x-reicon name="refresh" class="size-3.5" />
-                                Validate token
+                                {{ __('Validate token') }}
                             </x-forms.button>
                             @can('create', App\Models\CloudProviderToken::class)
                                 <x-modal-input buttonTitle="+ Add" title="Add {{ $providerName }} Token">
@@ -53,7 +53,7 @@
                             @if (data_get($server, 'cloudProviderToken.id') !== $token->id)
                                 <x-forms.button canGate="update" :canResource="$server"
                                     wire:click="setCloudProviderToken({{ $token->id }})">
-                                    Use this token
+                                    {{ __('Use this token') }}
                                 </x-forms.button>
                             @endif
                         </div>
@@ -64,10 +64,10 @@
                     @endforelse
                 </x-application.settings-section>
             @else
-                <x-application.settings-section title="Cloud token"
-                    helper="Cloud credentials are available for servers created through a supported provider.">
-                    <x-empty size="sm" title="No cloud provider integration"
-                        description="This server was not created through Hetzner or Vultr, so it does not require a managed cloud token."
+                <x-application.settings-section title="{{ __('Cloud token') }}"
+                    helper="{{ __('Cloud credentials are available for servers created through a supported provider.') }}">
+                    <x-empty size="sm" title="{{ __('No cloud provider integration') }}"
+                        description="{{ __('This server was not created through Hetzner or Vultr, so it does not require a managed cloud token.') }}"
                         icon-name="keys" />
                 </x-application.settings-section>
             @endif

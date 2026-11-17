@@ -4,14 +4,17 @@ namespace App\Livewire\Settings;
 
 use App\Models\InstanceSettings;
 use App\Models\Server;
+use App\Support\SanitizeTermsHtml;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 
 class Index extends Component
 {
     use AuthorizesRequests;
+    use WithFileUploads;
 
     public InstanceSettings $settings;
 
@@ -32,6 +35,9 @@ class Index extends Component
     #[Validate('nullable|string|max:255')]
     public ?string $instance_name = null;
 
+    #[Validate('nullable|image|mimes:jpg,jpeg,png,webp|max:2048')]
+    public $platformLogo = null;
+
     #[Validate('nullable|ipv4')]
     public ?string $public_ipv4 = null;
 
@@ -43,6 +49,9 @@ class Index extends Component
 
     #[Validate(['nullable', 'string', 'max:128', 'regex:/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/'])]
     public ?string $dev_helper_version = null;
+
+    #[Validate('nullable|string|max:200000')]
+    public ?string $terms_and_conditions_html = null;
 
     public array $domainConflicts = [];
 
@@ -79,6 +88,7 @@ class Index extends Component
         $this->public_ipv6 = $this->settings->public_ipv6;
         $this->instance_timezone = $this->settings->instance_timezone;
         $this->dev_helper_version = $this->settings->dev_helper_version;
+        $this->terms_and_conditions_html = (string) ($this->settings->terms_and_conditions_html ?? '');
     }
 
     #[Computed]
@@ -99,13 +109,34 @@ class Index extends Component
         $this->settings->public_port_min = $this->public_port_min;
         $this->settings->public_port_max = $this->public_port_max;
         $this->settings->instance_name = $this->instance_name;
+        if ($this->platformLogo) {
+            $this->storePlatformLogo();
+        }
         $this->settings->public_ipv4 = $this->public_ipv4;
         $this->settings->public_ipv6 = $this->public_ipv6;
         $this->settings->instance_timezone = $this->instance_timezone;
         $this->settings->dev_helper_version = $this->dev_helper_version;
+        $this->terms_and_conditions_html = SanitizeTermsHtml::clean($this->terms_and_conditions_html);
+        $this->settings->terms_and_conditions_html = $this->terms_and_conditions_html !== ''
+            ? $this->terms_and_conditions_html
+            : null;
         if ($isSave) {
             $this->settings->save();
-            $this->dispatch('success', 'Settings updated!');
+            $this->dispatch('success', __('Settings updated!'));
+        }
+    }
+
+    public function removePlatformLogo(): void
+    {
+        try {
+            $this->authorize('update', $this->settings);
+            $this->deletePlatformLogoFiles();
+            $this->settings->platform_logo = null;
+            $this->settings->save();
+            $this->platformLogo = null;
+            $this->dispatch('success', __('Logo updated.'));
+        } catch (\Exception $e) {
+            handleError($e, $this);
         }
     }
 
@@ -174,10 +205,39 @@ class Index extends Component
                 $this->server->setupDynamicProxyConfiguration();
             }
             if (! $error_show) {
-                $this->dispatch('success', 'Instance settings updated successfully!');
+                $this->dispatch('success', __('Instance settings updated successfully!'));
             }
         } catch (\Exception $e) {
             return handleError($e, $this);
+        }
+    }
+
+    private function storePlatformLogo(): void
+    {
+        $extension = strtolower((string) $this->platformLogo->getClientOriginalExtension());
+        $extension = match ($extension) {
+            'jpeg', 'jpg' => 'jpg',
+            'webp' => 'webp',
+            default => 'png',
+        };
+        $this->deletePlatformLogoFiles();
+        $relative = 'brand/platform-logo.'.$extension;
+        $contents = file_get_contents($this->platformLogo->getRealPath());
+        if ($contents === false) {
+            throw new \RuntimeException('The logo could not be read.');
+        }
+        file_put_contents(public_path($relative), $contents);
+        $this->settings->platform_logo = $relative;
+        $this->platformLogo = null;
+    }
+
+    private function deletePlatformLogoFiles(): void
+    {
+        foreach (['png', 'jpg', 'webp'] as $extension) {
+            $file = public_path('brand/platform-logo.'.$extension);
+            if (is_file($file)) {
+                unlink($file);
+            }
         }
     }
 
@@ -186,13 +246,13 @@ class Index extends Component
         try {
             $this->authorize('update', $this->settings);
             if (! isDev()) {
-                $this->dispatch('error', 'Building helper image is only available in development mode.');
+                $this->dispatch('error', __('Building helper image is only available in development mode.'));
 
                 return;
             }
 
             if (! $this->server) {
-                $this->dispatch('error', 'Server not available.');
+                $this->dispatch('error', __('Server not available.'));
 
                 return;
             }
@@ -201,13 +261,13 @@ class Index extends Component
 
             $version = $this->dev_helper_version ?: config('constants.coolify.helper_version');
             if (empty($version)) {
-                $this->dispatch('error', 'Please specify a version to build.');
+                $this->dispatch('error', __('Please specify a version to build.'));
 
                 return;
             }
 
             if (! preg_match('/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/', (string) $version)) {
-                $this->dispatch('error', 'Invalid helper version format.');
+                $this->dispatch('error', __('Invalid helper version format.'));
 
                 return;
             }

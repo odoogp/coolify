@@ -64,7 +64,7 @@ it('filters out null environment variables from nixpacks build command', functio
     $job = Mockery::mock(ApplicationDeploymentJob::class)->makePartial();
     $job->shouldAllowMockingProtectedMethods();
 
-    $reflection = new \ReflectionClass(ApplicationDeploymentJob::class);
+    $reflection = new ReflectionClass(ApplicationDeploymentJob::class);
 
     // Set private properties
     $applicationProperty = $reflection->getProperty('application');
@@ -141,7 +141,7 @@ it('filters out null environment variables from nixpacks preview deployments', f
     $job = Mockery::mock(ApplicationDeploymentJob::class)->makePartial();
     $job->shouldAllowMockingProtectedMethods();
 
-    $reflection = new \ReflectionClass(ApplicationDeploymentJob::class);
+    $reflection = new ReflectionClass(ApplicationDeploymentJob::class);
 
     // Set private properties
     $applicationProperty = $reflection->getProperty('application');
@@ -206,7 +206,7 @@ it('handles all environment variables being null or empty', function () {
     $job = Mockery::mock(ApplicationDeploymentJob::class)->makePartial();
     $job->shouldAllowMockingProtectedMethods();
 
-    $reflection = new \ReflectionClass(ApplicationDeploymentJob::class);
+    $reflection = new ReflectionClass(ApplicationDeploymentJob::class);
 
     // Set private properties
     $applicationProperty = $reflection->getProperty('application');
@@ -310,7 +310,7 @@ it('preserves environment variables with zero values', function () {
     $job = Mockery::mock(ApplicationDeploymentJob::class)->makePartial();
     $job->shouldAllowMockingProtectedMethods();
 
-    $reflection = new \ReflectionClass(ApplicationDeploymentJob::class);
+    $reflection = new ReflectionClass(ApplicationDeploymentJob::class);
 
     // Set private properties
     $applicationProperty = $reflection->getProperty('application');

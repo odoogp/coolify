@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell title="Coolify" description="Sign in to manage your applications and infrastructure.">
+    <x-auth.shell tunnel="login" title="{{ product_name() }}" description="{{ __('Sign in to manage your applications and infrastructure.') }}">
         <div class="flex flex-col gap-4">
             @if (session('status'))
                 <x-auth.alert type="success">{{ session('status') }}</x-auth.alert>
@@ -19,7 +19,30 @@
                 </x-auth.alert>
             @endif
 
-            <form action="/login" method="POST" class="flex flex-col gap-4">
+            <form action="/login" method="POST" class="flex flex-col gap-4"
+                x-on:focusin="
+                    const shell = $el.closest('.auth-shell');
+                    const name = $event.target?.getAttribute?.('name');
+                    if (!shell || !name) return;
+                    if (name === 'email') shell.dataset.authState = 'email-focus';
+                    if (name === 'password') shell.dataset.authState = 'password-focus';
+                "
+                x-on:focusout="
+                    $nextTick(() => {
+                        const shell = $el.closest('.auth-shell');
+                        if (!shell) return;
+                        const active = document.activeElement;
+                        const name = active?.getAttribute?.('name');
+                        if (name === 'email' || name === 'password') return;
+                        if ($el.contains(active)) return;
+                        shell.dataset.authState = 'idle';
+                    });
+                "
+                x-on:submit="
+                    const shell = $el.closest('.auth-shell');
+                    if (shell) shell.dataset.authState = 'submitting';
+                    try { sessionStorage.setItem('gc-enter', '1'); } catch (e) {}
+                ">
                 @csrf
                 @env('local')
                     <x-forms.input value="test@example.com" type="email" autocomplete="email" name="email" required
@@ -79,8 +102,8 @@
             </form>
 
             @if ($enabled_oauth_providers->isNotEmpty())
-                <div class="auth-divider"><span>Or continue with</span></div>
-                <div class="flex flex-col gap-2">
+                <div class="auth-divider"><span>{{ __('Or continue with') }}</span></div>
+                <div class="grid gap-2 sm:grid-cols-2">
                     @foreach ($enabled_oauth_providers as $provider_setting)
                         <x-forms.button class="w-full justify-center" type="button"
                             onclick="document.location.href='/auth/{{ $provider_setting->provider }}/redirect'">
@@ -97,11 +120,11 @@
 
         <x-slot:footer>
             @if ($is_registration_enabled)
-                <span>New to Coolify?</span>
+                <span>{{ __('New to :product?', ['product' => product_name()]) }}</span>
                 <a href="/register" class="auth-text-link">{{ __('auth.register_now') }}</a>
-            @else
-                <span>{{ __('auth.registration_disabled') }}</span>
+                <span aria-hidden="true">·</span>
             @endif
+            <a href="{{ route('getodoo.terms') }}" class="auth-text-link underline">{{ __('Terms and conditions') }}</a>
         </x-slot:footer>
     </x-auth.shell>
 </x-layout-simple>

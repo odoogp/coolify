@@ -3,11 +3,15 @@
 namespace App\Livewire\Team;
 
 use App\Actions\User\RevokeUserTeamTokens;
+use App\Domain\Odoo\OdooAbilities;
 use App\Enums\Role;
 use App\Models\User;
+use App\Services\AdminCreationQuota;
+use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class Member extends Component
@@ -15,6 +19,126 @@ class Member extends Component
     use AuthorizesRequests;
 
     public User $member;
+
+    public mixed $maxProjects = null;
+
+    public mixed $maxEnvironments = null;
+
+    public mixed $maxMembers = null;
+
+    public mixed $maxProductionBranches = null;
+
+    public mixed $maxStagingBranches = null;
+
+    public mixed $maxServices = null;
+
+    public mixed $githubAppId = null;
+
+    public bool $canAddServers = false;
+
+    public bool $canLaunchOnInstanceServer = false;
+
+    /** @var list<string> */
+    public array $odooAbilities = [];
+
+    public function mount(): void
+    {
+        $team = currentTeam();
+        if ($team === null) {
+            return;
+        }
+
+        $pivot = $this->member->teams()->where('teams.id', $team->id)->first()?->pivot;
+        $this->maxProjects = $this->quotaInput(data_get($pivot, 'max_projects'));
+        $this->maxEnvironments = $this->quotaInput(data_get($pivot, 'max_environments'));
+        $this->maxMembers = $this->quotaInput(data_get($pivot, 'max_members'));
+        $this->maxProductionBranches = $this->quotaInput(data_get($pivot, 'max_production_branches'));
+        $this->maxStagingBranches = $this->quotaInput(data_get($pivot, 'max_staging_branches'));
+        $this->maxServices = $this->quotaInput(data_get($pivot, 'max_services'));
+        $this->githubAppId = data_get($pivot, 'github_app_id');
+        $this->canAddServers = (bool) data_get($pivot, 'can_add_servers');
+        $this->canLaunchOnInstanceServer = (bool) data_get($pivot, 'can_launch_on_instance_server');
+        $raw = data_get($pivot, 'odoo_abilities');
+        $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
+        $this->odooAbilities = is_array($decoded) ? OdooAbilities::onlyGrantable(array_map('strval', $decoded)) : [];
+    }
+
+    public function saveCreationLimits(): void
+    {
+        try {
+            $team = currentTeam();
+            $this->authorize('updateCreationLimits', $team);
+
+            if ($this->getMemberRole() !== Role::ADMIN->value) {
+                throw new \Exception('Creation limits apply to admins.');
+            }
+
+            $this->maxProjects = $this->blankToNull($this->maxProjects);
+            $this->maxEnvironments = $this->blankToNull($this->maxEnvironments);
+            $this->maxMembers = $this->blankToNull($this->maxMembers);
+            $this->maxProductionBranches = $this->blankToNull($this->maxProductionBranches);
+            $this->maxStagingBranches = $this->blankToNull($this->maxStagingBranches);
+            $this->maxServices = $this->blankToNull($this->maxServices);
+            $this->githubAppId = $this->blankToNull($this->githubAppId);
+
+            $this->validate([
+                'maxProjects' => ['nullable', 'integer', 'min:0'],
+                'maxEnvironments' => ['nullable', 'integer', 'min:0'],
+                'maxMembers' => ['nullable', 'integer', 'min:0'],
+                'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
+                'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
+                'maxServices' => ['nullable', 'integer', 'min:0'],
+                'githubAppId' => ['nullable', 'integer'],
+            ]);
+
+            $teamId = $team->id;
+            if ($this->githubAppId !== null && ! OdooGit::connectedApps($teamId)->contains('id', (int) $this->githubAppId)) {
+                throw ValidationException::withMessages([
+                    'githubAppId' => __('Select a connected GitHub account.'),
+                ]);
+            }
+
+            $this->member->teams()->updateExistingPivot($teamId, [
+                'max_projects' => $this->maxProjects,
+                'max_environments' => $this->maxEnvironments,
+                'max_members' => $this->maxMembers,
+                'max_production_branches' => $this->maxProductionBranches,
+                'max_staging_branches' => $this->maxStagingBranches,
+                'max_services' => $this->maxServices,
+                'github_app_id' => $this->githubAppId,
+                'can_add_servers' => $this->canAddServers,
+                'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
+            ]);
+            Cache::forget('user:'.$this->member->id.':team:'.$teamId);
+            Cache::forget('team:'.$this->member->id);
+            $this->dispatch('success', __('Creation limits saved.'));
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->dispatch('error', $e->getMessage());
+        }
+    }
+
+    public function saveOdooAbilities(): void
+    {
+        try {
+            $team = currentTeam();
+            $this->authorize('updateCreationLimits', $team);
+
+            if ($this->getMemberRole() !== Role::MEMBER->value) {
+                throw new \Exception('Odoo abilities are granted to members.');
+            }
+
+            $this->odooAbilities = OdooAbilities::onlyGrantable($this->odooAbilities);
+            $teamId = $team->id;
+            $this->member->teams()->updateExistingPivot($teamId, [
+                'odoo_abilities' => json_encode($this->odooAbilities),
+            ]);
+            $this->dispatch('success', __('Odoo abilities saved.'));
+        } catch (\Exception $e) {
+            $this->dispatch('error', $e->getMessage());
+        }
+    }
 
     public function makeAdmin()
     {
@@ -41,6 +165,10 @@ class Member extends Component
     {
         try {
             $this->authorize('manageMembers', currentTeam());
+
+            if (currentTeam()?->isGetOdooPlanTeam()) {
+                throw new \Exception(__('This organization keeps one principal: the account that bought the plan. Invitees can be admins, not principals.'));
+            }
 
             if (Role::from(auth()->user()->role())->lt(Role::OWNER)
                 || Role::from($this->getMemberRole())->gt(auth()->user()->role())) {
@@ -88,6 +216,9 @@ class Member extends Component
                 || Role::from($this->getMemberRole())->gt(auth()->user()->role())) {
                 throw new \Exception('You are not authorized to perform this action.');
             }
+            if (currentTeam()?->isGetOdooPlanTeam() && $this->getMemberRole() === Role::OWNER->value) {
+                throw new \Exception(__('Cannot remove the principal from the organization. Delete that account from Users to remove the organization and its projects.'));
+            }
             $teamId = currentTeam()->id;
             DB::transaction(function () use ($teamId): void {
                 $this->member->teams()->detach($teamId);
@@ -109,19 +240,48 @@ class Member extends Component
         }
     }
 
+    public function render()
+    {
+        $team = currentTeam();
+        $canEditLimits = $team !== null
+            && auth()->user()?->can('updateCreationLimits', $team)
+            && $this->getMemberRole() === Role::ADMIN->value;
+
+        return view('livewire.team.member', [
+            'canEditLimits' => $canEditLimits,
+            'usage' => $canEditLimits
+                ? app(AdminCreationQuota::class)->usage($this->member, $team->id)
+                : null,
+            'githubApps' => $canEditLimits
+                ? OdooGit::connectedApps($team->id)->map(fn ($app): array => ['value' => $app->id, 'label' => $app->name])->all()
+                : [],
+            'canGrantOdoo' => $team !== null
+                && auth()->user()?->can('updateCreationLimits', $team)
+                && $this->getMemberRole() === Role::MEMBER->value,
+            'grantableOdooAbilities' => OdooAbilities::GRANTABLE,
+        ]);
+    }
+
     private function getMemberRole()
     {
         return $this->member->teams()->where('teams.id', currentTeam()->id)->first()?->pivot?->role;
     }
 
-    private function auditRoleUpdate(int $teamId, Role $role): void
+    private function quotaInput(mixed $value): ?int
     {
-        auditLog('ui.team_member.role_updated', [
-            'team_id' => $teamId,
-            'member_id' => $this->member->id,
-            'member_name' => $this->member->name,
-            'member_email' => $this->member->email,
-            'role' => $role->value,
-        ]);
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return (int) $value;
+    }
+
+    private function blankToNull(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return $value;
     }
 }

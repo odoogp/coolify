@@ -22,7 +22,7 @@ use App\Rules\SafeWebhookUrl;
 use App\Services\ScheduledJobDeliveryService;
 use App\Support\BackupCompression;
 use App\Support\ClickhouseBackupCommand;
-use App\Support\ValidationPatterns;
+use App\Support\RecordOdooPlanBackup;
 use Carbon\Carbon;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -126,6 +126,11 @@ class DatabaseBackupJob implements ShouldBeEncrypted, ShouldQueue
             }
             if (is_null($this->database)) {
                 throw new \Exception('Database not found?!');
+            }
+
+            // Plan Odoo schedules only fire the timer; the real backup is an Odoo zip (dump + filestore).
+            if (RecordOdooPlanBackup::fromDatabaseSchedule($this->backup)) {
+                return;
             }
 
             $this->markStaleExecutionsAsFailed();

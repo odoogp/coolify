@@ -80,6 +80,12 @@ it('shows the tag detail layout with stats when a tag is selected', function () 
         ->assertSee('Redeploy all')
         ->assertSee('tagged-app')
         ->assertDontSee('No resources use this tag');
+
+    $breadcrumbs = file_get_contents(resource_path('views/components/top-breadcrumb.blade.php'));
+    expect($breadcrumbs)
+        ->toContain('title="{{ __(\'Tags\') }}"')
+        ->toContain("'label' => 'All tags'")
+        ->toContain("route('tags.show', ['tagName' => \$tag->name])");
 });
 
 it('shows empty resource and deployment states for an unused tag', function () {

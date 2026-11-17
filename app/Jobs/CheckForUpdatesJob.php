@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Actions\Server\UpdateCoolify;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,6 +21,11 @@ class CheckForUpdatesJob implements ShouldBeEncrypted, ShouldQueue
     {
         try {
             if (isDev() || isCloud()) {
+                return;
+            }
+            if (is_coolify_local_build()) {
+                app(UpdateCoolify::class)->syncLocalUpdateAvailability();
+
                 return;
             }
             $settings = instanceSettings();

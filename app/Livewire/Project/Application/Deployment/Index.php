@@ -23,11 +23,11 @@ class Index extends Component
 
     public int $skip = 0;
 
-    public int $defaultTake = 10;
+    public int $defaultTake = 5;
 
     public function updatedDefaultTake(): void
     {
-        $this->defaultTake = max(1, min(100, $this->defaultTake));
+        $this->defaultTake = max(1, min(5, $this->defaultTake));
 
         $this->skip = 0;
         $this->loadDeployments();
@@ -57,7 +57,13 @@ class Index extends Component
 
     public bool $embedded = false;
 
+    /** When true with embedded, keep `$defaultTake` (service deployments page) instead of the compact size of 3. */
+    public bool $forcePageSize = false;
+
     public ?string $selectedDeploymentUuid = null;
+
+    /** Optional uuid when the parent route has no application_uuid (service deployments). */
+    public ?string $applicationUuid = null;
 
     protected $queryString = ['pull_request_id'];
 
@@ -79,7 +85,8 @@ class Index extends Component
             abort(404);
         }
         $environment->load(['applications']);
-        $application = $environment->applications->where('uuid', request()->route('application_uuid'))->first();
+        $applicationUuid = $this->applicationUuid ?: request()->route('application_uuid');
+        $application = $environment->applications->where('uuid', $applicationUuid)->first();
         if (! $application) {
             return redirect()->route('dashboard');
         }
@@ -87,7 +94,7 @@ class Index extends Component
         if ($this->pull_request_id !== null && $this->pull_request_id !== '') {
             if (! is_numeric($this->pull_request_id) || (float) $this->pull_request_id <= 0 || (float) $this->pull_request_id != (int) $this->pull_request_id) {
                 $this->pull_request_id = null;
-                $this->dispatch('error', 'Invalid Pull Request ID in URL. Filter cleared.');
+                $this->dispatch('error', __('Invalid Pull Request ID in URL. Filter cleared.'));
             } else {
                 // Ensure it's stored as a string representation of a positive integer
                 $this->pull_request_id = (string) (int) $this->pull_request_id;
@@ -95,7 +102,7 @@ class Index extends Component
         }
 
         $this->application = $application;
-        if ($this->embedded) {
+        if ($this->embedded && ! $this->forcePageSize) {
             $this->defaultTake = 3;
         }
         $this->loadPullRequestOptions();
@@ -230,7 +237,7 @@ class Index extends Component
             // Check if it's numeric and positive
             if (! is_numeric($value) || (float) $value <= 0 || (float) $value != (int) $value) {
                 $this->pull_request_id = null;
-                $this->dispatch('error', 'Invalid Pull Request ID. Please enter a valid positive number.');
+                $this->dispatch('error', __('Invalid Pull Request ID. Please enter a valid positive number.'));
 
                 return;
             }

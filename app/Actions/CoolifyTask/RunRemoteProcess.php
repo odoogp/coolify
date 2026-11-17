@@ -75,69 +75,70 @@ class RunRemoteProcess
             ->implode('');
     }
 
+    public static function readStatus(Activity $activity): string
+    {
+        $properties = Activity::query()->whereKey($activity->getKey())->value('properties');
+
+        return (string) data_get($properties, 'status');
+    }
+
+    public static function logContains(Activity $activity, string $needle): bool
+    {
+        return Activity::query()
+            ->whereKey($activity->getKey())
+            ->where('description', 'like', '%'.$needle.'%')
+            ->exists();
+    }
+
     public function __invoke(): ProcessResult
     {
         $this->time_start = hrtime(true);
 
         $status = ProcessStatus::IN_PROGRESS;
         $timeout = config('constants.ssh.command_timeout');
-        $process = Process::timeout($timeout)->start($this->getCommand(), $this->handleOutput(...));
-        // Start from the stored properties and save now, so later output writes only change the log and
-        // never write back an old copy over a status that Coolify set meanwhile (for example a stopped import).
-        $stored = Activity::query()->whereKey($this->activity->getKey())->first()?->properties ?? $this->activity->properties;
-        $this->activity->properties = $stored->merge([
-            'process_id' => $process->id(),
-        ]);
-        $this->activity->save();
 
-        $processResult = $process->wait();
-        if ($this->activity->properties->get('status') === ProcessStatus::ERROR->value) {
-            $status = ProcessStatus::ERROR;
-        } else {
-            if ($processResult->exitCode() == 0) {
-                $status = ProcessStatus::FINISHED;
-            } else {
+        return SshMultiplexingHelper::withProcessCommand($this->getCommand(), function (string|array $command) use ($timeout, &$status) {
+            $process = Process::timeout($timeout)->start($command, $this->handleOutput(...));
+            $this->activity->properties = $this->activity->properties->merge([
+                'process_id' => $process->id(),
+            ]);
+
+            $processResult = $process->wait();
+            if ($this->activity->properties->get('status') === ProcessStatus::ERROR->value) {
                 $status = ProcessStatus::ERROR;
-            }
-        }
-
-        $properties = [
-            'exitCode' => $processResult->exitCode(),
-            'stdout' => $processResult->output(),
-            'stderr' => $processResult->errorOutput(),
-            'status' => $status->value,
-        ];
-
-        // Coolify can stop a database import while this job runs (restart or stale import). Keep the
-        // stop status and message, because this job only has its own older copy of the properties.
-        $stored = Activity::query()->whereKey($this->activity->getKey())->first()?->properties;
-        if ($stored !== null && filled($stored->get(DatabaseImportCleanup::STOP_REQUESTED_PROPERTY))) {
-            $properties = [
-                ...$properties,
-                ...$stored->only([DatabaseImportCleanup::STOP_REQUESTED_PROPERTY, 'error'])->all(),
-                'status' => ProcessStatus::ERROR->value,
-            ];
-        }
-
-        $this->activity->properties = $this->activity->properties->merge($properties);
-        $this->activity->save();
-        if ($this->call_event_on_finish) {
-            try {
-                $eventClass = "App\\Events\\$this->call_event_on_finish";
-                if (! is_null($this->call_event_data)) {
-                    event(new $eventClass($this->call_event_data));
+            } else {
+                if ($processResult->exitCode() == 0) {
+                    $status = ProcessStatus::FINISHED;
                 } else {
-                    event(new $eventClass($this->activity->causer_id));
+                    $status = ProcessStatus::ERROR;
                 }
-            } catch (\Throwable $e) {
-                Log::error('Error calling event: '.$e->getMessage());
             }
-        }
-        if ($processResult->exitCode() != 0 && ! $this->ignore_errors) {
-            throw new \RuntimeException($processResult->errorOutput(), $processResult->exitCode());
-        }
 
-        return $processResult;
+            $this->activity->properties = $this->activity->properties->merge([
+                'exitCode' => $processResult->exitCode(),
+                'stdout' => $processResult->output(),
+                'stderr' => $processResult->errorOutput(),
+                'status' => $status->value,
+            ]);
+            $this->activity->save();
+            if ($this->call_event_on_finish) {
+                try {
+                    $eventClass = "App\\Events\\$this->call_event_on_finish";
+                    if (! is_null($this->call_event_data)) {
+                        event(new $eventClass($this->call_event_data));
+                    } else {
+                        event(new $eventClass($this->activity->causer_id));
+                    }
+                } catch (\Throwable $e) {
+                    Log::error('Error calling event: '.$e->getMessage());
+                }
+            }
+            if ($processResult->exitCode() != 0 && ! $this->ignore_errors) {
+                throw new \RuntimeException($processResult->errorOutput(), $processResult->exitCode());
+            }
+
+            return $processResult;
+        });
     }
 
     protected function getCommand(): string

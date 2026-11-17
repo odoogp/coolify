@@ -37,12 +37,8 @@
             @endif
         </div>
     @endif
-    @if ($loading)
-        <div class="{{ $defaultClass }} flex w-full items-center text-neutral-500 dark:text-fg-dim" aria-busy="true">
-            <x-loading :text="$loadingText" />
-        </div>
-    @elseif ($type === 'password')
-        <div class="relative" x-data="{ type: 'password' }" @success.window="type = 'password'">
+    @if ($type === 'password')
+        <div class="relative auth-field-icon" x-data="{ type: 'password' }" @success.window="type = 'password'">
             <input autocomplete="{{ $autocomplete }}" value="{{ $value }}"
                 x-bind:type="type"
                 x-bind:class="{ 'truncate': type === 'text' && ! $el.disabled }"
@@ -56,7 +52,7 @@
             @if ($allowToPeak)
                 <button type="button" x-on:click="type = type === 'password' ? 'text' : 'password'"
                     class="password-toggle flex absolute inset-y-0 right-0 z-10 items-center pr-2 cursor-pointer text-neutral-500 hover:text-black dark:text-neutral-400 dark:hover:text-white"
-                    aria-label="Toggle password visibility">
+                    aria-label="{{ __('Toggle password visibility') }}">
                     {{-- Eye icon (shown when password is hidden) --}}
                     <x-reicon name="eye" x-show="type === 'password'" class="size-[18px]" />
                     {{-- Eye-off2 icon (shown when password is visible) --}}
@@ -70,24 +66,18 @@
 
         </div>
     @else
-        @if ($copyable)
-            <div class="relative">
-        @endif
-        <input autocomplete="{{ $autocomplete }}" @if ($value) value="{{ $value }}" @endif
-            {{ $attributes->merge(['class' => $defaultClass]) }} @required($required) @readonly($readonly)
-            @if ($modelBinding !== 'null') wire:model={{ $modelBinding }} wire:dirty.class="[box-shadow:inset_4px_0_0_#6b16ed,inset_0_0_0_2px_#e5e5e5] dark:[box-shadow:inset_4px_0_0_#fcd452,inset_0_0_0_2px_#242424]" @endif
-            wire:loading.attr="disabled"
-            type="{{ $type }}" @disabled($disabled) min="{{ $attributes->get('min') }}"
-            max="{{ $attributes->get('max') }}" minlength="{{ $attributes->get('minlength') }}"
-            maxlength="{{ $attributes->get('maxlength') }}"
-            @if ($htmlId !== 'null') id={{ $htmlId }} @endif name="{{ $name }}"
-            placeholder="{{ $attributes->get('placeholder') }}"
-            @if ($autofocus) x-ref="autofocusInput" autofocus @endif>
-        @if ($copyable)
-                <x-copy-button :resolve="$copyResolve" label="Copy to clipboard"
-                    class="absolute top-1/2 right-1 z-10 -translate-y-1/2" />
-            </div>
-        @endif
+        <div class="relative auth-field-icon">
+            <input autocomplete="{{ $autocomplete }}" @if ($value) value="{{ $value }}" @endif
+                {{ $attributes->merge(['class' => $defaultClass]) }} @required($required) @readonly($readonly)
+                @if ($modelBinding !== 'null') wire:model={{ $modelBinding }} wire:dirty.class="[box-shadow:inset_4px_0_0_#6b16ed,inset_0_0_0_2px_#e5e5e5] dark:[box-shadow:inset_4px_0_0_#fcd452,inset_0_0_0_2px_#242424]" @endif
+                wire:loading.attr="disabled"
+                type="{{ $type }}" @disabled($disabled) min="{{ $attributes->get('min') }}"
+                max="{{ $attributes->get('max') }}" minlength="{{ $attributes->get('minlength') }}"
+                maxlength="{{ $attributes->get('maxlength') }}"
+                @if ($htmlId !== 'null') id={{ $htmlId }} @endif name="{{ $name }}"
+                placeholder="{{ $attributes->get('placeholder') }}"
+                @if ($autofocus) x-ref="autofocusInput" @endif>
+        </div>
     @endif
     @if (!$label && $helper)
         <x-helper :helper="$helper" />
@@ -101,7 +91,7 @@
             <span class="text-red-500 label-text-alt">
                 @if ($validationLink)
                     {{ str($message)->beforeLast($validationLink)->trim() }}
-                    <a class="font-medium underline" href="{{ $validationLink }}">Set them here.</a>
+                    <a class="font-medium underline" href="{{ $validationLink }}">{{ __('Set them here.') }}</a>
                 @else
                     {{ $message }}
                 @endif

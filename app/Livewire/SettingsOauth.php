@@ -306,22 +306,10 @@ class SettingsOauth extends Component
     {
         try {
             $this->authorize('update', instanceSettings());
-            $this->updateOauthSettings($this->selectedProvider);
-
-            if ($this->selectedProvider === null) {
-                $this->dispatch('success', 'Instance settings updated successfully!');
-            }
-        } catch (ValidationException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            if ($this->selectedProvider !== null) {
-                $oauth = OauthSetting::where('provider', $this->selectedProvider)->first();
-                if ($oauth) {
-                    $this->oauth_settings_map[$this->selectedProvider] = $this->oauthSettingToArray($oauth);
-                }
-            }
-
-            handleError($e, $this);
+            $this->updateOauthSettings();
+            $this->dispatch('success', __('Instance settings updated successfully!'));
+        } catch (\Throwable $e) {
+            return handleError($e, $this);
         }
     }
 

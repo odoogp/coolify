@@ -19,7 +19,7 @@ beforeEach(function () {
 
     $this->team = Team::factory()->create();
     $this->admin = User::factory()->create();
-    $this->admin->teams()->attach($this->team, ['role' => 'admin']);
+    $this->admin->teams()->attach($this->team, ['role' => 'owner']);
 
     $this->actingAs($this->admin);
     session(['currentTeam' => $this->team]);

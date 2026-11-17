@@ -105,7 +105,7 @@ class Actions extends Component
         $result = app(RefundSubscription::class)->execute(currentTeam());
 
         if ($result['success']) {
-            $this->dispatch('success', 'Subscription refunded successfully.');
+            $this->dispatch('success', __('Subscription refunded successfully.'));
             $this->redirect(route('subscription.index'), navigate: true);
 
             return true;
@@ -127,7 +127,7 @@ class Actions extends Component
             $result = app(RefundSubscription::class)->execute(currentTeam());
 
             if ($result['success']) {
-                $this->dispatch('success', 'Subscription refunded and cancelled successfully.');
+                $this->dispatch('success', __('Subscription refunded and cancelled successfully.'));
                 $this->redirect(route('subscription.index'), navigate: true);
 
                 return true;
@@ -164,7 +164,7 @@ class Actions extends Component
 
             \Log::info("Subscription {$subscription->stripe_subscription_id} cancelled immediately for team {$team->name}");
 
-            $this->dispatch('success', 'Subscription cancelled successfully.');
+            $this->dispatch('success', __('Subscription cancelled successfully.'));
             $this->redirect(route('subscription.index'), navigate: true);
 
             return true;
@@ -186,7 +186,7 @@ class Actions extends Component
         $result = (new CancelSubscriptionAtPeriodEnd)->execute(currentTeam());
 
         if ($result['success']) {
-            $this->dispatch('success', 'Subscription will be cancelled at the end of the billing period.');
+            $this->dispatch('success', __('Subscription will be cancelled at the end of the billing period.'));
 
             return true;
         }
@@ -201,7 +201,7 @@ class Actions extends Component
         $result = (new ResumeSubscription)->execute(currentTeam());
 
         if ($result['success']) {
-            $this->dispatch('success', 'Subscription resumed successfully.');
+            $this->dispatch('success', __('Subscription resumed successfully.'));
 
             return true;
         }

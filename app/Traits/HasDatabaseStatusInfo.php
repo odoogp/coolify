@@ -109,7 +109,7 @@ trait HasDatabaseStatusInfo
             $this->database->enable_ssl = $this->enableSsl;
             $this->applyExtraSslAttributes();
             $this->database->save();
-            $this->dispatch('success', 'SSL configuration updated.');
+            $this->dispatch('success', __('SSL configuration updated.'));
         } catch (Exception $e) {
             handleError($e, $this);
         }
@@ -128,7 +128,7 @@ trait HasDatabaseStatusInfo
             $existingCert = $this->database->sslCertificates()->first();
 
             if (! $existingCert) {
-                $this->dispatch('error', 'No existing SSL certificate found for this database.');
+                $this->dispatch('error', __('No existing SSL certificate found for this database.'));
 
                 return;
             }
@@ -142,7 +142,7 @@ trait HasDatabaseStatusInfo
             }
 
             if (! $caCert) {
-                $this->dispatch('error', 'No CA certificate found for this database. Please generate a CA certificate for this server in the server/advanced page.');
+                $this->dispatch('error', __('No CA certificate found for this database. Please generate a CA certificate for this server in the server/advanced page.'));
 
                 return;
             }
@@ -161,7 +161,7 @@ trait HasDatabaseStatusInfo
             );
 
             $this->refresh();
-            $this->dispatch('success', 'SSL certificates regenerated. Restart database to apply changes.');
+            $this->dispatch('success', __('SSL certificates regenerated. Restart database to apply changes.'));
         } catch (Exception $e) {
             handleError($e, $this);
         }

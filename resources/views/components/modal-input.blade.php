@@ -1,6 +1,5 @@
 @props([
-    'title' => 'Are you sure?',
-    'subtitle' => null,
+    'title' => __('Are you sure?'),
     'buttonTitle' => 'Open Modal',
     'isErrorButton' => false,
     'isHighlightedButton' => false,
@@ -14,11 +13,11 @@
     'wireOpen' => null,
     'contentClicks' => true,
     'isLarge' => false,
-    'fixedHeight' => false,
+    'notifyClosed' => true,
 ])
 
 <div x-data="{ modalOpen: @if ($wireOpen) $wire.entangle(@js($wireOpen)) @else false @endif }"
-    x-init="$watch('modalOpen', value => { if (!value) { $wire.dispatch('modalClosed') } })"
+    @if ($notifyClosed) x-init="$watch('modalOpen', value => { if (!value) { $wire.dispatch('modalClosed') } })" @endif
     :class="{ 'z-40': modalOpen }" @keydown.window.escape="modalOpen=false"
     {{ $attributes->class(['relative', $isFullWidth ? 'h-full w-full' : 'h-auto w-auto']) }}
     @close-modal.window="modalOpen=false" @if ($wireIgnore) wire:ignore @endif>
@@ -45,14 +44,14 @@
                 x-transition:enter-end="opacity-100" x-transition:leave="transition-opacity ease-in duration-150"
                 x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
                 class="absolute inset-0 w-full h-full bg-black/50 backdrop-blur-[2px]"></div>
-            <div @if ($closeOutside) @click.self="modalOpen=false" @endif class="relative flex min-h-full items-start justify-center p-2 sm:items-center sm:p-4">
-                <div x-show="modalOpen" x-trap.inert.noscroll="modalOpen"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0 scale-95"
-                    x-transition:enter-end="opacity-100 scale-100"
-                    x-transition:leave="transition ease-in duration-150"
-                    x-transition:leave-start="opacity-100 scale-100"
-                    x-transition:leave-end="opacity-0 scale-95"
+            <div @if ($closeOutside) @click.self="modalOpen=false" @endif class="relative flex min-h-full items-start justify-center p-4 sm:items-center">
+                <div id="{{ $modalId }}" data-listbox-portal-root x-show="modalOpen" x-trap.inert.noscroll="modalOpen"
+                    x-transition:enter="ease-out duration-100"
+                    x-transition:enter-start="opacity-0 -translate-y-2"
+                    x-transition:enter-end="opacity-100 translate-y-0"
+                    x-transition:leave="ease-in duration-100"
+                    x-transition:leave-start="opacity-100 translate-y-0"
+                    x-transition:leave-end="opacity-0 -translate-y-2"
                     @class([
                         'application-settings-form application-settings-section relative flex max-h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden',
                         'lg:w-[95vw]! lg:max-w-7xl!' => $isLarge,
@@ -84,12 +83,9 @@
                         style="-webkit-overflow-scrolling: touch;">
                         {{ $slot }}
                     </div>
-                    @isset($footer)
-                        <footer
-                            class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-neutral-200 px-4 py-3 dark:border-white/[0.08]">
-                            {{ $footer }}
-                        </footer>
-                    @endisset
+                    {{-- Listbox panels mount here (inside x-trap). Surface is pointer-events-none so empty
+                         overlay does not steal clicks; panels set pointer-events:auto when open. --}}
+                    <div data-listbox-portal-surface class="pointer-events-none absolute inset-0 z-50 overflow-visible" aria-hidden="true"></div>
                 </div>
             </div>
         </div>

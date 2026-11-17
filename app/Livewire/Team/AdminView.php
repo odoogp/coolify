@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Team;
 
+use App\Models\GetOdooPlan;
 use App\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -22,6 +23,11 @@ class AdminView extends Component
     {
         if (! isInstanceAdmin()) {
             return redirect()->route('dashboard');
+        }
+
+        $search = trim((string) request()->query('search', ''));
+        if ($search !== '') {
+            $this->search = $search;
         }
     }
 
@@ -71,12 +77,12 @@ class AdminView extends Component
         }
 
         if (! auth()->user()->isInstanceAdmin()) {
-            return $this->dispatch('error', 'You are not authorized to delete users');
+            return $this->dispatch('error', __('You are not authorized to delete users'));
         }
 
         $user = User::find($id);
         if (! $user) {
-            return $this->dispatch('error', 'User not found');
+            return $this->dispatch('error', __('User not found'));
         }
 
         try {
@@ -96,6 +102,7 @@ class AdminView extends Component
         $search = trim($this->search);
         $teamId = currentTeam()->id;
         $users = User::query()
+            ->with(['teams' => fn ($query) => $query->select('teams.id', 'teams.name', 'teams.getodoo_plan_id')])
             ->where('id', '!=', auth()->id())
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
@@ -116,8 +123,14 @@ class AdminView extends Component
             ->orderBy('id')
             ->paginate($this->perPage);
 
+        $signupPlans = GetOdooPlan::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'uuid', 'name', 'price', 'is_active']);
+
         return view('livewire.team.admin-view', [
             'users' => $users,
+            'signupPlans' => $signupPlans,
         ]);
     }
 }

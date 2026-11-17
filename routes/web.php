@@ -1,19 +1,32 @@
 <?php
 
+use App\Domain\Odoo\OdooAbilities;
+use App\Domain\Odoo\OdooMail;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OauthController;
+use App\Http\Controllers\OdooEnterController;
+use App\Http\Controllers\OwnerJupyterController;
+use App\Http\Controllers\PrivateKeyDownloadController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProjectIconController;
+use App\Http\Controllers\UpgradeWatchController;
 use App\Http\Controllers\UploadController;
 use App\Livewire\Admin\Index as AdminIndex;
 use App\Livewire\Analytics;
 use App\Livewire\Boarding\Index as BoardingIndex;
 use App\Livewire\Dashboard;
+use App\Livewire\Deployments\Index as DeploymentsIndex;
 use App\Livewire\Destination\Index as DestinationIndex;
 use App\Livewire\Destination\Resources as DestinationResources;
 use App\Livewire\Destination\Show as DestinationShow;
 use App\Livewire\Dev\LivewireRequestFailurePreview;
 use App\Livewire\ForcePasswordReset;
+use App\Livewire\GetOdoo\PlanOrderReturn;
+use App\Livewire\GetOdoo\PlanReturn;
+use App\Livewire\GetOdoo\PlanSignup;
+use App\Livewire\GetOdoo\Terms as GetOdooTerms;
+use App\Livewire\Notifications\Center as NotificationCenter;
 use App\Livewire\Notifications\Discord as NotificationDiscord;
 use App\Livewire\Notifications\Email as NotificationEmail;
 use App\Livewire\Notifications\Pushover as NotificationPushover;
@@ -32,13 +45,17 @@ use App\Livewire\Project\Database\Backup\Execution as DatabaseBackupExecution;
 use App\Livewire\Project\Database\Backup\Index as DatabaseBackupIndex;
 use App\Livewire\Project\Database\Configuration as DatabaseConfiguration;
 use App\Livewire\Project\Edit as ProjectEdit;
+use App\Livewire\Project\Environment\Canvas as EnvironmentCanvas;
 use App\Livewire\Project\EnvironmentEdit;
+use App\Livewire\Project\EnvironmentKeys as ProjectEnvironmentKeys;
 use App\Livewire\Project\Index as ProjectIndex;
+use App\Livewire\Project\OdooBackups as ProjectOdooBackups;
+use App\Livewire\Project\OdooMigrate as ProjectOdooMigrate;
 use App\Livewire\Project\Resource\Create as ResourceCreate;
 use App\Livewire\Project\Resource\Index as ResourceIndex;
 use App\Livewire\Project\Service\Configuration as ServiceConfiguration;
 use App\Livewire\Project\Service\DatabaseBackups as ServiceDatabaseBackups;
-use App\Livewire\Project\Service\ImportBackup as ServiceImportBackup;
+use App\Livewire\Project\Service\Deployments as ServiceDeployments;
 use App\Livewire\Project\Service\Index as ServiceIndex;
 use App\Livewire\Project\Service\VolumeBackup\Index;
 use App\Livewire\Project\Service\VolumeBackup\Show;
@@ -55,7 +72,7 @@ use App\Livewire\Security\PrivateKey\Index as SecurityPrivateKeyIndex;
 use App\Livewire\Security\PrivateKey\Show as SecurityPrivateKeyShow;
 use App\Livewire\SelectTeam;
 use App\Livewire\Server\Advanced as ServerAdvanced;
-use App\Livewire\Server\Analytics\Show as ServerAnalytics;
+use App\Livewire\Server\Billing as ServerBilling;
 use App\Livewire\Server\CaCertificate\Show as CaCertificateShow;
 use App\Livewire\Server\Charts as ServerCharts;
 use App\Livewire\Server\CloudflareTunnel;
@@ -67,6 +84,8 @@ use App\Livewire\Server\DockerCleanup;
 use App\Livewire\Server\DockerImages;
 use App\Livewire\Server\Index as ServerIndex;
 use App\Livewire\Server\LogDrains;
+use App\Livewire\Server\New\N1coReturn;
+use App\Livewire\Server\New\WompiReturn;
 use App\Livewire\Server\PrivateKey\Show as PrivateKeyShow;
 use App\Livewire\Server\Proxy\DynamicConfigurations as ProxyDynamicConfigurations;
 use App\Livewire\Server\Proxy\Logs as ProxyLogs;
@@ -81,8 +100,17 @@ use App\Livewire\Server\Swarm as ServerSwarm;
 use App\Livewire\Server\Transfer as ServerTransfer;
 use App\Livewire\Server\TransferImport as ServerTransferImport;
 use App\Livewire\Settings\Advanced as SettingsAdvanced;
+use App\Livewire\Settings\GetOdooPlans as SettingsGetOdooPlans;
+use App\Livewire\Settings\GetOdooPurchases as SettingsGetOdooPurchases;
+use App\Livewire\Settings\GetOdooRegions as SettingsGetOdooRegions;
+use App\Livewire\Settings\GetOdooServers as SettingsGetOdooServers;
+use App\Livewire\Settings\Github as SettingsGithub;
 use App\Livewire\Settings\Index as SettingsIndex;
+use App\Livewire\Settings\Odoo as SettingsOdoo;
+use App\Livewire\Settings\ScheduledJobs as SettingsScheduledJobs;
+use App\Livewire\Settings\ServiceTemplates as SettingsServiceTemplates;
 use App\Livewire\Settings\Updates as SettingsUpdates;
+use App\Livewire\Settings\Whatsapp as SettingsWhatsapp;
 use App\Livewire\SettingsBackup;
 use App\Livewire\SettingsEmail;
 use App\Livewire\SettingsOauth;
@@ -107,22 +135,40 @@ use App\Livewire\Team\DangerZone as TeamDangerZone;
 use App\Livewire\Team\Index as TeamIndex;
 use App\Livewire\Team\Member\Index as TeamMemberIndex;
 use App\Livewire\Terminal\Index as TerminalIndex;
+use App\Models\OdooBackup;
+use App\Models\Project;
 use App\Models\ScheduledDatabaseBackupExecution;
 use App\Models\ScheduledVolumeBackupExecution;
 use App\Models\Server;
+use App\Models\Service;
 use App\Models\ServiceDatabase;
+use App\Models\StandaloneDocker;
 use App\Providers\RouteServiceProvider;
-use App\Services\TerminalSessionService;
+use App\Services\Cloud\AdditionalCloudCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
 
 Route::post('/forgot-password', [Controller::class, 'forgot_password'])->name('password.forgot')->middleware('throttle:forgot-password');
+Route::post('/locale', LocaleController::class)->name('locale.update')->middleware('throttle:30,1');
+Route::post('/gpsh/mail-quota', function (Request $request) {
+    $teamId = (int) $request->input('team_id');
+    $token = (string) $request->input('token');
+    if ($teamId < 0 || ! hash_equals(OdooMail::token($teamId), $token)) {
+        abort(403);
+    }
+
+    return response()->json(['allowed' => OdooMail::takeSlot($teamId)]);
+})->middleware('throttle:120,1');
 Route::get('/realtime', [Controller::class, 'realtime_test'])->middleware('auth');
 Route::get('/verify', [Controller::class, 'verify'])->middleware('auth')->name('verify.email');
 Route::get('/email/verify/{id}/{hash}', [Controller::class, 'email_verify'])->middleware(['auth'])->name('verify.verify');
 Route::get('/auth/link', [Controller::class, 'link'])->name('auth.link');
 Route::post('/auth/link', [Controller::class, 'acceptLink'])->middleware('throttle:magic-link')->name('auth.link.accept');
+
+Route::get('/start/{plan}/return/{signup}', PlanReturn::class)->name('getodoo.plan.return');
+Route::get('/start/{plan}', PlanSignup::class)->name('getodoo.plan.start');
+Route::get('/terms', GetOdooTerms::class)->name('getodoo.terms');
 
 Route::get('/auth/{provider}/redirect', [OauthController::class, 'redirect'])->name('auth.redirect');
 Route::get('/auth/{provider}/callback', [OauthController::class, 'callback'])->name('auth.callback');
@@ -156,11 +202,11 @@ if (app()->environment(['local', 'testing'])) {
     })->where('code', '[0-9]{3}')->name('dev.error-preview');
 }
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::middleware(['throttle:force-password-reset'])->group(function () {
-        Route::get('/force-password-reset', ForcePasswordReset::class)->name('auth.force-password-reset');
-    });
+Route::middleware(['auth', 'throttle:force-password-reset'])->group(function () {
+    Route::get('/force-password-reset', ForcePasswordReset::class)->name('auth.force-password-reset');
+});
 
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/', Dashboard::class)->name('dashboard');
     Route::get('/analytics', Analytics::class)->name('analytics');
     Route::get('/admin', AdminIndex::class)->name('admin.index');
@@ -169,16 +215,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/subscription', SubscriptionShow::class)->name('subscription.show');
     Route::get('/subscription/new', SubscriptionIndex::class)->name('subscription.index');
 
+    Route::get('/owner-jupyter', OwnerJupyterController::class)->name('gpsh.owner-jupyter');
     Route::get('/settings', SettingsIndex::class)->name('settings.index');
     Route::get('/settings/advanced', SettingsAdvanced::class)->name('settings.advanced');
     Route::get('/settings/updates', SettingsUpdates::class)->name('settings.updates');
+    Route::get('/upgrade/status', [UpgradeWatchController::class, 'status'])->name('upgrade.status');
+    Route::get('/upgrade/log', [UpgradeWatchController::class, 'log'])->name('upgrade.log');
+    Route::get('/settings/odoo', SettingsOdoo::class)->name('settings.odoo');
+    Route::get('/settings/getodoo-servers', SettingsGetOdooServers::class)->name('settings.getodoo-servers');
+    Route::get('/settings/getodoo-purchases', SettingsGetOdooPurchases::class)->name('settings.getodoo-purchases');
+    Route::get('/settings/getodoo-plans', SettingsGetOdooPlans::class)->name('settings.getodoo-plans');
+    Route::get('/settings/getodoo-regions', SettingsGetOdooRegions::class)->name('settings.getodoo-regions');
+    Route::get('/settings/github', SettingsGithub::class)->name('settings.github');
+    Route::get('/settings/whatsapp', SettingsWhatsapp::class)->name('settings.whatsapp');
 
     Route::get('/settings/backup', SettingsBackup::class)->name('settings.backup');
     Route::get('/settings/email', SettingsEmail::class)->name('settings.email');
     Route::get('/settings/oauth', SettingsOauth::class)->name('settings.oauth');
-    Route::get('/settings/oauth/{provider}', SettingsOauth::class)
-        ->where('provider', '[A-Za-z0-9_-]+')
-        ->name('settings.oauth.provider');
+    Route::get('/settings/scheduled-jobs', SettingsScheduledJobs::class)->name('settings.scheduled-jobs');
+    Route::get('/settings/service-templates', SettingsServiceTemplates::class)->name('settings.service-templates');
+
     Route::get('/profile', ProfileIndex::class)->name('profile');
     Route::get('/profile/avatar', ProfileAvatarController::class)->name('profile.avatar');
     Route::get('/profile/appearance', ProfileAppearance::class)->name('profile.appearance');
@@ -194,6 +250,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/slack', NotificationSlack::class)->name('notifications.slack');
         Route::get('/pushover', NotificationPushover::class)->name('notifications.pushover');
         Route::get('/webhook', NotificationWebhook::class)->name('notifications.webhook');
+        Route::get('/center', NotificationCenter::class)->name('notifications.center');
     });
 
     Route::prefix('storages')->group(function () {
@@ -231,28 +288,61 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('terminal.auth')->middleware('can.access.terminal');
 
     Route::post('/terminal/auth/ips', function () {
-        if (auth()->check()) {
-            $team = auth()->user()->currentTeam();
-            $ipAddresses = $team->servers
-                ->where('settings.is_terminal_enabled', true)
-                ->pluck('ip')
-                ->filter()
-                ->values();
-
-            if (isDev()) {
-                $ipAddresses = $ipAddresses->merge([
-                    'coolify-testing-host',
-                    'host.docker.internal',
-                    'localhost',
-                    '127.0.0.1',
-                    base_ip(),
-                ])->filter()->unique()->values();
-            }
-
-            return response()->json(['ipAddresses' => $ipAddresses->all()], 200);
+        if (! auth()->check()) {
+            return response()->json(['ipAddresses' => []], 401);
         }
 
-        return response()->json(['ipAddresses' => []], 401);
+        $user = auth()->user();
+        $team = $user->currentTeam();
+        $teamIds = $user->teams()->pluck('teams.id');
+        $services = Service::query()
+            ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
+            ->get(['server_id', 'destination_id', 'destination_type']);
+        $serviceServerIds = $services->pluck('server_id');
+        $dockerIds = $services
+            ->where('destination_type', StandaloneDocker::class)
+            ->pluck('destination_id')
+            ->filter();
+        if ($dockerIds->isNotEmpty()) {
+            $serviceServerIds = $serviceServerIds->merge(
+                StandaloneDocker::query()->whereIn('id', $dockerIds)->pluck('server_id')
+            );
+        }
+        $serviceServerIds = $serviceServerIds->push(0)->filter(fn ($id) => $id !== null && $id !== '')->unique()->values();
+
+        $ipAddresses = Server::query()
+            ->where(function ($query) use ($team, $serviceServerIds) {
+                $query->where('team_id', $team->id);
+                if ($serviceServerIds->isNotEmpty()) {
+                    $query->orWhereIn('id', $serviceServerIds);
+                }
+            })
+            ->get()
+            ->filter(function ($server) {
+                if (! userCanUseServer($server)) {
+                    return false;
+                }
+
+                $terminalEnabled = (bool) ($server->settings?->is_terminal_enabled ?? true);
+
+                return $terminalEnabled || (int) $server->id === 0 || $server->ip === 'host.docker.internal';
+            })
+            ->pluck('ip')
+            ->filter()
+            ->unique()
+            ->values();
+
+        if (isDev()) {
+            $ipAddresses = $ipAddresses->merge([
+                'coolify-testing-host',
+                'host.docker.internal',
+                'localhost',
+                '127.0.0.1',
+                base_ip(),
+            ])->filter()->unique()->values();
+        }
+
+        return response()->json(['ipAddresses' => $ipAddresses->all()], 200);
     })->name('terminal.auth.ips')->middleware('can.access.terminal');
 
     Route::post('/terminal/session', function (Request $request, TerminalSessionService $terminalSessionService) {
@@ -269,16 +359,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::get('/projects', ProjectIndex::class)->name('project.index');
+    Route::get('/deployments', DeploymentsIndex::class)->name('deployments.index');
     Route::get('/project/{project_uuid}/icon', ProjectIconController::class)->name('project.icon');
     Route::prefix('project/{project_uuid}')->group(function () {
         Route::get('/', ProjectShow::class)->name('project.show');
         Route::get('/edit', ProjectEdit::class)->name('project.edit')->middleware('can.update.resource');
+        Route::get('/migrate', function (string $project_uuid) {
+            $project = Project::query()->where('uuid', $project_uuid)->firstOrFail();
+            $environment = $project->productionEnvironment() ?? $project->environments()->orderBy('id')->first();
+            abort_unless($environment !== null, 404);
+
+            return redirect()->route('project.odoo.migrate', [
+                'project_uuid' => $project->uuid,
+                'environment_uuid' => $environment->uuid,
+            ]);
+        })->name('project.odoo.migrate.redirect')->middleware('can.update.resource');
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}')->group(function () {
         Route::get('/', ResourceIndex::class)->name('project.resource.index');
+        Route::get('/canvas', EnvironmentCanvas::class)->name('project.environment.canvas');
         Route::get('/clone', ProjectCloneMe::class)->name('project.clone-me')->middleware('can.create.resources');
         Route::get('/new', ResourceCreate::class)->name('project.resource.create')->middleware('can.create.resources');
         Route::get('/edit', EnvironmentEdit::class)->name('project.environment.edit')->middleware('can.update.resource');
+        Route::get('/odoo-backups', ProjectOdooBackups::class)->name('project.odoo.backups');
+        Route::get('/odoo-migrate', ProjectOdooMigrate::class)->name('project.odoo.migrate')->middleware('can.update.resource');
+        Route::get('/keys', ProjectEnvironmentKeys::class)->name('project.environment.keys');
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}/application/{application_uuid}')->group(function () {
         Route::get('/', ApplicationConfiguration::class)->name('project.application.configuration');
@@ -338,6 +443,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
     Route::prefix('project/{project_uuid}/environment/{environment_uuid}/service/{service_uuid}')->group(function () {
         Route::get('/', ServiceConfiguration::class)->name('project.service.configuration');
+        Route::get('/deployments', ServiceDeployments::class)->name('project.service.deployments');
         Route::get('/domains', ServiceConfiguration::class)->name('project.service.domains');
         Route::get('/logs', Logs::class)->name('project.service.logs');
         Route::get('/analytics', ServiceConfiguration::class)->name('project.service.analytics');
@@ -357,6 +463,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/tags', ServiceConfiguration::class)->name('project.service.tags');
         Route::get('/danger', ServiceConfiguration::class)->name('project.service.danger');
         Route::get('/terminal', ExecuteContainerCommand::class)->name('project.service.command')->middleware('can.access.terminal');
+        Route::get('/enter', OdooEnterController::class)->name('project.service.odoo.enter');
         Route::get('/{stack_service_uuid}/backups', ServiceDatabaseBackups::class)->name('project.service.database.backups');
         Route::get('/{stack_service_uuid}/backups/{backup_uuid}', ServiceDatabaseBackups::class)->name('project.service.database.backup.show');
         Route::get('/{stack_service_uuid}/backups/{backup_uuid}/s3', ServiceDatabaseBackups::class)->name('project.service.database.backup.s3');
@@ -370,10 +477,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::get('/servers', ServerIndex::class)->name('server.index');
+    Route::get('/servers/billing', ServerBilling::class)->name('server.billing');
     Route::get('/servers/import', ServerTransferImport::class)->name('server.transfer.import')->middleware('can:create,'.Server::class);
     Route::get('/servers/new', ServerCreatePage::class)->name('server.create')->middleware('can:create,'.Server::class);
-    Route::get('/servers/new/{type}/{token_uuid}', ServerCreatePage::class)->name('server.create.token')->middleware('can:create,'.Server::class)->whereIn('type', ['hetzner', 'vultr', 'digital-ocean']);
-    Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', ['hetzner', 'vultr', 'digital-ocean', 'manual']);
+    Route::get('/servers/new/{type}/{token_uuid}', ServerCreatePage::class)->name('server.create.token')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean'], AdditionalCloudCatalog::slugs()));
+    Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs()));
+    Route::get('/servers/getodoo/orders/{order}', WompiReturn::class)->name('getodoo.wompi.return');
+    Route::get('/servers/getodoo/n1co/{order}', N1coReturn::class)->name('getodoo.n1co.return');
+    Route::get('/servers/getodoo/plan-orders/{order}', PlanOrderReturn::class)->name('getodoo.plan.order.return');
 
     Route::prefix('server/{server_uuid}')->group(function () {
         Route::get('/', ServerShow::class)->name('server.show');
@@ -410,6 +521,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Route::get('/security', fn () => view('security.index'))->name('security.index');
     Route::get('/security/private-key', SecurityPrivateKeyIndex::class)->name('security.private-key.index');
     // Route::get('/security/private-key/new', SecurityPrivateKeyCreate::class)->name('security.private-key.create');
+    Route::get('/security/private-key/{private_key_uuid}/download', PrivateKeyDownloadController::class)->name('security.private-key.download');
     Route::get('/security/private-key/{private_key_uuid}', SecurityPrivateKeyShow::class)->name('security.private-key.show');
 
     Route::get('/security/cloud-tokens', CloudTokens::class)->name('security.cloud-tokens');
@@ -445,21 +557,27 @@ Route::middleware(['auth'])->group(function () {
             if (is_null($team)) {
                 return response()->json(['message' => 'Team not found.'], 404);
             }
-            if ($user->isAdminFromSession() === false) {
-                return response()->json(['message' => 'Only team admins/owners can download backups.'], 403);
-            }
             $exeuctionId = request()->route('executionId');
             $execution = ScheduledDatabaseBackupExecution::where('id', $exeuctionId)->firstOrFail();
             $execution_team_id = $execution->scheduledDatabaseBackup->database->team()?->id;
+            $mayDownload = $user->isAdminFromSession()
+                || $user->isInstanceOwner()
+                || (
+                    is_int($execution_team_id)
+                    && (
+                        OdooAbilities::allows($user, $execution_team_id, 'odoo.backup.create')
+                        || OdooAbilities::allows($user, $execution_team_id, 'odoo.backup.restore')
+                    )
+                );
+            if (! $mayDownload) {
+                return response()->json(['message' => __('Contact an advisor if you need access to this feature.')], 403);
+            }
             if ($team->id !== 0) {
                 if (is_null($execution_team_id)) {
                     return response()->json(['message' => 'Team not found.'], 404);
                 }
-                if ($team->id !== $execution_team_id) {
+                if ($team->id !== $execution_team_id && ! $user->isInstanceOwner()) {
                     return response()->json(['message' => 'Permission denied.'], 403);
-                }
-                if (is_null($execution)) {
-                    return response()->json(['message' => 'Backup not found.'], 404);
                 }
             }
             $filename = data_get($execution, 'filename');
@@ -488,14 +606,23 @@ Route::middleware(['auth'])->group(function () {
             if (is_null($team)) {
                 return response()->json(['message' => 'Team not found.'], 404);
             }
-            if ($user->isAdminFromSession() === false) {
-                return response()->json(['message' => 'Only team admins/owners can download backups.'], 403);
-            }
-
             $execution = ScheduledVolumeBackupExecution::query()
                 ->with('scheduledVolumeBackup.backupable.resource')
                 ->findOrFail(request()->route('executionId'));
-            if ($team->id !== 0 && $team->id !== $execution->scheduledVolumeBackup->team_id) {
+            $executionTeamId = (int) ($execution->scheduledVolumeBackup->team_id ?? 0);
+            $mayDownload = $user->isAdminFromSession()
+                || $user->isInstanceOwner()
+                || (
+                    $executionTeamId > 0
+                    && (
+                        OdooAbilities::allows($user, $executionTeamId, 'odoo.backup.create')
+                        || OdooAbilities::allows($user, $executionTeamId, 'odoo.backup.restore')
+                    )
+                );
+            if (! $mayDownload) {
+                return response()->json(['message' => __('Contact an advisor if you need access to this feature.')], 403);
+            }
+            if ($team->id !== 0 && $team->id !== $executionTeamId && ! $user->isInstanceOwner()) {
                 return response()->json(['message' => 'Permission denied.'], 403);
             }
             if ($execution->local_storage_deleted || blank($execution->filename)) {
@@ -514,6 +641,50 @@ Route::middleware(['auth'])->group(function () {
             return response()->json(['message' => 'Failed to download backup.'], 500);
         }
     })->name('download.volume-backup');
+
+    Route::get('/download/odoo-backup/{backupId}', function () {
+        try {
+            $user = auth()->user();
+            $team = $user->currentTeam();
+            if (is_null($team)) {
+                return response()->json(['message' => 'Team not found.'], 404);
+            }
+            $backup = OdooBackup::query()
+                ->with(['environment.project.team', 'environment.services.destination.server'])
+                ->findOrFail(request()->route('backupId'));
+            if (! $backup->hasZip()) {
+                return response()->json(['message' => 'Backup not found locally on the server.'], 404);
+            }
+            $backupTeamId = (int) ($backup->environment?->project?->team_id ?? 0);
+            $mayDownload = $user->isAdminFromSession()
+                || $user->isInstanceOwner()
+                || (
+                    $backupTeamId > 0
+                    && (
+                        OdooAbilities::allows($user, $backupTeamId, 'odoo.backup.create')
+                        || OdooAbilities::allows($user, $backupTeamId, 'odoo.backup.restore')
+                    )
+                );
+            if (! $mayDownload) {
+                return response()->json(['message' => __('Contact an advisor if you need access to this feature.')], 403);
+            }
+            if ($team->id !== 0 && $team->id !== $backupTeamId && ! $user->isInstanceOwner()) {
+                return response()->json(['message' => 'Permission denied.'], 403);
+            }
+
+            $service = $backup->environment?->services?->first(fn ($row): bool => $row->supportsOdooJupyter());
+            $server = $service?->destination?->server;
+            if (! $server) {
+                return response()->json(['message' => 'Server not found.'], 404);
+            }
+
+            return streamBackupFromServer($server, (string) $backup->filename, 'application/zip');
+        } catch (FileNotFoundException) {
+            return response()->json(['message' => 'Backup not found locally on the server.'], 404);
+        } catch (Throwable) {
+            return response()->json(['message' => 'Failed to download backup.'], 500);
+        }
+    })->name('download.odoo-backup');
 
 });
 

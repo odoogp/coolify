@@ -108,7 +108,27 @@ class Show extends Component
 
     public function getLogLinesProperty()
     {
-        return decode_remote_command_output($this->application_deployment_queue);
+        $lines = decode_remote_command_output($this->application_deployment_queue);
+        $status = (string) data_get($this->application_deployment_queue, 'status');
+        if ($status !== 'failed') {
+            return $lines;
+        }
+
+        $hasFailureLine = $lines->contains(fn (array $line): bool => (bool) ($line['stderr'] ?? false)
+            || str($line['line'] ?? '')->lower()->contains('update failed')
+            || str($line['line'] ?? '')->lower()->contains('failed:'));
+
+        if ($hasFailureLine) {
+            return $lines;
+        }
+
+        return $lines->push([
+            'line' => __('Update failed, but no error detail was recorded for this run. Push again to capture the reason, or check the queue worker logs.'),
+            'timestamp' => now()->format('Y-M-d H:i:s'),
+            'stderr' => true,
+            'hidden' => false,
+            'command' => false,
+        ]);
     }
 
     public function downloadAllLogs(): string

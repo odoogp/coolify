@@ -3,9 +3,13 @@
 namespace App\Livewire\Security;
 
 use App\Livewire\Server\CloudProviderToken\Show as ServerCloudProviderTokenShow;
+use App\Livewire\Server\New\ByAdditionalCloud;
 use App\Livewire\Server\New\ByDigitalOcean;
 use App\Livewire\Server\New\ByHetzner;
 use App\Models\CloudProviderToken;
+use App\Services\Cloud\AdditionalCloudCatalog;
+use App\Services\Cloud\AdditionalCloudCredentials;
+use App\Services\Cloud\AdditionalCloudFactory;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Http;
 use Livewire\Component;
@@ -26,6 +30,12 @@ class CloudProviderTokenForm extends Component
 
     public ?string $description = null;
 
+    public string $account = '';
+
+    public string $secret = '';
+
+    public string $project = '';
+
     public function mount(?string $provider = null): void
     {
         $this->provider_locked = filled($provider);
@@ -41,10 +51,13 @@ class CloudProviderTokenForm extends Component
     protected function rules(): array
     {
         return [
-            'provider' => 'required|string|in:hetzner,digitalocean,vultr',
+            'provider' => AdditionalCloudCatalog::providerRule(),
             'token' => 'required|string',
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'account' => 'nullable|string|max:255|required_if:provider,upcloud,contabo,exoscale,aws,azure',
+            'secret' => 'nullable|string|required_if:provider,contabo,azure',
+            'project' => 'nullable|string|max:255|required_if:provider,scaleway,contabo,azure',
         ];
     }
 
@@ -86,6 +99,10 @@ class CloudProviderTokenForm extends Component
                 return $response->successful();
             }
 
+            if (AdditionalCloudCatalog::supports($provider)) {
+                return AdditionalCloudFactory::fromStored($provider, $token)->ping();
+            }
+
             return false;
         } catch (\Throwable $e) {
             return false;
@@ -98,9 +115,17 @@ class CloudProviderTokenForm extends Component
         $this->validate();
 
         try {
+            $storedToken = AdditionalCloudCredentials::pack(
+                $this->provider,
+                $this->token,
+                $this->account,
+                $this->secret,
+                $this->project,
+            );
+
             // Validate the token with the provider's API
-            if (! $this->validateToken($this->provider, $this->token)) {
-                return $this->dispatch('error', 'Invalid API token. Please check your token and try again.');
+            if (! $this->validateToken($this->provider, $storedToken)) {
+                return $this->dispatch('error', __('Invalid API token. Please check your token and try again.'));
             }
 
             $description = trim($this->description ?? '');
@@ -108,7 +133,7 @@ class CloudProviderTokenForm extends Component
             $savedToken = CloudProviderToken::create([
                 'team_id' => currentTeam()->id,
                 'provider' => $this->provider,
-                'token' => $this->token,
+                'token' => $storedToken,
                 'name' => $this->name,
                 'description' => $description === '' ? null : $description,
             ]);
@@ -120,7 +145,7 @@ class CloudProviderTokenForm extends Component
                 'provider' => $savedToken->provider,
             ]);
 
-            $this->reset(['token', 'name', 'description']);
+            $this->reset(['token', 'name', 'description', 'account', 'secret', 'project']);
 
             // Dispatch event with token ID so parent components can react
             $this->dispatch('tokenAdded', tokenId: $savedToken->id);
@@ -135,11 +160,15 @@ class CloudProviderTokenForm extends Component
                 $this->dispatch('tokenAdded.hetzner', tokenId: $savedToken->id)->to(ServerCloudProviderTokenShow::class);
             }
 
+            if (AdditionalCloudCatalog::supports($savedToken->provider)) {
+                $this->dispatch('tokenAdded.'.$savedToken->provider, tokenId: $savedToken->id)->to(ByAdditionalCloud::class);
+            }
+
             if ($this->modal_mode) {
                 $this->dispatch('close-modal');
             }
 
-            $this->dispatch('success', 'Cloud provider token added successfully.');
+            $this->dispatch('success', __('Cloud provider token added successfully.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

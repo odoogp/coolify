@@ -62,7 +62,18 @@ class StartMysql
             $this->commands[] = "mkdir -p $this->configuration_dir/ssl";
 
             $server = $this->database->destination->server;
-            $caCert = $server->ensureCaCertificate() ?? throw DatabaseStartException::missingCaCertificate();
+            $caCert = $server->sslCertificates()->where('is_ca_certificate', true)->first();
+
+            if (! $caCert) {
+                $server->generateCaCertificate();
+                $caCert = $server->sslCertificates()->where('is_ca_certificate', true)->first();
+            }
+
+            if (! $caCert) {
+                $this->dispatch('error', __('No CA certificate found for this database. Please generate a CA certificate for this server in the server/advanced page.'));
+
+                return;
+            }
 
             $this->ssl_certificate = $this->database->sslCertificates()->first();
 

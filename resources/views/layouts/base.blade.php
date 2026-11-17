@@ -3,22 +3,15 @@
 <script data-navigate-once>
     // Immediate theme application - runs before any rendering
     (function () {
-        // The OS color picker only speaks hex. Convert it once so the whole theme
-        // cascade is authored in OKLCH (sRGB -> linear -> OKLab -> OKLCH).
-        const srgbToLinear = (c) => c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-        window.hexToOklch = (hex) => {
-            const [r, g, b] = hex.match(/[a-f\d]{2}/gi).map((channel) => srgbToLinear(parseInt(channel, 16) / 255));
-            const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-            const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-            const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-            const okL = 0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s;
-            const okA = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
-            const okB = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
-            const chroma = Math.sqrt(okA * okA + okB * okB);
-            let hue = Math.atan2(okB, okA) * 180 / Math.PI;
-            if (hue < 0) hue += 360;
-            return `oklch(${(okL * 100).toFixed(2)}% ${chroma.toFixed(4)} ${hue.toFixed(2)})`;
-        };
+        // Post-login layout assemble: hide panels before first paint (no spinner page).
+        try {
+            if (sessionStorage.getItem('gc-enter') === '1'
+                && ! window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.documentElement.classList.add('gc-enter');
+            }
+        } catch (error) {
+            // sessionStorage can throw in private modes; skip the assemble cue.
+        }
         window.themeAccentForeground = (color) => {
             const channels = color.match(/[a-f\d]{2}/gi).map(channel => parseInt(channel, 16) * 0.85 + 255 * 0.15);
             const luminance = channels
@@ -28,20 +21,68 @@
 
             return luminance > 0.179 ? 'oklch(0% 0 0)' : 'oklch(100% 0 0)';
         };
+        window.readThemeAccents = () => {
+            const stored = localStorage.getItem('themeAccents');
+
+            if (stored === null) {
+                const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
+                const seeded = localStorage.themeColor ? { [theme]: true } : {};
+                localStorage.setItem('themeAccents', JSON.stringify(seeded));
+
+                return seeded;
+            }
+
+            try {
+                const parsed = JSON.parse(stored);
+
+                return parsed && typeof parsed === 'object' ? parsed : {};
+            } catch (error) {
+                return {};
+            }
+        };
         window.applyStoredTheme = () => {
-            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'dark');
+            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
             const themeColor = localStorage.themeColor || '#6b16ed';
-            const customMode = localStorage.customMode || 'dark';
-            const isDark = theme === 'dark'
-                || (theme === 'custom' && customMode === 'dark')
-                || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+            const usesAccent = window.readThemeAccents()[theme] === true;
+            const isDark = theme === 'dark' || theme === 'custom' || theme === 'crystal' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+            const surface = theme === 'custom' ? 'custom' : (theme === 'crystal' ? 'crystal' : (theme === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
+            const root = document.documentElement;
 
             localStorage.theme = theme;
-            document.documentElement.classList.toggle('dark', isDark);
-            document.documentElement.dataset.theme = theme === 'custom' ? 'custom' : (isDark ? 'dark' : 'light');
-            document.documentElement.style.setProperty('--theme-base-color', window.hexToOklch(themeColor));
-            document.documentElement.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(themeColor));
-            document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+            root.classList.toggle('dark', isDark);
+            root.dataset.theme = surface;
+            root.dataset.accent = usesAccent ? 'on' : 'off';
+
+            if (usesAccent) {
+                root.style.setProperty('--theme-base-color', themeColor);
+                root.style.setProperty('--theme-accent-foreground', window.themeAccentForeground(themeColor));
+            } else {
+                root.style.removeProperty('--theme-base-color');
+                root.style.removeProperty('--theme-accent-foreground');
+            }
+
+            const browserThemeColor = theme === 'crystal' ? '#070b14' : (theme === 'crystal-light' ? '#f4f6fb' : (isDark ? '#101010' : '#ffffff'));
+            document.querySelector('meta[name=theme-color]')?.setAttribute('content', browserThemeColor);
+        };
+        window.previewThemeAccent = (color) => {
+            const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
+            const accents = window.readThemeAccents();
+
+            localStorage.themeColor = color;
+            accents[theme] = true;
+            localStorage.themeAccents = JSON.stringify(accents);
+            window.applyStoredTheme();
+
+            return accents;
+        };
+        window.resetThemeAccent = (theme) => {
+            const accents = window.readThemeAccents();
+
+            accents[theme] = false;
+            localStorage.themeAccents = JSON.stringify(accents);
+            window.applyStoredTheme();
+
+            return accents;
         };
         // Single source for the theme controls Alpine state, shared by the
         // Appearance page and the profile dropdown via x-data="themeControls()".
@@ -125,24 +166,34 @@
     <meta name="robots" content="noindex">
     <meta name="theme-color" content="#101010" id="theme-color-meta" />
     <meta name="color-scheme" content="dark light" />
-    <meta name="Description" content="Coolify: An open-source & self-hostable Heroku / Netlify / Vercel alternative" />
+    @php
+        $productDescription = product_description();
+        $productOgImage = product_og_image_url();
+        $productOgUrl = url()->current();
+    @endphp
+    <meta name="description" content="{{ $productDescription }}" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@coolifyio" />
-    <meta name="twitter:title" content="Coolify" />
-    <meta name="twitter:description" content="An open-source & self-hostable Heroku / Netlify / Vercel alternative." />
-    <meta name="twitter:image" content="https://cdn.coollabs.io/og-images/coolify.png" />
+    <meta name="twitter:title" content="{{ product_name() }}" />
+    <meta name="twitter:description" content="{{ $productDescription }}" />
+    <meta name="twitter:image" content="{{ $productOgImage }}" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://coolify.io" />
-    <meta property="og:title" content="Coolify" />
-    <meta property="og:description" content="An open-source & self-hostable Heroku / Netlify / Vercel alternative." />
-    <meta property="og:site_name" content="Coolify" />
-    <meta property="og:image" content="https://cdn.coollabs.io/og-images/coolify.png" />
+    <meta property="og:url" content="{{ $productOgUrl }}" />
+    <meta property="og:title" content="{{ product_name() }}" />
+    <meta property="og:description" content="{{ $productDescription }}" />
+    <meta property="og:site_name" content="{{ product_name() }}" />
+    <meta property="og:image" content="{{ $productOgImage }}" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="{{ product_name() }}" />
     @use('App\Models\InstanceSettings')
     @php
 
         $instanceSettings = instanceSettings();
         $name = null;
+
+        $pageTitle = str_replace('Coolify', product_name(), $title ?? product_name());
 
         if ($instanceSettings) {
             $displayName = $instanceSettings->getTitleDisplayName();
@@ -152,23 +203,40 @@
             }
         }
     @endphp
-    <title>{{ $name }}{{ $title ?? 'Coolify' }}</title>
-    @env('local')
-        <link rel="icon" href="{{ asset('coolify-logo-dev-transparent.png') }}" type="image/png" />
-    @else
-        <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="32x32" />
-        <link rel="icon" href="{{ asset('coolify-logo.svg') }}" type="image/svg+xml" />
-    @endenv
-    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}" />
-    <link rel="manifest" href="{{ asset('site.webmanifest') }}" />
-    <meta name="apple-mobile-web-app-title" content="Coolify" />
+    <title>{{ $name }}{{ $pageTitle }}</title>
+    <link rel="icon" href="{{ product_mark_url() }}" />
+    <link rel="icon" href="{{ asset('brand/favicon-32.png') }}" sizes="32x32" type="image/png" />
+    <link rel="icon" href="{{ asset('brand/favicon-16.png') }}" sizes="16x16" type="image/png" />
+    <link rel="apple-touch-icon" href="{{ asset('brand/icono-app.png') }}" />
+    <link rel="manifest" href="{{ asset('manifest.webmanifest') }}">
+    <link rel="apple-touch-icon" href="{{ asset('pwa/icon-180-v2.png') }}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="GetOdoo">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/js/app.js', 'resources/css/app.css'])
-    <script>
+    @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
+    <script data-navigate-once>
         // Update theme-color meta tag (non-critical, can run async)
-        const t = localStorage.theme || 'dark';
-        const isDark = t === 'dark' || t === 'custom' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-        document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+        (function () {
+            var t = localStorage.theme || 'light';
+            var isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+            var browserThemeColor = t === 'crystal' ? '#070b14' : (t === 'crystal-light' ? '#f4f6fb' : (isDark ? '#101010' : '#ffffff'));
+            document.getElementById('theme-color-meta')?.setAttribute('content', browserThemeColor);
+        })();
+        window.applyFontDelta = function (value) {
+            var delta = Number(value);
+            if (!Number.isFinite(delta)) {
+                delta = 0;
+            }
+            delta = Math.max(-2, Math.min(4, Math.round(delta)));
+            document.documentElement.style.setProperty('--font-delta', String(delta));
+        };
+        window.applyFontDelta(localStorage.getItem('fontDelta'));
+    </script>
+    <script data-navigate-once>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        }
     </script>
     <style>
         [x-cloak] {
@@ -180,8 +248,8 @@
         <script src="https://js.sentry-cdn.com/0f8593910512b5cdd48c6da78d4093be.min.js" crossorigin="anonymous"></script>
     @endif
     @auth
-        <script type="text/javascript" src="{{ URL::asset('js/echo.js') }}"></script>
-        <script type="text/javascript" src="{{ URL::asset('js/pusher.js') }}"></script>
+        <script type="text/javascript" src="{{ URL::asset('js/echo.js') }}" data-navigate-once></script>
+        <script type="text/javascript" src="{{ URL::asset('js/pusher.js') }}" data-navigate-once></script>
         <script type="text/javascript" src="{{ URL::asset('js/apexcharts.js') }}"></script>
         <script type="text/javascript" src="{{ URL::asset('js/purify.min.js') }}"></script>
     @endauth
@@ -191,6 +259,15 @@
 <body class="dark:text-inherit text-black">
     <x-toast />
     <x-icon-tooltip />
+    @php
+        $gpshStrings = [];
+        if (app()->getLocale() !== 'en') {
+            $gpshLocalePath = lang_path(app()->getLocale().'.json');
+            if (is_file($gpshLocalePath)) {
+                $gpshStrings = json_decode(file_get_contents($gpshLocalePath), true) ?: [];
+            }
+        }
+    @endphp
     <script data-navigate-once>
         // Global HTML sanitization function using DOMPurify
         window.sanitizeHTML = function (html) {
@@ -255,7 +332,7 @@
 
         // Initialize theme if not set
         if (!('theme' in localStorage)) {
-            localStorage.theme = 'dark';
+            localStorage.theme = 'light';
         }
 
         let theme = localStorage.theme
@@ -270,7 +347,7 @@
             if (theme == 'system') {
                 theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
             }
-            if (theme == 'dark' || theme == 'custom') {
+            if (theme == 'dark' || theme == 'custom' || theme == 'crystal') {
                 cpuColor = '#1e90ff'
                 ramColor = '#00ced1'
                 textColor = '#ffffff'
@@ -285,39 +362,141 @@
             }
         }
         @auth
-            window.Pusher = Pusher;
-            const EchoConstructor = typeof Echo === 'function' ? Echo : Echo.default;
-            window.Echo = new EchoConstructor({
-                broadcaster: 'reverb',
-                key: "{{ config('constants.pusher.app_key') }}" || 'coolify',
-                wsHost: "{{ config('constants.pusher.host') }}" || window.location.hostname,
-                wsPort: "{{ getRealtime() }}",
-                wssPort: "{{ getRealtime() }}",
-                forceTLS: window.location.protocol === 'https:',
-                encrypted: true,
-                enableStats: false,
-                enableLogging: true,
-                enabledTransports: ['ws', 'wss'],
-                disableStats: true,
-                // Add auto reconnection settings
-                enabledTransports: ['ws', 'wss'],
-                disabledTransports: ['sockjs', 'xhr_streaming', 'xhr_polling'],
-                // Attempt to reconnect on connection lost
-                autoReconnect: true,
-                // Wait 1 second before first reconnect attempt
-                reconnectionDelay: 1000,
-                // Maximum delay between reconnection attempts
-                maxReconnectionDelay: 1000,
-                // Multiply delay by this number for each reconnection attempt
-                reconnectionDelayGrowth: 1,
-                // Maximum number of reconnection attempts
-                maxAttempts: 15
-            });
+            window.gpshBindEcho = function () {
+                if (window.Echo && typeof window.Echo.private === 'function') {
+                    return;
+                }
+
+                var library = (typeof Echo !== 'undefined' && (typeof Echo === 'function' || (Echo && Echo.default))) ? Echo : window.Echo;
+                var EchoConstructor = library && (typeof library === 'function' ? library : library.default);
+                if (typeof EchoConstructor !== 'function' || typeof Pusher === 'undefined') {
+                    return;
+                }
+
+                window.Pusher = Pusher;
+                window.Echo = new EchoConstructor({
+                    broadcaster: 'pusher',
+                    cluster: "{{ config('constants.pusher.host') }}" || window.location.hostname,
+                    key: "{{ config('constants.pusher.app_key') }}" || 'coolify',
+                    wsHost: "{{ config('constants.pusher.host') }}" || window.location.hostname,
+                    wsPort: "{{ getRealtime() }}",
+                    wssPort: "{{ getRealtime() }}",
+                    forceTLS: window.location.protocol === 'https:',
+                    encrypted: true,
+                    enableStats: false,
+                    enableLogging: true,
+                    enabledTransports: ['ws', 'wss'],
+                    disableStats: true,
+                    disabledTransports: ['sockjs', 'xhr_streaming', 'xhr_polling'],
+                    autoReconnect: true,
+                    reconnectionDelay: 1000,
+                    maxReconnectionDelay: 1000,
+                    reconnectionDelayGrowth: 1,
+                    maxAttempts: 15
+                });
+            };
+            window.gpshBindEcho();
+            document.addEventListener('livewire:navigated', window.gpshBindEcho);
         @endauth
         let checkHealthInterval = null;
         let checkIfIamDeadInterval = null;
 
+        async function copyToClipboard(text) {
+            try {
+                if (navigator.clipboard?.writeText && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.setAttribute('readonly', '');
+                    textarea.style.position = 'fixed';
+                    textarea.style.left = '-9999px';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    const copied = document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                    if (!copied) {
+                        throw new Error('Copy command was rejected.');
+                    }
+                }
+                window.Livewire.dispatch('success', 'Copied to clipboard.');
+            } catch (error) {
+                window.Livewire.dispatch('error', 'Failed to copy to clipboard.');
+            }
+        }
+        window.copyToClipboard = copyToClipboard;
+        window.gpshStrings = @json($gpshStrings);
+        window.gpshText = (value) => {
+            if (typeof value !== 'string' || value === '' || !window.gpshStrings) {
+                return value;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(window.gpshStrings, value)) {
+                return window.gpshStrings[value];
+            }
+
+            const wrapped = value.match(/^(.*?) \((.*)\)$/);
+
+            if (wrapped) {
+                const detail = wrapped[2].split(', ').map((part) => window.gpshText(part)).join(', ');
+
+                return `${window.gpshText(wrapped[1])} (${detail})`;
+            }
+
+            let prefix = '';
+
+            Object.keys(window.gpshStrings).forEach((key) => {
+                if ((key.endsWith(': ') || key.endsWith(' ')) && value.startsWith(key) && key.length > prefix.length) {
+                    prefix = key;
+                }
+            });
+
+            if (prefix !== '') {
+                return window.gpshStrings[prefix] + value.slice(prefix.length);
+            }
+
+            return value;
+        };
         document.addEventListener('livewire:init', () => {
+            window.gpshBindEcho?.()
+
+            const dismissLivewireError = () => {
+                document.getElementById('livewire-error')?.remove()
+            }
+
+            window.Livewire.hook('request', ({ fail }) => {
+                fail(({ status, content, preventDefault }) => {
+                    const body = typeof content === 'string' ? content.trim() : ''
+                    const dropped = status === 0 || body === '' || document.documentElement.dataset.upgrading === '1'
+                    if (!dropped) {
+                        return
+                    }
+
+                    preventDefault()
+                    dismissLivewireError()
+
+                    // Empty/cut responses during wire:navigate can leave a shell-less
+                    // document (no <main>). Recover with one hard reload, not a loop.
+                    if (document.documentElement.dataset.upgrading === '1') {
+                        return
+                    }
+                    if (document.querySelector('main')) {
+                        return
+                    }
+                    if (sessionStorage.getItem('gpshShellReload') === '1') {
+                        return
+                    }
+                    sessionStorage.setItem('gpshShellReload', '1')
+                    window.location.reload()
+                })
+            })
+
+            document.addEventListener('livewire:navigated', () => {
+                if (document.querySelector('main')) {
+                    sessionStorage.removeItem('gpshShellReload')
+                }
+            })
+
             window.Livewire.on('reloadWindow', (timeout) => {
                 if (timeout) {
                     setTimeout(() => {
@@ -330,81 +509,81 @@
             })
             window.Livewire.on('info', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Info', {
+                    window.toast(window.gpshText('Info'), {
                         type: 'info',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Info', {
+                    window.toast(window.gpshText('Info'), {
                         type: 'info',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'info',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })
             window.Livewire.on('error', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Error', {
+                    window.toast(window.gpshText('Error'), {
                         type: 'danger',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Error', {
+                    window.toast(window.gpshText('Error'), {
                         type: 'danger',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'danger',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })
             window.Livewire.on('warning', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Warning', {
+                    window.toast(window.gpshText('Warning'), {
                         type: 'warning',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Warning', {
+                    window.toast(window.gpshText('Warning'), {
                         type: 'warning',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'warning',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })
             window.Livewire.on('success', (message) => {
                 if (typeof message === 'string') {
-                    window.toast('Success', {
+                    window.toast(window.gpshText('Success'), {
                         type: 'success',
-                        description: message,
+                        description: window.gpshText(message),
                     })
                     return;
                 }
                 if (message.length == 1) {
-                    window.toast('Success', {
+                    window.toast(window.gpshText('Success'), {
                         type: 'success',
-                        description: message[0],
+                        description: window.gpshText(message[0]),
                     })
                 } else if (message.length == 2) {
-                    window.toast(message[0], {
+                    window.toast(window.gpshText(message[0]), {
                         type: 'success',
-                        description: message[1],
+                        description: window.gpshText(message[1]),
                     })
                 }
             })

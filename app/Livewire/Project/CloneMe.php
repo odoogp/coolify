@@ -10,6 +10,7 @@ use App\Jobs\VolumeCloneJob;
 use App\Models\Environment;
 use App\Models\Project;
 use App\Models\Server;
+use App\Services\AdminCreationQuota;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
@@ -73,7 +74,9 @@ class CloneMe extends Component
 
     public function render()
     {
-        return view('livewire.project.clone-me');
+        return view('livewire.project.clone-me', [
+            'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
+        ]);
     }
 
     public function selectServer($server_id, $destination_uuid)
@@ -115,28 +118,40 @@ class CloneMe extends Component
                 if ($foundProject) {
                     throw new \Exception('Project with the same name already exists.');
                 }
-                $project = Project::create([
+                $additionalEnvironments = [];
+                if ($this->environment instanceof Environment && ! $this->environment->isProduction()) {
+                    $additionalEnvironments[] = [
+                        'name' => $this->environment->name,
+                        'role' => Environment::ROLE_STAGING,
+                        'uuid' => new_public_id(),
+                    ];
+                }
+                $project = app(AdminCreationQuota::class)->createProject(auth()->user(), [
                     'name' => $this->newName,
                     'team_id' => currentTeam()->id,
                     'description' => $this->project->description.' (clone)',
-                ]);
-                if ($this->environment->name !== 'production') {
-                    $project->environments()->create([
-                        'name' => $this->environment->name,
+                ], $additionalEnvironments);
+                $project->unsetRelation('environments');
+                $environment = $project->environments->where('name', $this->environment->name)->first();
+            } else {
+                $project = $this->project;
+                if ($this->environment instanceof Environment && $this->environment->isProduction()) {
+                    $environment = $project->cloneProductionAsStaging();
+                } else {
+                    if ($project->productionEnvironment() instanceof Environment
+                        && strcasecmp($this->newName, 'production') === 0) {
+                        throw new \Exception('This project already has a production environment.');
+                    }
+                    $foundEnv = $project->environments()->where('name', $this->newName)->first();
+                    if ($foundEnv) {
+                        throw new \Exception('Environment with the same name already exists.');
+                    }
+                    $environment = app(AdminCreationQuota::class)->createEnvironment(auth()->user(), $project, [
+                        'name' => $this->newName,
+                        'role' => Environment::ROLE_STAGING,
                         'uuid' => new_public_id(),
                     ]);
                 }
-                $environment = $project->environments->where('name', $this->environment->name)->first();
-            } else {
-                $foundEnv = $this->project->environments()->where('name', $this->newName)->first();
-                if ($foundEnv) {
-                    throw new \Exception('Environment with the same name already exists.');
-                }
-                $project = $this->project;
-                $environment = $this->project->environments()->create([
-                    'name' => $this->newName,
-                    'uuid' => new_public_id(),
-                ]);
             }
             $applications = $this->environment->applications;
             $databases = $this->environment->databases();

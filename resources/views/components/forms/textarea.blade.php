@@ -31,7 +31,7 @@
         <div class="w-full" @if ($monacoRows > 0) style="--editor-height: {{ $monacoRows * 23 + 38 }}px" @endif>
             <x-forms.monaco-editor id="{{ $modelBinding }}" language="{{ $monacoEditorLanguage }}" name="{{ $name }}"
                 name="{{ $modelBinding }}" model="{{ $value ?? $modelBinding }}" wire:model="{{ $value ?? $modelBinding }}"
-                readonly="{{ $readonly }}" label="dockerfile" autofocus="{{ $autofocus }}" />
+                readonly="{{ $readonly }}" label="{{ __('dockerfile') }}" autofocus="{{ $autofocus }}" />
         </div>
     @else
         @if ($type === 'password')
@@ -54,7 +54,7 @@
                 @if ($allowToPeak)
                     <button type="button" x-on:click="type = type === 'password' ? 'text' : 'password'"
                         class="absolute inset-y-0 right-0 flex items-center h-6 pt-2 pr-2 cursor-pointer dark:hover:text-white"
-                        aria-label="Toggle password visibility">
+                        aria-label="{{ __('Toggle password visibility') }}">
                         <svg x-show="type === 'password'" xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" stroke-width="1.5"
                             stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
                             <path stroke="none" d="M0 0h24v24H0z" fill="none" />

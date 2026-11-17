@@ -32,7 +32,7 @@ class Show extends Component
     {
         $ownedPrivateKey = PrivateKey::ownedByCurrentTeam()->find($privateKeyId);
         if (is_null($ownedPrivateKey)) {
-            $this->dispatch('error', 'You are not allowed to use this private key.');
+            $this->dispatch('error', __('You are not allowed to use this private key.'));
 
             return;
         }
@@ -46,7 +46,7 @@ class Show extends Component
                     throw new \Exception($error);
                 }
             });
-            $this->dispatch('success', 'Private key updated successfully.');
+            $this->dispatch('success', __('Private key updated successfully.'));
             $this->dispatch('refreshServerShow');
         } catch (\Exception $e) {
             $this->server->refresh();
@@ -61,7 +61,7 @@ class Show extends Component
             $this->authorize('create', PrivateKey::class);
 
             if (! in_array($type, ['ed25519', 'rsa'], true)) {
-                $this->dispatch('error', 'Invalid private key type.');
+                $this->dispatch('error', __('Invalid private key type.'));
 
                 return;
             }
@@ -76,7 +76,7 @@ class Show extends Component
 
             $this->privateKeys = PrivateKey::ownedByCurrentTeam()->get()->where('is_git_related', false);
             $this->dispatch('copyPublicKeyToClipboard', publicKey: $privateKey->public_key);
-            $this->dispatch('success', 'Private key created successfully.');
+            $this->dispatch('success', __('Private key created successfully.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -87,7 +87,7 @@ class Show extends Component
         try {
             ['uptime' => $uptime, 'error' => $error] = $this->server->validateConnection();
             if ($uptime) {
-                $this->dispatch('success', 'Server is reachable.');
+                $this->dispatch('success', __('Server is reachable.'));
                 $this->dispatch('refreshServerShow');
             } else {
                 $sanitizedError = htmlspecialchars($error ?? '', ENT_QUOTES, 'UTF-8');

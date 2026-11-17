@@ -29,7 +29,125 @@ compact divided list, not legacy green check SVGs or fixed-width status rows.
 
 ## 1. Visual direction
 
-The interface is compact and product-focused:
+### Obsidian Crystal (app interior)
+
+The preferred in-app appearance is **Obsidian Crystal** (`data-theme="crystal"` /
+`crystal-light`). It keeps the existing theme keys so saved preferences still
+apply, but the surfaces are deep navy glass (dark) and cool frost glass (light):
+
+- canvas: `#070b14` dark / `#f4f6fb` light with soft blue radial washes;
+- chrome (top bar, sidebar, mobile sheet): frosted panels with
+  `backdrop-filter` and a thin luminous hairline;
+- cards, tables, empty states, and the command palette: shared glass tokens
+  (`--obsidian-glass`, `--obsidian-line`, `--obsidian-glow`);
+- accent: electric blue (`#4d8dff` dark / `#2563eb` light), not rainbow tiles;
+- global search opens from the top bar and sidebar (`⌘K` / `Ctrl+K`) and, when
+  the query is empty, lists **Functions** (navigation) and **Create** actions
+  like an Odoo command palette before filtering resources.
+
+Midnight Dark, Letify Light, Match system, and Custom Dark remain available in
+Appearance. Auth cinematic themes stay separate from this interior shell.
+
+### Dashboard (home)
+
+The dashboard answers "is everything OK, and what do I do next?" before it lists
+anything. Data comes from `App\Services\DashboardOverview` (team-scoped, one
+pass over applications, services, and standalone databases); styles are the
+`gc-dash-*` block in `resources/css/app.css` and read the Obsidian tokens when
+present.
+
+- hero: local date, a time-of-day greeting, and one status sentence with a
+  pulse dot (green online, red/amber when something needs attention, grey when
+  everything is stopped); New project is the only primary button. The hero
+  search shows only below `lg`, where the top bar has no full search field;
+- KPI strip: projects, services online (with a one-line hint such as
+  "2 with problems"), needs attention, servers ready. Each links to its list;
+- projects: rows, not tiles. Unhealthy projects first, then most recently
+  changed; Production/Staging chips from `environments.role`; health is a dot
+  plus words ("3 of 4 online", "Stopped"). Never a progress bar: a ratio of
+  running containers is not progress toward anything;
+- deploys: the aside starts with the latest five deploys (compact
+  `Deployments\Index`), linking to the full Deploys page;
+- needs attention: only unhealthy/degraded resources, crash loops
+  (`Application::stoppedAfterRestartLimit()`), and servers that are not ready.
+  A stopped service is neutral, never an alert;
+- first-run checklist replaces empty cards until the team has a project with a
+  service (SSH key and server steps only for users who can create servers).
+- no entrance animations and no " · " meta strings.
+
+### Deploys
+
+`/deployments` (sidebar: Deploys) is the team-wide deploy history.
+`App\Livewire\Deployments\Index` renders it, scoped to the current team's
+projects. The same component is embedded in three places:
+
+- full page: header, segmented filter (All, Running, Failed, Deployed) with
+  counts, search by app/commit/message, project listbox;
+- project page (`project` param, locked): filter and search, no project picker;
+- dashboard aside (`compact`): list only, no filters, no commit or env tag.
+
+Rows are grouped by day (Today, Yesterday, date in the instance timezone) on a
+vertical rail. The node carries the status: green check deployed, red cross
+failed, blue ring queued, grey ring cancelled. A running deploy is the only
+animated element: its node emits a soft beacon and the rail glows blue around
+it. The component polls every 4s only while something is queued or running.
+
+Status colours follow the Apple system palette (`--dash-ok`, `--dash-starting`,
+`--dash-warn`, `--dash-err`), and the UI font stack starts with the Apple
+system font (`-apple-system`, SF Pro), falling back to Geist and Inter.
+
+### Odoo service hub (Deployments landing)
+
+For Odoo stacks, `project.service.deployments` is a Railway-style hub
+(`App\Livewire\Project\Service\Deployments`) with three segments:
+
+- **Overview:** service status, Open Odoo, and a four-step deploy pipeline
+  (Git → Sync → Restart → Running) from `DeployPipeline` /
+  `OdooDeployPipeline`, driven by the latest `application_deployment_queues`
+  row for the addons application;
+- **Deploys:** the existing embedded deployment history;
+- **Runtime:** subdomain and workers edited into a per-user
+  `service_change_drafts` row. A review banner shows the diff; **Apply** calls
+  `OdooRuntime::save` (same path as Domains); **Discard** deletes the draft.
+
+Styles live under `.gc-odoo-hub`, `.gc-pipeline`, and `.gc-review-*` in
+`resources/css/app.css`. Non-Odoo services keep the previous history-only page.
+Global search Functions include **Deploys** → `/deployments`.
+
+### Environment canvas
+
+`/project/{uuid}/environment/{uuid}/canvas` (`App\Livewire\Project\Environment\Canvas`)
+is an n8n / Railway-style flow canvas powered by a React island
+(`@xyflow/react` + `resources/js/environment-canvas/`):
+
+- custom nodes with service-type logos from `public/svgs` (via
+  `ServiceTemplateCatalog::logoUrl`) and glyph marks for domain / volume;
+- bezier edges, handles, Controls, MiniMap, dotted Background;
+- pan / wheel zoom / pinch, multi-select with Shift, Open + double-click;
+- Livewire polls status every 10s and pushes `canvas-graph-updated` into the
+  React tree without resetting dragged positions;
+- graph data from `EnvironmentCanvasGraph`; lane auto-layout on reset;
+  positions in `environment_canvas_layouts`;
+- admins drag nodes; members are view-only;
+- entry points: Resources header **Canvas**, and the Odoo hub Overview.
+
+Styles: `.gc-canvas-*` / `.gc-flow-*` in `resources/css/app.css` plus XYFlow
+base CSS. Custom bezier edges (`FlowEdge`) use color by kind (http / db /
+mount) with no label chips. Selecting a service/Odoo node reveals **Logs** /
+**Monitor** / **Open** (observability entry without a second screen).
+
+### Pending (keep simple)
+
+- **GitHub PR previews (Railway-like):** today getcloud.sh deploys on **push to
+  the linked branch only**; launch without GitHub stays first-class. Next slice:
+  optional “Deploy pull requests” on the Odoo GitHub panel → temporary staging
+  environment per PR (reuse `CloneOdooStagingJob` + existing webhook
+  `pull_request`), never required to launch. Do not invent a second webhook.
+- **Canvas:** groups, staged-change banner on the graph, typed variable edges.
+- **Observability depth:** deeper metrics inside Monitor; keep Runtime Logs as
+  the default log surface from the canvas.
+
+The interface is otherwise compact and product-focused:
 
 - near-neutral layered surfaces instead of large bordered boxes;
 - 13–14px UI typography and 32px controls;

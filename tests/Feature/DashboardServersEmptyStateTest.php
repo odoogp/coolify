@@ -73,6 +73,19 @@ it('hides the add private key button for members without create permission', fun
     session(['currentTeam' => $this->team]);
 
     Livewire::test(Dashboard::class)
-        ->assertSee('A private key is required')
-        ->assertDontSee('Add private key');
+        ->assertSee('No servers are assigned yet. Contact an advisor to get access.')
+        ->assertDontSee('Add private key')
+        ->assertDontSee('New server');
+});
+
+it('shows the provider message to an admin without servers', function () {
+    $admin = User::factory()->create();
+    $admin->teams()->attach($this->team, ['role' => 'admin']);
+
+    $this->actingAs($admin);
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(Dashboard::class)
+        ->assertSee('No servers are assigned yet. Contact an advisor to get access.')
+        ->assertDontSee('New server');
 });

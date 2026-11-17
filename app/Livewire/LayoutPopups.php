@@ -18,7 +18,7 @@ class LayoutPopups extends Component
 
     public function testEvent()
     {
-        $this->dispatch('success', 'Realtime events configured!');
+        $this->dispatch('success', __('Realtime events configured!'));
     }
 
     public function render()

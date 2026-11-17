@@ -1,6 +1,4 @@
-import { initializeCopyButtonComponent } from './copy-button.js';
-import { initializeRuntimeLogsComponent } from './runtime-logs.js';
-import { initializeSettingsSidebarAccordionComponent } from './settings-sidebar-accordion.js';
+import { initializeHtmlEditor } from './html-editor.js';
 import { initializeTerminalComponent } from './terminal.js';
 import './traffic-globe.js';
 import { registerLivewireRequestFailureHandler } from './livewire-request-failure.js';
@@ -10,20 +8,32 @@ document.addEventListener('livewire:init', () => {
 });
 
 // Livewire 3.5.19+ re-applies `x-cloak` to morphed elements during wire:navigate
-// (via replaceHtmlAttributes). With `[x-cloak]{display:none}` on the app wrapper,
-// this blanks the whole page on every navigation until Alpine re-processes it.
-// Strip leftover x-cloak after each navigation; the initial-load FOUC guard stays.
-document.addEventListener('livewire:navigated', () => {
-    document.querySelectorAll('[x-cloak]').forEach((el) => el.removeAttribute('x-cloak'));
-});
+// (via replaceHtmlAttributes). Strip leftover x-cloak after navigation / Alpine
+// init, but keep it on x-show-gated nodes (helpers, menus, modals). Stripping
+// those reveals every closed popup when Alpine has not yet re-applied display:none.
+const stripStaleXCloak = () => {
+    document.querySelectorAll('[x-cloak]').forEach((el) => {
+        if (el.hasAttribute('x-show')) {
+            return;
+        }
+
+        el.removeAttribute('x-cloak');
+    });
+};
+
+document.addEventListener('livewire:navigated', stripStaleXCloak);
+document.addEventListener('alpine:initialized', stripStaleXCloak);
+// Safety net if Alpine throws mid-init (e.g. notice-bell scope errors).
+window.setTimeout(stripStaleXCloak, 0);
+window.setTimeout(stripStaleXCloak, 250);
 
 // Register the terminal data provider before Alpine initializes the page.
 // Keeping this registration independent from the current route also makes it
 // available before Alpine processes terminal markup after wire:navigate.
-document.addEventListener('alpine:init', initializeTerminalComponent);
-document.addEventListener('alpine:init', initializeCopyButtonComponent);
-document.addEventListener('alpine:init', initializeRuntimeLogsComponent);
-document.addEventListener('alpine:init', initializeSettingsSidebarAccordionComponent);
+document.addEventListener('alpine:init', () => {
+    initializeTerminalComponent();
+    initializeHtmlEditor();
+});
 
 /**
  * Smooth-scroll a settings section into view, then flash its border for 500ms
@@ -132,15 +142,92 @@ window.scrollToSettingsSection = function scrollToSettingsSection(id) {
     rafId = window.requestAnimationFrame(tick);
 };
 
-// When a settings sub-section link navigates across pages (href="route#section-id"),
-// scroll to that section once the destination page has rendered.
-function scrollToHashSettingsSection() {
-    const hash = window.location.hash;
-    if (!hash || hash.length < 2) {
+const tileSelector = 'main .grid > a.rounded-xl.shadow-sm, main .grid > article.rounded-xl.shadow-sm, .empty-state';
+
+function placeTileSpot(card, event) {
+    const rect = card.getBoundingClientRect();
+
+    if (rect.width === 0 || rect.height === 0) {
         return;
     }
-    const id = decodeURIComponent(hash.slice(1));
-    window.requestAnimationFrame(() => window.scrollToSettingsSection?.(id));
+
+    card.style.setProperty('--spot-x', `${((event.clientX - rect.left) / rect.width) * 100}%`);
+    card.style.setProperty('--spot-y', `${((event.clientY - rect.top) / rect.height) * 100}%`);
 }
-document.addEventListener('livewire:navigated', scrollToHashSettingsSection);
-document.addEventListener('DOMContentLoaded', scrollToHashSettingsSection);
+
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.addEventListener('pointermove', (event) => {
+        const card = event.target.closest?.(tileSelector);
+
+        if (!card) {
+            return;
+        }
+
+        placeTileSpot(card, event);
+    }, { passive: true });
+
+    document.addEventListener('pointerdown', (event) => {
+        const card = event.target.closest?.(tileSelector);
+
+        if (!card) {
+            return;
+        }
+
+        card.classList.add('is-pressed');
+        placeTileSpot(card, event);
+    });
+
+    document.addEventListener('pointerup', () => {
+        document.querySelectorAll('.is-pressed').forEach((card) => {
+            card.classList.remove('is-pressed');
+        });
+    });
+
+    document.addEventListener('pointerout', (event) => {
+        const card = event.target.closest?.(tileSelector);
+
+        if (!card || card.contains(event.relatedTarget)) {
+            return;
+        }
+
+        card.classList.remove('is-pressed');
+        card.style.removeProperty('--spot-x');
+        card.style.removeProperty('--spot-y');
+    });
+}
+
+function bootGetCloudAuthStage() {
+    if (! document.querySelector('.auth-shell')) {
+        return;
+    }
+
+    import('./auth-stage.js')
+        .then(({ bootAuthStagesIn }) => bootAuthStagesIn(document))
+        .catch((error) => {
+            console.warn('GetCloud auth stage failed to load', error);
+        });
+}
+
+function bootGetCloudAppEnter() {
+    if (! document.documentElement.classList.contains('gc-enter')) {
+        return;
+    }
+
+    import('./app-enter.js')
+        .then(({ bootAppEnter }) => bootAppEnter())
+        .catch((error) => {
+            console.warn('GetCloud app enter failed to load', error);
+            document.documentElement.classList.remove('gc-enter');
+            try {
+                sessionStorage.removeItem('gc-enter');
+            } catch (storageError) {
+                // ignore
+            }
+        });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    bootGetCloudAuthStage();
+    bootGetCloudAppEnter();
+});
+document.addEventListener('livewire:navigated', bootGetCloudAuthStage);

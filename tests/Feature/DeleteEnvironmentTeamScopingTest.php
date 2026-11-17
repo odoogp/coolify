@@ -1,5 +1,6 @@
 <?php
 
+use App\Jobs\DeleteResourceJob;
 use App\Livewire\Project\DeleteEnvironment;
 use App\Models\Application;
 use App\Models\Environment;
@@ -9,6 +10,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 
@@ -57,18 +59,67 @@ test('environment_id is locked and cannot be reassigned from the client', functi
 });
 
 test('delete still removes an empty environment owned by the current team', function () {
-    $component = Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
-        ->set('parameters', ['project_uuid' => $this->projectA->uuid]);
-
-    $component->call('delete');
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
+        ->call('delete', '')
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
 
     expect(Environment::find($this->environmentA->id))->toBeNull();
 });
 
-test('delete cannot resolve a non-empty environment from another team', function () {
-    // The team-scoped lookup must stay in the delete() path so the
-    // "has defined resources" branch can never run for an environment
-    // outside the caller's team.
+test('delete environment uses a full-page redirect so the deleted environment url does not 404', function () {
+    $source = file_get_contents(app_path('Livewire/Project/DeleteEnvironment.php'));
+
+    expect($source)
+        ->toContain('navigate: false')
+        ->toContain("route('project.show'")
+        ->not->toContain("redirectRoute(\$this, 'project.show'");
+});
+
+test('deleting an environment also deletes the resources it has', function () {
+    Queue::fake();
+    $application = Application::factory()->create([
+        'environment_id' => $this->environmentA->id,
+        'name' => 'odoo',
+    ]);
+
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
+        ->assertSee('Delete the resources in this environment: odoo')
+        ->assertSee('Permanently delete all volumes associated with this resource.')
+        ->assertSet('delete_volumes', true)
+        ->call('delete', '', ['delete_volumes'])
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
+
+    expect(Environment::find($this->environmentA->id))->toBeNull();
+    expect(Application::withTrashed()->find($application->id)?->trashed())->toBeTrue();
+    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id && $job->deleteVolumes === true);
+});
+
+test('environment deletion stops containers before soft-deleting resources', function () {
+    $source = file_get_contents(app_path('Models/Environment.php'));
+
+    expect($source)
+        ->toContain('StopService::run')
+        ->toContain('StopApplication::run')
+        ->toContain('StopDatabase::run')
+        ->toContain('docker ps -aq --filter name=')
+        ->toContain('DeleteResourceJob::dispatch');
+});
+
+test('deleting an environment keeps its volumes when that box is unchecked', function () {
+    Queue::fake();
+    $application = Application::factory()->create([
+        'environment_id' => $this->environmentA->id,
+        'name' => 'odoo',
+    ]);
+
+    Livewire::test(DeleteEnvironment::class, ['environment_id' => $this->environmentA->id])
+        ->call('delete', '', [])
+        ->assertRedirect(route('project.show', ['project_uuid' => $this->projectA->uuid]));
+
+    Queue::assertPushed(DeleteResourceJob::class, fn (DeleteResourceJob $job): bool => $job->resource->id === $application->id && $job->deleteVolumes === false);
+});
+
+test('delete cannot resolve an environment from another team', function () {
     Application::factory()->create([
         'environment_id' => $this->environmentB->id,
     ]);

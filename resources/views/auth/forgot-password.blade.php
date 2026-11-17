@@ -1,6 +1,6 @@
 <x-layout-simple>
-    <x-auth.shell title="Coolify"
-        description="Enter your account email and we’ll send you a secure reset link.">
+    <x-auth.shell title="{{ product_name() }}"
+        description="{{ __('Enter your account email and we’ll send you a secure reset link.') }}">
         <div class="flex flex-col gap-4">
             @if (session('status'))
                 <x-auth.alert type="success">{{ session('status') }}</x-auth.alert>
@@ -17,7 +17,15 @@
             @endif
 
             @if (is_transactional_emails_enabled())
-                <form action="/forgot-password" method="POST" class="flex flex-col gap-4">
+                <form action="/forgot-password" method="POST" class="flex flex-col gap-4"
+                    @focusin="if ($event.target?.getAttribute?.('name') === 'email') $dispatch('auth-state', 'email-focus')"
+                    @focusout="
+                        $nextTick(() => {
+                            if ($el.contains(document.activeElement)) return;
+                            $dispatch('auth-state', 'idle');
+                        });
+                    "
+                    @submit="$dispatch('auth-state', 'submitting')">
                     @csrf
                     <x-forms.input required type="email" name="email" autocomplete="email" autofocus
                         label="{{ __('input.email') }}" />
@@ -27,9 +35,9 @@
                 </form>
             @else
                 <x-auth.alert type="warning">
-                    <p class="font-medium">Transactional email is not configured</p>
+                    <p class="font-medium">{{ __('Transactional email is not configured') }}</p>
                     <p class="mt-0.5 text-black/70 dark:text-white/70">
-                        Configure email delivery or follow the
+                        {{ __('Configure email delivery or follow the') }}
                         <a class="font-medium underline underline-offset-2" target="_blank" rel="noopener noreferrer"
                             href="{{ config('constants.urls.docs') }}">manual reset guide</a>.
                     </p>
@@ -38,8 +46,8 @@
         </div>
 
         <x-slot:footer>
-            <span>Remember your password?</span>
-            <a href="/login" class="auth-text-link">Back to login</a>
+            <span>{{ __('Remember your password?') }}</span>
+            <a href="/login" class="auth-text-link">{{ __('Back to login') }}</a>
         </x-slot:footer>
     </x-auth.shell>
 </x-layout-simple>

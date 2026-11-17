@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Shared Variables | Coolify
+        {{ __('Shared Variables | Coolify') }}
     </x-slot>
 
     <x-shared-variables.layout>
@@ -14,9 +14,9 @@
                 <x-reicon name="teams" class="size-4" />
             </div>
             <div class="mt-auto pt-5">
-                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">Team wide</h2>
+                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">{{ __('Team wide') }}</h2>
                 <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                    Available to every resource owned by this team.
+                    {{ __('Available to every resource owned by this team.') }}
                 </p>
             </div>
         </a>
@@ -28,9 +28,9 @@
                 <x-reicon name="projects" class="size-4" />
             </div>
             <div class="mt-auto pt-5">
-                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">Project wide</h2>
+                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">{{ __('Project wide') }}</h2>
                 <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                    Shared by every environment inside a project.
+                    {{ __('Shared by every environment inside a project.') }}
                 </p>
             </div>
         </a>
@@ -42,9 +42,9 @@
                 <x-reicon name="layers" class="size-4" />
             </div>
             <div class="mt-auto pt-5">
-                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">Environment wide</h2>
+                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">{{ __('Environment wide') }}</h2>
                 <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                    Reused by resources in one environment.
+                    {{ __('Reused by resources in one environment.') }}
                 </p>
             </div>
         </a>
@@ -56,9 +56,9 @@
                 <x-reicon name="servers" class="size-4" />
             </div>
             <div class="mt-auto pt-5">
-                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">Server wide</h2>
+                <h2 class="text-[13px]! leading-4! font-semibold! text-black dark:text-fg">{{ __('Server wide') }}</h2>
                 <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                    Available to resources deployed on one server.
+                    {{ __('Available to resources deployed on one server.') }}
                 </p>
             </div>
         </a>

@@ -8,10 +8,12 @@
 
     $loadingTarget = null;
     if ($showLoadingIndicator) {
-        if (filled($wireClickValue)) {
-            $loadingTarget = trim((string) $wireClickValue);
-        } elseif ($hasExplicitWireTarget) {
+        // Prefer an explicit wire:target so sibling buttons that share a method
+        // (or rely on auto-detected wire:click) do not all show loading at once.
+        if ($hasExplicitWireTarget) {
             $loadingTarget = trim((string) $wireTargetValue);
+        } elseif (filled($wireClickValue)) {
+            $loadingTarget = trim((string) $wireClickValue);
         }
     }
 
@@ -19,9 +21,7 @@
     if (filled($loadingTarget)) {
         $loadingAttributes['wire:loading.attr'] = 'disabled';
         $loadingAttributes['wire:loading.class'] = 'is-loading';
-        if (! $hasExplicitWireTarget) {
-            $loadingAttributes['wire:target'] = $loadingTarget;
-        }
+        $loadingAttributes['wire:target'] = $loadingTarget;
     }
 @endphp
 @if ($authDisabled || filled($tooltip))
@@ -74,7 +74,8 @@
         @endisset>
 
     @if (filled($loadingTarget))
-        <x-loading-on-button wire:target="{{ $loadingTarget }}" wire:loading />
+        <x-loading-on-button class="hidden" wire:target="{{ $loadingTarget }}"
+            wire:loading.class.remove="hidden" wire:loading.class="inline-flex" />
     @endif
     {{ $slot }}
 </button>
@@ -85,7 +86,7 @@
         x-transition:leave="transition-opacity ease-in duration-75"
         x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"
         class="auth-tooltip">
-        {{ $tooltip ?: 'You do not have permission to perform this action.' }}
+        {{ $tooltip ?: 'Contact an advisor if you need access to this feature.' }}
     </div>
 </span>
 @endif

@@ -1,0 +1,1154 @@
+<?php
+
+use App\Livewire\Boarding\Index as BoardingIndex;
+use App\Livewire\GetOdoo\PlanSignup;
+use App\Livewire\Settings\GetOdooPlans;
+use App\Livewire\Settings\GetOdooRegions;
+use App\Models\GetOdooPlan;
+use App\Models\GetOdooPlanSignup;
+use App\Models\GetOdooPricingArea;
+use App\Models\InstanceSettings;
+use App\Models\Server;
+use App\Models\Team;
+use App\Models\User;
+use App\Services\GetOdoo\GetOdooAreaEntitlements;
+use App\Services\GetOdoo\N1coClient;
+use App\Services\GetOdoo\GetOdooPlanPricing;
+use App\Services\GetOdoo\OpenGetOdooPlanAccount;
+use App\Services\GetOdoo\ResolveGetOdooPlansForCountry;
+use App\Services\GetOdoo\WompiClient;
+use App\Support\DetectRequestCountry;
+use App\Support\GetOdooCountries;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Livewire\Livewire;
+
+uses(RefreshDatabase::class);
+
+beforeEach(function () {
+    config([
+        'cache.default' => 'array',
+        'session.driver' => 'array',
+        'constants.getodoo.force_country_iso' => null,
+    ]);
+
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->create(['id' => 0]));
+    $this->root = Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
+});
+
+function getOdooBuyerCountry(string $iso = 'GT', array $overrides = []): GetOdooPricingArea
+{
+    config(['constants.getodoo.force_country_iso' => strtoupper($iso)]);
+
+    return GetOdooPricingArea::query()->create(array_merge([
+        'code' => strtolower($iso),
+        'name' => GetOdooCountries::name(strtoupper($iso)) ?? strtoupper($iso),
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => strtoupper($iso),
+        'extra_fixed' => 0,
+        'extra_percent' => 0,
+        'is_active' => true,
+        'sort_order' => 1,
+    ], $overrides));
+}
+
+function getOdooPlan(array $overrides = []): GetOdooPlan
+{
+    return GetOdooPlan::query()->create(array_merge([
+        'name' => 'Oficina',
+        'summary' => 'Para el equipo',
+        'description' => "Producción\nStaging",
+        'price' => 93,
+        'currency' => 'USD',
+        'payment_gateway' => 'wompi',
+        'is_active' => true,
+        'is_rest_of_world' => true,
+        'max_projects' => 1,
+        'max_environments' => 2,
+        'max_members' => 1,
+        'max_production_branches' => 1,
+        'max_staging_branches' => 1,
+        'max_services' => 2,
+        'can_add_servers' => true,
+        'can_launch_on_instance_server' => false,
+    ], $overrides));
+}
+
+function getOdooPlanWompi(): void
+{
+    instanceSettings()->update([
+        'wompi_client_id' => 'client-1',
+        'wompi_client_secret' => 'secret-1',
+        'is_registration_enabled' => false,
+    ]);
+
+    Http::fake(function ($request) {
+        $url = $request->url();
+
+        if (str_contains($url, 'id.wompi.sv/connect/token')) {
+            return Http::response(['access_token' => 'token-1']);
+        }
+
+        if (str_contains($url, 'api.wompi.sv/EnlacePago') && $request->method() === 'POST') {
+            return Http::response([
+                'idEnlace' => 15,
+                'urlEnlace' => 'https://lk.wompi.sv/plan',
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$url], 500);
+    });
+}
+
+it('keeps the normal registration page', function () {
+    instanceSettings()->update(['is_registration_enabled' => true]);
+
+    $this->get(route('register'))->assertOk()->assertSee('Create account');
+});
+
+it('lets the instance owner save a plan and copy its link', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooPlans::class)
+        ->set('name', 'Oficina')
+        ->set('summary', 'Para el equipo')
+        ->set('price', '0')
+        ->set('maxProjects', '1')
+        ->set('maxEnvironments', '2')
+        ->set('maxMembers', '1')
+        ->set('canAddServers', true)
+        ->set('includesMigration', true)
+        ->set('includesBackups', true)
+        ->set('backupFrequency', 'twice_daily')
+        ->set('backupRetentionDays', '14')
+        ->call('savePlan')
+        ->assertHasNoErrors()
+        ->assertSee('Oficina')
+        ->assertSee('/start/');
+
+    $plan = GetOdooPlan::query()->first();
+
+    expect($plan)->not->toBeNull()
+        ->and((float) $plan->price)->toBe(0.0)
+        ->and($plan->payment_gateway)->toBeNull()
+        ->and($plan->is_rest_of_world)->toBeTrue()
+        ->and((int) $plan->max_projects)->toBe(1)
+        ->and((int) $plan->max_environments)->toBe(2)
+        ->and((int) $plan->max_members)->toBe(1)
+        ->and($plan->max_services)->toBeNull()
+        ->and($plan->can_add_servers)->toBeTrue()
+        ->and($plan->can_launch_on_instance_server)->toBeFalse()
+        ->and($plan->includes_migration)->toBeTrue()
+        ->and($plan->backup_frequency)->toBe('twice_daily')
+        ->and((int) $plan->backup_retention_days)->toBe(14)
+        ->and(collect($plan->includedItems())->pluck('label')->all())->toContain(__('Migration help (GitHub, repository, dump + filestore)'))
+        ->and($plan->publicUrl())->toContain('/start/'.$plan->uuid);
+});
+
+it('saves a plan without automatic backups when the backup option is off', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooPlans::class)
+        ->set('name', 'Sin backups')
+        ->set('price', '0')
+        ->set('includesBackups', false)
+        ->call('savePlan')
+        ->assertHasNoErrors();
+
+    $plan = GetOdooPlan::query()->where('name', 'Sin backups')->first();
+
+    expect($plan)->not->toBeNull()
+        ->and($plan->backup_frequency)->toBe('none')
+        ->and(collect($plan->includedItems())->pluck('label')->all())
+        ->not->toContain(__('Automatic Odoo backups'));
+});
+
+it('hides plan settings from a customer admin', function () {
+    $admin = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($admin->id, ['role' => 'admin']);
+    $this->actingAs($admin);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(GetOdooPlans::class)->assertRedirect(route('dashboard'));
+});
+
+it('shows the package and the admin account on the public link', function () {
+    User::factory()->create();
+    $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
+
+    $this->get(route('getodoo.plan.start', ['plan' => $plan->uuid]))
+        ->assertOk()
+        ->assertSee('Oficina')
+        ->assertSee('Para el equipo')
+        ->assertSee('Producción')
+        ->assertSee('Admin account')
+        ->assertSee('$93.00')
+        ->assertSee('Projects')
+        ->assertSee('Environments')
+        ->assertSee(__('Members (users)'))
+        ->assertDontSee(__('Services'))
+        ->assertDontSee(__('Can add servers'))
+        ->assertDontSee('Can launch instances on the server where GPSH is installed')
+        ->assertSee('Continue to payment')
+        ->assertSee('Guatemala')
+        ->assertSee(__('Detected from your location. The price for this country applies.'))
+        ->assertSee(__('I have read and accept the'))
+        ->assertSee(__('terms and conditions'))
+        ->assertSee(route('getodoo.terms'), false);
+});
+
+it('does not open an inactive plan', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['is_active' => false]);
+
+    $this->get(route('getodoo.plan.start', ['plan' => $plan->uuid]))->assertNotFound();
+});
+
+it('opens a free plan without Wompi and without using the public registration switch', function () {
+    User::factory()->create();
+    instanceSettings()->update(['is_registration_enabled' => false]);
+    $plan = getOdooPlan([
+        'price' => 0,
+        'payment_gateway' => null,
+    ]);
+    $country = getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'ana@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect(route('dashboard'));
+
+    $customer = User::query()->where('email', 'ana@example.com')->first();
+    $team = $customer?->teams()->first();
+
+    expect($customer)->not->toBeNull()
+        ->and((int) $customer->id)->not->toBe(0)
+        ->and($customer->country_iso)->toBe('GT')
+        ->and($customer->hasAcceptedTerms())->toBeTrue()
+        ->and($customer->terms_accepted_at)->not->toBeNull()
+        ->and($customer->teams()->count())->toBe(1)
+        ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
+        ->and((int) $team->getodoo_pricing_area_id)->toBe($country->id)
+        ->and($team->pivot->role)->toBe('owner')
+        ->and($team->name)->toBe('Acme Org')
+        ->and($team->personal_team)->toBeFalse()
+        ->and((int) $team->pivot->max_projects)->toBe(1)
+        ->and((int) $team->pivot->max_environments)->toBe(2)
+        ->and((bool) $team->pivot->can_add_servers)->toBeTrue()
+        ->and((bool) $team->pivot->can_launch_on_instance_server)->toBeFalse()
+        ->and(GetOdooPlanSignup::query()->where('email', 'ana@example.com')->value('status'))->toBe('paid');
+});
+
+it('lets a plan be paid with Wompi or with n1co', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'wompi_client_id' => 'client-1',
+        'wompi_client_secret' => 'secret-1',
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => true,
+        'is_registration_enabled' => false,
+    ]);
+    Http::fake(function ($request) {
+        $url = $request->url();
+
+        if (str_contains($url, 'id.wompi.sv/connect/token')) {
+            return Http::response(['access_token' => 'token-1']);
+        }
+
+        if (str_contains($url, 'api.wompi.sv/EnlacePago') && $request->method() === 'POST') {
+            return Http::response([
+                'idEnlace' => 15,
+                'urlEnlace' => 'https://lk.wompi.sv/plan',
+            ]);
+        }
+
+        if (str_contains($url, 'api-pay-sandbox.n1co.shop/api/paymentlink/checkout') && $request->method() === 'POST') {
+            return Http::response([
+                'orderCode' => 'PLAN1',
+                'orderId' => 20,
+                'paymentLinkUrl' => 'https://pay.n1co.shop/PLAN1',
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$url], 500);
+    });
+    $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee(__('Payment method'))
+        ->assertSee(__('Accepted cards'))
+        ->assertSee('Visa')
+        ->assertSee('Mastercard')
+        ->assertSee(__('This is the monthly price for your location. This step pays the first charge with Wompi or n1co.'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-n1co@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->set('gateway', 'n1co')
+        ->call('register')
+        ->assertRedirect('https://pay.n1co.shop/PLAN1');
+
+    expect(GetOdooPlanSignup::query()->where('email', 'ana-n1co@example.com')->value('payment_gateway'))->toBe('n1co');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-wompi@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->set('gateway', 'wompi')
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect(GetOdooPlanSignup::query()->where('email', 'ana-wompi@example.com')->value('payment_gateway'))->toBe('wompi');
+});
+
+it('sends a paid plan to n1co when Wompi is not configured', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => 'whsec-n1co',
+        'n1co_sandbox' => true,
+        'n1co_charges' => false,
+        'is_registration_enabled' => false,
+    ]);
+    Http::fake(function ($request) {
+        if (str_contains($request->url(), 'api-pay-sandbox.n1co.shop/api/paymentlink/checkout') && $request->method() === 'POST') {
+            return Http::response([
+                'orderCode' => 'PLAN2',
+                'orderId' => 21,
+                'paymentLinkUrl' => 'https://pay.n1co.shop/PLAN2',
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$request->url()], 500);
+    });
+    $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee(__('This is the monthly price for your location. This step pays the first charge with n1co.'))
+        ->assertSee(__('Payment method'))
+        ->assertSee('n1co')
+        ->assertSee('Visa')
+        ->assertSee('Mastercard')
+        ->assertDontSee('Wompi')
+        ->assertDontSee(__('Wompi is not ready for charges.'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-only-n1co@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://pay.n1co.shop/PLAN2');
+});
+
+it('opens the account when n1co already shows the order as paid', function () {
+    User::factory()->create();
+    instanceSettings()->update([
+        'n1co_secret' => 'secret-n1co',
+        'n1co_webhook_secret' => null,
+        'n1co_sandbox' => true,
+        'n1co_charges' => false,
+        'is_registration_enabled' => false,
+    ]);
+    $plan = getOdooPlan(['name' => 'Inicial', 'price' => 50]);
+    $signup = $plan->signups()->create([
+        'name' => 'Ana',
+        'organization' => 'Acme Org',
+        'email' => 'ana-paid@example.com',
+        'password' => 'password1',
+        'amount' => 50,
+        'payment_gateway' => 'n1co',
+        'status' => 'awaiting_payment',
+        'wompi_link_id' => 'RJZjSmO',
+        'wompi_link_url' => 'https://pay-sandbox.n1co.shop/RJZjSmO',
+    ]);
+
+    Http::fake(function ($request) use ($signup) {
+        if (str_contains($request->url(), 'api-pay-sandbox.n1co.shop/api/paymentlink/order/RJZjSmO')) {
+            return Http::response([
+                'OrderCode' => 'RJZjSmO',
+                'OrderReference' => $signup->uuid,
+                'OrderStatus' => 'FINALIZED',
+                'Total' => 50,
+                'Payment' => [
+                    'AuthorizationCode' => '1792430802763',
+                    'Status' => 'Pagado',
+                ],
+            ]);
+        }
+
+        return Http::response(['error' => 'unexpected '.$request->url()], 500);
+    });
+
+    $this->get(route('getodoo.plan.return', [
+        'plan' => $plan->uuid,
+        'signup' => $signup->uuid,
+        'order_code' => 'RJZjSmO',
+    ]))->assertRedirect(route('dashboard'));
+
+    expect($signup->fresh()->status)->toBe('paid')
+        ->and($signup->fresh()->wompi_transaction_id)->toBe('1792430802763')
+        ->and(User::query()->where('email', 'ana-paid@example.com')->exists())->toBeTrue();
+});
+
+it('recognizes a finalized n1co order that the portal marks as paid', function () {
+    $client = app(N1coClient::class);
+
+    expect($client->isPaid([
+        'orderStatus' => 'Finalizado',
+        'total' => '50.00',
+        'payment' => ['status' => 'Pagado', 'authorizationCode' => '1792430802763'],
+    ], 50))->toBeTrue()
+        ->and($client->isPaid([
+            'orderStatus' => 'FINALIZED',
+            'total' => 50,
+        ], 50))->toBeFalse()
+        ->and($client->isPaid([
+            'orderStatus' => 'PAID',
+            'total' => 40,
+            'payment' => ['authorizationCode' => '1'],
+        ], 50))->toBeFalse();
+});
+
+it('sends a paid plan to Wompi and creates the account only after a live charge', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan();
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect(User::query()->where('email', 'ana@example.com')->exists())->toBeFalse();
+
+    $signup = GetOdooPlanSignup::query()->first();
+    $payload = [
+        'IdTransaccion' => 'tx-plan-1',
+        'Monto' => 93,
+        'ResultadoTransaccion' => 'ExitosaAprobada',
+        'EsProductiva' => true,
+        'EnlacePago' => [
+            'IdentificadorEnlaceComercio' => $signup->uuid,
+        ],
+    ];
+    $body = json_encode($payload);
+    $hash = app(WompiClient::class)->webhookHash($body);
+    $headers = [
+        'HTTP_WOMPI_HASH' => $hash,
+        'CONTENT_TYPE' => 'application/json',
+    ];
+
+    $this->call('POST', '/webhooks/payments/wompi', [], [], [], $headers, $body)->assertOk();
+    $this->call('POST', '/webhooks/payments/wompi', [], [], [], $headers, $body)->assertOk();
+
+    $customer = User::query()->where('email', 'ana@example.com')->first();
+    $team = $customer?->teams()->first();
+
+    expect($customer)->not->toBeNull()
+        ->and(User::query()->where('email', 'ana@example.com')->count())->toBe(1)
+        ->and($customer->hasAcceptedTerms())->toBeTrue()
+        ->and($team->pivot->role)->toBe('owner')
+        ->and($team->name)->toBe('Acme Org')
+        ->and($team->personal_team)->toBeFalse()
+        ->and((int) $team->pivot->max_services)->toBe(2)
+        ->and((int) $team->getodoo_plan_id)->toBe($plan->id)
+        ->and($signup->fresh()->status)->toBe('paid')
+        ->and($signup->fresh()->password)->toBeNull();
+});
+
+it('does not create an account from a test charge', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan();
+    $signup = $plan->signups()->create([
+        'name' => 'Ana',
+        'email' => 'ana@example.com',
+        'password' => 'password1',
+        'amount' => 93,
+        'payment_gateway' => 'wompi',
+        'status' => 'awaiting_payment',
+    ]);
+    $payload = [
+        'IdTransaccion' => 'tx-plan-test',
+        'Monto' => 93,
+        'ResultadoTransaccion' => 'ExitosaAprobada',
+        'EsProductiva' => false,
+        'EnlacePago' => [
+            'IdentificadorEnlaceComercio' => $signup->uuid,
+        ],
+    ];
+    $body = json_encode($payload);
+
+    $this->call('POST', '/webhooks/payments/wompi', [], [], [], [
+        'HTTP_WOMPI_HASH' => app(WompiClient::class)->webhookHash($body),
+        'CONTENT_TYPE' => 'application/json',
+    ], $body)->assertOk();
+
+    expect(User::query()->where('email', 'ana@example.com')->exists())->toBeFalse()
+        ->and($signup->fresh()->status)->toBe('awaiting_payment');
+});
+
+it('applies only country extras on the plan price', function () {
+    $plan = getOdooPlan(['price' => 100]);
+    $country = GetOdooPricingArea::query()->create([
+        'code' => 'sv',
+        'name' => 'El Salvador',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'SV',
+        'extra_fixed' => 2,
+        'extra_percent' => 5,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $quote = GetOdooPlanPricing::quote($plan, $country);
+
+    // 100 * 1.05 + 2 = 107
+    expect($quote['extra_percent'])->toBe(5.0)
+        ->and($quote['extra_fixed'])->toBe(2.0)
+        ->and($quote['amount'])->toBe(107.0);
+});
+
+it('defines countries inside the plan with optional promo prices', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooPlans::class)
+        ->set('name', 'SV only')
+        ->set('price', '100')
+        ->set('planIsRestOfWorld', false)
+        ->set('pendingCountry', 'El Salvador')
+        ->call('addPlanCountry')
+        ->set('planCountryPromos.el-salvador', '49')
+        ->set('pendingCountry', 'Guatemala')
+        ->call('addPlanCountry')
+        ->call('savePlan')
+        ->assertHasNoErrors();
+
+    $plan = GetOdooPlan::query()->where('name', 'SV only')->first();
+    expect($plan)->not->toBeNull()
+        ->and($plan->is_rest_of_world)->toBeFalse()
+        ->and($plan->pricingAreas)->toHaveCount(2)
+        ->and((float) $plan->pricingAreas->firstWhere('iso_code', 'SV')?->pivot?->promo_price)->toBe(49.0);
+});
+
+it('limits a plan to specific countries and uses promo price on signup', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan(['price' => 100, 'is_rest_of_world' => false]);
+    $sv = getOdooBuyerCountry('SV');
+    GetOdooPricingArea::query()->create([
+        'code' => 'gt',
+        'name' => 'Guatemala',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'GT',
+        'extra_fixed' => 5,
+        'extra_percent' => 0,
+        'is_active' => true,
+        'sort_order' => 2,
+    ]);
+    $plan->pricingAreas()->sync([$sv->id => ['promo_price' => 49.00]]);
+
+    $choices = GetOdooPricingArea::countryChoicesForPlan($plan->fresh('pricingAreas'));
+    expect($choices)->toHaveCount(1)
+        ->and($choices[0]['value'])->toBe((string) $sv->id)
+        ->and($choices[0]['label'])->toBe('El Salvador');
+
+    expect(GetOdooPricingArea::countryChoicesForPlan($plan->fresh('pricingAreas'), 'SV'))
+        ->toHaveCount(1)
+        ->and(GetOdooPricingArea::countryChoicesForPlan($plan->fresh('pricingAreas'), 'GT'))
+        ->toHaveCount(0);
+
+    $quote = GetOdooPlanPricing::quote($plan->fresh('pricingAreas'), $sv);
+    expect($quote['promo_price'])->toBe(49.0)->and($quote['amount'])->toBe(49.0);
+
+    config(['constants.getodoo.force_country_iso' => 'GT']);
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee('$100.00')
+        ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-gt@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect((float) GetOdooPlanSignup::query()->where('email', 'ana-gt@example.com')->value('amount'))->toBe(100.0)
+        ->and(GetOdooPlanSignup::query()->where('email', 'ana-gt@example.com')->value('pricing_area_id'))->toBeNull();
+
+    config(['constants.getodoo.force_country_iso' => 'SV']);
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    expect((float) GetOdooPlanSignup::query()->where('email', 'ana@example.com')->value('amount'))->toBe(49.0);
+});
+
+it('prefers a country plan over a region plan and falls back to rest of the world', function () {
+    $latam = GetOdooPricingArea::query()->create([
+        'code' => 'latam',
+        'name' => 'LatAm',
+        'kind' => GetOdooPricingArea::KIND_REGION,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+    $gt = GetOdooPricingArea::query()->create([
+        'code' => 'gt',
+        'name' => 'Guatemala',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'GT',
+        'parent_id' => $latam->id,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+    $mx = GetOdooPricingArea::query()->create([
+        'code' => 'mx',
+        'name' => 'Mexico',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'MX',
+        'parent_id' => $latam->id,
+        'is_active' => true,
+        'sort_order' => 2,
+    ]);
+    $jp = GetOdooPricingArea::query()->create([
+        'code' => 'jp',
+        'name' => 'Japan',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'JP',
+        'parent_id' => null,
+        'is_active' => true,
+        'sort_order' => 3,
+    ]);
+
+    $countryPlan = getOdooPlan(['name' => 'GT Pro', 'price' => 80, 'is_rest_of_world' => false]);
+    $countryPlan->pricingAreas()->sync([$gt->id => ['promo_price' => 70]]);
+
+    $regionPlan = getOdooPlan(['name' => 'LatAm', 'price' => 60, 'is_rest_of_world' => false]);
+    $regionPlan->pricingAreas()->sync([$latam->id => ['promo_price' => 55]]);
+
+    $restPlan = getOdooPlan(['name' => 'Global', 'price' => 90, 'is_rest_of_world' => true]);
+
+    expect(ResolveGetOdooPlansForCountry::forCountry($gt)->pluck('id')->all())
+        ->toBe([$countryPlan->id])
+        ->and(ResolveGetOdooPlansForCountry::forCountry($mx)->pluck('id')->all())
+        ->toBe([$regionPlan->id])
+        ->and(ResolveGetOdooPlansForCountry::forCountry($jp)->pluck('id')->all())
+        ->toBe([$restPlan->id]);
+
+    $regionQuote = GetOdooPlanPricing::quote($regionPlan->fresh('pricingAreas'), $mx);
+    expect($regionQuote['promo_price'])->toBe(55.0)->and($regionQuote['amount'])->toBe(55.0);
+
+    expect(GetOdooPricingArea::countryChoicesForPlan($countryPlan->fresh('pricingAreas')))
+        ->toHaveCount(1)
+        ->and(collect(GetOdooPricingArea::countryChoicesForPlan($regionPlan->fresh('pricingAreas')))->pluck('value')->all())
+        ->toBe([(string) $mx->id])
+        ->and(collect(GetOdooPricingArea::countryChoicesForPlan($restPlan->fresh('pricingAreas')))->pluck('value')->all())
+        ->toBe([(string) $jp->id]);
+
+    // IP in Mexico → country belongs to LatAm → regional plan price applies automatically.
+    config(['constants.getodoo.force_country_iso' => 'MX']);
+    Livewire::test(PlanSignup::class, ['plan' => $regionPlan->uuid])
+        ->assertSee('$55.00')
+        ->assertSee(__(':country · :region', ['country' => 'Mexico', 'region' => 'LatAm']))
+        ->assertDontSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'));
+});
+
+it('locks signup to the buyer ip country and charges the quoted amount', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan(['price' => 100]);
+    $country = getOdooBuyerCountry('GT', [
+        'extra_fixed' => 5,
+        'extra_percent' => 10,
+    ]);
+
+    Livewire::withHeaders(['CF-IPCountry' => 'GT'])
+        ->test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSet('pricingAreaId', (string) $country->id)
+        ->assertSee('Guatemala')
+        ->assertDontSee(__('Search countries'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    $signup = GetOdooPlanSignup::query()->first();
+
+    // 100 * 1.10 + 5 = 115
+    expect((float) $signup->amount)->toBe(115.0)
+        ->and((int) $signup->pricing_area_id)->toBe($country->id);
+});
+
+it('uses the standard plan price when the buyer location cannot be determined', function () {
+    User::factory()->create();
+    getOdooPlanWompi();
+    $plan = getOdooPlan(['price' => 100]);
+    GetOdooPricingArea::query()->create([
+        'code' => 'gt',
+        'name' => 'Guatemala',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'GT',
+        'extra_fixed' => 5,
+        'extra_percent' => 10,
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->assertSee('$100.00')
+        ->assertSee(__('This is the standard monthly plan price. This step pays the first charge with Wompi.'))
+        ->assertDontSee(__('Search countries'))
+        ->assertDontSee(__('Detected from your location. The price for this country applies.'))
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect('https://lk.wompi.sv/plan');
+
+    $signup = GetOdooPlanSignup::query()->first();
+    expect((float) $signup->amount)->toBe(100.0)
+        ->and($signup->pricing_area_id)->toBeNull();
+});
+
+it('reads the buyer country from cloudflare headers and public ip lookup', function () {
+    $request = Request::create('/');
+    $request->headers->set('CF-IPCountry', 'SV');
+
+    expect(DetectRequestCountry::iso($request))->toBe('SV')
+        ->and(DetectRequestCountry::normalize('XX'))->toBeNull()
+        ->and(DetectRequestCountry::normalize('gt'))->toBe('GT');
+
+    Http::fake([
+        'ip-api.com/*' => Http::response(['status' => 'success', 'countryCode' => 'HN']),
+    ]);
+
+    $public = Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '8.8.8.8']);
+    expect(DetectRequestCountry::iso($public))->toBe('HN')
+        ->and(DetectRequestCountry::clientIp($public))->toBe('8.8.8.8')
+        ->and(DetectRequestCountry::clientIp(Request::create('/', 'GET', [], [], [], ['REMOTE_ADDR' => '127.0.0.1'])))->toBeNull();
+});
+
+it('frees the email for plan signup after the customer user is deleted', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'ana@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertRedirect(route('dashboard'));
+
+    $customer = User::query()->where('email', 'ana@example.com')->firstOrFail();
+    auth()->logout();
+    session()->flush();
+    $customer->delete();
+
+    expect(User::query()->where('email', 'ana@example.com')->exists())->toBeFalse()
+        ->and(GetOdooPlanSignup::query()->where('email', 'ana@example.com')->exists())->toBeFalse();
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org Again')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'ana@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('dashboard'));
+
+    $again = User::query()->where('email', 'ana@example.com')->first();
+    expect($again)->not->toBeNull()
+        ->and($again->teams()->first()?->name)->toBe('Acme Org Again');
+
+    $this->actingAs($again);
+    session(['currentTeam' => $again->teams()->first()]);
+    expect($again->fresh()->canAddServers())->toBeTrue()
+        ->and($again->fresh()->canLaunchOnInstanceServer())->toBeFalse();
+});
+
+it('lets plan signup reclaim an invite-only user stub that never joined a team', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    $stubId = User::withoutPersonalTeam(fn () => User::query()->create([
+        'name' => 'invitee',
+        'email' => 'stub@example.com',
+        'password' => bcrypt('temporary'),
+        'force_password_reset' => true,
+        'email_verified_at' => null,
+    ]))->id;
+
+    expect(User::query()->find($stubId)?->teams()->exists())->toBeFalse();
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'stub@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertHasNoErrors()
+        ->assertRedirect(route('dashboard'));
+
+    expect(User::query()->find($stubId))->toBeNull()
+        ->and(User::query()->where('email', 'stub@example.com')->exists())->toBeTrue()
+        ->and(User::query()->where('email', 'stub@example.com')->first()?->teams()->exists())->toBeTrue();
+});
+
+it('does not reclaim a real registered account during plan signup', function () {
+    User::factory()->create();
+    User::factory()->create(['email' => 'taken@example.com']);
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('email', 'taken@example.com')
+        ->set('acceptedTerms', true)
+        ->call('register')
+        ->assertHasErrors(['email']);
+
+    expect(User::query()->where('email', 'taken@example.com')->count())->toBe(1);
+});
+
+it('keeps unpaid plan signup drafts when releasing an email with no user', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 49, 'payment_gateway' => 'wompi']);
+    getOdooPlanWompi();
+
+    GetOdooPlanSignup::query()->create([
+        'plan_id' => $plan->id,
+        'name' => 'Ana',
+        'organization' => 'Draft Org',
+        'email' => 'draft@example.com',
+        'password' => 'password1',
+        'amount' => 49,
+        'payment_gateway' => 'wompi',
+        'status' => 'awaiting_payment',
+    ]);
+
+    User::releaseEmailForRegistration('draft@example.com');
+
+    expect(GetOdooPlanSignup::query()->where('email', 'draft@example.com')->exists())->toBeTrue();
+});
+
+it('applies country service and project limits to the new team', function () {
+    User::factory()->create();
+    $plan = getOdooPlan([
+        'price' => 0,
+        'payment_gateway' => null,
+        'max_projects' => null,
+    ]);
+    $country = GetOdooPricingArea::query()->create([
+        'code' => 'hn',
+        'name' => 'Honduras',
+        'kind' => GetOdooPricingArea::KIND_COUNTRY,
+        'iso_code' => 'HN',
+        'allow_multiple_projects' => false,
+        'allow_all_services' => false,
+        'allowed_services' => ['odoo', 'redis'],
+        'is_active' => true,
+        'sort_order' => 1,
+    ]);
+
+    $user = app(OpenGetOdooPlanAccount::class)->open('Ana', 'ana@example.com', 'password1', $plan, $country, organization: 'Acme Org');
+    $team = $user->teams()->first();
+    $entitlements = GetOdooAreaEntitlements::forTeam($team);
+
+    expect((int) $team->getodoo_pricing_area_id)->toBe($country->id)
+        ->and($user->country_iso)->toBe('HN')
+        ->and((int) $team->pivot->max_projects)->toBe(1)
+        ->and($entitlements['allow_multiple_projects'])->toBeFalse()
+        ->and($entitlements['allow_all_services'])->toBeFalse()
+        ->and($entitlements['allowed_services'])->toBe(['odoo', 'redis'])
+        ->and(GetOdooAreaEntitlements::allowsService($team, 'odoo'))->toBeTrue()
+        ->and(GetOdooAreaEntitlements::allowsService($team, 'n8n'))->toBeFalse();
+});
+
+it('finishes the getodoo tour before opening the server create assistant', function () {
+    $plan = getOdooPlan(['can_add_servers' => true]);
+    $customer = User::factory()->create();
+    $team = Team::factory()->create([
+        'name' => 'Tour Org',
+        'personal_team' => false,
+        'show_boarding' => true,
+        'getodoo_plan_id' => $plan->id,
+    ]);
+    $customer->teams()->attach($team->id, [
+        'role' => 'owner',
+        'can_add_servers' => true,
+        'can_launch_on_instance_server' => false,
+    ]);
+    $this->actingAs($customer);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(BoardingIndex::class)
+        ->set('currentState', 'getodoo-servers')
+        ->call('goToCreateServerFromGetOdooTour')
+        ->assertRedirect(route('server.create'));
+
+    expect($team->fresh()->show_boarding)->toBeFalse();
+});
+
+it('lists plans without opening the editor until New or Edit', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Listed plan']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSet('showPlanEditor', false)
+        ->assertSee('Listed plan')
+        ->assertDontSee(__('Save plan'))
+        ->call('newPlan')
+        ->assertSet('showPlanEditor', true)
+        ->assertSee(__('Save plan'))
+        ->call('cancelPlanEditor')
+        ->assertSet('showPlanEditor', false)
+        ->call('editPlan', $plan->id)
+        ->assertSet('showPlanEditor', true)
+        ->assertSet('name', 'Listed plan');
+});
+
+it('deletes a plan with leftover signups when no organization teams remain', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Propietario', 'price' => 0, 'payment_gateway' => null]);
+    GetOdooPlanSignup::query()->create([
+        'plan_id' => $plan->id,
+        'name' => 'Pending',
+        'organization' => 'Pending Org',
+        'email' => 'pending@example.com',
+        'password' => 'password1',
+        'amount' => 0,
+        'status' => 'awaiting_payment',
+    ]);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSee('Propietario')
+        ->assertSee(__('Delete'))
+        ->call('deletePlan', $plan->id)
+        ->assertHasNoErrors()
+        ->assertDispatched('success');
+
+    expect(GetOdooPlan::query()->whereKey($plan->id)->exists())->toBeFalse()
+        ->and(GetOdooPlanSignup::query()->where('plan_id', $plan->id)->exists())->toBeFalse();
+});
+
+it('blocks deleting a plan that still has organization teams', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Busy plan']);
+    Team::factory()->create(['getodoo_plan_id' => $plan->id, 'name' => 'Customer Org']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->call('deletePlan', $plan->id)
+        ->assertDispatched('error');
+
+    expect(GetOdooPlan::query()->whereKey($plan->id)->exists())->toBeTrue();
+});
+
+it('archives a plan with organizations into the archived list and can restore it', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Archivable plan']);
+    Team::factory()->create(['getodoo_plan_id' => $plan->id, 'name' => 'Customer Org']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSee('Archivable plan')
+        ->assertSee(__('Archive plan'))
+        ->call('archivePlan', $plan->id)
+        ->assertDispatched('success')
+        ->assertDontSee('Archivable plan')
+        ->call('showArchivedPlans')
+        ->assertSet('showArchived', true)
+        ->assertSee('Archivable plan')
+        ->assertSee(__('Restore'))
+        ->call('restorePlan', $plan->id)
+        ->assertDispatched('success')
+        ->call('showActivePlans')
+        ->assertSee('Archivable plan');
+
+    expect($plan->fresh()->is_active)->toBeTrue();
+});
+
+it('lists plan members and links to user administration', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $plan = getOdooPlan(['name' => 'Member plan']);
+    $customer = User::factory()->create(['name' => 'Ana Principal', 'email' => 'ana-principal@example.com']);
+    $invitee = User::factory()->create(['name' => 'Bob Invitee', 'email' => 'bob-invitee@example.com']);
+    $team = Team::factory()->create(['getodoo_plan_id' => $plan->id, 'name' => 'Acme Org']);
+    $team->members()->attach($customer->id, ['role' => 'owner']);
+    $team->members()->attach($invitee->id, ['role' => 'admin']);
+
+    Livewire::test(GetOdooPlans::class)
+        ->assertSee('Member plan')
+        ->call('showPlanMembers', $plan->id)
+        ->assertSet('membersPlanId', $plan->id)
+        ->assertSee('Ana Principal')
+        ->assertSee('Bob Invitee')
+        ->assertSee(__('Principal'))
+        ->assertSee(route('team.admin-view', ['search' => 'ana-principal@example.com']), false);
+});
+
+it('exposes regions in settings with list-first editing', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    $this->get(route('settings.getodoo-regions'))->assertOk();
+
+    expect(file_get_contents(resource_path('views/components/settings/layout.blade.php')))
+        ->toContain("'route' => 'settings.getodoo-regions'")
+        ->toContain("__('Regions')");
+
+    Livewire::test(GetOdooRegions::class)
+        ->assertSet('showRegionEditor', false)
+        ->assertDontSee(__('Save region'))
+        ->call('newRegion')
+        ->assertSet('showRegionEditor', true)
+        ->set('regionName', 'Centroamérica')
+        ->set('pendingRegionCountry', 'El Salvador')
+        ->call('addRegionCountry')
+        ->set('pendingRegionCountry', 'Guatemala')
+        ->call('addRegionCountry')
+        ->call('saveRegion')
+        ->assertHasNoErrors()
+        ->assertSet('showRegionEditor', false)
+        ->assertSee('Centroamérica');
+
+    $region = GetOdooPricingArea::query()->where('kind', GetOdooPricingArea::KIND_REGION)->where('name', 'Centroamérica')->first();
+    expect($region)->not->toBeNull()
+        ->and($region->children()->where('kind', GetOdooPricingArea::KIND_COUNTRY)->count())->toBe(2);
+
+    Livewire::test(GetOdooPlans::class)
+        ->call('newPlan')
+        ->set('name', 'CA plan')
+        ->set('price', '80')
+        ->set('planIsRestOfWorld', false)
+        ->set('pendingRegionId', (string) $region->id)
+        ->call('addPlanRegion')
+        ->call('savePlan')
+        ->assertHasNoErrors();
+
+    $plan = GetOdooPlan::query()->where('name', 'CA plan')->first();
+    expect($plan)->not->toBeNull()
+        ->and($plan->is_rest_of_world)->toBeFalse()
+        ->and($plan->pricingAreas->pluck('id')->all())->toContain($region->id);
+});
+
+it('requires accepting terms before plan signup', function () {
+    User::factory()->create();
+    $plan = getOdooPlan(['price' => 0, 'payment_gateway' => null]);
+    getOdooBuyerCountry('GT');
+
+    Livewire::test(PlanSignup::class, ['plan' => $plan->uuid])
+        ->set('name', 'Ana')
+        ->set('organization', 'Acme Org')
+        ->set('email', 'ana-terms@example.com')
+        ->set('password', 'password1')
+        ->set('password_confirmation', 'password1')
+        ->set('acceptedTerms', false)
+        ->call('register')
+        ->assertHasErrors(['acceptedTerms']);
+
+    expect(User::query()->where('email', 'ana-terms@example.com')->exists())->toBeFalse();
+});
+
+it('publishes sanitized terms on the branded public page and from general settings', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    Server::factory()->create(['id' => 0, 'team_id' => $this->root->id]);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(\App\Livewire\Settings\Index::class)
+        ->set('terms_and_conditions_html', '<h1>Acuerdo</h1><p>Usar <script>alert(1)</script>bien.</p>')
+        ->call('instantSave')
+        ->assertHasNoErrors();
+
+    $settings = instanceSettings()->fresh();
+    expect($settings->hasTermsAndConditions())->toBeTrue()
+        ->and($settings->sanitizedTermsAndConditionsHtml())->toContain('<h1>Acuerdo</h1>')
+        ->and($settings->sanitizedTermsAndConditionsHtml())->not->toContain('<script>');
+
+    $this->get(route('getodoo.terms'))
+        ->assertOk()
+        ->assertSee('Acuerdo')
+        ->assertSee('bien.')
+        ->assertDontSee('<script>', false);
+});

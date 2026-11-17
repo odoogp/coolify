@@ -73,23 +73,23 @@
     <div data-sth-shell style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;position:relative">
         <button type="button" data-sth-toggle aria-expanded="false" aria-controls="server-timing-hud-panel"
             style="border:1px solid var(--sth-border);background:var(--sth-background);color:var(--sth-strong);border-radius:999px;padding:5px 9px;cursor:pointer;box-shadow:var(--sth-shadow);backdrop-filter:blur(8px);user-select:none;white-space:nowrap;line-height:1.2"
-            title="Show/hide Server-Timing history">
-            <span data-sth-summary>ST …</span>
+            title="{{ __('Show/hide Server-Timing history') }}">
+            <span data-sth-summary>{{ __('ST …') }}</span>
         </button>
         <div id="server-timing-hud-panel" data-sth-panel hidden
             style="width:min(420px,calc(100vw - 24px));border:1px solid var(--sth-border);background:var(--sth-background);color:var(--sth-text);border-radius:12px;padding:10px 12px;box-shadow:var(--sth-shadow);backdrop-filter:blur(10px);position:absolute;right:0;bottom:calc(100% + 6px);z-index:2147483001">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
-                <strong style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--sth-secondary)">Server Timing</strong>
+                <strong style="font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--sth-secondary)">{{ __('Server Timing') }}</strong>
                 <div style="display:flex;align-items:center;gap:8px">
                     <span data-sth-count style="font-size:10px;color:var(--sth-muted)"></span>
                     <button type="button" data-sth-clear
                         style="border:0;background:transparent;color:var(--sth-secondary);cursor:pointer;font:inherit;font-size:10px;padding:0;text-decoration:underline"
-                        title="Clear request log">Clear</button>
+                        title="{{ __('Clear request log') }}">Clear</button>
                 </div>
             </div>
             <div data-sth-log
                 style="max-height:min(50vh,420px);overflow:auto;display:flex;flex-direction:column;gap:6px;margin:0;padding:0"></div>
-            <p style="margin:8px 0 0;font-size:10px;color:var(--sth-muted)">Local only · click row to copy AI-ready dump · pill toggles</p>
+            <p style="margin:8px 0 0;font-size:10px;color:var(--sth-muted)">{{ __('Local only · click row to copy AI-ready dump · pill toggles') }}</p>
         </div>
     </div>
 </div>
@@ -664,7 +664,7 @@
             if (countEl) {
                 countEl.textContent = '0 requests';
             }
-            log.innerHTML = '<div style="color:var(--sth-muted);font-size:11px;padding:8px 0">No requests yet</div>';
+            log.innerHTML = '<div style="color:var(--sth-muted);font-size:11px;padding:8px 0">{{ __('No requests yet') }}</div>';
             return;
         }
 

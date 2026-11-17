@@ -100,8 +100,58 @@ it('links deployment commit hashes to the source commit page', function () {
     ]));
 
     $response->assertSuccessful();
-    $response->assertSee(
-        'href="https://github.com/coollabsio/coolify/commit/1234567890abcdef1234567890abcdef12345678" target="_blank" rel="noopener noreferrer"',
-        false,
-    );
+    $response->assertSee('Cancel deployment');
+    $response->assertSee('logs-viewer-end', false);
+    $response->assertSee('logs-viewer-deployment-actions', false);
+    $response->assertSee('logs-viewer-cancel-btn', false);
+
+    $content = $response->getContent();
+    $toolbarPos = strpos($content, 'logs-viewer-toolbar');
+    $endPos = strpos($content, 'logs-viewer-end');
+    $viewportPos = strpos($content, 'logs-viewer-viewport');
+
+    expect($toolbarPos)->not->toBeFalse()
+        ->and($endPos)->not->toBeFalse()
+        ->and($viewportPos)->not->toBeFalse()
+        ->and($endPos)->toBeGreaterThan($toolbarPos)
+        ->and($endPos)->toBeLessThan($viewportPos);
+
+    // Within the right-side end group: cancel controls, then log search.
+    $endGroup = substr($content, $endPos, $viewportPos - $endPos);
+    $cancelPos = strpos($endGroup, 'Cancel deployment');
+    $searchPos = strpos($endGroup, 'Find in logs');
+
+    expect($cancelPos)->not->toBeFalse()
+        ->and($searchPos)->not->toBeFalse()
+        ->and($cancelPos)->toBeLessThan($searchPos)
+        ->and($content)->toContain('In progress');
+});
+
+it('offers a retry action for failed or cancelled deployments', function () {
+    $navbar = file_get_contents(resource_path('views/livewire/project/application/deployment-navbar.blade.php'));
+    $component = file_get_contents(app_path('Livewire/Project/Application/DeploymentNavbar.php'));
+
+    expect($navbar)
+        ->toContain('wire:click.prevent="retry"')
+        ->toContain("{{ __('Retry') }}")
+        ->toContain("'failed'")
+        ->toContain("'cancelled-by-user'")
+        ->and($component)
+        ->toContain('function retry()')
+        ->toContain('queue_application_deployment(')
+        ->toContain('force_rebuild: true');
+});
+
+it('uses the shared mobile logs layout for proxy and sentinel log pages', function () {
+    $proxyLogsView = file_get_contents(resource_path('views/livewire/server/proxy/logs.blade.php'));
+    $sentinelLogsView = file_get_contents(resource_path('views/livewire/server/sentinel/logs.blade.php'));
+
+    expect($proxyLogsView)
+        ->toContain('logs-settings-section')
+        ->toContain('logs-section-status-badge')
+        ->toContain('livewire:project.shared.get-logs')
+        ->and($sentinelLogsView)
+        ->toContain('logs-settings-section')
+        ->toContain('logs-section-status-badge')
+        ->toContain('livewire:project.shared.get-logs');
 });

@@ -3,7 +3,8 @@
 namespace App\Livewire\Project\Shared;
 
 use App\Models\Server;
-use App\Services\TerminalSessionService;
+use App\Models\Service;
+use App\Support\OdooGit;
 use App\Support\ValidationPatterns;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -55,12 +56,20 @@ class Terminal extends Component
         try {
             $this->authorize('canAccessTerminal');
 
-            $server = Server::ownedByCurrentTeam()->whereUuid($serverUuid)->firstOrFail();
-            $this->authorize('view', $server);
-        } catch (AuthorizationException|ModelNotFoundException) {
-            $this->failTerminalSession(self::NOT_ALLOWED_MESSAGE);
-
-            return;
+        $server = Server::query()->whereUuid($serverUuid)->firstOrFail();
+        $this->authorize('view', $server);
+        $odooService = $isContainer ? OdooGit::serviceForTerminalContainer((string) $identifier) : null;
+        $odooServerId = $odooService?->server_id;
+        if ($odooServerId === null) {
+            $odooService?->loadMissing('destination');
+            $odooServerId = $odooService?->destination?->server_id;
+        }
+        $odooShellAllowed = $odooService instanceof Service
+            && $odooServerId !== null
+            && (int) $odooServerId === (int) $server->id
+            && auth()->user()?->canOpenTerminal($odooService);
+        if (! $odooShellAllowed && ! auth()->user()?->canOpenTerminal($server)) {
+            abort(403);
         }
 
         if (! $server->isTerminalEnabled() || $server->isForceDisabled()) {
@@ -80,7 +89,7 @@ class Terminal extends Component
             // Verify container exists and belongs to the user's team
             $status = getContainerStatus($server, $identifier);
             if ($status !== 'running') {
-                $this->failTerminalSession('The container is not running.');
+                $this->dispatch('terminal-start-failed', message: __('The container is not running.'));
 
                 return;
             }
@@ -88,10 +97,43 @@ class Terminal extends Component
             // Check shell availability
             $this->hasShell = $this->checkShellAvailability($server, $identifier);
             if (! $this->hasShell) {
-                $this->failTerminalSession('No shell is available in this container.');
+                $this->dispatch('terminal-start-failed', message: __('This container has no shell.'));
 
                 return;
             }
+
+            // Escape the identifier for shell usage
+            $escapedIdentifier = escapeshellarg($identifier);
+            $odooShell = OdooGit::terminalShell($identifier);
+            if ($odooShell !== null) {
+                $payload = base64_encode($odooShell);
+                $inner = 'printf %s '.escapeshellarg($payload).' | base64 -d > /tmp/gpsh-shell.sh && exec /bin/bash --noprofile --rcfile /tmp/gpsh-shell.sh -i';
+                $dockerCommand = "docker exec -it -u odoo {$escapedIdentifier} bash -c ".escapeshellarg($inner);
+            } else {
+                $shellCommand = 'PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && '.
+                                'if [ -f ~/.profile ]; then . ~/.profile; fi && '.
+                                'if [ -n "$SHELL" ] && [ -x "$SHELL" ]; then exec $SHELL; else sh; fi';
+
+                $dockerCommand = "docker exec -it {$escapedIdentifier} sh -c '{$shellCommand}'";
+            }
+            if ($server->isNonRoot()) {
+                $dockerCommand = "sudo {$dockerCommand}";
+            }
+
+            $command = SshMultiplexingHelper::generateSshCommand(
+                $server,
+                $dockerCommand,
+                commandTimeout: (int) config('constants.terminal.command_timeout')
+            );
+        } else {
+            $shellCommand = 'PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin && '.
+                            'if [ -f ~/.profile ]; then . ~/.profile; fi && '.
+                            'if [ -n "$SHELL" ] && [ -x "$SHELL" ]; then exec $SHELL; else sh; fi';
+            $command = SshMultiplexingHelper::generateSshCommand(
+                $server,
+                $shellCommand,
+                commandTimeout: (int) config('constants.terminal.command_timeout')
+            );
         }
 
         $token = $terminalSessionService->issue(auth()->user(), $server, $isContainer ? $identifier : null);

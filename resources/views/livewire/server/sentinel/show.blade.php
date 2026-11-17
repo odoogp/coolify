@@ -1,6 +1,6 @@
 <div>
     <x-slot:title>
-        Sentinel Configuration | Coolify
+        {{ __('Sentinel Configuration | Coolify') }}
     </x-slot>
     <livewire:server.navbar :server="$server" />
     <div
@@ -12,10 +12,10 @@
             </div>
         @else
             <div class="application-settings-form w-full">
-                <x-application.settings-section title="Sentinel"
-                    helper="Monitor server and container health while collecting metrics.">
-                    <x-empty size="sm" title="Server validation required"
-                        description="Validate this server before enabling Sentinel."
+                <x-application.settings-section title="{{ __('Sentinel') }}"
+                    helper="{{ __('Monitor server and container health while collecting metrics.') }}">
+                    <x-empty size="sm" title="{{ __('Server validation required') }}"
+                        description="{{ __('Validate this server before enabling Sentinel.') }}"
                         icon-name="dashboard" />
                 </x-application.settings-section>
             </div>

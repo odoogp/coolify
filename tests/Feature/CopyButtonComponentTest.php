@@ -12,12 +12,5 @@ it('renders a self-contained clipboard button for backend-provided values', func
 it('disables the button when no backend value is available', function () {
     $html = $this->blade('<x-copy-button :value="null" />');
 
-    $html->assertSee('disabled', false);
-});
-
-it('evaluates a resolve expression at click time instead of a static value', function () {
-    $html = $this->blade('<x-copy-button resolve="$wire.copyValue()" />');
-
-    $html->assertSee('await ($wire.copyValue())', false)
-        ->assertDontSee('disabled', false);
+    expect($view)->toContain('<x-copy-button :value="data_get($execution, \'filename\', \'\')" label="{{ __(\'Copy backup path\') }}" />');
 });

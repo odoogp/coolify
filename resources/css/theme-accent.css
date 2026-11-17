@@ -1,0 +1,191 @@
+/*
+ * Optional accent. Each theme keeps its original CSS until that theme opts in
+ * (html[data-accent="on"]). Reset removes the attribute and the original returns.
+ */
+html[data-theme="light"][data-accent="on"] {
+    --letify-primary: var(--theme-base-color, #1b2c6f);
+}
+
+html[data-accent="on"][data-theme="dark"] {
+    --color-accent: var(--theme-base-color);
+    --color-coollabs: var(--theme-base-color);
+    --color-coollabs-100: color-mix(in srgb, var(--theme-base-color) 78%, white);
+    --color-coollabs-200: var(--theme-base-color);
+    --color-warning: var(--theme-base-color);
+    --color-app: color-mix(in oklab, var(--theme-base-color) 12%, #09090a);
+    --color-panel: color-mix(in oklab, var(--theme-base-color) 14%, #0c0c0d);
+    --color-surface: color-mix(in oklab, var(--theme-base-color) 18%, #101011);
+    --color-raised: color-mix(in oklab, var(--theme-base-color) 24%, #141416);
+    --color-selected: color-mix(in oklab, var(--theme-base-color) 32%, #18181a);
+    --coollabs-canvas: var(--color-app);
+    --coollabs-elevated: var(--color-surface);
+    --coollabs-base: color-mix(in oklab, var(--theme-base-color) 22%, #111112);
+    --coollabs-fill: color-mix(in oklab, var(--theme-base-color) 32%, #18181a);
+}
+
+html[data-accent="on"][data-theme="crystal"] {
+    --color-accent: var(--theme-base-color);
+    --color-coollabs: var(--theme-base-color);
+    --color-coollabs-100: color-mix(in srgb, var(--theme-base-color) 78%, white);
+    --color-coollabs-200: var(--theme-base-color);
+    --color-warning: var(--theme-base-color);
+    --color-app: color-mix(in oklab, var(--theme-base-color) 24%, #050607);
+    --color-panel: color-mix(in oklab, var(--theme-base-color) 18%, #050607);
+}
+
+html[data-accent="on"][data-theme="crystal-light"] {
+    --color-accent: var(--theme-base-color);
+    --color-coollabs: var(--theme-base-color);
+    --color-coollabs-100: color-mix(in srgb, var(--theme-base-color) 78%, white);
+    --color-coollabs-200: var(--theme-base-color);
+    --color-warning: var(--theme-base-color);
+    --color-app: color-mix(in srgb, var(--theme-base-color) 14%, white);
+    --color-panel: color-mix(in srgb, var(--theme-base-color) 8%, white);
+}
+
+html[data-accent="on"]:not([data-theme="light"]) .button:not(:disabled) {
+    border-color: transparent;
+    background: var(--theme-base-color);
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+html[data-accent="on"]:not([data-theme="light"]) :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
+    border-color: transparent;
+    background-image: linear-gradient(135deg, var(--theme-base-color) 0%, color-mix(in srgb, var(--theme-base-color) 62%, white) 100%);
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+html[data-accent="on"]:not([data-theme="light"]) .menu-item-active,
+html[data-accent="on"]:not([data-theme="light"]) .menu-subitem-active {
+    background-color: color-mix(in srgb, var(--theme-base-color) 28%, transparent);
+    background-image: none;
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+/*
+ * Spinning card border, from the bento card hover. The ring uses the accent
+ * chosen for the active theme, and the theme accent when that theme is original.
+ */
+@property --card-border-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+}
+
+html {
+    --card-border-accent: var(--theme-base-color, var(--color-accent, #7b3ff2));
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .application-settings-section
+) {
+    position: relative;
+    --ring-radius: var(--shell-radius, 16px);
+}
+
+.empty-state {
+    position: relative;
+    --ring-radius: 28px;
+}
+
+main .grid > :is(a, article).rounded-xl.shadow-sm {
+    position: relative;
+    --ring-radius: 22px;
+    --card-border-width: 1px;
+}
+
+html[data-theme="light"] :is(.box, .coolbox, .box-boarding, .application-settings-section) {
+    --ring-radius: var(--shell-radius, 0.75rem);
+    --card-border-width: 0px;
+}
+
+html[data-theme="light"] .empty-state {
+    --ring-radius: 28px;
+    --card-border-width: 0px;
+}
+
+html[data-theme="crystal"] main .grid > :is(a, article).rounded-xl.shadow-sm {
+    --ring-radius: 28px;
+}
+
+/* Project and dashboard cards keep their own radius and do not run the
+   spinning outline. overflow:hidden on those tiles clips the ring, so the
+   highlight blinks as it travels the corner. */
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state
+):hover {
+    transform: translateY(-4px);
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    .application-settings-section
+):not(.coolbox-loading):hover {
+    overflow: visible;
+}
+
+:is(
+    .box,
+    .coolbox,
+    .box-boarding,
+    .empty-state,
+    .application-settings-section
+):not(.coolbox-loading):hover::before {
+    content: "";
+    position: absolute;
+    inset: calc((var(--card-border-width, 0px) + 2px) * -1);
+    box-sizing: border-box;
+    padding: 2px;
+    border-radius: calc(var(--ring-radius, 16px) + 2px);
+    background: conic-gradient(
+        from var(--card-border-angle),
+        transparent 0 40%,
+        color-mix(in srgb, var(--card-border-accent) 45%, transparent) 58%,
+        var(--card-border-accent) 74%,
+        color-mix(in srgb, var(--card-border-accent) 45%, transparent) 90%,
+        transparent 100%
+    );
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+    z-index: 6;
+    animation: card-border-spin 4.5s linear infinite;
+}
+
+@keyframes card-border-spin {
+    to {
+        --card-border-angle: 360deg;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :is(
+        .box,
+        .coolbox,
+        .box-boarding,
+        .empty-state
+    ):hover {
+        transform: none;
+    }
+
+    :is(
+        .box,
+        .coolbox,
+        .box-boarding,
+        .empty-state,
+        .application-settings-section
+    ):hover::before {
+        animation: none;
+    }
+}

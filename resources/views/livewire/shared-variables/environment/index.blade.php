@@ -11,9 +11,9 @@
             }
         }">
             @if ($projects->isEmpty())
-                <x-empty title="No environments yet" description="Create a project environment before adding environment-wide variables." icon-name="layers" />
+                <x-empty title="{{ __('No environments yet') }}" description="{{ __('Create a project environment before adding environment-wide variables.') }}" icon-name="layers" />
             @else
-                <x-shared-variables.view-controls label="environments" storage-key="shared-variables-environments-view" />
+                <x-shared-variables.view-controls label="{{ __('environments') }}" storage-key="shared-variables-environments-view" />
 
                 <div x-cloak x-show="viewMode === 'grid'" class="flex flex-col gap-6">
                     @foreach ($projects as $project)
@@ -24,9 +24,9 @@
                         ]))">
                             <x-section-heading :title="$project->name" :subtitle="$project->description ?: 'Project environments'" />
                             @if ($project->environments->isEmpty())
-                                <x-empty title="No environments in this project." size="sm" />
+                                <x-empty title="{{ __('No environments in this project.') }}" size="sm" />
                             @else
-                                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                                     @foreach ($project->environments as $environment)
                                         <a x-show="matches(@js([$environment->name, $environment->description, $project->name]))"
                                             class="group flex min-h-24 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"

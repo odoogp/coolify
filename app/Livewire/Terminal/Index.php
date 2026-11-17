@@ -18,8 +18,9 @@ class Index extends Component
 
     public function mount()
     {
-        $this->servers = Server::isReachable()->get()->filter(function ($server) {
-            return $server->isTerminalEnabled();
+        $user = auth()->user();
+        $this->servers = Server::isReachable()->get()->filter(function ($server) use ($user) {
+            return $server->isTerminalEnabled() && $user?->canOpenTerminal($server);
         });
     }
 
@@ -72,7 +73,7 @@ class Index extends Component
     public function connectToContainer()
     {
         if ($this->selected_uuid === 'default') {
-            $this->dispatch('error', 'Please select a server or a container.');
+            $this->dispatch('error', __('Please select a server or a container.'));
 
             return;
         }

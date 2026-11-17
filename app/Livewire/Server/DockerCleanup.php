@@ -107,7 +107,7 @@ class DockerCleanup extends Component
         try {
             $this->authorize('update', $this->server);
             $this->syncData(true);
-            $this->dispatch('success', 'Server updated.');
+            $this->dispatch('success', __('Server updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -118,14 +118,7 @@ class DockerCleanup extends Component
         try {
             $this->authorize('update', $this->server);
             DockerCleanupJob::dispatch($this->server, true, $this->deleteUnusedVolumes, $this->deleteUnusedNetworks);
-            auditLog('ui.server.docker_cleanup_started', [
-                'team_id' => $this->server->team_id,
-                'server_uuid' => $this->server->uuid,
-                'server_name' => $this->server->name,
-                'delete_unused_volumes' => $this->deleteUnusedVolumes,
-                'delete_unused_networks' => $this->deleteUnusedNetworks,
-            ]);
-            $this->dispatch('success', 'Manual cleanup job started. Depending on the amount of data, this might take a while.');
+            $this->dispatch('success', __('Manual cleanup job started. Depending on the amount of data, this might take a while.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -140,7 +133,7 @@ class DockerCleanup extends Component
             }
             $this->authorize('update', $this->server);
             $this->syncData(true);
-            $this->dispatch('success', 'Server updated.');
+            $this->dispatch('success', __('Server updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

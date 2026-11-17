@@ -6,13 +6,55 @@ use Illuminate\Support\Facades\Gate;
 it('disables page size controls when the gate denies access', function () {
     Gate::define('view-audit-log-test', fn (): bool => false);
 
+    expect($html)
+        ->toContain('aria-label="{{ __(\'Items per page\') }}"')
+        ->toContain('aria-haspopup="listbox"')
+        ->toContain('role="listbox"')
+        ->toContain("\$wire.set('perPage'")
+        ->toContain('h-7!')
+        ->toContain('w-12!')
+        ->toContain('selectedPageSize')
+        ->toContain('border-0')
+        ->toContain('text-[11px]!')
+        ->toContain('mb-0!')
+        ->not->toContain('<select')
+        ->toContain("localStorage.getItem('tests.page-size')")
+        ->toContain("localStorage.setItem('tests.page-size'")
+        ->toContain('applyPageSize(10)')
+        ->toContain('applyPageSize(25)')
+        ->toContain('applyPageSize(50)')
+        ->toContain('applyPageSize(100)')
+        ->not->toContain('>Rows</span>');
+    expect($html)
+        ->toContain('Custom…')
+        ->toContain('min="1"')
+        ->toContain('max="100"');
+});
+
+it('positions table dropdown panels outside overflowing containers', function () {
     $html = Blade::render(<<<'BLADE'
         <x-page-size-select model="perPage" livewire
             canGate="view-audit-log-test" :canResource="new stdClass" />
     BLADE);
 
-    expect($html)->toMatch('/<button[^>]*aria-label="Items per page"[^>]*\sdisabled(?:[=\s>])/')
-        ->toMatch('/<input[^>]*aria-label="Custom items per page"[^>]*\sdisabled(?:[=\s>])/');
+    expect($html)
+        ->toContain('position: fixed')
+        ->toContain('getBoundingClientRect()')
+        ->toContain('x-on:scroll.window')
+        ->not->toContain('top-auto!');
+});
+
+it('renders compact client-side pagination', function () {
+    $html = Blade::render('<x-client-pagination summary="1-10 of 20" page-size-model="pageSize" storage-key="tests.page-size" />');
+
+    expect($html)
+        ->toContain('1-10 of 20')
+        ->toContain('pageSize = pageSizeValue')
+        ->toContain("localStorage.getItem('tests.page-size')")
+        ->toContain('aria-label="{{ __(\'Previous page\') }}"')
+        ->toContain('aria-label="{{ __(\'Next page\') }}"')
+        ->not->toContain('aria-label="First page"')
+        ->not->toContain('aria-label="Last page"');
 });
 
 it('renders loading indicators for livewire page navigation', function () {
@@ -42,7 +84,7 @@ it('renders loading indicators for livewire page navigation', function () {
         ->toContain('Loading page…')
         ->toContain('wire:click="previousPage"')
         ->toContain('wire:click="nextPage"')
-        ->toContain('aria-label="Next page"')
+        ->toContain('aria-label="{{ __(\'Next page\') }}"')
         ->not->toContain('aria-label="First page"')
         ->not->toContain('aria-label="Last page"');
 

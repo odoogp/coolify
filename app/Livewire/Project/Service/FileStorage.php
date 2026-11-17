@@ -176,7 +176,7 @@ class FileStorage extends Component
 
             $this->fileStorage->loadStorageOnServer();
             $this->syncData();
-            $this->dispatch('success', 'File storage loaded from server.');
+            $this->dispatch('success', __('File storage loaded from server.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         } finally {
@@ -221,7 +221,7 @@ class FileStorage extends Component
         }
 
         if ($this->fileStorage->scheduledBackups()->exists()) {
-            $this->dispatch('error', 'Delete this directory backup schedule and its archives before deleting the directory.');
+            $this->dispatch('error', __('Delete this directory backup schedule and its archives before deleting the directory.'));
 
             return false;
         }
@@ -254,13 +254,13 @@ class FileStorage extends Component
         $this->authorize('update', $this->resource);
 
         if ($this->fileStorage->is_host_file) {
-            $this->dispatch('error', 'Host file mounts are bind-only and cannot be edited from the UI.');
+            $this->dispatch('error', __('Host file mounts are bind-only and cannot be edited from the UI.'));
 
             return;
         }
 
         if ($this->fileStorage->is_too_large) {
-            $this->dispatch('error', 'File on server is too large to edit from the UI.');
+            $this->dispatch('error', __('File on server is too large to edit from the UI.'));
 
             return;
         }
@@ -277,7 +277,7 @@ class FileStorage extends Component
             $this->fileStorage->is_preview_suffix_enabled = $this->isPreviewSuffixEnabled;
             $this->fileStorage->save();
             $this->fileStorage->saveStorageOnServer();
-            $this->dispatch('success', 'File updated.');
+            $this->dispatch('success', __('File updated.'));
         } catch (\Throwable $e) {
             $this->fileStorage->setRawAttributes($original);
             $this->fileStorage->save();
@@ -291,18 +291,18 @@ class FileStorage extends Component
     {
         $this->authorize('update', $this->resource);
         if ($this->fileStorage->is_host_file) {
-            $this->dispatch('error', 'Host file mounts are bind-only and cannot be edited from the UI.');
+            $this->dispatch('error', __('Host file mounts are bind-only and cannot be edited from the UI.'));
 
             return;
         }
 
         if ($this->fileStorage->is_too_large) {
-            $this->dispatch('error', 'File on server is too large to edit from the UI.');
+            $this->dispatch('error', __('File on server is too large to edit from the UI.'));
 
             return;
         }
         $this->syncData(true);
-        $this->dispatch('success', 'File updated.');
+        $this->dispatch('success', __('File updated.'));
     }
 
     public function render()

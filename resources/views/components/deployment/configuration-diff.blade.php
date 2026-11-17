@@ -28,10 +28,10 @@
                                 'gap-2 px-2 py-1' => $compact,
                                 'gap-3 px-3 py-2' => ! $compact,
                             ])>
-                            <div>Field</div>
-                            <div>Current</div>
+                            <div>{{ __('Field') }}</div>
+                            <div>{{ __('Current') }}</div>
                             <div></div>
-                            <div>New</div>
+                            <div>{{ __('New') }}</div>
                             <div></div>
                         </div>
 
@@ -97,7 +97,7 @@
                                             <button type="button"
                                                 x-on:click="expandedRows['{{ $changeKey }}'] = ! expandedRows['{{ $changeKey }}']"
                                                 :aria-expanded="!! expandedRows['{{ $changeKey }}']"
-                                                title="Toggle full value"
+                                                title="{{ __('Toggle full value') }}"
                                                 class="flex size-5 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-neutral-700 dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg">
                                                 <x-reicon name="eye"
                                                     x-show="! expandedRows['{{ $changeKey }}']"

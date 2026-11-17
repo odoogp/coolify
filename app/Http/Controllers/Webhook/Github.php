@@ -12,6 +12,7 @@ use App\Jobs\ProcessGithubPullRequestWebhook;
 use App\Models\Application;
 use App\Models\GithubApp;
 use App\Models\PrivateKey;
+use App\Support\OdooGit;
 use Exception;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\RedirectResponse;
@@ -347,8 +348,13 @@ class Github extends Controller
                 ->whereRelation('source', 'is_public', false);
             if ($x_github_event === 'push') {
                 $applications = $applications->where('git_branch', $branch)->get();
+                $odooUpdates = OdooGit::queueBranchUpdate($github_app, (int) $id, (string) $branch);
                 if ($applications->isEmpty()) {
-                    return response("Nothing to do. No applications found with branch '$branch'.");
+                    if ($odooUpdates === 0) {
+                        return response("Nothing to do. No applications found with branch '$branch'.");
+                    }
+
+                    return response("Odoo branch '$branch' is updating.");
                 }
             }
             if ($x_github_event === 'pull_request') {
@@ -593,6 +599,10 @@ class Github extends Controller
         $github_app->private_key_id = $private_key->id;
         $github_app->save();
 
+        if (data_get(session('from'), 'odoo') && blank($github_app->installation_id)) {
+            return redirect()->away(getInstallationPath($github_app));
+        }
+
         return redirect()->route('source.github.show', ['github_app_uuid' => $github_app->uuid]);
     }
 
@@ -622,6 +632,14 @@ class Github extends Controller
 
         $github_app->installation_id = $installation_id;
         $github_app->save();
+
+        if (data_get(session('from'), 'odoo') && auth()->id() !== null) {
+            OdooGit::rememberForUser((int) auth()->id(), (int) $github_app->team_id, $github_app);
+            $redirect = OdooGit::resumeLaunchRedirect();
+            if ($redirect !== null) {
+                return $redirect;
+            }
+        }
 
         return redirect()->route('source.github.show', ['github_app_uuid' => $github_app->uuid]);
     }
@@ -680,8 +698,17 @@ class Github extends Controller
             $this->rejectInvalidGithubAppSetupState($request);
         }
 
-        $team_id = $request->user()?->currentTeam()?->id;
-        abort_unless(! is_null($team_id) && (int) data_get($payload, 'team_id') === $team_id, 403);
+        $user = $request->user();
+        $payloadTeamId = (int) data_get($payload, 'team_id');
+        $team_id = $user?->currentTeam()?->id;
+        if ($user && $team_id !== $payloadTeamId) {
+            $membership = $user->teams()->whereKey($payloadTeamId)->first();
+            if ($membership) {
+                refreshSession($membership);
+                $team_id = $membership->id;
+            }
+        }
+        abort_unless(! is_null($team_id) && $team_id === $payloadTeamId, 403);
 
         return GithubApp::whereKey(data_get($payload, 'github_app_id'))
             ->where('team_id', data_get($payload, 'team_id'))

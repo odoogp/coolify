@@ -1,14 +1,14 @@
 <div class="w-full">
     <x-slot:title>
-        New Server | Coolify
+        {{ __('New Server | Coolify') }}
     </x-slot>
 
     <div class="mb-5 flex min-h-9 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 class="min-w-0 text-[24px]! leading-7! font-semibold! tracking-tight!">New server</h1>
+        <h1 class="min-w-0 text-[24px]! leading-7! font-semibold! tracking-tight!">{{ __('New server') }}</h1>
         <div class="flex flex-wrap items-center gap-2">
             @if ($selectedType)
                 <a href="{{ route('server.create') }}" class="button" {{ wireNavigate() }}>
-                    Change method
+                    {{ __('Change method') }}
                 </a>
             @endif
         </div>
@@ -16,10 +16,37 @@
 
     @if (!$selectedType)
         <div class="application-settings-form flex flex-col gap-6">
+            @if ($getodoo_owner || $getodoo_available)
+                <section class="application-settings-section">
+                    <div class="application-settings-section-header">
+                        <h2 class="application-settings-section-title">GetOdoo</h2>
+                        <p class="application-settings-section-description">
+                            {{ $getodoo_available ? __('Launch a GetOdoo server.') : __('Update the Hetzner connection and choose which servers admins can buy.') }}
+                        </p>
+                    </div>
+                    <div class="application-settings-section-body flex flex-col gap-3">
+                        <a href="{{ $getodoo_available ? route('server.create.type', ['type' => 'getodoo']) : route('settings.getodoo-servers') }}"
+                            class="getodoo-server-card" {{ wireNavigate() }}>
+                            <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="size-12 object-contain">
+                            <span>
+                                <span class="getodoo-kicker">GetOdoo</span>
+                                <span class="mt-1 block text-lg font-semibold">{{ __('GetOdoo server') }}</span>
+                                <span class="mt-1 block text-sm text-white/80">
+                                    {{ __('A bright GetOdoo server, ready for your admins.') }}
+                                </span>
+                            </span>
+                        </a>
+                        @if ($getodoo_owner)
+                            <a href="{{ route('settings.getodoo-servers') }}" class="text-sm font-medium text-coollabs dark:text-white"
+                                {{ wireNavigate() }}>{{ __('Manage resale') }}</a>
+                        @endif
+                    </div>
+                </section>
+            @endif
             <section class="application-settings-section">
                 <div class="application-settings-section-header">
-                    <h2 class="application-settings-section-title">Add a server</h2>
-                    <p class="application-settings-section-description">Connect a server you already manage.</p>
+                    <h2 class="application-settings-section-title">{{ __('Add a server') }}</h2>
+                    <p class="application-settings-section-description">{{ __('Connect a server you already manage.') }}</p>
                 </div>
                 <div class="application-settings-section-body is-flush">
                     <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -27,15 +54,12 @@
                             class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"
                             {{ wireNavigate() }}>
                             <div class="flex items-start">
-                                <span
-                                    class="flex size-8 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-fg-dim">
-                                    <x-reicon name="servers" class="size-4" />
-                                </span>
+                                <img src="{{ asset('svgs/ssh.svg') }}" alt="{{ __('SSH') }}" class="size-8">
                             </div>
                             <div class="mt-auto pt-5">
-                                <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">IP address or domain</h3>
+                                <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('IP address or domain') }}</h3>
                                 <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                    Connect an existing server over SSH.
+                                    {{ __('Connect an existing server over SSH.') }}
                                 </p>
                             </div>
                         </a>
@@ -46,8 +70,8 @@
             @can('viewAny', App\Models\CloudProviderToken::class)
                 <section class="application-settings-section">
                     <div class="application-settings-section-header">
-                        <h2 class="application-settings-section-title">Provision a server</h2>
-                        <p class="application-settings-section-description">Create a server with a cloud provider.</p>
+                        <h2 class="application-settings-section-title">{{ __('Provision a server') }}</h2>
+                        <p class="application-settings-section-description">{{ __('Create a server with a cloud provider.') }}</p>
                     </div>
                     <div class="application-settings-section-body is-flush">
                         <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -55,12 +79,12 @@
                                 class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"
                                 {{ wireNavigate() }}>
                                 <div class="flex items-start">
-                                    <img src="{{ asset('svgs/hetzner.svg') }}" alt="Hetzner" class="size-8">
+                                    <img src="{{ asset('svgs/hetzner.svg') }}" alt="{{ __('Hetzner') }}" class="size-8">
                                 </div>
                                 <div class="mt-auto pt-5">
-                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">Hetzner</h3>
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('Hetzner') }}</h3>
                                     <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                        Provision from Hetzner Cloud.
+                                        {{ __('Provision from Hetzner Cloud.') }}
                                     </p>
                                 </div>
                             </a>
@@ -69,13 +93,13 @@
                                 class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"
                                 {{ wireNavigate() }}>
                                 <div class="flex items-start">
-                                    <img src="https://www.vultr.com/media/logo_ondark.svg" alt="Vultr"
+                                    <img src="https://www.vultr.com/media/logo_ondark.svg" alt="{{ __('Vultr') }}"
                                         class="h-8 w-20 object-contain object-left">
                                 </div>
                                 <div class="mt-auto pt-5">
-                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">Vultr</h3>
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('Vultr') }}</h3>
                                     <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                        Provision from Vultr Cloud.
+                                        {{ __('Provision from Vultr Cloud.') }}
                                     </p>
                                 </div>
                             </a>
@@ -87,12 +111,29 @@
                                     <x-digital-ocean-icon class="size-8" />
                                 </div>
                                 <div class="mt-auto pt-5">
-                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">DigitalOcean</h3>
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('DigitalOcean') }}</h3>
                                     <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
-                                        Provision a new Droplet.
+                                        {{ __('Provision a new Droplet.') }}
                                     </p>
                                 </div>
                             </a>
+
+                            @foreach (\App\Services\Cloud\AdditionalCloudCatalog::definitions() as $cloud)
+                                <a href="{{ route('server.create.type', ['type' => $cloud['slug']]) }}"
+                                    class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]"
+                                    {{ wireNavigate() }}>
+                                    <div class="flex items-start">
+                                        <img src="{{ asset('svgs/'.$cloud['slug'].'.svg') }}" alt="{{ __($cloud['label']) }}"
+                                            class="size-8">
+                                    </div>
+                                    <div class="mt-auto pt-5">
+                                        <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __($cloud['label']) }}</h3>
+                                        <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
+                                            {{ __($cloud['summary']) }}
+                                        </p>
+                                    </div>
+                                </a>
+                            @endforeach
 
                         </div>
                     </div>
@@ -101,7 +142,9 @@
         </div>
     @else
         <div class="application-settings-form">
-            @if ($selectedType === 'hetzner')
+            @if ($selectedType === 'getodoo')
+                <livewire:server.new.by-get-odoo :private_keys="$private_keys" :limit_reached="$limit_reached" />
+            @elseif ($selectedType === 'hetzner')
                 <livewire:server.new.by-hetzner :private_keys="$private_keys" :limit_reached="$limit_reached"
                     :selected-token-uuid="$selectedTokenUuid"
                     wire:key="new-server-hetzner-{{ $selectedTokenUuid ?? 'select' }}" />
@@ -113,6 +156,10 @@
                 <livewire:server.new.by-digital-ocean :private_keys="$private_keys" :limit_reached="$limit_reached"
                     :selected-token-uuid="$selectedTokenUuid"
                     wire:key="new-server-digital-ocean-{{ $selectedTokenUuid ?? 'select' }}" />
+            @elseif (\App\Services\Cloud\AdditionalCloudCatalog::supports($selectedType))
+                <livewire:server.new.by-additional-cloud :provider="$selectedType" :private_keys="$private_keys"
+                    :limit_reached="$limit_reached" :selected-token-uuid="$selectedTokenUuid"
+                    wire:key="new-server-{{ $selectedType }}-{{ $selectedTokenUuid ?? 'select' }}" />
             @else
                 <livewire:server.new.by-ip :private_keys="$private_keys" :limit_reached="$limit_reached"
                     key="new-server-manual" />

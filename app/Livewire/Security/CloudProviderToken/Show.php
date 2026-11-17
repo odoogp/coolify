@@ -73,7 +73,7 @@ class Show extends Component
             'provider' => $this->cloudProviderToken->provider,
         ]);
 
-        $this->dispatch('success', 'Cloud provider token updated.');
+        $this->dispatch('success', __('Cloud provider token updated.'));
         $this->dispatch('securityResourceChanged');
     }
 

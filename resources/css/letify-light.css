@@ -1,0 +1,302 @@
+/*
+ * Letify Light. Applies only when Appearance is Letify Light (data-theme="light").
+ * Midnight Dark, Crystal Dark, Crystal Light, and Custom Dark keep their own surfaces.
+ * A future Letify Dark can reuse these token names under html[data-theme="letify-dark"].
+ */
+html[data-theme="light"] {
+    --letify-primary: #1b2c6f;
+    --letify-soft: color-mix(in srgb, var(--letify-primary) 14%, white);
+    --letify-soft-hover: color-mix(in srgb, var(--letify-primary) 22%, white);
+    --letify-ink-accent: color-mix(in srgb, var(--letify-primary) 72%, black);
+    --letify-glow: color-mix(in srgb, var(--letify-primary) 18%, transparent);
+    --letify-glow-strong: color-mix(in srgb, var(--letify-primary) 32%, transparent);
+    --letify-canvas: color-mix(in srgb, var(--letify-primary) 16%, #f7f6fb);
+    --letify-panel: color-mix(in srgb, var(--letify-primary) 9%, white);
+    --letify-line: color-mix(in srgb, var(--letify-primary) 22%, white);
+    --letify-ink: #2a2140;
+    --letify-muted: #6d6484;
+    --color-accent: var(--letify-primary);
+    --color-coollabs: var(--letify-primary);
+    --color-coollabs-100: color-mix(in srgb, var(--letify-primary) 78%, white);
+    --color-coollabs-200: var(--letify-primary);
+    --color-app: var(--letify-canvas);
+    --color-panel: var(--letify-panel);
+    --color-surface: #ffffff;
+    --color-raised: #ffffff;
+    --color-nav-text: #5c5474;
+    --color-nav-muted: #8b849e;
+    --color-nav-active: #ffffff;
+    --coollabs-canvas: var(--letify-canvas);
+    --coollabs-elevated: #ffffff;
+    --coollabs-base: #ffffff;
+    --coollabs-recessed: var(--letify-canvas);
+    --coollabs-hairline: var(--letify-line);
+    --coollabs-line: var(--letify-line);
+    color-scheme: light;
+}
+
+html[data-theme="light"] body,
+html[data-theme="light"] main.min-h-screen {
+    background: var(--letify-canvas);
+    color: #2a2140;
+}
+
+html[data-theme="light"] .app-sidebar,
+html[data-theme="light"] header.fixed.top-0,
+html[data-theme="light"] .sticky.top-0.z-40 {
+    background: var(--letify-panel);
+}
+
+html[data-theme="light"] main h1 {
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .application-settings-section,
+html[data-theme="light"] .box,
+html[data-theme="light"] .coolbox,
+html[data-theme="light"] .box-boarding {
+    /* Same corner as the Compose resources table (rounded-xl). */
+    --shell-radius: 0.75rem;
+    border: 1px solid var(--coollabs-fill);
+    border-radius: var(--shell-radius);
+    background: #ffffff;
+    box-shadow: 0 10px 40px var(--letify-glow);
+}
+
+html[data-theme="light"] .box:hover,
+html[data-theme="light"] .coolbox:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 50px var(--letify-glow);
+    transition: transform 240ms ease-out, box-shadow 240ms ease-out;
+}
+
+html[data-theme="light"] .button:not(:disabled) {
+    min-height: 2rem;
+    height: 2rem;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    border-color: transparent;
+    background: var(--letify-primary);
+    color: var(--theme-accent-foreground, #ffffff);
+    box-shadow: none;
+    font-size: var(--type-body);
+    line-height: 1;
+    transition: background-color 220ms ease-out, color 220ms ease-out;
+}
+
+html[data-theme="light"] .button:hover:not(:disabled) {
+    transform: none;
+    background: color-mix(in srgb, var(--letify-primary) 82%, black);
+    box-shadow: none;
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+/*
+ * Ghost delete actions (e.g. "Delete unused keys"): red label only.
+ * Do not paint the Letify primary fill underneath text-error.
+ * Leaves button-highlighted and button[isError] alone.
+ */
+html[data-theme="light"] .button:not(:disabled):not([isError]):not(.button-highlighted)[class*="text-error"],
+html[data-theme="light"] .button:not(:disabled):not([isError]):not(.button-highlighted)[class*="text-error"]:hover {
+    background: transparent;
+    background-image: none;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--color-error, #dc2626);
+}
+
+html[data-theme="light"] .button:not(:disabled):not([isError]):not(.button-highlighted)[class*="text-error"]:hover {
+    background: color-mix(in srgb, var(--color-error, #dc2626) 8%, transparent);
+}
+
+html[data-theme="light"] .application-heading-actions .button:not(:disabled),
+html[data-theme="light"] .compact-actions .button:not(:disabled) {
+    min-height: 2rem;
+    height: 2rem;
+    padding: 0 0.85rem;
+    border-radius: 999px;
+    box-shadow: none;
+    font-size: var(--type-body);
+    line-height: 1;
+}
+
+html[data-theme="light"] .application-heading-actions .button:hover:not(:disabled),
+html[data-theme="light"] .compact-actions .button:hover:not(:disabled) {
+    transform: none;
+    box-shadow: none;
+}
+
+html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
+    border-color: transparent;
+    background-image: linear-gradient(135deg, var(--letify-primary) 0%, color-mix(in srgb, var(--letify-primary) 62%, white) 100%);
+    color: var(--theme-accent-foreground, #ffffff);
+    box-shadow: 0 12px 28px var(--letify-glow-strong);
+}
+
+html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)):hover:not(:disabled) {
+    background-image: linear-gradient(135deg, color-mix(in srgb, var(--letify-primary) 82%, black) 0%, var(--letify-primary) 100%);
+    color: var(--theme-accent-foreground, #ffffff);
+}
+
+html[data-theme="light"] .input,
+html[data-theme="light"] .select,
+html[data-theme="light"] textarea.input {
+    min-height: 48px;
+    border-radius: 20px;
+    border: 1px solid var(--letify-line);
+    background: #ffffff;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .input:focus-visible,
+html[data-theme="light"] .select:focus-visible,
+html[data-theme="light"] textarea.input:focus-visible {
+    border-color: var(--letify-primary);
+    box-shadow: 0 0 0 4px var(--letify-glow);
+}
+
+html[data-theme="light"] .app-sidebar .menu-item,
+html[data-theme="light"] .application-settings-navigation .menu-item {
+    border-radius: 16px;
+    color: #5c5474;
+    transition: background-color 220ms ease-out, color 220ms ease-out, transform 220ms ease-out;
+}
+
+html[data-theme="light"] .app-sidebar .menu-item:hover,
+html[data-theme="light"] .application-settings-navigation .menu-item:hover {
+    background: var(--letify-soft);
+    color: var(--letify-ink-accent);
+}
+
+html[data-theme="light"] .app-sidebar .menu-item-active,
+html[data-theme="light"] .application-settings-navigation .menu-item-active,
+html[data-theme="light"] .menu-subitem-active {
+    background-color: transparent;
+    background-image: linear-gradient(135deg, var(--letify-primary) 0%, color-mix(in srgb, var(--letify-primary) 62%, white) 100%);
+    color: var(--theme-accent-foreground, #ffffff);
+    box-shadow: 0 10px 24px var(--letify-glow-strong);
+}
+
+html[data-theme="light"] .menu-item-active .menu-item-icon,
+html[data-theme="light"] .menu-subitem-active .menu-item-icon {
+    color: currentColor;
+    opacity: 1;
+}
+
+html[data-theme="light"] .data-table-row {
+    margin-block: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+html[data-theme="light"] .data-table-row:hover {
+    background: rgb(0 0 0 / 0.02);
+    transform: none;
+    box-shadow: none;
+}
+
+html[data-theme="light"] [data-callout="success"] {
+    border-color: transparent;
+    background: #eafbf0;
+    color: #15803d;
+}
+
+html[data-theme="light"] [data-callout="warning"] {
+    border-color: transparent;
+    background: #fff8e8;
+    color: #a16207;
+}
+
+html[data-theme="light"] [data-callout="danger"] {
+    border-color: transparent;
+    background: #fff0f3;
+    color: #be123c;
+}
+
+html[data-theme="light"] [data-callout="info"] {
+    border-color: transparent;
+    background: var(--letify-soft);
+    color: var(--letify-ink-accent);
+}
+
+html[data-theme="light"] .empty-state {
+    border: 0;
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 15px 50px var(--letify-glow);
+    backdrop-filter: none;
+}
+
+html[data-theme="light"] .empty-state h2 {
+    font-weight: 700;
+    color: #2a2140;
+}
+
+html[data-theme="light"] .empty-state p {
+    color: #6d6484;
+}
+
+html[data-theme="light"] .letify-empty-art {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+html[data-theme="light"] .empty-state .empty-icon {
+    display: none;
+}
+
+.letify-empty-art {
+    display: none;
+}
+
+html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm {
+    border-radius: 28px;
+    background:
+        radial-gradient(240px circle at var(--spot-x) var(--spot-y), color-mix(in srgb, var(--letify-primary) 20%, transparent), transparent 58%),
+        #ffffff;
+    border: 0;
+    box-shadow: 0 10px 40px var(--letify-glow);
+    backdrop-filter: none;
+}
+
+html[data-theme="light"] .listbox-panel {
+    border-radius: 12px;
+    background: #ffffff;
+    box-shadow: 0 12px 32px var(--letify-glow);
+}
+
+html[data-theme="light"] .modal-box,
+html[data-theme="light"] .top-user-menu-panel {
+    border-radius: 28px;
+    background: #ffffff;
+    box-shadow: 0 15px 50px var(--letify-glow);
+}
+
+html[data-theme="light"] .badge {
+    border-radius: 999px;
+    background: var(--letify-soft);
+    color: var(--letify-ink-accent);
+}
+
+html[data-theme="light"] main .grid > :is(a, article).rounded-xl.shadow-sm .size-8 {
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    border: 0;
+    background: var(--letify-soft);
+    color: var(--letify-primary);
+    box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme="light"] .button:hover:not(:disabled),
+    html[data-theme="light"] .box:hover,
+    html[data-theme="light"] .coolbox:hover,
+    html[data-theme="light"] .data-table-row:hover {
+        transform: none;
+    }
+}

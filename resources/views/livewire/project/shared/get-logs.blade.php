@@ -41,12 +41,12 @@
                 <div class="runtime-log-toolbar logs-viewer-toolbar">
                     <div class="logs-viewer-toolbar-controls">
                         <div class="logs-viewer-actions">
-                            <button x-on:click="refresh()" title="Refresh Logs" {{ $streamLogs ? 'disabled' : '' }}
+                            <button wire:click="getLogs(true)" title="{{ __('Refresh Logs') }}" {{ $streamLogs ? 'disabled' : '' }}
                                 class="runtime-log-icon-button order-8">
                                 <x-reicon name="refresh" class="size-3.5" />
                             </button>
                             <button wire:click="toggleStreamLogs"
-                                title="{{ $streamLogs ? 'Stop Streaming' : 'Stream Logs' }}"
+                                title="{{ $streamLogs ? __('Stop Streaming') : __('Stream Logs') }}"
                                 class="runtime-log-icon-button order-9 {{ $streamLogs ? 'runtime-log-icon-button-active' : '' }}">
                                 @if ($streamLogs)
                                     {{-- Pause icon --}}
@@ -78,7 +78,7 @@
                                         Livewire.dispatch('error', ['Failed to prepare logs for clipboard.']);
                                     });
                                 "
-                                title="Copy Logs"
+                                title="{{ __('Copy Logs') }}"
                                 class="runtime-log-icon-button order-6">
                                 <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                     stroke-width="1.5" stroke="currentColor">
@@ -87,7 +87,7 @@
                                 </svg>
                             </button>
                             <div x-data="{ downloadMenuOpen: false, downloadingAllLogs: false }" class="relative order-7 shrink-0">
-                                <button x-on:click="downloadMenuOpen = !downloadMenuOpen" title="Download Logs"
+                                <button x-on:click="downloadMenuOpen = !downloadMenuOpen" title="{{ __('Download Logs') }}"
                                     class="runtime-log-icon-button">
                                     <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                                         stroke-width="1.5" stroke="currentColor">
@@ -106,7 +106,7 @@
                                     <div>
                                         <button x-on:click="downloadLogs(); downloadMenuOpen = false"
                                             class="listbox-option">
-                                            Download displayed logs
+                                            {{ __('Download displayed logs') }}
                                         </button>
                                         <button x-on:click="
                                             downloadingAllLogs = true;
@@ -135,13 +135,13 @@
                                                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                                     <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                 </svg>
-                                                Downloading...
+                                                {{ __('Downloading...') }}
                                             </span>
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            <button wire:click="toggleTimestamps" title="Toggle Timestamps"
+                            <button wire:click="toggleTimestamps" title="{{ __('Toggle Timestamps') }}"
                                 class="runtime-log-icon-button order-1 {{ $showTimeStamps ? 'runtime-log-icon-button-active' : '' }}">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none"
                                     stroke="currentColor" stroke-width="2">
@@ -149,7 +149,7 @@
                                         d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                                 </svg>
                             </button>
-                            <button title="Toggle Log Colors" x-on:click="toggleColorLogs"
+                            <button title="{{ __('Toggle Log Colors') }}" x-on:click="toggleColorLogs"
                                 :class="colorLogs ? 'runtime-log-icon-button-active' : ''"
                                 class="runtime-log-icon-button order-3">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="none"
@@ -159,7 +159,7 @@
                                 </svg>
                             </button>
                             <x-table.dropdown panel-class="runtime-log-menu min-w-40!">
-                                <x-slot:trigger><button type="button" title="Filter Log Levels"
+                                <x-slot:trigger><button type="button" title="{{ __('Filter Log Levels') }}"
                                     :class="Object.values(logFilters).some(v => !v) ? 'runtime-log-icon-button-active' : ''"
                                     class="runtime-log-icon-button" aria-haspopup="listbox" :aria-expanded="open">
                                     <svg class="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
@@ -171,27 +171,27 @@
                                     <div>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('error')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                                            <span class="flex-1 text-left">Error</span>
+                                            <span class="flex-1 text-left">{{ __('Error') }}</span>
                                             <span x-show="logFilters.error">✓</span>
                                         </button>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('warning')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
-                                            <span class="flex-1 text-left">Warning</span>
+                                            <span class="flex-1 text-left">{{ __('Warning') }}</span>
                                             <span x-show="logFilters.warning">✓</span>
                                         </button>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('debug')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
-                                            <span class="flex-1 text-left">Debug</span>
+                                            <span class="flex-1 text-left">{{ __('Debug') }}</span>
                                             <span x-show="logFilters.debug">✓</span>
                                         </button>
                                         <button type="button" class="listbox-option" x-on:click="toggleLogFilter('info')">
                                             <span class="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                                            <span class="flex-1 text-left">Info</span>
+                                            <span class="flex-1 text-left">{{ __('Info') }}</span>
                                             <span x-show="logFilters.info">✓</span>
                                         </button>
                                     </div>
                             </x-table.dropdown>
-                            <button title="Follow Logs" :class="alwaysScroll ? 'runtime-log-icon-button-active' : ''"
+                            <button title="{{ __('Follow Logs') }}" :class="alwaysScroll ? 'runtime-log-icon-button-active' : ''"
                                 x-on:click="toggleScroll"
                                 class="runtime-log-icon-button order-2">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -199,7 +199,7 @@
                                         stroke-width="2" d="M12 5v14m4-4l-4 4m-4-4l4 4" />
                                 </svg>
                             </button>
-                            <button title="Fullscreen" x-show="!fullscreen" x-on:click="makeFullscreen"
+                            <button title="{{ __('Fullscreen') }}" x-show="!fullscreen" x-on:click="makeFullscreen"
                                 class="runtime-log-icon-button order-5">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <g fill="none">
@@ -210,7 +210,7 @@
                                     </g>
                                 </svg>
                             </button>
-                            <button title="Minimize" x-show="fullscreen" x-on:click="makeFullscreen"
+                            <button title="{{ __('Minimize') }}" x-show="fullscreen" x-on:click="makeFullscreen"
                                 class="runtime-log-icon-button order-5">
                                 <svg class="size-4" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                                     <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
@@ -220,14 +220,10 @@
                         </div>
                         <div class="logs-viewer-end runtime-logs-viewer-end">
                             <div class="logs-viewer-meta">
-                                <form x-on:submit.prevent="refreshLines()" class="logs-viewer-lines runtime-log-lines-group">
-                                    <span class="logs-viewer-lines-label relative" :aria-busy="loadingLines">
-                                        <span :class="loadingLines ? 'invisible' : ''">Lines</span>
-                                        <x-loading compact x-cloak x-show="loadingLines" aria-label="Loading logs"
-                                            class="absolute inset-0 text-inherit!" />
-                                    </span>
-                                    <input type="number" wire:model="numberOfLines" x-on:input="allLines = Number($event.target.value) === -1" placeholder="100" min="-1" max="50000"
-                                        title="Number of lines (max 50,000; use -1 for all)" {{ $streamLogs ? 'readonly' : '' }}
+                                <form wire:submit="getLogs(true)" class="logs-viewer-lines">
+                                    <span class="logs-viewer-lines-label">{{ __('Lines') }}</span>
+                                    <input type="number" wire:model="numberOfLines" placeholder="100" min="1" max="50000"
+                                        title="{{ __('Number of Lines (max 50,000)') }}" {{ $streamLogs ? 'readonly' : '' }}
                                         class="input logs-viewer-lines-input" />
                                     <button type="button" x-on:click="showAllLogs()" title="Show all logs"
                                         :class="allLines ? 'runtime-log-lines-all-active' : ''"
@@ -242,14 +238,14 @@
                             <div class="logs-viewer-search relative">
                                 <x-reicon name="search"
                                     class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
-                                <input type="search" x-ref="search" x-model.debounce.300ms="searchQuery" placeholder="Find in logs"
-                                    aria-label="Find in logs" :aria-keyshortcuts="findShortcutLabel === '⌘F' ? 'Meta+F' : 'Control+F'"
+                                <input type="search" x-model.debounce.300ms="searchQuery" placeholder="{{ __('Find in logs') }}"
+                                    aria-label="{{ __('Find in logs') }}"
                                     class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-8! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint" />
                                 <kbd x-cloak x-show="!searchQuery" x-text="findShortcutLabel" aria-hidden="true"
                                     class="pointer-events-none absolute top-1/2 right-2 z-10 -translate-y-1/2 rounded border border-neutral-200 px-1 font-sans text-[10px] leading-4 text-neutral-400 dark:border-white/[0.08] dark:text-fg-faint"></kbd>
                                 <button x-cloak x-show="searchQuery" x-on:click="searchQuery = ''" type="button"
                                     class="absolute top-1/2 right-2 z-10 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                                    aria-label="Clear search">
+                                    aria-label="{{ __('Clear search') }}">
                                     <x-reicon name="x" class="size-3" />
                                 </button>
                             </div>
@@ -260,55 +256,49 @@
                     @touchstart="handleTouchStart" @touchmove="handleTouchMove" @keydown="handleKeyScroll" tabindex="0"
                     class="runtime-log-viewport logs-viewer-viewport relative flex min-w-0 w-full flex-col overflow-x-hidden overflow-y-auto scrollbar"
                     :class="fullscreen ? 'flex-1' : 'max-h-[min(40rem,70dvh)] sm:max-h-[40rem]'">
-                    <div class="runtime-log-loading" x-show="loading && lineCount === 0" role="status">
-                        <x-loading compact aria-label="Loading logs" />
-                        <span>Loading logs</span>
-                    </div>
-                    <div class="runtime-log-empty" x-show="!loading && lineCount === 0" role="status">
-                        <span class="runtime-log-empty-icon" aria-hidden="true">
-                            <x-reicon name="terminal" class="size-4" />
-                        </span>
-                        <div>
-                            <p>No logs yet</p>
-                            <span>Logs will appear here when the container produces output.</span>
-                        </div>
-                    </div>
-                    {{-- Alpine renders only the visible rows. Livewire must not morph them. --}}
-                    <div id="logs" wire:ignore x-cloak x-show="lineCount > 0"
-                        :class="{ 'runtime-log-without-time': !$wire.showTimeStamps }"
-                        class="font-logs max-w-full cursor-default text-[11px] leading-relaxed sm:text-xs">
-                        <div x-ref="columns" class="runtime-log-columns" aria-hidden="true">
-                            <span x-show="$wire.showTimeStamps">Time</span>
-                            <span>Type</span>
-                            <span>Message</span>
-                        </div>
-                        <div x-ref="list" class="runtime-log-virtual-list" :style="{ height: totalSize + 'px' }">
-                            <template x-for="row in virtualRows" :key="row.key">
-                                <div class="runtime-log-virtual-row" :data-index="row.index"
-                                    :style="{ transform: 'translateY(' + (row.start - scrollMargin) + 'px)' }"
-                                    x-init="$nextTick(() => measureRow($el))">
-                                    <div data-log-line role="button" tabindex="0" :data-log-level="row.line.level"
-                                        :class="colorLogs ? 'log-' + row.line.level : ''"
-                                        :aria-expanded="isLogExpanded(row.line.id)"
-                                        x-on:click="toggleLogDetails(row.line.id, $event)"
-                                        x-on:keydown="toggleLogDetails(row.line.id, $event)"
-                                        class="log-line logs-viewer-line">
-                                        <template x-if="$wire.showTimeStamps && row.line.ts">
-                                            <span class="logs-viewer-timestamp text-gray-500" x-text="formatTimestamp(row.line.ts)"></span>
-                                        </template>
-                                        <span data-line-text class="logs-viewer-line-text"><template x-for="(segment, segmentIndex) in highlight(row.line.text)" :key="segmentIndex"><span :class="segment.match ? 'log-highlight' : ''" x-text="segment.text"></span></template></span>
-                                    </div>
-                                    <template x-if="isLogExpanded(row.line.id)">
-                                        <pre class="runtime-log-detail" aria-label="Full log entry"
-                                            x-text="formatLogDetails(row.line.text)"></pre>
-                                    </template>
+                    @if ($outputs)
+                        @php
+                            $displayLines = collect(explode("\n", $outputs))->filter(fn($line) => trim($line) !== '');
+                        @endphp
+                        <div id="logs" class="font-logs max-w-full cursor-default text-[11px] leading-relaxed sm:text-xs">
+                            <div x-show="searchQuery.trim() && matchCount === 0"
+                                class="py-2 text-gray-500 dark:text-gray-400">
+                                {{ __('No matches found.') }}
+                            </div>
+                            @foreach ($displayLines as $index => $line)
+                                @php
+                                    // Parse timestamp from log line (ISO 8601 format: 2025-12-04T11:48:39.136764033Z)
+                                    $timestamp = '';
+                                    $logContent = $line;
+                                    if (preg_match('/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?Z?\s(.*)$/', $line, $matches)) {
+                                        $microseconds = isset($matches[2]) ? substr($matches[2], 0, 6) : '000000';
+                                        $logContent = $matches[3];
+
+                                        // Convert UTC Docker timestamp to server timezone for display
+                                        $carbonTs = \Carbon\Carbon::parse($matches[1], 'UTC');
+                                        $serverTz = getServerTimezone($server);
+                                        try {
+                                            $carbonTs->setTimezone($serverTz);
+                                        } catch (\Exception) {
+                                            // keep UTC
+                                        }
+                                        $timestamp = $carbonTs->format('Y-M-d H:i:s');
+                                        // Include microseconds in key for uniqueness
+                                        $lineKey = "{$timestamp}.{$microseconds}";
+                                    }
+                                @endphp
+                                <div wire:key="{{ $lineKey ?? 'line-' . $index }}" data-log-line data-log-content="{{ $line }}" class="log-line logs-viewer-line">
+                                    @if ($timestamp && $showTimeStamps)
+                                        <span class="logs-viewer-timestamp text-gray-500">{{ $timestamp }}</span>
+                                    @endif
+                                    <span data-line-text="{{ $logContent }}" class="logs-viewer-line-text">{{ $logContent }}</span>
                                 </div>
-                            </template>
+                            @endforeach
                         </div>
-                        <div x-show="appliedQuery && matchCount === 0" class="px-4 py-2 text-gray-500 dark:text-gray-400">
-                            No matches found.
-                        </div>
-                    </div>
+                    @else
+                        <pre id="logs"
+                            class="font-logs max-w-full whitespace-pre-wrap break-all text-neutral-400">{{ __('No logs yet.') }}</pre>
+                    @endif
                 </div>
             </div>
         </div>

@@ -218,4 +218,96 @@ describe('privilege escalation prevention', function () {
             ->call('viaEmail')
             ->assertDispatched('error');
     });
+
+    test('owner assigns client permissions when the user is created', function () {
+        $this->actingAs($this->owner);
+        session(['currentTeam' => $this->team]);
+
+        Livewire::test(InviteLink::class)
+            ->set('email', 'client-admin@example.com')
+            ->set('role', 'admin')
+            ->set('maxStagingBranches', 2)
+            ->set('canAddServers', true)
+            ->set('canLaunchOnInstanceServer', false)
+            ->call('viaLink')
+            ->assertDispatched('success');
+
+        $invited = User::whereEmail('client-admin@example.com')->firstOrFail();
+        $invitation = TeamInvitation::whereEmail('client-admin@example.com')->firstOrFail();
+        expect($invited->teams()->where('teams.id', $this->team->id)->exists())->toBeFalse()
+            ->and((int) ($invitation->membership['max_staging_branches'] ?? 0))->toBe(2);
+
+        $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
+        $this->actingAs($invited);
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+            ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
+            ->assertRedirect(route('team.index'));
+
+        $pivot = $invited->fresh()->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        expect($pivot->role)->toBe('admin')
+            ->and((int) $pivot->max_staging_branches)->toBe(2)
+            ->and((bool) $pivot->can_add_servers)->toBeTrue()
+            ->and((bool) $pivot->can_launch_on_instance_server)->toBeFalse();
+    });
+
+    test('a member is created with the limits chosen before the sign-in link', function () {
+        $this->actingAs($this->owner);
+        session(['currentTeam' => $this->team]);
+
+        Livewire::test(InviteLink::class)
+            ->set('email', 'client-member@example.com')
+            ->set('role', 'member')
+            ->set('maxProjects', 1)
+            ->set('maxProductionBranches', 1)
+            ->set('maxStagingBranches', 2)
+            ->set('maxServices', 3)
+            ->set('canAddServers', true)
+            ->set('odooAbilities', ['odoo.staging.deploy'])
+            ->call('viaLink')
+            ->assertDispatched('success');
+
+        $invited = User::whereEmail('client-member@example.com')->firstOrFail();
+        $invitation = TeamInvitation::whereEmail('client-member@example.com')->firstOrFail();
+        expect($invited->teams()->where('teams.id', $this->team->id)->exists())->toBeFalse();
+
+        $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
+        $this->actingAs($invited);
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+            ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
+            ->assertRedirect(route('team.index'));
+
+        $pivot = $invited->fresh()->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        expect($pivot->role)->toBe('member')
+            ->and((int) $pivot->max_projects)->toBe(1)
+            ->and((int) $pivot->max_production_branches)->toBe(1)
+            ->and((int) $pivot->max_staging_branches)->toBe(2)
+            ->and((int) $pivot->max_services)->toBe(3)
+            ->and((bool) $pivot->can_add_servers)->toBeFalse()
+            ->and($pivot->odoo_abilities)->toContain('odoo.staging.deploy');
+    });
+
+    test('an admin cannot grant server access while inviting', function () {
+        $this->actingAs($this->admin);
+        session(['currentTeam' => $this->team]);
+
+        Livewire::test(InviteLink::class)
+            ->set('email', 'limited-admin@example.com')
+            ->set('role', 'admin')
+            ->set('canAddServers', true)
+            ->call('viaLink')
+            ->assertDispatched('success');
+
+        $invited = User::whereEmail('limited-admin@example.com')->firstOrFail();
+        $invitation = TeamInvitation::whereEmail('limited-admin@example.com')->firstOrFail();
+        expect($invited->teams()->where('teams.id', $this->team->id)->exists())->toBeFalse();
+
+        $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
+        $this->actingAs($invited);
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+            ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
+            ->assertRedirect(route('team.index'));
+
+        $pivot = $invited->fresh()->teams()->where('teams.id', $this->team->id)->firstOrFail()->pivot;
+        expect((bool) $pivot->can_add_servers)->toBeFalse();
+    });
 });

@@ -316,3 +316,47 @@ it('prevents downgrade even with manual update', function () {
         expect($e->getMessage())->toContain('4.0.0');
     }
 });
+
+it('parses a local git revision', function () {
+    $revision = UpdateCoolify::parseLocalGitRevision(
+        "11366-terminal-websocket-connection\taaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n"
+    );
+
+    expect($revision)->toBe([
+        'branch' => '11366-terminal-websocket-connection',
+        'head' => 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+        'upstream' => 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    ]);
+    expect(UpdateCoolify::parseLocalGitRevision('not-a-revision'))->toBeNull();
+});
+
+it('runs the local upgrade script instead of the official image update', function () {
+    Queue::fake();
+    config([
+        'app.env' => 'testing',
+        'constants.coolify.local_build' => true,
+        'constants.coolify.image' => 'coolify-custom:local',
+        'constants.ssh.mux_enabled' => false,
+    ]);
+
+    updateCoolifyTestCreateRootServerAndSettings();
+    Http::preventStrayRequests();
+
+    (new UpdateCoolify)->handle(manual_update: true);
+
+    $command = (string) Activity::query()->latest('id')->first()?->getExtraProperty('command');
+
+    expect($command)
+        ->toContain('printf %s ')
+        ->toContain('| base64 -d > /data/coolify/source/upgrade-local.sh')
+        ->toContain('chmod +x /data/coolify/source/upgrade-local.sh')
+        ->toContain('bash /data/coolify/source/upgrade-local.sh')
+        ->not->toContain('COOLIFY_LOCAL_UPGRADE')
+        ->not->toContain('cdn.coollabs.io')
+        ->not->toContain('bash /data/coolify/source/upgrade.sh');
+
+    config([
+        'constants.coolify.local_build' => false,
+        'constants.coolify.image' => null,
+    ]);
+});

@@ -61,9 +61,9 @@ class CloudflareTunnel extends Component
             $this->server->settings->save();
             if ($this->server->ip_previous) {
                 $this->server->update(['ip' => $this->server->ip_previous]);
-                $this->dispatch('success', 'Cloudflare Tunnel disabled.<br><br>Manually updated the server IP address to its previous IP address.');
+                $this->dispatch('success', __('Cloudflare Tunnel disabled.<br><br>Manually updated the server IP address to its previous IP address.'));
             } else {
-                $this->dispatch('warning', 'Cloudflare Tunnel disabled. Action required: Update the server IP address to its real IP address in the Advanced settings.');
+                $this->dispatch('warning', __('Cloudflare Tunnel disabled. Action required: Update the server IP address to its real IP address in the Advanced settings.'));
             }
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -78,7 +78,7 @@ class CloudflareTunnel extends Component
             $this->server->settings->is_cloudflare_tunnel = true;
             $this->server->settings->save();
             $this->server->refresh();
-            $this->dispatch('success', 'Cloudflare Tunnel enabled.');
+            $this->dispatch('success', __('Cloudflare Tunnel enabled.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

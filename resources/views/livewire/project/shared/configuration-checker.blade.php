@@ -9,7 +9,7 @@
         @endphp
         <x-popup-small :compact-after="5000" compact-storage-key="required-environment-variables:{{ $resource->uuid }}">
             <x-slot:title>
-                {{ $missingRequiredEnvironmentVariableCount === 1 ? 'Required environment variable missing' : 'Required environment variables missing' }}
+                {{ $missingRequiredEnvironmentVariableCount === 1 ? __('Required environment variable missing') : __('Required environment variables missing') }}
             </x-slot:title>
             <x-slot:icon>
                 <x-reicon name="alert-triangle" class="size-4" />
@@ -19,7 +19,7 @@
                     {{ implode(', ', $missingRequiredEnvironmentVariableNames) }} must be set before this service can be deployed.
                     <a href="{{ $environmentVariablesUrl }}" {{ wireNavigate() }}
                         class="ml-0.5 inline-flex items-center gap-0.5 font-semibold text-coollabs transition-colors hover:text-coollabs-100 dark:text-warning dark:hover:text-warning/80">
-                        Open environment variables
+                        {{ __('Open environment variables') }}
                         <x-reicon name="arrow-right" class="size-2.5" />
                     </a>
                 </span>
@@ -69,7 +69,7 @@
                                 <div class="flex items-center gap-1.5">
                                     <x-reicon name="alert-triangle"
                                         class="size-3.5 text-amber-600 dark:text-warning" />
-                                    <h3>Configuration changes</h3>
+                                    <h3>{{ __('Configuration changes') }}</h3>
                                 </div>
                                 <button type="button" @click="configurationDiffModalOpen = false"
                                     class="flex size-6 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-black/5 hover:text-neutral-800 dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg">

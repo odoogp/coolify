@@ -127,6 +127,7 @@ services:
       VITE_HOST: "${VITE_HOST:-localhost}"
       VITE_PORT: "${VITE_PORT:-5173}"
       VITE_PROTOCOL: "${VITE_PROTOCOL:-http}"
+      VITE_USE_POLLING: "${VITE_USE_POLLING:-1}"
     ports:
       - "${DEV_BIND_ADDRESS:-0.0.0.0}:${VITE_PORT:-5173}:${VITE_PORT:-5173}"
     volumes:

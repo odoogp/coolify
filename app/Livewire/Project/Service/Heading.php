@@ -7,11 +7,9 @@ use App\Actions\Service\StartService;
 use App\Actions\Service\StopService;
 use App\Actions\Service\StopServiceApplication;
 use App\Enums\ProcessStatus;
+use App\Jobs\WatchOdooServiceStartJob;
 use App\Models\Service;
-use App\Models\ServiceApplication;
-use App\Models\ServiceDatabase;
-use App\Support\ResourceStartActivity;
-use App\Traits\ListensToTeamChannel;
+use App\Support\GpshNotices;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 use Spatie\Activitylog\Models\Activity;
@@ -39,11 +37,15 @@ class Heading extends Component
     {
         $this->authorizeService('view');
 
-        $this->checkDeployments();
-
-        if (str($this->service->status)->contains('running') && is_null($this->service->config_hash)) {
-            $this->service->isConfigurationChanged(true);
+        if (str($this->service->status)->contains('running') && is_null($this->service->config_hash) && $this->service->isConfigurationChanged(true)) {
             $this->dispatch('configurationChanged');
+        }
+
+        $activity = $this->service->latestProcessActivity();
+        $status = data_get($activity, 'properties.status');
+        if ($activity && in_array($status, [ProcessStatus::QUEUED->value, ProcessStatus::IN_PROGRESS->value], true)) {
+            $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
+            $this->dispatch('activityMonitor', $activity->id);
         }
     }
 
@@ -68,7 +70,7 @@ class Heading extends Component
         if ($this->service->server->isFunctional()) {
             GetContainersStatus::dispatch($this->service->server);
         } else {
-            $this->dispatch('error', 'Server is not functional.');
+            $this->dispatch('error', __('Server is not functional.'));
         }
     }
 
@@ -105,9 +107,13 @@ class Heading extends Component
         $this->authorizeService('view');
 
         try {
-            $activity = ResourceStartActivity::latestRunning($this->service->uuid);
-            $this->isDeploymentProgress = $activity !== null;
-            $this->runningActivityId = $activity?->id;
+            $activity = $this->service->latestProcessActivity();
+            $status = data_get($activity, 'properties.status');
+            if ($status === ProcessStatus::QUEUED->value || $status === ProcessStatus::IN_PROGRESS->value) {
+                $this->isDeploymentProgress = true;
+            } else {
+                $this->isDeploymentProgress = false;
+            }
         } catch (\Throwable) {
             $this->isDeploymentProgress = false;
             $this->runningActivityId = null;
@@ -195,13 +201,12 @@ class Heading extends Component
             $this->authorizeService('deploy');
             $this->checkDeployments();
             if ($this->isDeploymentProgress) {
-                $this->dispatch('error', 'There is a deployment in progress.');
+                $this->dispatch('error', __('There is a deployment in progress.'));
 
                 return;
             }
             $activity = StartService::run($this->service, stopBeforeStart: true);
-            $this->auditServiceAction('ui.service.restarted');
-            $this->markDeploymentRunning($activity->id);
+            $this->notifyOdooRestart($activity);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
             $this->dispatch('activityMonitor', $activity->id);
         } catch (\Throwable $e) {
@@ -238,17 +243,29 @@ class Heading extends Component
             $this->authorizeService('deploy');
             $this->checkDeployments();
             if ($this->isDeploymentProgress) {
-                $this->dispatch('error', 'There is a deployment in progress.');
+                $this->dispatch('error', __('There is a deployment in progress.'));
 
                 return;
             }
             $activity = StartService::run($this->service, pullLatestImages: true, stopBeforeStart: true);
-            $this->auditServiceAction('ui.service.restarted');
-            $this->markDeploymentRunning($activity->id);
+            $this->notifyOdooRestart($activity);
             $this->js("window.dispatchEvent(new CustomEvent('startservice'))");
             $this->dispatch('activityMonitor', $activity->id);
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        }
+    }
+
+    private function notifyOdooRestart(mixed $activity): void
+    {
+        if (! $this->service->supportsOdooJupyter()) {
+            return;
+        }
+
+        GpshNotices::announceRestarting($this->service);
+        $this->dispatch('success', __('The instance started restarting.'));
+        if ($activity instanceof Activity) {
+            WatchOdooServiceStartJob::dispatch((int) $this->service->id, (int) $activity->id);
         }
     }
 

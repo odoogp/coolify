@@ -72,7 +72,7 @@ class Show extends Component
             'cloud_init_script_name' => $this->cloudInitScript->name,
         ]);
 
-        $this->dispatch('success', 'Cloud-init script updated successfully.');
+        $this->dispatch('success', __('Cloud-init script updated successfully.'));
         $this->dispatch('securityResourceChanged');
     }
 

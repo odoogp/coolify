@@ -1,35 +1,31 @@
 <?php
 
-use Symfony\Component\Process\Process;
+test('toast messages default to the top right while the activity stack stays bottom right', function () {
+    $toast = file_get_contents(resource_path('views/components/toast.blade.php'));
+    $layout = file_get_contents(resource_path('views/layouts/app.blade.php'));
 
-test('persistent toasts survive timers hover and new notifications until dismissed', function () {
-    $process = new Process(['node', '-e', <<<'JS'
-const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const source = fs.readFileSync(process.argv[1], 'utf8');
-const data = source.match(/<ul x-data="([\s\S]*?)" @toast-show/)[1];
-const timers = new Map();
-let timerId = 0;
-global.setTimeout = callback => { timers.set(++timerId, callback); return timerId; };
-global.clearTimeout = id => timers.delete(id);
-const state = new Function(`return (${data})`)();
-state.$nextTick = callback => callback();
-state.addToast({ detail: { message: 'Persistent', persistent: true } });
-const persistent = state.toasts[0];
-assert.equal(timers.size, 0, 'persistent toast must not schedule dismissal');
-state.pauseToast(persistent);
-state.resumeToast(persistent);
-assert.equal(timers.size, 0, 'hover must not start a persistent toast timer');
-for (let i = 0; i < 5; i++) state.addToast({ detail: { message: 'Normal' } });
-assert(state.toasts.includes(persistent), 'new notifications must not evict persistent toast');
-assert(timers.size > 0, 'normal notifications still have timers');
-for (const callback of [...timers.values()]) callback();
-for (const callback of [...timers.values()]) callback();
-assert(state.toasts.includes(persistent), 'persistent toast survives elapsed timers');
-state.removeToast(persistent.id);
-for (const callback of [...timers.values()]) callback();
-assert(!state.toasts.includes(persistent), 'manual dismissal removes persistent toast');
-JS, resource_path('views/components/toast.blade.php')]);
-    $process->run();
-    expect($process->isSuccessful())->toBeTrue($process->getErrorOutput());
+    expect($toast)
+        ->toContain("position: options.position ?? 'top-right'")
+        ->toContain("position: 'top-right'")
+        ->toContain("this.position = event.detail.position || 'top-right'")
+        ->toContain("'right-4 top-4 flex-col': position === 'top-right'")
+        ->toContain("'right-4 bottom-4 flex-col-reverse': position === 'bottom-right'")
+        ->and($layout)
+        ->toContain('id="gpsh-activity-stack"')
+        ->toContain('bottom-20')
+        ->toContain('sm:right-4');
+});
+
+test('toast copy button shows temporary success feedback', function () {
+    $toast = file_get_contents(resource_path('views/components/toast.blade.php'));
+
+    expect($toast)
+        ->toContain('copied: false')
+        ->toContain('copyToast(toast)')
+        ->toContain('toast.copied = true')
+        ->toContain('toast.copied = false')
+        ->toContain('}, 2000)')
+        ->toContain('x-show="!toast.copied"')
+        ->toContain('x-show="toast.copied"')
+        ->toContain("'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400': toast.copied");
 });

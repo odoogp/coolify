@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Proxy\SaveProxyConfiguration;
 use App\Enums\ProxyTypes;
 use App\Http\Controllers\Controller;
+use App\Jobs\ConnectProxyToNetworksJob;
 use App\Jobs\RestartProxyJob;
 use App\Models\Server;
 use App\Rules\SafeExternalUrl;
@@ -41,6 +42,7 @@ class ServerProxyController extends Controller
      *     redirect_enabled: bool,
      *     redirect_url: string|null,
      *     generate_exact_labels: bool,
+     *     external_proxy_name: string|null,
      *     configuration?: string|null
      * }
      */
@@ -52,6 +54,7 @@ class ServerProxyController extends Controller
             'redirect_enabled' => (bool) data_get($server->proxy, 'redirect_enabled', true),
             'redirect_url' => data_get($server->proxy, 'redirect_url'),
             'generate_exact_labels' => (bool) ($server->settings->generate_exact_labels ?? false),
+            'external_proxy_name' => $server->externalProxyName(),
         ];
 
         // Proxy compose can contain secrets; only expose with read:sensitive (and admin) like other APIs.
@@ -86,6 +89,7 @@ class ServerProxyController extends Controller
                         new OA\Property(property: 'redirect_enabled', type: 'boolean', example: true),
                         new OA\Property(property: 'redirect_url', type: 'string', nullable: true, example: 'https://example.com'),
                         new OA\Property(property: 'generate_exact_labels', type: 'boolean', example: false),
+                        new OA\Property(property: 'external_proxy_name', type: 'string', nullable: true, example: 'easypanel-traefik', description: 'Docker name filter for an external proxy when proxy_type is none (Custom).'),
                         new OA\Property(property: 'configuration', type: 'string', nullable: true, description: 'Docker Compose proxy configuration when stored in the database. Only present with read:sensitive.'),
                     ]
                 )
@@ -131,6 +135,7 @@ class ServerProxyController extends Controller
                     new OA\Property(property: 'redirect_url', type: 'string', nullable: true, description: 'Public http(s) redirect URL, or null to clear.'),
                     new OA\Property(property: 'generate_exact_labels', type: 'boolean'),
                     new OA\Property(property: 'proxy_type', type: 'string', enum: ['traefik', 'caddy', 'nginx', 'none'], description: 'Proxy type (case-insensitive).'),
+                    new OA\Property(property: 'external_proxy_name', type: 'string', nullable: true, description: 'Docker name filter for an external proxy (Custom / none). Example: easypanel-traefik.'),
                 ]
             )
         ),
@@ -146,6 +151,7 @@ class ServerProxyController extends Controller
                         new OA\Property(property: 'redirect_enabled', type: 'boolean'),
                         new OA\Property(property: 'redirect_url', type: 'string', nullable: true),
                         new OA\Property(property: 'generate_exact_labels', type: 'boolean'),
+                        new OA\Property(property: 'external_proxy_name', type: 'string', nullable: true),
                         new OA\Property(property: 'configuration', type: 'string', nullable: true),
                     ]
                 )
@@ -168,12 +174,13 @@ class ServerProxyController extends Controller
             return $return;
         }
 
-        $allowedFields = ['redirect_enabled', 'redirect_url', 'generate_exact_labels', 'proxy_type'];
+        $allowedFields = ['redirect_enabled', 'redirect_url', 'generate_exact_labels', 'proxy_type', 'external_proxy_name'];
         $validator = customApiValidator($request->all(), [
             'redirect_enabled' => 'boolean',
             'redirect_url' => ['nullable', 'string', new SafeExternalUrl],
             'generate_exact_labels' => 'boolean',
             'proxy_type' => 'string|nullable',
+            'external_proxy_name' => ['nullable', 'string', 'max:128', 'regex:/^[A-Za-z0-9][A-Za-z0-9_.-]*$/'],
         ]);
 
         $extraFields = array_diff(array_keys($request->all()), $allowedFields);
@@ -231,6 +238,15 @@ class ServerProxyController extends Controller
         if ($request->has('proxy_type') && filled($request->proxy_type)) {
             $server->changeProxy($request->proxy_type, async: true);
             $server->refresh();
+        }
+
+        if ($request->exists('external_proxy_name')) {
+            $name = trim((string) $request->input('external_proxy_name', ''));
+            $server->proxy->external_proxy_name = $name !== '' ? $name : null;
+            $server->save();
+            if ($server->usesExternalProxyNetworkConnect()) {
+                ConnectProxyToNetworksJob::dispatch($server);
+            }
         }
 
         // Apply redirect file on the server only when reachable (DB settings always saved above).

@@ -22,13 +22,13 @@ trait InteractsWithCloudflareDomainConnect
         $this->authorizeUpdateForDomainConnect();
 
         if (! $this->domainConnectAvailable()) {
-            $this->dispatch('error', 'Automated DNS configuration is only available on Coolify Cloud when Domain Connect is configured.');
+            $this->dispatch('error', __('Automated DNS configuration is only available on Coolify Cloud when Domain Connect is configured.'));
 
             return;
         }
 
         if ($this->allDomainHostnames() === []) {
-            $this->dispatch('error', 'Add at least one domain before configuring DNS on Cloudflare.');
+            $this->dispatch('error', __('Add at least one domain before configuring DNS on Cloudflare.'));
 
             return;
         }
@@ -68,7 +68,7 @@ trait InteractsWithCloudflareDomainConnect
 
         $hostnames = $this->allDomainHostnames();
         if ($hostnames === []) {
-            $this->dispatch('error', 'Add at least one domain before configuring DNS on Cloudflare.');
+            $this->dispatch('error', __('Add at least one domain before configuring DNS on Cloudflare.'));
 
             return;
         }

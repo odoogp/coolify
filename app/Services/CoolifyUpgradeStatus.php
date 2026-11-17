@@ -83,6 +83,10 @@ class CoolifyUpgradeStatus
             return false;
         }
 
+        if (str_contains($runningVersion, '@') && str_contains($targetVersion, '@')) {
+            return true;
+        }
+
         return version_compare($runningVersion, $targetVersion, '>=');
     }
 }

@@ -1,7 +1,6 @@
 @props([
-    'value' => null,
-    'resolve' => null,
-    'label' => 'Copy to clipboard',
+    'value',
+    'label' => __('Copy to clipboard'),
 ])
 
 @php

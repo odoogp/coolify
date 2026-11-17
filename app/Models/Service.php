@@ -2,10 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\ProcessStatus;
+use App\Services\AdminCreationQuota;
 use App\Services\ContainerStatusAggregator;
-use App\Support\DomainPortOverrides;
-use App\Support\ResourceStartActivity;
-use App\Traits\Auditable;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasComposeVolumeWarnings;
 use App\Traits\HasSafeStringAttribute;
@@ -33,6 +34,7 @@ use Symfony\Component\Yaml\Yaml;
         'destination_type' => ['type' => 'string', 'description' => 'Destination type.'],
         'destination_id' => ['type' => 'integer', 'description' => 'The unique identifier of the destination where the service is running.'],
         'connect_to_docker_network' => ['type' => 'boolean', 'description' => 'The flag to connect the service to the predefined Docker network.'],
+        'jupyter_enabled' => ['type' => 'boolean', 'description' => 'Whether an Odoo service also runs JupyterLab on its addon volume.'],
         'is_container_label_escape_enabled' => ['type' => 'boolean', 'description' => 'The flag to enable the container label escape.'],
         'is_container_label_readonly_enabled' => ['type' => 'boolean', 'description' => 'The flag to enable the container label readonly.'],
         'config_hash' => ['type' => 'string', 'description' => 'The hash of the service configuration.'],
@@ -55,6 +57,7 @@ class Service extends BaseModel
         'docker_compose_raw',
         'docker_compose',
         'connect_to_docker_network',
+        'jupyter_enabled',
         'service_type',
         'config_hash',
         'compose_parsing_version',
@@ -66,6 +69,13 @@ class Service extends BaseModel
     ];
 
     protected $appends = ['server_status', 'status'];
+
+    protected function casts(): array
+    {
+        return array_merge(parent::casts(), [
+            'jupyter_enabled' => 'boolean',
+        ]);
+    }
 
     /**
      * Sensitive fields hidden by default in serialized output (toArray/toJson).
@@ -84,6 +94,7 @@ class Service extends BaseModel
             if (blank($service->name)) {
                 $service->name = 'service-'.new_public_id();
             }
+            app(AdminCreationQuota::class)->guardService($service);
         });
         static::created(function ($service) {
             $service->compose_parsing_version = self::$parserVersion;
@@ -121,6 +132,8 @@ class Service extends BaseModel
             if ($save) {
                 $this->config_hash = $newConfigHash;
                 $this->save();
+
+                return false;
             }
 
             return true;
@@ -156,10 +169,23 @@ class Service extends BaseModel
         return (bool) str($this->status)->contains('exited');
     }
 
+    /**
+     * Latest process row without the command log. The log lives in description and grows for the whole start.
+     */
+    public function latestProcessActivity(): ?Activity
+    {
+        return Activity::query()
+            ->where('properties->type_uuid', $this->uuid)
+            ->latest()
+            ->first(['id', 'properties']);
+    }
+
     public function isStarting(): bool
     {
         try {
-            return ResourceStartActivity::latestRunning($this->uuid) !== null;
+            $status = data_get($this->latestProcessActivity(), 'properties.status');
+
+            return $status === ProcessStatus::QUEUED->value || $status === ProcessStatus::IN_PROGRESS->value;
         } catch (\Throwable) {
             return false;
         }
@@ -1496,6 +1522,31 @@ class Service extends BaseModel
         return $this->getRequiredPort() !== null;
     }
 
+    public function supportsOdooJupyter(): bool
+    {
+        return OdooJupyter::isOdooCompose((string) $this->docker_compose_raw);
+    }
+
+    /**
+     * Public HTTPS URL for the primary app (Odoo when present, otherwise the preferred HTTP entrypoint).
+     */
+    public function publicHttpsUrl(): string
+    {
+        return OdooGit::publicHttpsUrl($this);
+    }
+
+    /**
+     * Whether the project row / heading may show an Open control for this service.
+     */
+    public function canOpenPublicSite(): bool
+    {
+        if ($this->supportsOdooJupyter()) {
+            return OdooGit::canOpen($this);
+        }
+
+        return $this->publicHttpsUrl() !== '';
+    }
+
     public function applications()
     {
         return $this->hasMany(ServiceApplication::class);
@@ -1572,12 +1623,19 @@ class Service extends BaseModel
         }
 
         $workdir = $this->workdir();
-        // Absolute paths and tee, no cd or scp: a non-root SSH user cannot enter /data/coolify on the Coolify host.
-        $commands = [
+
+        // Write compose over SSH (base64), same as .env below — avoid local
+        // storage/app/tmp + scp, which fails with "stat local ... Permission denied"
+        // when the Coolify container cannot read files created for SCP.
+        $compose_base64 = base64_encode($this->docker_compose);
+        instant_remote_process([
             "mkdir -p $workdir",
-            "echo '".base64_encode($this->docker_compose)."' | base64 -d | tee $workdir/docker-compose.yml > /dev/null",
-        ];
-        $environmentFile = "$workdir/".new_public_id().'.env.tmp';
+            "cd $workdir",
+            "echo '$compose_base64' | base64 -d | tee $workdir/docker-compose.yml > /dev/null",
+        ], $this->server);
+
+        $commands[] = "cd $workdir";
+        $commands[] = 'rm -f .env || true';
 
         $envs = collect([]);
 
@@ -1607,6 +1665,11 @@ class Service extends BaseModel
         foreach ($sorted as $env) {
             $envs->push("{$env->key}={$this->resolveSecretManagerEnvironmentVariable($env)}");
         }
+        if (OdooJupyter::isOdooCompose((string) $this->docker_compose_raw)) {
+            foreach (OdooGit::mailEnvironmentLines(null, $this->environment?->project?->team_id === null ? null : (int) $this->environment->project->team_id) as $line) {
+                $envs->push($line);
+            }
+        }
         if ($envs->count() === 0) {
             $commands[] = "touch {$environmentFile}";
         } else {
@@ -1620,6 +1683,15 @@ class Service extends BaseModel
 
     public function parse(bool $isNew = false): Collection
     {
+        if (OdooJupyter::isOdooCompose((string) $this->docker_compose_raw)) {
+            $normalized = OdooComposeTemplate::normalizePostgresMount((string) $this->docker_compose_raw);
+            if ($normalized !== (string) $this->docker_compose_raw) {
+                $this->docker_compose_raw = $normalized;
+                // Keep the fix without firing observers that re-parse.
+                $this->saveQuietly();
+            }
+        }
+
         if ((int) $this->compose_parsing_version >= 3) {
             return serviceParser($this);
         } elseif ($this->docker_compose_raw) {

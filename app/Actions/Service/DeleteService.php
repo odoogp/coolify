@@ -12,14 +12,9 @@ class DeleteService
     public function cleanupRemote(Service $service, bool $deleteVolumes, bool $deleteConnectedNetworks, bool $deleteConfigurations): void
     {
         $server = data_get($service, 'server');
-        if (! $server?->isFunctional()) {
-            throw new RuntimeException('Server is not functional.');
-        }
-
-        $this->removeContainers($service);
-
-        if ($deleteVolumes) {
-            $commands = [];
+        if ($deleteVolumes && $server->isFunctional()) {
+            // Owner Jupyter mounts these volumes, so docker volume rm fails until that container is gone.
+            $commands = $service->supportsOdooJupyter() ? ['docker rm -f gpsh-owner-jupyter'] : [];
             foreach ($service->applications()->get() as $application) {
                 foreach ($application->persistentStorages()->get() as $storage) {
                     $commands[] = 'docker volume rm -f '.escapeshellarg($storage->name);

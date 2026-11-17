@@ -30,7 +30,7 @@
         return `Recommendation: ${config.recommendation}`;
     }
 }" x-if="showWarning">
-    <x-callout type="warning" title="Caution">
+    <x-callout type="warning" title="{{ __('Caution') }}">
         <div class="text-sm" x-text="warningMessage"></div>
         <div class="text-sm" x-text="recommendation"></div>
     </x-callout>

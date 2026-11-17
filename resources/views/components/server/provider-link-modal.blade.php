@@ -37,15 +37,15 @@
         </p>
 
         <x-forms.listbox :id="$tokenModel" label="{{ $providerLabel }} token"
-            placeholder="Select a token" :options="$tokenOptions" live />
+            placeholder="{{ __('Select a token') }}" :options="$tokenOptions" live />
 
         <div class="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <x-forms.input :id="$manualModel" :label="$manualLabel"
                 :placeholder="$manualPlaceholder" />
             <button type="button" class="button" wire:click="{{ $searchByIdMethod }}"
                 wire:loading.attr="disabled" wire:target="{{ $searchByIdMethod }}">
-                <span wire:loading.remove wire:target="{{ $searchByIdMethod }}">Search ID</span>
-                <span wire:loading wire:target="{{ $searchByIdMethod }}">Searching…</span>
+                <span wire:loading.remove wire:target="{{ $searchByIdMethod }}">{{ __('Search ID') }}</span>
+                <span wire:loading wire:target="{{ $searchByIdMethod }}">{{ __('Searching…') }}</span>
             </button>
         </div>
 
@@ -57,15 +57,15 @@
 
         <button type="button" class="button justify-center" wire:click="{{ $searchByIpMethod }}"
             wire:loading.attr="disabled" wire:target="{{ $searchByIpMethod }}">
-            <span wire:loading.remove wire:target="{{ $searchByIpMethod }}">Search by server IP</span>
-            <span wire:loading wire:target="{{ $searchByIpMethod }}">Searching…</span>
+            <span wire:loading.remove wire:target="{{ $searchByIpMethod }}">{{ __('Search by server IP') }}</span>
+            <span wire:loading wire:target="{{ $searchByIpMethod }}">{{ __('Searching…') }}</span>
         </button>
 
         @if ($searchError)
-            <x-callout type="error" title="Provider search failed">{{ $searchError }}</x-callout>
+            <x-callout type="error" title="{{ __('Provider search failed') }}">{{ $searchError }}</x-callout>
         @elseif ($noMatch)
-            <x-callout type="warning" title="No matching resource">
-                Try another token, confirm the resource ID, or verify the server IP.
+            <x-callout type="warning" title="{{ __('No matching resource') }}">
+                {{ __('Try another token, confirm the resource ID, or verify the server IP.') }}
             </x-callout>
         @elseif ($matched)
             <div
@@ -83,12 +83,12 @@
                             @endif
                         </p>
                     </div>
-                    <x-status-badge label="Match found" type="success" />
+                    <x-status-badge label="{{ __('Match found') }}" type="success" />
                 </div>
                 <button type="button"
                     class="button mt-3 button-highlighted"
                     wire:click="{{ $linkMethod }}">
-                    Link resource
+                    {{ __('Link resource') }}
                 </button>
             </div>
         @endif

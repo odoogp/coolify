@@ -1,28 +1,29 @@
-<div @if ($isUpgradeAvailable) title="New version available" @else title="No upgrade available" @endif
+<div @if ($isUpgradeAvailable) title="{{ __('New version available') }}" @else title="{{ __('No upgrade available') }}" @endif
     x-init="$wire.checkUpdate" x-data="upgradeModal({
         currentVersion: @js($currentVersion),
         latestVersion: @js($latestVersion),
-        devMode: @js($devMode)
+        devMode: @js($devMode),
+        showUpdateSteps: @js($showUpdateSteps)
     })">
     @if ($isUpgradeAvailable)
         <div :class="{ 'z-40': modalOpen }" class="relative w-auto h-auto">
             @if ($fullButton)
                 <x-forms.button type="button" @click="modalOpen=true" x-show="!showProgress" x-cloak isHighlighted>
-                    Upgrade now
+                    {{ __('Upgrade now') }}
                 </x-forms.button>
                 <x-forms.button type="button" @click="modalOpen=true" x-show="showProgress" x-cloak isHighlighted>
-                    Updating…
+                    {{ __('Updating…') }}
                 </x-forms.button>
             @else
-            <button type="button" title="Upgrade in progress" aria-label="Upgrade in progress"
+            <button type="button" title="{{ __('Upgrade in progress') }}" aria-label="{{ __('Upgrade in progress') }}"
                 @click="modalOpen=true" x-show="showProgress" x-cloak
                 class="inline-flex h-[18px] cursor-pointer items-center rounded-full bg-coollabs/10 px-1.5 text-[9.5px] font-semibold leading-none text-coollabs ring-1 ring-inset ring-coollabs/25 transition-colors hover:bg-coollabs/15 dark:bg-warning/15 dark:text-warning dark:ring-warning/25 dark:hover:bg-warning/20">
-                Updating
+                {{ __('Updating') }}
             </button>
-            <button type="button" title="Update available" aria-label="Update available"
+            <button type="button" title="{{ __('Update available') }}" aria-label="{{ __('Update available') }}"
                 @click="modalOpen=true" x-show="!showProgress" x-cloak
                 class="inline-flex h-[18px] cursor-pointer items-center rounded-full bg-coollabs/10 px-1.5 text-[9.5px] font-semibold leading-none text-coollabs ring-1 ring-inset ring-coollabs/25 transition-colors hover:bg-coollabs/15 dark:bg-warning/15 dark:text-warning dark:ring-warning/25 dark:hover:bg-warning/20">
-                Update available
+                {{ __('Update available') }}
             </button>
             @endif
             <template x-teleport="body">
@@ -47,7 +48,8 @@
                         <header class="flex-nowrap!">
                             <div class="min-w-0 flex-1">
                                 <h3 class="truncate"
-                                    x-text="upgradeComplete ? 'Upgrade complete' : (showProgress ? 'Upgrading…' : 'Upgrade available')">
+                                    x-text="upgradeComplete ? @js(__('Upgrade complete')) : (showProgress ? @js(__('Upgrading…')) : @js(__('Upgrade available')))">
+                                    {{ __('Upgrade available') }}
                                 </h3>
                                 <p class="mt-0.5 text-[12px] leading-4"
                                     style="color: var(--coollabs-subtle)">
@@ -58,7 +60,7 @@
                             <button type="button" x-show="!showProgress || upgradeError"
                                 @click="upgradeError ? closeErrorModal() : modalOpen=false"
                                 class="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-neutral-500 outline-0 transition-colors hover:bg-neutral-100 hover:text-black focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                aria-label="Close">
+                                aria-label="{{ __('Close') }}">
                                 <x-reicon name="x" class="size-4" />
                             </button>
                         </header>
@@ -66,13 +68,26 @@
                         <div class="application-settings-section-body min-h-0 flex-1 overflow-y-auto"
                             style="-webkit-overflow-scrolling: touch;">
                             {{-- Progress View --}}
-                            <template x-if="showProgress">
-                                <div class="flex flex-col gap-4">
+                            <div x-show="showProgress" x-cloak class="flex flex-col gap-4">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <span class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"
+                                            x-text="updateSummary()"></span>
+                                        <div class="flex shrink-0 gap-2">
+                                            <button type="button" @click="toggleUpdateSteps()" class="button">
+                                                <span x-text="showUpdateSteps ? @js(__('Hide steps')) : @js(__('Show steps'))"></span>
+                                            </button>
+                                            <button type="button" @click="toggleUpgradeLog()" class="button">
+                                                <span x-text="showUpgradeLog ? @js(__('Hide log')) : @js(__('Show log'))"></span>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div x-show="showUpdateSteps" x-cloak class="flex flex-col gap-4 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                     <x-upgrade-progress />
 
                                     <div class="flex items-center justify-center gap-1.5 text-[12px]"
                                         style="color: var(--coollabs-subtle)">
-                                        <span>Elapsed time</span>
+                                        <span>{{ __('Elapsed time') }}</span>
                                         <span class="font-mono text-neutral-700 dark:text-fg"
                                             x-text="formatElapsedTime()"></span>
                                     </div>
@@ -101,21 +116,25 @@
                                         <span x-text="currentStatus"
                                             class="min-w-0 text-[13px] leading-5 text-neutral-700 dark:text-fg"></span>
                                     </div>
+                                    </div>
+
+                                    <pre x-show="showUpgradeLog" x-cloak x-ref="upgradeLogView" x-text="upgradeLogText()"
+                                        class="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-50 p-3 font-mono text-[11px] leading-4 text-neutral-800 dark:border-white/[0.08] dark:bg-white/[0.03] dark:text-fg"></pre>
 
                                     <template x-if="upgradeComplete">
                                         <div class="flex flex-col items-center gap-3">
                                             <p class="text-[12px]" style="color: var(--coollabs-subtle)">
-                                                Reloading in
+                                                {{ __('Reloading in') }}
                                                 <span x-text="successCountdown"
                                                     class="font-semibold text-coollabs dark:text-warning"></span>
                                                 seconds…
                                             </p>
                                             <p class="text-center text-[11px] leading-4"
                                                 style="color: var(--coollabs-subtle)">
-                                                If the page does not reload automatically, reload it manually.
+                                                {{ __('If the page does not reload automatically, reload it manually.') }}
                                             </p>
                                             <x-forms.button @click="reloadNow()" type="button" isHighlighted>
-                                                Reload now
+                                                {{ __('Reload now') }}
                                             </x-forms.button>
                                         </div>
                                     </template>
@@ -123,29 +142,27 @@
                                     <template x-if="upgradeError">
                                         <div class="flex flex-col gap-3">
                                             <p class="text-[12px] leading-5" style="color: var(--coollabs-subtle)">
-                                                Check the logs on the server at
+                                                {{ __('Check the logs on the server at') }}
                                                 <span class="font-mono text-neutral-700 dark:text-fg">/data/coolify/source/upgrade*</span>.
                                             </p>
                                             <div
                                                 class="flex flex-wrap justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                                 <x-forms.button @click="closeErrorModal()" type="button">
-                                                    Close
+                                                    {{ __('Close') }}
                                                 </x-forms.button>
                                             </div>
                                         </div>
                                     </template>
-                                </div>
-                            </template>
+                            </div>
 
                             {{-- Confirmation View --}}
-                            <template x-if="!showProgress">
-                                <div class="flex flex-col gap-4">
-                                    <x-callout type="warning" title="Caution">
-                                        <p>Any deployments running during the update process will fail.</p>
+                            <div x-show="!showProgress" class="flex flex-col gap-4">
+                                    <x-callout type="warning" title="{{ __('Caution') }}">
+                                        <p>{{ __('Any deployments running during the update process will fail.') }}</p>
                                     </x-callout>
 
                                     <p class="text-[12px] leading-5" style="color: var(--coollabs-subtle)">
-                                        If something goes wrong, check the
+                                        {{ __('If something goes wrong, check the') }}
                                         <a class="font-medium text-coollabs underline decoration-coollabs/30 underline-offset-2 hover:decoration-coollabs dark:text-warning dark:decoration-warning/30 dark:hover:decoration-warning"
                                             href="https://coolify.io/docs/upgrade" target="_blank"
                                             rel="noopener noreferrer">upgrade guide</a>
@@ -157,28 +174,28 @@
                                         class="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                                         <template x-if="devMode">
                                             <x-forms.button @click="simulateUpgrade" type="button">
-                                                Simulate
+                                                {{ __('Simulate') }}
                                             </x-forms.button>
                                         </template>
                                         <x-forms.button @click="confirmed" isHighlighted type="button">
-                                            Upgrade now
+                                            {{ __('Upgrade now') }}
                                         </x-forms.button>
                                     </div>
-                                </div>
-                            </template>
+                            </div>
                         </div>
                     </div>
                 </div>
             </template>
         </div>
     @elseif ($fullButton)
-        <p class="text-sm text-neutral-600 dark:text-fg-dim">Coolify is up to date.</p>
+        <p class="text-sm text-neutral-600 dark:text-fg-dim">{{ __(':name is up to date.', ['name' => product_name()]) }}</p>
     @endif
 </div>
 
 <script>
-    document.addEventListener('alpine:init', () => {
-        Alpine.data('upgradeModal', (config) => ({
+    (() => {
+        const registerUpgradeModal = () => {
+            Alpine.data('upgradeModal', (config) => ({
             modalOpen: false,
             showProgress: false,
             currentStatus: '',
@@ -198,7 +215,85 @@
             serviceDown: false,
             instanceWentDown: false,
             devMode: config.devMode || false,
+            showUpdateSteps: config.showUpdateSteps || false,
+            showUpgradeLog: false,
+            upgradeLog: '',
+            backendStep: 0,
             simulationInterval: null,
+            upgradeTickRunning: false,
+
+            updateSummary() {
+                if (this.upgradeError) {
+                    return @js(__('Update failed.'));
+                }
+                if (this.upgradeComplete) {
+                    return @js(__('Update completed successfully.'));
+                }
+
+                return @js(__('Update in progress...'));
+            },
+
+            toggleUpdateSteps() {
+                this.showUpdateSteps = !this.showUpdateSteps;
+                this.$wire.toggleUpdateSteps();
+            },
+
+            toggleUpgradeLog() {
+                this.showUpgradeLog = !this.showUpgradeLog;
+                if (this.showUpgradeLog) {
+                    this.refreshUpgradeLog();
+                }
+            },
+
+            upgradeLogText() {
+                return this.upgradeLog !== '' ? this.upgradeLog : @js(__('Waiting for the upgrade log…'));
+            },
+
+            async refreshUpgradeLog() {
+                try {
+                    const data = await this.upgradeFetch(@js(route('upgrade.log')));
+                    const next = data && data.text ? data.text : '';
+                    if (next === this.upgradeLog) {
+                        return;
+                    }
+                    this.upgradeLog = next;
+                    this.$nextTick(() => {
+                        const view = this.$refs.upgradeLogView;
+                        if (view) {
+                            view.scrollTop = view.scrollHeight;
+                        }
+                    });
+                } catch (e) {
+                }
+            },
+
+            stagePosition() {
+                if (this.upgradeComplete) {
+                    return 7;
+                }
+
+                const step = Number(this.backendStep) || 0;
+                if (step >= 6) {
+                    return 7;
+                }
+                if (step === 5) {
+                    return 6;
+                }
+                if (step === 4) {
+                    return 5;
+                }
+                if (step === 3) {
+                    return 4;
+                }
+                if (step === 2) {
+                    return 3;
+                }
+                if (step === 1) {
+                    return 2;
+                }
+
+                return 1;
+            },
 
             simulateUpgrade() {
                 if (!this.devMode) return;
@@ -221,6 +316,7 @@
                 this.simulationInterval = setInterval(() => {
                     if (stepIndex < steps.length) {
                         this.currentStep = steps[stepIndex].step;
+                        this.backendStep = steps[stepIndex].step;
                         this.currentStatus = steps[stepIndex].status;
                         stepIndex++;
                     } else {
@@ -231,15 +327,21 @@
                 }, 2000);
             },
 
-            confirmed() {
+            async confirmed() {
                 this.showProgress = true;
+                this.showUpgradeLog = true;
                 this.currentStep = 1;
+                this.backendStep = 0;
                 this.currentStatus = 'Starting upgrade...';
                 this.startTimer();
-                // Trigger server-side upgrade script via Livewire
-                this.$wire.$call('upgrade');
-                // Start client-side status polling
+                document.documentElement.dataset.upgrading = '1';
+                try {
+                    await this.$wire.upgrade();
+                } catch (error) {
+                    this.serviceDown = true;
+                }
                 this.upgrade();
+                this.refreshUpgradeLog();
                 // Prevent accidental navigation during upgrade
                 this.beforeUnloadHandler = (event) => {
                     event.preventDefault();
@@ -289,6 +391,7 @@
                     if (!response.ok) {
                         this.instanceWentDown = true;
                         this.currentStep = 4;
+                        this.backendStep = 5;
                         this.currentStatus = this.getReviveStatusMessage(elapsedMinutes, this.healthCheckAttempts);
                         return;
                     }
@@ -298,7 +401,7 @@
 
                     let data;
                     try {
-                        data = await this.$wire.getUpgradeStatus();
+                        data = await this.upgradeFetch(@js(route('upgrade.status')));
                     } catch (error) {
                         if (this.instanceWentDown) {
                             this.showSuccess();
@@ -319,6 +422,7 @@
                     if (data.status === 'complete') {
                         this.showSuccess();
                     } else if (data.status === 'error') {
+                        this.announceUpgradeFailure(data);
                         this.showError(data.message);
                     } else if (data.status === 'none' && this.instanceWentDown) {
                         // Older target releases cannot report the new upgrade status.
@@ -331,6 +435,7 @@
                     console.error('Health check failed:', error);
                     this.instanceWentDown = true;
                     this.currentStep = 4;
+                    this.backendStep = 5;
                     this.currentStatus = this.getReviveStatusMessage(elapsedMinutes, this.healthCheckAttempts);
                 }
             },
@@ -351,6 +456,7 @@
 
             revive() {
                 this.currentStep = 4;
+                this.backendStep = 5;
                 console.log('Checking server\'s health...');
                 this.startHealthWatch();
             },
@@ -374,8 +480,10 @@
                     this.beforeUnloadHandler = null;
                 }
 
+                delete document.documentElement.dataset.upgrading;
                 this.upgradeComplete = true;
                 this.currentStep = 5;
+                this.backendStep = 6;
                 this.currentStatus = `Successfully upgraded to ${this.latestVersion}`;
                 this.successCountdown = 3;
 
@@ -412,65 +520,123 @@
                     this.beforeUnloadHandler = null;
                 }
 
+                // Always clear the upgrading flag on failure. Leaving it set makes
+                // layouts/base swallow every Livewire failure (blank SPA pages).
+                delete document.documentElement.dataset.upgrading;
+
                 this.upgradeError = true;
                 this.currentStatus = `Error: ${message}`;
             },
 
             closeErrorModal() {
+                delete document.documentElement.dataset.upgrading;
                 this.modalOpen = false;
                 this.showProgress = false;
                 this.upgradeError = false;
                 this.currentStatus = '';
                 this.currentStep = 0;
+                this.backendStep = 0;
+            },
+
+            announceUpgradeFailure(data) {
+                if (!data || !data.notice) {
+                    return;
+                }
+
+                window.dispatchEvent(new CustomEvent('gpsh-toast', {
+                    detail: {
+                        title: data.notice.title,
+                        body: data.notice.body,
+                        seconds: 8,
+                    },
+                }));
+            },
+
+            async upgradeFetch(url) {
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+
+                if (!response.ok) {
+                    throw new Error('Upgrade request failed');
+                }
+
+                return response.json();
+            },
+
+            async readUpgradeTick() {
+                try {
+                    const data = await this.upgradeFetch(@js(route('upgrade.status')));
+                    this.announceUpgradeFailure(data);
+                    this.livewireFailures = 0;
+                    if (data.status === 'in_progress') {
+                        this.currentStep = this.mapStepToUI(data.step);
+                        this.backendStep = Number(data.step) || 0;
+                        this.currentStatus = data.message;
+                    } else if (data.status === 'complete') {
+                        this.showSuccess();
+                    } else if (data.status === 'error') {
+                        this.showError(data.message);
+                    } else if (data.status === 'none' && this.instanceWentDown) {
+                        this.revive();
+                        await this.probeHealth();
+                    }
+                } catch (error) {
+                    this.livewireFailures++;
+                    if (this.livewireFailures < 3) {
+                        this.currentStatus = 'Reconnecting. This is expected during an upgrade...';
+                    } else if (!this.serviceDown) {
+                        console.log('Livewire unavailable, switching to health check mode');
+                        this.serviceDown = true;
+                        this.instanceWentDown = true;
+                        this.currentStep = 4;
+                        this.backendStep = 5;
+                        this.currentStatus = 'Coolify is restarting with the new version...';
+                        if (this.checkUpgradeStatusInterval) {
+                            clearInterval(this.checkUpgradeStatusInterval);
+                            this.checkUpgradeStatusInterval = null;
+                        }
+                        this.revive();
+                    }
+                }
+                if (this.showUpgradeLog) {
+                    await this.refreshUpgradeLog();
+                }
             },
 
             upgrade() {
                 if (this.checkUpgradeStatusInterval) return true;
                 this.currentStep = 1;
+                this.backendStep = 0;
                 this.currentStatus = 'Starting upgrade...';
                 this.serviceDown = false;
                 this.instanceWentDown = false;
                 this.livewireFailures = 0;
                 this.startHealthWatch();
 
-                // Poll upgrade status via Livewire
-                this.checkUpgradeStatusInterval = setInterval(async () => {
-                    try {
-                        const data = await this.$wire.getUpgradeStatus();
-                        this.livewireFailures = 0;
-                        if (data.status === 'in_progress') {
-                            this.currentStep = this.mapStepToUI(data.step);
-                            this.currentStatus = data.message;
-                        } else if (data.status === 'complete') {
-                            this.showSuccess();
-                        } else if (data.status === 'error') {
-                            this.showError(data.message);
-                        } else if (data.status === 'none' && this.instanceWentDown) {
-                            this.revive();
-                            await this.probeHealth();
-                        }
-                    } catch (error) {
-                        this.livewireFailures++;
-                        if (this.livewireFailures < 3) {
-                            this.currentStatus = 'Reconnecting. This is expected during an upgrade...';
-                            return;
-                        }
-                        // Repeated Livewire failures usually mean the instance is restarting
-                        console.log('Livewire unavailable, switching to health check mode');
-                        if (!this.serviceDown) {
-                            this.serviceDown = true;
-                            this.instanceWentDown = true;
-                            this.currentStep = 4;
-                            this.currentStatus = 'Coolify is restarting with the new version...';
-                            if (this.checkUpgradeStatusInterval) {
-                                clearInterval(this.checkUpgradeStatusInterval);
-                                this.checkUpgradeStatusInterval = null;
-                            }
-                            this.revive();
-                        }
+                // Poll upgrade status via Livewire. One tick at a time: a slow
+                // status read must not stack requests and starve the log.
+                this.checkUpgradeStatusInterval = setInterval(() => {
+                    if (this.upgradeTickRunning) {
+                        return;
                     }
+                    this.upgradeTickRunning = true;
+                    this.readUpgradeTick().finally(() => {
+                        this.upgradeTickRunning = false;
+                    });
                 }, 2000);
             }
-        }))
-    })
+        }));
+        };
+
+        if (window.Alpine) {
+            registerUpgradeModal();
+        } else {
+            document.addEventListener('alpine:init', registerUpgradeModal);
+        }
+    })();
 </script>

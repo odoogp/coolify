@@ -13,6 +13,7 @@ use App\Notifications\Server\Unreachable;
 use App\Traits\Auditable;
 use App\Traits\HasNotificationSettings;
 use App\Traits\HasSafeStringAttribute;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -57,7 +58,16 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
         'show_boarding',
         'custom_server_limit',
         'is_mcp_server_enabled',
-        'is_build_server_fallback_enabled',
+        'getodoo_plan_id',
+        'getodoo_pricing_area_id',
+        'getodoo_plan_paid_until',
+        'getodoo_plan_billing_anchor',
+        'getodoo_plan_billing_preference',
+        'getodoo_plan_monthly_extra',
+        'getodoo_plan_recurring_starts_at',
+        'n1co_plan_id',
+        'n1co_subscription_id',
+        'n1co_subscription_status',
     ];
 
     protected $attributes = [
@@ -68,7 +78,10 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
     protected $casts = [
         'personal_team' => 'boolean',
         'is_mcp_server_enabled' => 'boolean',
-        'is_build_server_fallback_enabled' => 'boolean',
+        'getodoo_plan_paid_until' => 'date',
+        'getodoo_plan_billing_anchor' => 'date',
+        'getodoo_plan_recurring_starts_at' => 'date',
+        'getodoo_plan_monthly_extra' => 'decimal:2',
     ];
 
     protected static function booted()
@@ -302,7 +315,7 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
 
     public function members()
     {
-        return $this->belongsToMany(User::class, 'team_user', 'team_id', 'user_id')->withPivot('role');
+        return $this->belongsToMany(User::class, 'team_user', 'team_id', 'user_id')->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities', 'can_add_servers', 'can_launch_on_instance_server');
     }
 
     public function subscription()
@@ -336,6 +349,54 @@ class Team extends Model implements SendsDiscord, SendsEmail, SendsPushover, Sen
     public function isEmpty(): bool
     {
         return $this->deletionBlockers() === [];
+    }
+
+    public function getodooPlan()
+    {
+        return $this->belongsTo(GetOdooPlan::class, 'getodoo_plan_id');
+    }
+
+    /**
+     * Organization team created from a GetOdoo plan signup (buyer is the principal owner).
+     */
+    public function isGetOdooPlanTeam(): bool
+    {
+        return filled($this->getodoo_plan_id);
+    }
+
+    public function prefersPlanRecurringBilling(): bool
+    {
+        return ($this->getodoo_plan_billing_preference ?: 'once') === 'recurring';
+    }
+
+    /**
+     * Catalog plan price plus any owner-added recurring extras for this organization.
+     */
+    public function getodooPlanMonthlyAmount(): float
+    {
+        $base = (float) ($this->getodooPlan?->price ?: 0);
+        $extra = (float) ($this->getodoo_plan_monthly_extra ?: 0);
+
+        return round($base + $extra, 2);
+    }
+
+    public function planRecurringBillingStartsAt(): ?CarbonInterface
+    {
+        if (! $this->prefersPlanRecurringBilling()) {
+            return null;
+        }
+
+        return $this->getodoo_plan_recurring_starts_at ?? $this->getodoo_plan_paid_until;
+    }
+
+    public function getodooPricingArea()
+    {
+        return $this->belongsTo(GetOdooPricingArea::class, 'getodoo_pricing_area_id');
+    }
+
+    public function getodooPlanOrders()
+    {
+        return $this->hasMany(GetOdooPlanOrder::class);
     }
 
     public function projects()

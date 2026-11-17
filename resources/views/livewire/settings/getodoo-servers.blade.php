@@ -1,0 +1,362 @@
+<div>
+    <x-slot:title>
+        {{ __('GetOdoo servers | Coolify') }}
+    </x-slot>
+
+    <x-settings.layout>
+        <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('Hetzner account') }}"
+                description="{{ __('Choose a Hetzner token. Sold servers are created in that account.') }}">
+                @if ($tokens->isEmpty())
+                    <p class="mb-4 text-sm text-neutral-500 dark:text-fg-faint">
+                        {{ __('Add the Hetzner token first. Sold servers are created in that account.') }}
+                    </p>
+                    <livewire:security.cloud-provider-token-form provider="hetzner" wire:key="getodoo-hetzner-token" />
+                @else
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        @foreach ($tokens as $token)
+                            <button type="button" wire:key="getodoo-token-{{ $token->id }}"
+                                wire:click="selectToken({{ $token->id }})"
+                                @class([
+                                    'flex min-h-24 flex-col rounded-xl border p-3 text-left',
+                                    'border-coollabs ring-1 ring-coollabs' => (int) $tokenId === (int) $token->id,
+                                    'border-neutral-200 dark:border-white/10' => (int) $tokenId !== (int) $token->id,
+                                ])>
+                                <span class="text-sm font-semibold">{{ $token->name }}</span>
+                                <span class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                    {{ $token->description ?: __('Sold servers are created with this token.') }}
+                                </span>
+                            </button>
+                        @endforeach
+                    </div>
+                    <div class="mt-4">
+                        <x-modal-input title="{{ __('Add token') }}">
+                            <x-slot:content>
+                                <button type="button" class="button">{{ __('Add token') }}</button>
+                            </x-slot:content>
+                            <livewire:security.cloud-provider-token-form :modal_mode="true" provider="hetzner"
+                                wire:key="getodoo-hetzner-token-modal" />
+                        </x-modal-input>
+                    </div>
+                @endif
+            </x-application.settings-section>
+
+            <x-application.settings-section title="Wompi"
+                description="{{ __('Wompi charges this monthly price before the server is created. Leave the credentials empty and the server is created as soon as it is requested.') }}">
+                <form wire:submit="saveWompi" class="grid max-w-xl gap-4">
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Client ID') }}</span>
+                        <input id="wompiClientId" type="text" wire:model="wompiClientId" autocomplete="off"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('wompiClientId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API secret') }}</span>
+                        <input id="wompiClientSecret" type="password" wire:model="wompiClientSecret" autocomplete="new-password"
+                            placeholder="{{ $wompiReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('wompiClientSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="n1co"
+                description="{{ __('n1co charges this price before the server or the plan is created. Sandbox uses your test account. Leave a secret empty to keep the one already saved.') }}">
+                <form wire:submit="saveN1co" class="grid max-w-xl gap-4">
+                    <p class="text-[13px] leading-5 text-neutral-500 dark:text-fg-dim">
+                        {{ __('The secret key is under Settings, developer options, Checkout link. Generate the webhook secret on the Webhook screen. The n1co store must charge in US dollars.') }}
+                        {{ __('A plan can be paid with Wompi, with n1co, or with both, whichever has its credentials saved.') }}
+                    </p>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Secret key') }}</span>
+                        <input id="n1coSecret" type="password" wire:model="n1coSecret" autocomplete="new-password"
+                            placeholder="{{ $n1coReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('n1coSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Webhook secret') }}</span>
+                        <input id="n1coWebhookSecret" type="password" wire:model="n1coWebhookSecret" autocomplete="new-password"
+                            placeholder="{{ $n1coReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('n1coWebhookSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input id="n1coSandbox" type="checkbox" wire:model="n1coSandbox" class="rounded">
+                        <span>{{ __('Sandbox') }}</span>
+                    </label>
+                    <label class="flex items-center gap-2 text-sm">
+                        <input id="n1coCharges" type="checkbox" wire:model="n1coCharges" class="rounded">
+                        <span>{{ __('Use n1co for charges') }}</span>
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('How servers are charged') }}</span>
+                        <select id="n1coServerChargeMode" wire:model.live="n1coServerChargeMode"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                            <option value="once">{{ __('One-time payment') }}</option>
+                            <option value="subscription">{{ __('Monthly subscription') }}</option>
+                            <option value="hybrid">{{ __('Hybrid (first payment once, then optional recurring)') }}</option>
+                        </select>
+                        <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            @if ($n1coServerChargeMode === 'hybrid')
+                                {{ __('The first charge is always a one-time payment. On Billing, the client can turn on recurring for the next invoice without being charged again that day. That choice is kept on the server.') }}
+                            @elseif ($n1coServerChargeMode === 'subscription')
+                                {{ __('A subscription asks n1co to charge the server again every month from the first payment.') }}
+                            @else
+                                {{ __('Every invoice is a one-time payment link. The client can still opt into recurring later from Billing.') }}
+                            @endif
+                        </span>
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API client id') }}</span>
+                        <input id="n1coClientId" type="text" wire:model="n1coClientId" autocomplete="off"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('From the n1co portal, Configuration, then API. A monthly subscription uses this client, not the checkout link secret.') }}
+                        </span>
+                        @error('n1coClientId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API client secret') }}</span>
+                        <input id="n1coClientSecret" type="password" wire:model="n1coClientSecret" autocomplete="new-password"
+                            placeholder="{{ filled($n1coClientId) ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('n1coClientSecret')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('n1co branch id') }}</span>
+                        <input id="n1coLocationId" type="number" min="1" wire:model="n1coLocationId"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        <span class="text-[11px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Required for monthly subscriptions. In the n1co portal open Configuration, then Branches. It is the location id, not the location code.') }}
+                        </span>
+                        @error('n1coLocationId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <div class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-white/[0.03]">
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Webhook URL') }}</p>
+                        <p class="mt-1 break-all font-mono text-[12px] text-neutral-800 dark:text-fg">{{ route('getodoo.n1co.webhook') }}</p>
+                        <p class="mt-1 text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Paste this URL in n1co under Settings, then Webhook.') }}
+                        </p>
+                    </div>
+                    @if ($n1coSandbox)
+                        <p class="text-[12px] leading-4 text-neutral-500 dark:text-fg-dim">
+                            {{ __('Sandbox test card: Visa 4000056655665556, any CVC, any future date. A successful test payment creates the server or the account.') }}
+                        </p>
+                    @endif
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('Bank transfer') }}"
+                description="{{ __('Shown when Wompi and n1co are not ready. Without a payment method the server cannot be bought.') }}">
+                <form wire:submit="saveN1co" class="grid max-w-xl gap-4">
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Bank details') }}</span>
+                        <textarea id="bankTransferInstructions" wire:model="bankTransferInstructions" rows="5"
+                            class="rounded-md border border-neutral-300 bg-white px-2 py-2 text-sm dark:border-white/15 dark:bg-transparent"
+                            placeholder="{{ __('Bank, account number, account name') }}"></textarea>
+                        @error('bankTransferInstructions')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('GetOdoo servers') }}"
+                description="{{ __('Fetch only the Hetzner servers that can be created right now, set a markup, and choose which ones admins can launch.') }}">
+                @if ($selectedToken)
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button type="button" class="button button-highlighted" wire:click="refreshConnection"
+                            wire:loading.attr="disabled" wire:target="refreshConnection">
+                            {{ __('Update connection') }}
+                        </button>
+                        <span class="text-sm text-neutral-500 dark:text-fg-faint">
+                            {{ $selectedToken->name }}
+                        </span>
+                    </div>
+                @else
+                    <p class="text-sm text-neutral-500 dark:text-fg-faint">
+                        {{ __('Add the Hetzner token first. Sold servers are created in that account.') }}
+                    </p>
+                @endif
+            </x-application.settings-section>
+
+            <x-application.settings-section title="{{ __('Resale') }}"
+                description="{{ __('Hetzner prices are euros before tax. The suggested price adds tax, the €1 IPv4, converts to dollars, then adds your percentage.') }}">
+                <form wire:submit="saveOffers" class="flex flex-col gap-4">
+                    <div class="grid max-w-3xl grid-cols-1 gap-4 sm:grid-cols-3">
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="inline-flex items-center gap-1">
+                                {{ __('EUR to USD') }}
+                                <x-helper label="{{ __('How euros become dollars') }}"
+                                    :helper="e(__('You set this factor. Right now 1 euro equals :rate dollars. It is not read from a bank. The cost in dollars is the cost in euros multiplied by this number.', ['rate' => number_format((float) $eurUsd, 4)]))" />
+                            </span>
+                            <input id="eurUsd" type="number" min="0.0001" step="0.0001" wire:model.live="eurUsd"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                            <span class="text-[11px] text-neutral-500 dark:text-fg-faint">1 EUR = {{ number_format((float) $eurUsd, 4) }} USD</span>
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="inline-flex items-center gap-1">
+                                {{ __('Tax percent') }}
+                                <x-helper label="{{ __('How tax is added') }}"
+                                    :helper="e(__('Hetzner adds tax on top of the server and the IPv4. The cost in euros is the Hetzner price plus 1 euro for IPv4, then :tax% tax. Nothing is subtracted.', ['tax' => number_format((float) $taxPercent, 2)]))" />
+                            </span>
+                            <input id="taxPercent" type="number" min="0" step="0.01" wire:model.live="taxPercent"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        </label>
+                        <label class="flex flex-col gap-1 text-sm">
+                            <span class="inline-flex items-center gap-1">
+                                {{ __('Margin') }}
+                                <x-helper label="{{ __('How the margin changes the price') }}"
+                                    :helper="e(__('This global margin updates lines that are not published. A published line keeps its own margin. Turn off Available for admins before changing that line.'))" />
+                            </span>
+                            <input id="marginPercent" type="number" min="0" step="0.01" wire:model.live="marginPercent"
+                                class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        </label>
+                    </div>
+                    <p class="text-[11px] leading-5 text-neutral-500 dark:text-fg-faint">
+                        {{ __('Cost in euros is the Hetzner price plus €1 for IPv4, then tax. Dollars are that cost times the factor. The suggested price adds your percentage on top.') }}
+                        {{ __('A published line keeps its margin. The global margin only changes lines that are not available for admins.') }}
+                    </p>
+                    @if ($offers->isEmpty())
+                        <p class="text-sm text-neutral-500 dark:text-fg-faint">
+                            {{ __('No Hetzner servers yet. Update the connection to fetch them.') }}
+                        </p>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full min-w-[52rem] text-left text-sm">
+                                <thead>
+                                    <tr class="border-b border-neutral-200 text-[11px] tracking-wide text-neutral-500 uppercase dark:border-white/10 dark:text-fg-faint">
+                                        <th class="px-2 py-2 font-medium">{{ __('Server') }}</th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Hetzner price') }}
+                                                <x-helper label="{{ __('What the Hetzner price is') }}"
+                                                    :helper="e(__('The Hetzner price in euros, before tax and before the IPv4 charge.'))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Cost in euros') }}
+                                                <x-helper label="{{ __('What is added in euros') }}"
+                                                    :helper="e(__('Adds 1 euro for IPv4, then adds :tax% tax on that sum. Nothing is subtracted.', ['tax' => number_format((float) $taxPercent, 2)]))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Cost in dollars') }}
+                                                <x-helper label="{{ __('How euros become dollars') }}"
+                                                    :helper="e(__('You set this factor. Right now 1 euro equals :rate dollars. It is not read from a bank. The cost in dollars is the cost in euros multiplied by this number.', ['rate' => number_format((float) $eurUsd, 4)]))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">
+                                            <span class="inline-flex items-center gap-1">
+                                                {{ __('Suggested price') }}
+                                                <x-helper label="{{ __('How the margin changes the price') }}"
+                                                    :helper="e(__('Each line can use its own margin. Once it is available for admins, that margin stays until you turn the line off.'))" />
+                                            </span>
+                                        </th>
+                                        <th class="px-2 py-2 font-medium">{{ __('Available for admins') }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($offers as $offer)
+                                        @php
+                                            $published = (bool) ($available[$offer->id] ?? false) && $offer->in_stock;
+                                            $lineMargin = (float) ($lineMargins[$offer->id] ?? $marginPercent);
+                                            $sameMargin = $offer->margin_percent !== null && abs((float) $offer->margin_percent - $lineMargin) < 0.01;
+                                        @endphp
+                                        <tr @class([
+                                            'border-b border-neutral-100 dark:border-white/5',
+                                            'getodoo-offer-published' => $published,
+                                        ]) style="{{ $published ? 'background: rgba(47, 196, 122, 0.16); box-shadow: inset 3px 0 0 #2fc47a;' : '' }}" wire:key="getodoo-offer-{{ $offer->id }}">
+                                            <td class="px-2 py-3">
+                                                <div class="font-medium text-black dark:text-fg">{{ $offer->description ?: $offer->name }}</div>
+                                                <div class="text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                    {{ $offer->cores }} vCPU · {{ (float) $offer->memory }} GB · {{ $offer->disk }} GB
+                                                    @unless ($offer->in_stock)
+                                                        · {{ __('Out of stock') }}
+                                                    @endunless
+                                                </div>
+                                                <label class="mt-2 flex flex-col gap-1 text-[11px] font-normal text-neutral-500 dark:text-fg-faint">
+                                                    <span>{{ __('Description') }}</span>
+                                                    <textarea id="summary-{{ $offer->id }}" rows="2" maxlength="280"
+                                                        wire:model="summaries.{{ $offer->id }}"
+                                                        placeholder="{{ $offer->defaultCustomerSummary() }}"
+                                                        class="w-full min-w-48 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm text-black dark:border-white/15 dark:bg-transparent dark:text-fg"></textarea>
+                                                    <span>{{ __('Leave the description empty and the customer sees the suggested sentence.') }}</span>
+                                                </label>
+                                            </td>
+                                            <td class="px-2 py-3">{{ number_format((float) $offer->monthly_price, 2) }} EUR</td>
+                                            <td class="px-2 py-3">{{ number_format($pricing->costEur((float) $offer->monthly_price), 2) }} EUR</td>
+                                            <td class="px-2 py-3">{{ number_format($pricing->costUsd((float) $offer->monthly_price), 2) }} USD</td>
+                                            <td class="px-2 py-3 font-medium">
+                                                {{ number_format($this->suggestedUsd((float) $offer->monthly_price, $offer->id), 2) }} USD
+                                                <label class="mt-1 flex items-center gap-1 text-[11px] font-normal text-neutral-500 dark:text-fg-faint">
+                                                    <span>{{ __('Margin') }}</span>
+                                                    <input id="margin-{{ $offer->id }}" type="number" min="0" step="0.01"
+                                                        wire:model.live="lineMargins.{{ $offer->id }}" @disabled($published)
+                                                        title="{{ $published ? __('Uncheck Available for admins before changing this margin.') : '' }}"
+                                                        class="h-8 w-20 rounded-md border border-neutral-300 bg-white px-2 text-sm text-black disabled:cursor-not-allowed disabled:opacity-70 dark:border-white/15 dark:bg-transparent dark:text-fg">
+                                                    <span>%</span>
+                                                </label>
+                                            </td>
+                                            <td class="px-2 py-3">
+                                                <div class="flex items-center gap-2">
+                                                    <input id="available-{{ $offer->id }}" type="checkbox"
+                                                        wire:model.live="available.{{ $offer->id }}" @disabled(! $offer->in_stock)
+                                                        class="size-4 rounded border-neutral-300">
+                                                    @if ($published)
+                                                        <span class="inline-flex items-center gap-1.5 text-[11px] font-medium" style="color: #1f9d57;">
+                                                            <span class="getodoo-published-light" aria-hidden="true" style="display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 999px; background: #2fc47a; box-shadow: 0 0 0 3px rgba(47, 196, 122, 0.35);"></span>
+                                                            {{ __('Published') }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                                @if ($published && $offer->available_since && $sameMargin)
+                                                    <div class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                        {{ __('Available since :date', ['date' => $offer->available_since->timezone(config('app.timezone'))->locale(app()->getLocale())->isoFormat('D MMM YYYY, HH:mm')]) }}
+                                                    </div>
+                                                @elseif ($published)
+                                                    <div class="mt-1 text-[11px] text-neutral-500 dark:text-fg-faint">
+                                                        {{ __('The date is saved when you publish.') }}
+                                                    </div>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+        </div>
+    </x-settings.layout>
+</div>

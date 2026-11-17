@@ -2,7 +2,7 @@
     @php
         $databasePageItems = [
             [
-                'label' => 'Settings',
+                'label' => __('Settings'),
                 'route' => 'project.database.configuration',
                 'active' => request()->routeIs('project.database.configuration')
                     || request()->routeIs('project.database.environment-variables')
@@ -18,23 +18,23 @@
                     || request()->routeIs('project.database.danger'),
             ],
             [
-                'label' => 'Backups',
+                'label' => __('Backups'),
                 'route' => 'project.database.backup.index',
                 'active' => request()->routeIs('project.database.backup.*'),
                 'visible' => $database->isBackupSolutionAvailable(),
             ],
             [
-                'label' => 'Runtime Logs',
+                'label' => __('Runtime Logs'),
                 'route' => 'project.database.logs',
                 'active' => request()->routeIs('project.database.logs'),
                 'navigate' => false,
             ],
             [
-                'label' => 'Terminal',
+                'label' => __('Terminal'),
                 'route' => 'project.database.command',
                 'active' => request()->routeIs('project.database.command'),
                 'navigate' => false,
-                'visible' => auth()->user()?->can('canAccessTerminal'),
+                'visible' => auth()->user()?->canOpenTerminal($database),
             ],
         ];
 
@@ -64,41 +64,68 @@
                 <h1 class="min-w-0 max-w-full truncate text-[24px]! leading-7! font-semibold! tracking-tight! text-black dark:text-fg">
                     {{ $database->name }}
                 </h1>
-                <div class="relative flex w-full min-w-0 items-center gap-2">
-                    <x-status-summary :status="$database->status" title="Database status"
-                        :healthcheck-url="route('project.database.healthcheck', $parameters)" />
-                    @if ($isDeploymentProgress)
-                        <x-deploying-indicator label="Working" />
-                    @endif
-                </div>
-                <div class="flex w-full flex-wrap gap-1">
-                    <x-application.restart-limit-warning :application="$database" />
-                </div>
+                <x-status-summary :status="$database->status" title="{{ __('Database status') }}" />
             </div>
         </div>
 
         <div class="w-full xl:hidden">
             @if ($database->destination->server->isFunctional())
                 @can('manage', $database)
-                    <x-split-action id="database-mobile-actions" class="mb-3 flex w-full">
+                <div id="database-mobile-actions" class="relative mb-3"
+                    x-data="{ open: false }" @click.outside="open = false"
+                    @keydown.escape.window="open = false">
+                    <button type="button" class="button w-full justify-between" @click="open = !open"
+                        :aria-expanded="open" aria-haspopup="menu">
+                        <span class="inline-flex items-center gap-2">
+                            {{ __('Actions') }}
+                        </span>
+                        <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
+                            <x-reicon name="chevron-down" class="size-3 opacity-55" />
+                        </span>
+                    </button>
+
+                    <div x-cloak x-show="open" x-transition.origin.top.left
+                        class="listbox-panel top-full! left-0! right-0! mt-1! w-full! min-w-0!" role="menu">
                         @if (! $databaseStatus->startsWith('exited'))
-                            <x-slot:main x-bind:disabled="busy"
-                                @click="document.getElementById('database-restart-trigger')?.click()">
-                                <x-loading-on-button x-show="busy" x-cloak />
-                                <x-reicon name="restart" class="size-3.5" x-show="!busy" />
-                                <span x-text="busy ? 'Restarting…' : 'Restart'">Restart</span>
-                            </x-slot:main>
-                            <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                @click="open = false; document.getElementById('database-stop-trigger')?.click()" role="menuitem">
-                                <x-reicon name="stop-circle" class="size-3.5 text-error" />
-                                Stop
-                            </button>
+                            @can('manage', $database)
+                                <button type="button" class="listbox-option justify-start! gap-2.5!"
+                                    @click="open = false; document.getElementById('database-restart-trigger')?.click()"
+                                    role="menuitem">
+                                    <x-reicon name="restart" class="size-3.5 opacity-70" />
+                                    {{ __('Restart') }}
+                                </button>
+                                <button type="button" class="listbox-option justify-start! gap-2.5!"
+                                    @click="open = false; document.getElementById('database-stop-trigger')?.click()"
+                                    role="menuitem">
+                                    <x-reicon name="stop" class="size-3.5 text-error" />
+                                    {{ __('Stop') }}
+                                </button>
+                            @else
+                                <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
+                                    role="menuitem">
+                                    <x-reicon name="restart" class="size-3.5 opacity-70" />
+                                    {{ __('Restart') }}
+                                </button>
+                                <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
+                                    role="menuitem">
+                                    <x-reicon name="stop" class="size-3.5 opacity-70" />
+                                    {{ __('Stop') }}
+                                </button>
+                            @endcan
                         @else
-                            <x-slot:main x-bind:disabled="busy" @click="busy = true; $wire.dispatch('startEvent')">
-                                <x-loading-on-button x-show="busy" x-cloak />
-                                <x-reicon name="play-circle" class="size-3.5" x-show="!busy" />
-                                <span x-text="busy ? 'Starting…' : 'Start'">Start</span>
-                            </x-slot:main>
+                            @can('manage', $database)
+                                <button type="button" class="listbox-option justify-start! gap-2.5!"
+                                    @click="open = false; $wire.dispatch('startEvent')" role="menuitem">
+                                    <x-reicon name="play-circle" class="size-3.5 opacity-70" />
+                                    {{ __('Start') }}
+                                </button>
+                            @else
+                                <button type="button" class="listbox-option justify-start! gap-2.5!" disabled
+                                    role="menuitem">
+                                    <x-reicon name="play-circle" class="size-3.5 opacity-70" />
+                                    {{ __('Start') }}
+                                </button>
+                            @endcan
                         @endif
                     </x-split-action>
                 @endcan
@@ -116,27 +143,25 @@
                     @endif
                     @if ($database->destination->server->isFunctional())
                         @can('manage', $database)
-                            <x-split-action id="database-desktop-actions">
-                                @if (! $databaseStatus->startsWith('exited'))
-                                    <x-slot:main x-bind:disabled="busy"
-                                        @click="document.getElementById('database-restart-trigger')?.click()">
-                                        <x-loading-on-button x-show="busy" x-cloak />
-                                        <x-reicon name="restart" class="size-3.5" x-show="!busy" />
-                                        <span x-text="busy ? 'Restarting…' : 'Restart'">Restart</span>
-                                    </x-slot:main>
-                                    <button type="button" class="listbox-option justify-start! gap-2.5!"
-                                        @click="open = false; document.getElementById('database-stop-trigger')?.click()" role="menuitem">
-                                        <x-reicon name="stop-circle" class="size-3.5 text-error" />
-                                        Stop
-                                    </button>
-                                @else
-                                    <x-slot:main x-bind:disabled="busy" @click="busy = true; $wire.dispatch('startEvent')">
-                                        <x-loading-on-button x-show="busy" x-cloak />
-                                        <x-reicon name="play-circle" class="size-3.5" x-show="!busy" />
-                                        <span x-text="busy ? 'Starting…' : 'Start'">Start</span>
-                                    </x-slot:main>
-                                @endif
-                            </x-split-action>
+                        <div id="database-desktop-actions" class="flex items-center gap-0.5">
+                            @if (! $databaseStatus->startsWith('exited'))
+                                <button type="button" class="button button-highlighted"
+                                    @disabled(!auth()->user()->can('manage', $database))
+                                    @click="document.getElementById('database-restart-trigger')?.click()">
+                                    {{ __('Restart') }}
+                                </button>
+                                <button type="button" class="button"
+                                    @disabled(!auth()->user()->can('manage', $database))
+                                    @click="document.getElementById('database-stop-trigger')?.click()">
+                                    {{ __('Stop') }}
+                                </button>
+                            @else
+                                <x-forms.button class="button-highlighted" canGate="manage" :canResource="$database"
+                                    @click="$wire.dispatch('startEvent')">
+                                    {{ __('Start') }}
+                                </x-forms.button>
+                            @endif
+                        </div>
                         @endcan
                     @else
                         <x-status-badge status="Server unavailable" type="error" />
@@ -150,17 +175,17 @@
 
     @if ($database->destination->server->isFunctional())
         <div class="hidden" aria-hidden="true">
-            <x-modal-confirmation title="Confirm Database Restart?" buttonTitle="Restart"
+            <x-modal-confirmation title="{{ __('Confirm Database Restart?') }}" buttonTitle="Restart"
                 submitAction="restartEvent" :actions="[
                     'This database will be unavailable during the restart.',
                     'If the database is currently in use, data could be lost.',
                 ]" :confirmWithText="false" :confirmWithPassword="false" step2ButtonText="Restart Database"
                 :dispatchAction="true">
                 <x-slot:trigger>
-                    <button id="database-restart-trigger" type="button">Restart</button>
+                    <button id="database-restart-trigger" type="button">{{ __('Restart') }}</button>
                 </x-slot:trigger>
             </x-modal-confirmation>
-            <x-modal-confirmation title="Confirm Database Stopping?" buttonTitle="Stop" submitAction="stop"
+            <x-modal-confirmation title="{{ __('Confirm Database Stopping?') }}" buttonTitle="Stop" submitAction="stop"
                 :checkboxes="$checkboxes" :actions="[
                     'This database will be stopped.',
                     'If the database is currently in use, data could be lost.',
@@ -168,7 +193,7 @@
                 ]" :confirmWithText="false" :confirmWithPassword="false"
                 step1ButtonText="Continue" step2ButtonText="Confirm">
                 <x-slot:trigger>
-                    <button id="database-stop-trigger" type="button">Stop</button>
+                    <button id="database-stop-trigger" type="button">{{ __('Stop') }}</button>
                 </x-slot:trigger>
             </x-modal-confirmation>
         </div>

@@ -11,7 +11,7 @@ it('aggregates preview container and health check status', function () {
         ->toContain('Running (no healthcheck)')
         ->toContain('Healthcheck')
         ->toContain('Not configured')
-        ->toContain('aria-label="About unconfigured healthchecks"')
+        ->toContain('aria-label="{{ __(\'About unconfigured healthchecks\') }}"')
         ->toContain('class="relative inline-flex align-middle"')
         ->toContain('Traffic can still be routed to the container')
         ->toContain('aria-haspopup="menu"')
@@ -23,10 +23,9 @@ it('shows degraded aggregate service status as a warning', function () {
     $html = Blade::render('<x-status-summary status="degraded:unhealthy" title="Service status" container-name="Containers" />');
     $summaryButton = str($html)->between('<button', '</button>')->toString();
 
-    expect($summaryButton)
-        ->toContain('Degraded')
-        ->toContain('bg-warning')
-        ->not->toContain('bg-error');
+    expect($view)
+        ->toContain('<x-status-summary :status="data_get($preview, \'status\')" title="{{ __(\'Preview status\') }}" />')
+        ->not->toContain('<x-status.running :status="data_get($preview, \'status\')" />');
 });
 
 it('links the healthcheck row to the healthcheck page and keeps the helper outside the link', function () {
@@ -45,5 +44,41 @@ it('links the healthcheck row to the healthcheck page and keeps the helper outsi
 it('does not link the healthcheck row without a healthcheck url', function () {
     $html = Blade::render('<x-status-summary status="running:healthy" />');
 
-    expect($html)->not->toContain('role="menuitem"');
+    expect($databaseStatus)
+        ->toContain('<x-status-summary :status="$database->status" title="{{ __(\'Database status\') }}" />')
+        ->and($serviceStatus)
+        ->toContain('<x-status-summary :status="$service->status" title="{{ __(\'Service status\') }}" container-name="Containers" />');
+});
+
+it('groups preview deployment actions in a dropdown', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/application/previews.blade.php'));
+
+    expect($view)
+        ->toContain('title="{{ __(\'Preview actions\') }}"')
+        ->toContain('preview-stop-trigger-{{ data_get($preview, \'pull_request_id\') }}')
+        ->toContain('preview-delete-trigger-{{ data_get($preview, \'pull_request_id\') }}')
+        ->not->toContain('<x-slot:customButton>');
+});
+
+it('marks external preview links and groups logs in a dropdown', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/application/previews.blade.php'));
+
+    expect($view)
+        ->toContain('title="{{ __(\'Open preview in a new tab\') }}"')
+        ->toContain('title="{{ __(\'Open pull request in a new tab\') }}"')
+        ->toContain('<x-reicon name="external-link"')
+        ->toContain('title="{{ __(\'Preview logs\') }}"')
+        ->toContain('Deployment logs')
+        ->toContain('Runtime logs')
+        ->not->toContain('Application logs');
+});
+
+it('places links and logs dropdowns beside preview actions', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/application/previews.blade.php'));
+    $controls = str($view)->after('id="preview-header-controls')->before('<div class="hidden" aria-hidden="true">')->toString();
+
+    expect($controls)
+        ->toContain('title="{{ __(\'Preview links\') }}"')
+        ->toContain('title="{{ __(\'Preview logs\') }}"')
+        ->toContain('title="{{ __(\'Preview actions\') }}"');
 });

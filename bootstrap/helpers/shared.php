@@ -32,6 +32,7 @@ use App\Models\StandaloneSqlite;
 use App\Models\SwarmDocker;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\ServiceTemplateCatalog;
 use Carbon\CarbonImmutable;
 use DanHarrin\LivewireRateLimiting\Exceptions\TooManyRequestsException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -561,6 +562,11 @@ function isInstanceAdmin()
     return auth()?->user()?->isInstanceAdmin() ?? false;
 }
 
+function isInstanceOwner(): bool
+{
+    return auth()->user()?->isInstanceOwner() ?? false;
+}
+
 function currentTeam()
 {
     return Auth::user()?->currentTeam() ?? null;
@@ -970,48 +976,70 @@ function isDev(): bool
     return config('app.env') === 'local';
 }
 
-/**
- * Path that the Docker daemon of $server must use as a bind mount source for $path, a path that Coolify
- * writes through SSH (below base_configuration_dir()).
- *
- * Only the development `testing-host` server needs a different path (Server::sharesDevHostDocker()):
- * it writes to Docker named volumes, but it starts containers on the host Docker daemon. The returned
- * paths match its mounts in docker-compose.dev*.yml:
- * - /data/coolify/backups/... -> /var/lib/docker/volumes/<DEV_COOLIFY_BACKUPS_VOLUME>/_data/...
- * - /data/coolify/...         -> /var/lib/docker/volumes/<DEV_COOLIFY_DATA_VOLUME>/_data/...
- *
- * For all other servers (production, dev KVM VMs, remote servers) the function returns $path unchanged.
- */
-function devHostDockerPath(?Server $server, string $path): string
+function is_coolify_local_build(): bool
 {
-    if (! $server?->sharesDevHostDocker()) {
-        return $path;
+    if (filter_var(config('constants.coolify.local_build'), FILTER_VALIDATE_BOOLEAN)) {
+        return true;
     }
 
-    $mounts = [
-        backup_dir() => devDockerVolumeDataPath('constants.coolify.dev_backups_volume', 'coolify_dev_backups_data'),
-        base_configuration_dir() => devDockerVolumeDataPath('constants.coolify.dev_data_volume', 'coolify_dev_coolify_data'),
-    ];
-    foreach ($mounts as $containerPath => $hostPath) {
-        if ($path === $containerPath || str_starts_with($path, $containerPath.'/')) {
-            return $hostPath.substr($path, strlen($containerPath));
-        }
-    }
+    $image = (string) config('constants.coolify.image');
 
-    return $path;
+    return $image === 'coolify-custom:local' || str_ends_with($image, '/coolify-custom:local');
 }
 
-/**
- * Host path of a development Docker volume. An invalid volume name falls back to the legacy name.
- */
-function devDockerVolumeDataPath(string $configKey, string $fallbackVolume): string
+function product_name(): string
 {
-    $volume = (string) config($configKey);
-    if (preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/', $volume) !== 1) {
-        $volume = $fallbackVolume;
+    try {
+        $name = trim((string) instanceSettings()->instance_name);
+    } catch (Throwable $exception) {
+        $name = '';
     }
 
-    return "/var/lib/docker/volumes/{$volume}/_data";
+    return $name !== '' ? $name : 'getcloud.sh';
+}
+
+function product_logo_path(): ?string
+{
+    try {
+        $path = trim((string) instanceSettings()->platform_logo);
+    } catch (Throwable $exception) {
+        return null;
+    }
+
+    if ($path === '' || str_contains($path, '..') || ! str_starts_with($path, 'brand/platform-logo.')) {
+        return null;
+    }
+
+    return is_file(public_path($path)) ? $path : null;
+}
+
+function product_logo_url(): string
+{
+    $path = product_logo_path();
+
+    return $path !== null ? asset($path) : asset('brand/getodoo-isologo.png');
+}
+
+function product_mark_url(): string
+{
+    $path = product_logo_path();
+
+    return $path !== null ? asset($path) : asset('gpsh-logo.svg');
+}
+
+function product_description(): string
+{
+    return __('Launch Odoo — and almost any service — on your own servers, in one click.');
+}
+
+function product_og_image_url(): string
+{
+    return url('/brand/og.png');
+}
+
+function product_text(string $text): string
+{
+    return str_replace('Coolify', product_name(), __($text));
 }
 
 function isCloud(): bool
@@ -1549,6 +1577,48 @@ function get_service_templates_fetched_at(): ?CarbonImmutable
 
 function get_service_templates(bool $force = false): Collection
 {
+    return ServiceTemplateCatalog::apply(service_templates_from_catalog($force));
+}
+
+/**
+ * Templates shipped with this fork. The CDN sync replaces service-templates-latest.json,
+ * so these entries are merged back in when the downloaded catalog does not include them.
+ */
+function service_templates_extra_path(): string
+{
+    return base_path('templates/service-templates-extra.json');
+}
+
+function merge_extra_service_templates(Collection $templates): Collection
+{
+    $path = service_templates_extra_path();
+    if (! File::exists($path)) {
+        return $templates;
+    }
+
+    $decoded = json_decode(File::get($path));
+    if (! $decoded instanceof stdClass) {
+        return $templates;
+    }
+
+    foreach (get_object_vars($decoded) as $name => $template) {
+        if (! is_string($name) || $name === '' || $templates->has($name)) {
+            continue;
+        }
+
+        $templates->put($name, $template);
+    }
+
+    return $templates->sortKeys();
+}
+
+function service_templates_from_catalog(bool $force = false): Collection
+{
+    return merge_extra_service_templates(service_templates_from_downloaded_catalog($force));
+}
+
+function service_templates_from_downloaded_catalog(bool $force = false): Collection
+{
     if ($force) {
         try {
             $response = Http::retry(3, 1000, throw: false)
@@ -1564,7 +1634,7 @@ function get_service_templates(bool $force = false): Collection
 
             return collect(json_decode($response->body()))->sortKeys();
         } catch (Throwable) {
-            return get_service_templates();
+            return service_templates_from_downloaded_catalog();
         }
     }
 
@@ -2039,12 +2109,8 @@ function getRealtime()
     $envDefined = config('constants.pusher.port');
     if (empty($envDefined)) {
         $url = Url::fromString(Request::getSchemeAndHttpHost());
-        $port = $url->getPort();
-        if ($port) {
-            return '6001';
-        } else {
-            return null;
-        }
+
+        return $url->getPort();
     } else {
         return $envDefined;
     }
@@ -3232,18 +3298,14 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                         $redirectDirection = in_array(data_get($savedService, 'redirect'), ['www', 'non-www', 'both'], true)
                             ? data_get($savedService, 'redirect')
                             : 'both';
-                        $domainPortOverrides = $savedService instanceof ServiceApplication
-                            ? ($savedService->domain_port_overrides ?? [])
-                            : [];
-                        $onlyPort = $savedService instanceof ServiceApplication
-                            ? $savedService->getRequiredPort()
-                            : $predefinedPort;
+                        $proxyPort = $predefinedPort ?: containerListenPort($servicePorts, data_get($service, 'expose'));
                         if ($shouldGenerateLabelsExactly) {
                             switch ($resource->server->proxyType()) {
                                 case ProxyTypes::TRAEFIK->value:
                                     $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                                         uuid: $resource->uuid,
                                         domains: $fqdns,
+                                        onlyPort: $proxyPort,
                                         is_force_https_enabled: $savedService->isForceHttpsEnabled(),
                                         serviceLabels: $serviceLabels,
                                         is_gzip_enabled: $savedService->isGzipEnabled(),
@@ -3253,8 +3315,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                         onlyPort: $onlyPort,
                                         noindex_domains: $noindexDomains,
                                         redirect_direction: $redirectDirection,
-                                        domainPortOverrides: $domainPortOverrides,
-                                    ));
+                            tlsCertResolver: $resource->server,
+                        ));
                                     break;
                                 case ProxyTypes::CADDY->value:
                                     $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
@@ -3281,6 +3343,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                             $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                                 uuid: $resource->uuid,
                                 domains: $fqdns,
+                                onlyPort: $proxyPort,
                                 is_force_https_enabled: $savedService->isForceHttpsEnabled(),
                                 serviceLabels: $serviceLabels,
                                 is_gzip_enabled: $savedService->isGzipEnabled(),
@@ -3290,8 +3353,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                 onlyPort: $onlyPort,
                                 noindex_domains: $noindexDomains,
                                 redirect_direction: $redirectDirection,
-                                domainPortOverrides: $domainPortOverrides,
-                            ));
+                            tlsCertResolver: $resource->server,
+                        ));
                             $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                                 network: $resource->destination->network,
                                 uuid: $resource->uuid,
@@ -4056,10 +4119,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                         $redirectDirection = in_array($composeRedirect, ['www', 'non-www', 'both'], true)
                             ? $composeRedirect
                             : 'both';
-                        $domainPortOverrides = $pull_request_id === 0
-                            ? ($resource->domain_port_overrides ?? [])
-                            : ($preview?->domain_port_overrides ?? []);
-                        $onlyPort = firstDockerComposeServicePort($service);
+                        $proxyPort = containerListenPort($servicePorts, data_get($service, 'expose'));
                         if ($shouldGenerateLabelsExactly) {
                             switch ($server->proxyType()) {
                                 case ProxyTypes::TRAEFIK->value:
@@ -4067,6 +4127,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                         fqdnLabelsForTraefik(
                                             uuid: $resource->uuid,
                                             domains: $fqdns,
+                                            onlyPort: $proxyPort,
                                             serviceLabels: $serviceLabels,
                                             generate_unique_uuid: $resource->build_pack === 'dockercompose',
                                             image: data_get($service, 'image'),
@@ -4076,8 +4137,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                             onlyPort: $onlyPort,
                                             noindex_domains: $noindexDomains,
                                             redirect_direction: $redirectDirection,
-                                            domainPortOverrides: $domainPortOverrides,
-                                        )
+                            tlsCertResolver: $resource->server,
+                        )
                                     );
                                     break;
                                 case ProxyTypes::CADDY->value:
@@ -4107,6 +4168,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                 fqdnLabelsForTraefik(
                                     uuid: $resource->uuid,
                                     domains: $fqdns,
+                                    onlyPort: $proxyPort,
                                     serviceLabels: $serviceLabels,
                                     generate_unique_uuid: $resource->build_pack === 'dockercompose',
                                     image: data_get($service, 'image'),
@@ -4116,8 +4178,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                     onlyPort: $onlyPort,
                                     noindex_domains: $noindexDomains,
                                     redirect_direction: $redirectDirection,
-                                    domainPortOverrides: $domainPortOverrides,
-                                )
+                            tlsCertResolver: $resource->server,
+                        )
                             );
                             $serviceLabels = $serviceLabels->merge(
                                 fqdnLabelsForCaddy(
@@ -4839,6 +4901,29 @@ function isSafeTmpPath(?string $path): bool
  * @param  string  $status  The status string to format
  * @return string The formatted status string
  */
+function translateUiText(string $text): string
+{
+    if ($text === '') {
+        return $text;
+    }
+
+    $exact = __($text);
+
+    if ($exact !== $text) {
+        return $exact;
+    }
+
+    if (preg_match('/^(.*?) \((.*)\)$/', $text, $matches) === 1) {
+        $detail = collect(explode(', ', $matches[2]))
+            ->map(fn (string $part): string => translateUiText($part))
+            ->implode(', ');
+
+        return translateUiText($matches[1]).' ('.$detail.')';
+    }
+
+    return $text;
+}
+
 function formatContainerStatus(string $status): string
 {
     // Preserve Proxy statuses as-is (they follow different format)

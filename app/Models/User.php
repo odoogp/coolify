@@ -10,6 +10,7 @@ use App\Notifications\TransactionalEmails\ResetPassword as TransactionalEmailsRe
 use App\Services\ChangelogService;
 use App\Traits\DeletesUserSessions;
 use DateTimeInterface;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -41,9 +42,11 @@ use OpenApi\Attributes as OA;
         'marketing_emails' => ['type' => 'boolean', 'description' => 'The flag to receive marketing emails.'],
     ],
 )]
-class User extends Authenticatable implements SendsEmail
+class User extends Authenticatable implements HasLocalePreference, SendsEmail
 {
     use DeletesUserSessions, HasApiTokens, HasFactory, Notifiable, TwoFactorAuthenticatable;
+
+    private static bool $skipPersonalTeam = false;
 
     protected $fillable = [
         'name',
@@ -58,6 +61,9 @@ class User extends Authenticatable implements SendsEmail
         'avatar_path',
         'avatar_storage_type',
         'avatar_s3_storage_id',
+        'locale',
+        'country_iso',
+        'terms_accepted_at',
     ];
 
     protected $hidden = [
@@ -75,6 +81,7 @@ class User extends Authenticatable implements SendsEmail
         'force_password_reset' => 'boolean',
         'show_boarding' => 'boolean',
         'email_change_code_expires_at' => 'datetime',
+        'terms_accepted_at' => 'datetime',
     ];
 
     /**
@@ -93,11 +100,44 @@ class User extends Authenticatable implements SendsEmail
         $this->attributes['pending_email'] = $value ? strtolower($value) : null;
     }
 
+    public function preferredLocale(): string
+    {
+        $locale = $this->locale;
+
+        if (is_string($locale) && in_array($locale, config('app.supported_locales'), true)) {
+            return $locale;
+        }
+
+        return config('app.locale');
+    }
+
+    public static function withoutPersonalTeam(callable $callback): mixed
+    {
+        $previous = static::$skipPersonalTeam;
+        static::$skipPersonalTeam = true;
+
+        try {
+            return $callback();
+        } finally {
+            static::$skipPersonalTeam = $previous;
+        }
+    }
+
     protected static function boot()
     {
         parent::boot();
 
+        static::creating(function (User $user) {
+            if (! is_string($user->locale) || $user->locale === '') {
+                $user->locale = config('app.locale');
+            }
+        });
+
         static::created(function (User $user) {
+            if (static::$skipPersonalTeam && $user->id !== 0) {
+                return;
+            }
+
             $team = [
                 'name' => $user->name."'s Team",
                 'personal_team' => true,
@@ -131,6 +171,12 @@ class User extends Authenticatable implements SendsEmail
         static::deleting(function (User $user) {
             \DB::transaction(function () use ($user) {
                 RevokeUserTeamTokens::forUser($user);
+
+                // Free the email for plan signup and invites after this user is gone.
+                TeamInvitation::whereEmail($user->email)->delete();
+                if (\Illuminate\Support\Facades\Schema::hasTable('get_odoo_plan_signups')) {
+                    \App\Models\GetOdooPlanSignup::query()->where('email', strtolower((string) $user->email))->delete();
+                }
 
                 $teams = $user->teams;
                 foreach ($teams as $team) {
@@ -212,11 +258,61 @@ class User extends Authenticatable implements SendsEmail
      * Delete the user if they are not verified and have a force password reset.
      * This is used to clean up users that have been invited, did not accept the invitation (and did not verify their email and have a force password reset).
      */
-    public function deleteIfNotVerifiedAndForcePasswordReset()
+    public function deleteIfNotVerifiedAndForcePasswordReset(): void
     {
-        if ($this->hasVerifiedEmail() === false && $this->force_password_reset === true && ! TeamInvitation::whereEmail($this->email)->exists()) {
+        if ($this->isUnclaimedInvitationAccount()) {
             $this->delete();
         }
+    }
+
+    /**
+     * Invite flow creates a users row before the person joins any team.
+     * Those stubs must not permanently reserve the email for plan signup / register.
+     */
+    public function isUnclaimedInvitationAccount(): bool
+    {
+        if ((int) $this->id === 0) {
+            return false;
+        }
+
+        if ($this->force_password_reset !== true) {
+            return false;
+        }
+
+        if ($this->hasVerifiedEmail()) {
+            return false;
+        }
+
+        return ! $this->teams()->exists();
+    }
+
+    /**
+     * Free an email for public registration: remove invite-only stubs and unpaid
+     * plan-signup drafts. Real accounts (verified or on a team) are left alone.
+     */
+    public static function releaseEmailForRegistration(string $email): void
+    {
+        $email = strtolower(trim($email));
+        if ($email === '' || ! str_contains($email, '@')) {
+            return;
+        }
+
+        \DB::transaction(function () use ($email): void {
+            $user = static::query()->where('email', $email)->first();
+
+            if ($user instanceof self && $user->isUnclaimedInvitationAccount()) {
+                $user->delete();
+
+                return;
+            }
+
+            if ($user instanceof self) {
+                return;
+            }
+
+            // Invite rows without a user left behind after a failed invite cleanup.
+            TeamInvitation::whereEmail($email)->delete();
+        });
     }
 
     public function recreate_personal_team()
@@ -259,7 +355,7 @@ class User extends Authenticatable implements SendsEmail
 
     public function teams()
     {
-        return $this->belongsToMany(Team::class)->withPivot('role');
+        return $this->belongsToMany(Team::class)->withPivot('role', 'max_projects', 'max_environments', 'max_members', 'max_production_branches', 'max_staging_branches', 'max_services', 'added_by', 'github_app_id', 'odoo_abilities', 'can_add_servers', 'can_launch_on_instance_server');
     }
 
     public function changelogReads()
@@ -333,6 +429,27 @@ class User extends Authenticatable implements SendsEmail
         $role = data_get($team, 'pivot.role');
 
         return $role === 'admin' || $role === 'owner';
+    }
+
+    public function isInstanceOwner(): bool
+    {
+        return $this->teams->contains(function ($team): bool {
+            return (int) $team->id === 0 && $team->pivot->role === 'owner';
+        });
+    }
+
+    public function hasAcceptedTerms(): bool
+    {
+        return $this->terms_accepted_at !== null;
+    }
+
+    public function acceptTerms(?Carbon $at = null): void
+    {
+        if ($this->hasAcceptedTerms()) {
+            return;
+        }
+
+        $this->forceFill(['terms_accepted_at' => $at ?? now()])->save();
     }
 
     public function isInstanceAdmin()
@@ -467,6 +584,162 @@ class User extends Authenticatable implements SendsEmail
         $role = $team->pivot->role ?? null;
 
         return $role === 'admin' || $role === 'owner';
+    }
+
+    public function isOwnerOfTeam(int $teamId): bool
+    {
+        return $this->roleInTeam($teamId) === 'owner';
+    }
+
+    public function canAddServers(): bool
+    {
+        if ($this->isInstanceOwner()) {
+            return true;
+        }
+
+        // GetOdoo plan teams: owner/admin follow the plan flags on team_user.
+        if ($this->currentTeam()?->getodoo_plan_id) {
+            return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_add_servers');
+        }
+
+        if ($this->isOwner()) {
+            return true;
+        }
+
+        return $this->isAdmin() && $this->teamFlag('can_add_servers');
+    }
+
+    /**
+     * The server where this GPSH instance is installed is the localhost row, id 0.
+     */
+    public function canLaunchOnInstanceServer(): bool
+    {
+        if ($this->isInstanceOwner()) {
+            return true;
+        }
+
+        if ($this->currentTeam()?->getodoo_plan_id) {
+            return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_launch_on_instance_server');
+        }
+
+        if ($this->isOwner()) {
+            return true;
+        }
+
+        return $this->isAdmin() && $this->teamFlag('can_launch_on_instance_server');
+    }
+
+    /**
+     * Members never open a server terminal. Anyone on the team can open the Odoo shell of that team's service.
+     * The instance owner and the team owner can open any terminal.
+     * An admin only opens another instance they created or whose project or environment they created.
+     */
+    public function canOpenTerminal(mixed $resource = null): bool
+    {
+        if ($resource instanceof Service && $resource->supportsOdooJupyter() && $this->sharesTeamWith($resource)) {
+            return true;
+        }
+
+        if ($this->isMember()) {
+            return false;
+        }
+
+        if ($this->isInstanceOwner() || $this->isOwner()) {
+            return true;
+        }
+
+        if ($this->role() !== 'admin' || $resource === null) {
+            return false;
+        }
+
+        return $this->createdThisInstance($resource);
+    }
+
+    private function createdThisInstance(mixed $resource): bool
+    {
+        $id = (int) $this->id;
+
+        if ($resource instanceof Server) {
+            return Service::query()
+                ->where('server_id', $resource->id)
+                ->where(function ($query) use ($id): void {
+                    $query->where('created_by', $id)
+                        ->orWhereHas('environment', function ($environment) use ($id): void {
+                            $environment->where('created_by', $id)
+                                ->orWhereHas('project', fn ($project) => $project->where('created_by', $id));
+                        });
+                })
+                ->exists();
+        }
+
+        if ($resource instanceof Project) {
+            return (int) $resource->created_by === $id;
+        }
+
+        if ((int) data_get($resource, 'created_by') === $id) {
+            return true;
+        }
+
+        if ($resource instanceof Environment) {
+            $resource->loadMissing('project');
+
+            return (int) $resource->project?->created_by === $id;
+        }
+
+        $environment = is_object($resource) && method_exists($resource, 'environment')
+            ? $resource->environment
+            : null;
+        if (! $environment instanceof Environment) {
+            return false;
+        }
+
+        if ((int) $environment->created_by === $id) {
+            return true;
+        }
+
+        $environment->loadMissing('project');
+
+        return (int) $environment->project?->created_by === $id;
+    }
+
+    public function canUseOdooTerminal(): bool
+    {
+        $teamIds = $this->teams()->pluck('teams.id');
+        if ($teamIds->isEmpty()) {
+            return false;
+        }
+
+        return Service::query()
+            ->whereHas('environment.project', fn ($query) => $query->whereIn('team_id', $teamIds))
+            ->where('docker_compose_raw', 'like', '%odoo:%')
+            ->exists();
+    }
+
+    private function sharesTeamWith(Service $service): bool
+    {
+        if ($this->isInstanceOwner()) {
+            return true;
+        }
+
+        $service->loadMissing('environment.project');
+        $teamId = $service->environment?->project?->team_id;
+        if ($teamId === null) {
+            return false;
+        }
+
+        return $this->teams()->where('teams.id', $teamId)->exists();
+    }
+
+    private function teamFlag(string $column): bool
+    {
+        $teamId = $this->currentTeam()?->id;
+        if ($teamId === null) {
+            return false;
+        }
+
+        $value = $this->teams()->where('teams.id', $teamId)->first()?->pivot?->{$column};
+
+        return $value === true || $value === 1 || $value === '1' || $value === 't' || $value === 'true';
     }
 
     /**

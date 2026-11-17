@@ -54,3 +54,9 @@ ref
 
 # Multi-instance local Coolify env files (scripts/dev-instances)
 .dev-instances/
+
+# local agent scratch
+.tmp*
+
+# Logo uploaded from Settings → General
+/public/brand/platform-logo.*

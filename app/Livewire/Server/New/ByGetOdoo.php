@@ -1,0 +1,203 @@
+<?php
+
+namespace App\Livewire\Server\New;
+
+use App\Models\GetOdooPlan;
+use App\Models\GetOdooServerOffer;
+use App\Models\GetOdooServerOrder;
+use App\Models\PrivateKey;
+use App\Models\Server;
+use App\Models\Team;
+use App\Services\GetOdoo\GetOdooCheckout;
+use App\Services\GetOdoo\GetOdooServerCatalog;
+use App\Support\GetOdooServerBilling;
+use Illuminate\Support\Collection;
+use Livewire\Component;
+use Throwable;
+
+class ByGetOdoo extends Component
+{
+    public ?int $offerId = null;
+
+    public string $server_name = '';
+
+    public $private_key_id = null;
+
+    public ?string $location = null;
+
+    public $private_keys;
+
+    public bool $limit_reached = false;
+
+    public function mount(bool $limit_reached = false): void
+    {
+        $this->authorize('create', Server::class);
+        $this->limit_reached = $limit_reached;
+        $this->loadPrivateKeys();
+
+        $first = $this->offers()->first();
+
+        if ($first instanceof GetOdooServerOffer) {
+            $this->offerId = $first->id;
+            $this->location = $first->location;
+        }
+    }
+
+    public function getListeners(): array
+    {
+        return [
+            'privateKeyCreated' => 'handlePrivateKeyCreated',
+        ];
+    }
+
+    public function handlePrivateKeyCreated($keyId): void
+    {
+        $this->loadPrivateKeys();
+        $this->private_key_id = $keyId;
+        $this->resetErrorBag('private_key_id');
+    }
+
+    public function updatedOfferId(): void
+    {
+        $offer = $this->offers()->firstWhere('id', $this->offerId);
+        $this->location = $offer?->location;
+    }
+
+    public function submit(GetOdooServerCatalog $catalog, GetOdooCheckout $checkout)
+    {
+        $this->authorize('create', Server::class);
+
+        if ($this->limit_reached || Team::serverLimitReached()) {
+            return $this->dispatch('error', __('You have reached the server limit for your subscription.'));
+        }
+
+        $offer = $this->offers()->firstWhere('id', $this->offerId);
+
+        if (! $offer instanceof GetOdooServerOffer) {
+            $this->addError('offerId', __('This GetOdoo server is no longer available.'));
+
+            return null;
+        }
+
+        $locations = collect($offer->locations ?? [])->pluck('location')->filter()->values()->all();
+
+        $this->validate([
+            'server_name' => ['required', 'string', 'max:63', 'regex:/^[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?$/'],
+            'location' => ['required', 'string', 'in:'.implode(',', $locations)],
+            'private_key_id' => 'required|integer|exists:private_keys,id,team_id,'.currentTeam()->id,
+        ]);
+
+        if ($catalog->ownerToken() === null) {
+            return $this->dispatch('error', __('Choose a Hetzner token. Sold servers are created in that account.'));
+        }
+
+        $price = $offer->sellPrice($this->location);
+
+        $provider = $checkout->provider();
+
+        if ($provider === null) {
+            $this->addError('payment', __('No payment method is ready.'));
+
+            return null;
+        }
+
+        if ($provider === 'transfer') {
+            return $this->startTransfer($offer, $price, (string) $checkout->bankTransfer());
+        }
+
+        return $this->startPayment($checkout, $offer, $price);
+    }
+
+    public function render()
+    {
+        $offer = $this->offers()->firstWhere('id', $this->offerId);
+
+        return view('livewire.server.new.by-get-odoo', [
+            'offers' => $this->offers(),
+            'selectedOffer' => $offer,
+            'paymentProvider' => app(GetOdooCheckout::class)->provider(),
+            'bankTransfer' => app(GetOdooCheckout::class)->bankTransfer(),
+            'privateKeyOptions' => $this->private_keys->map(fn ($key) => ['value' => $key->id, 'label' => $key->name])->values()->all(),
+        ]);
+    }
+
+    private function startTransfer(GetOdooServerOffer $offer, float $price, string $instructions): mixed
+    {
+        GetOdooServerOrder::query()->create([
+            'team_id' => currentTeam()->id,
+            'user_id' => auth()->id(),
+            'offer_id' => $offer->id,
+            'private_key_id' => $this->private_key_id,
+            'server_name' => $this->server_name,
+            'location' => $this->location,
+            'amount' => $price,
+            'status' => 'awaiting_transfer',
+            'purpose' => 'launch',
+            'payment_gateway' => 'transfer',
+            'charge_mode' => 'once',
+        ]);
+
+        $this->addError('payment', __('Transfer :amount USD using these details. The server is created after the transfer is confirmed.', ['amount' => number_format($price, 2)])."\n\n".$instructions);
+
+        return null;
+    }
+
+    private function startPayment(GetOdooCheckout $checkout, GetOdooServerOffer $offer, float $price): mixed
+    {
+        $provider = $checkout->provider();
+        $order = GetOdooServerOrder::query()->create([
+            'team_id' => currentTeam()->id,
+            'user_id' => auth()->id(),
+            'offer_id' => $offer->id,
+            'private_key_id' => $this->private_key_id,
+            'server_name' => $this->server_name,
+            'location' => $this->location,
+            'amount' => $price,
+            'status' => 'awaiting_payment',
+            'purpose' => 'launch',
+            'payment_gateway' => $provider,
+            'charge_mode' => GetOdooServerBilling::chargeModeForOrder(
+                new GetOdooServerOrder(['purpose' => 'launch']),
+            ),
+        ]);
+
+        try {
+            $link = $checkout->linkForServer($order);
+        } catch (Throwable $exception) {
+            $order->delete();
+            report($exception);
+            $message = trim($exception->getMessage());
+            $this->addError('payment', $message !== '' ? $message : __('The payment could not be started.'));
+
+            return null;
+        }
+
+        $order->update([
+            'wompi_link_id' => $link['id'],
+            'wompi_link_url' => $link['url'],
+            'n1co_plan_id' => $link['plan_id'] ?? null,
+            'charge_mode' => $link['charge_mode'] ?? GetOdooServerBilling::chargeModeForOrder($order),
+        ]);
+
+        $chargeMode = $link['charge_mode'] ?? GetOdooServerBilling::chargeModeForOrder($order);
+        if ($chargeMode === GetOdooPlan::CHARGE_SUBSCRIPTION && ($order->payment_gateway ?: '') === 'n1co') {
+            return redirect()->route('getodoo.n1co.return', ['order' => $order->uuid]);
+        }
+
+        return redirect()->away($link['url']);
+    }
+
+    private function offers(): Collection
+    {
+        return GetOdooServerOffer::query()->forAdmins()->orderBy('monthly_price')->orderBy('name')->get();
+    }
+
+    private function loadPrivateKeys(): void
+    {
+        $this->private_keys = PrivateKey::ownedAndOnlySShKeys()->where('id', '!=', 0)->get();
+
+        if ($this->private_keys->count() > 0 && $this->private_key_id === null) {
+            $this->private_key_id = $this->private_keys->first()->id;
+        }
+    }
+}

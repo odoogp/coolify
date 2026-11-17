@@ -27,7 +27,8 @@ class Invitations extends Component
             DB::transaction(function () use ($invitation): void {
                 $invitation->delete();
                 $user = User::whereEmail($invitation->email)->first();
-                if (filled($user)) {
+                if ($user instanceof User) {
+                    $user->teams()->detach($invitation->team_id);
                     $user->deleteIfNotVerifiedAndForcePasswordReset();
                 }
             });
@@ -37,9 +38,9 @@ class Invitations extends Component
                 'invitation_email' => $invitationEmail,
             ]);
             $this->refreshInvitations();
-            $this->dispatch('success', 'Invitation revoked.');
+            $this->dispatch('success', __('Invitation revoked.'));
         } catch (\Exception) {
-            return $this->dispatch('error', 'Invitation not found.');
+            return $this->dispatch('error', __('Invitation not found.'));
         }
     }
 

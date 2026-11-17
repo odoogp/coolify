@@ -22,7 +22,7 @@
             @click="open = !open" @disabled($disabled) aria-haspopup="listbox" :aria-expanded="open"
             @if ($selectedCount > 0) title="{{ $selectedLabels }}" @endif>
             <span class="listbox-trigger-label">
-                {{ $selectedCount === 0 ? 'No events selected' : $selectedLabels }}
+                {{ $selectedCount === 0 ? __('No events selected') : $selectedLabels }}
             </span>
             <span
                 class="shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-white/[0.07] dark:text-fg-dim">

@@ -58,7 +58,7 @@ class NewDynamicConfiguration extends Component
                     $this->fileName = "{$this->fileName}.yaml";
                 }
                 if ($this->fileName === 'coolify.yaml') {
-                    $this->dispatch('error', 'File name is reserved.');
+                    $this->dispatch('error', __('File name is reserved.'));
 
                     return;
                 }
@@ -74,7 +74,7 @@ class NewDynamicConfiguration extends Component
             if ($this->newFile) {
                 $exists = instant_remote_process(["test -f {$escapedFile} && echo 1 || echo 0"], $this->server);
                 if ($exists == 1) {
-                    $this->dispatch('error', 'File already exists');
+                    $this->dispatch('error', __('File already exists'));
 
                     return;
                 }
@@ -93,7 +93,7 @@ class NewDynamicConfiguration extends Component
             }
             $this->dispatch('loadDynamicConfigurations');
             $this->dispatch('dynamic-configuration-added');
-            $this->dispatch('success', 'Dynamic configuration saved.');
+            $this->dispatch('success', __('Dynamic configuration saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

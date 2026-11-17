@@ -94,6 +94,8 @@ class ServerCheckJob implements ShouldBeEncrypted, ShouldQueue
                         $this->server->save();
                         ConnectProxyToNetworksJob::dispatchSync($this->server);
                     }
+                } elseif ($this->server->usesExternalProxyNetworkConnect()) {
+                    ConnectProxyToNetworksJob::dispatchSync($this->server);
                 }
             }
         } catch (\Throwable $e) {

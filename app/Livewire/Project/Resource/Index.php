@@ -2,13 +2,21 @@
 
 namespace App\Livewire\Project\Resource;
 
+use App\Livewire\Project\Concerns\LaunchesCatalogService;
 use App\Models\Environment;
 use App\Models\Project;
+use App\Models\Server;
+use App\Models\Service;
+use App\Support\OdooGit;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
 use Livewire\Component;
 
 class Index extends Component
 {
+    use AuthorizesRequests;
+    use LaunchesCatalogService;
+
     public Project $project;
 
     public Environment $environment;
@@ -41,56 +49,138 @@ class Index extends Component
 
     protected Collection $services;
 
-    public function mount(): void
+    public function mount(): mixed
     {
-        $this->applications = $this->postgresqls = $this->redis = $this->mongodbs = $this->mysqls = $this->mariadbs = $this->keydbs = $this->dragonflies = $this->clickhouses = $this->sqlites = $this->services = collect();
-        $this->parameters = get_route_parameters();
-        $project = currentTeam()
-            ->projects()
-            ->select('id', 'uuid', 'team_id', 'name')
-            ->where('uuid', request()->route('project_uuid'))
-            ->firstOrFail();
-        $environment = $project->environments()
-            ->select('id', 'uuid', 'name', 'project_id')
-            ->where('uuid', request()->route('environment_uuid'))
-            ->firstOrFail();
+        $missingEnvironment = $this->loadResources();
+        if ($missingEnvironment instanceof \Illuminate\Http\RedirectResponse) {
+            return $missingEnvironment;
+        }
+        $this->defaultCatalogServerId($this->project, $this->environment);
+        $this->skipGithubChoice = request()->query('github') === '0';
+        if (request()->query('launch') === 'choose' && $this->project->odooProfile()->exists()) {
+            $this->authorize('createAnyResource');
 
-        $this->project = $project;
+            try {
+                $service = $this->existingOdooService($this->environment)
+                    ?? $this->createOdooService($this->project, $this->environment, start: false);
+            } catch (\Throwable $e) {
+                return handleError($e, $this);
+            }
 
-        // Load projects and environments for breadcrumb navigation
-        $this->allProjects = Project::ownedByCurrentTeamCached();
-        $environmentRelations = [
-            'applications:id,uuid,name,environment_id',
-            'services:id,uuid,name,environment_id',
-            'postgresqls:id,uuid,name,environment_id',
-            'redis:id,uuid,name,environment_id',
-            'mongodbs:id,uuid,name,environment_id',
-            'mysqls:id,uuid,name,environment_id',
-            'mariadbs:id,uuid,name,environment_id',
-            'keydbs:id,uuid,name,environment_id',
-            'dragonflies:id,uuid,name,environment_id',
-            'clickhouses:id,uuid,name,environment_id',
-            'sqlites:id,uuid,name,environment_id',
-        ];
+            if (! $service instanceof Service) {
+                return null;
+            }
 
-        $this->allEnvironments = $project->environments()
-            ->select('id', 'uuid', 'name', 'project_id')
-            ->with($environmentRelations)
-            ->get();
+            return redirect()->route('project.service.configuration', [
+                'project_uuid' => $this->project->uuid,
+                'environment_uuid' => $this->environment->uuid,
+                'service_uuid' => $service->uuid,
+                'launch' => 'choose',
+            ]);
+        }
 
-        $this->environment = $environment->loadCount([
-            'applications',
-            'redis',
-            'postgresqls',
-            'mysqls',
-            'keydbs',
-            'dragonflies',
-            'clickhouses',
-            'mariadbs',
-            'mongodbs',
-            'sqlites',
-            'services',
-        ]);
+        // Skip the resource list when the environment already has a primary service.
+        // New / catalog stays on this page via ?catalog=1. Odoo opens Deployments first.
+        if (! request()->boolean('catalog')) {
+            $primary = $this->primaryServiceForEnvironment();
+            if ($primary instanceof Service) {
+                $route = $primary->supportsOdooJupyter()
+                    ? 'project.service.deployments'
+                    : 'project.service.configuration';
+
+                return redirect()->route($route, [
+                    'project_uuid' => $this->project->uuid,
+                    'environment_uuid' => $this->environment->uuid,
+                    'service_uuid' => $primary->uuid,
+                ]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Prefer the Odoo service; otherwise a lone service when the environment has no other resources.
+     */
+    private function primaryServiceForEnvironment(): ?Service
+    {
+        $odoo = $this->services->first(fn (Service $service): bool => $service->supportsOdooJupyter());
+        if ($this->project->odooProfile()->exists() && $odoo instanceof Service) {
+            return $odoo;
+        }
+
+        $otherResources = $this->applications->count()
+            + $this->postgresqls->count()
+            + $this->redis->count()
+            + $this->mongodbs->count()
+            + $this->mysqls->count()
+            + $this->mariadbs->count()
+            + $this->keydbs->count()
+            + $this->dragonflies->count()
+            + $this->clickhouses->count();
+
+        if ($otherResources === 0 && $this->services->count() === 1) {
+            $only = $this->services->first();
+
+            return $only instanceof Service ? $only : null;
+        }
+
+        return null;
+    }
+
+    private function loadResources(): mixed
+    {
+        $this->applications = $this->postgresqls = $this->redis = $this->mongodbs = $this->mysqls = $this->mariadbs = $this->keydbs = $this->dragonflies = $this->clickhouses = $this->services = collect();
+        if (! isset($this->project)) {
+            $this->parameters = get_route_parameters();
+            $project = currentTeam()
+                ->projects()
+                ->select('id', 'uuid', 'team_id', 'name')
+                ->where('uuid', request()->route('project_uuid'))
+                ->firstOrFail();
+            $environment = $project->environments()
+                ->select('id', 'uuid', 'name', 'project_id')
+                ->where('uuid', request()->route('environment_uuid'))
+                ->first();
+            if ($environment === null) {
+                return redirect()->route('project.show', ['project_uuid' => $project->uuid]);
+            }
+
+            $this->project = $project;
+
+            // Load projects and environments for breadcrumb navigation
+            $this->allProjects = Project::ownedByCurrentTeamCached();
+            $environmentRelations = [
+                'applications:id,uuid,name,environment_id',
+                'services:id,uuid,name,environment_id',
+                'postgresqls:id,uuid,name,environment_id',
+                'redis:id,uuid,name,environment_id',
+                'mongodbs:id,uuid,name,environment_id',
+                'mysqls:id,uuid,name,environment_id',
+                'mariadbs:id,uuid,name,environment_id',
+                'keydbs:id,uuid,name,environment_id',
+                'dragonflies:id,uuid,name,environment_id',
+                'clickhouses:id,uuid,name,environment_id',
+            ];
+
+            $this->allEnvironments = $project->environments()
+                ->select('id', 'uuid', 'name', 'project_id')
+                ->with($environmentRelations)
+                ->get();
+
+            $this->environment = $environment->loadCount([
+                'applications',
+                'redis',
+                'postgresqls',
+                'mysqls',
+                'keydbs',
+                'dragonflies',
+                'clickhouses',
+                'mariadbs',
+                'mongodbs',
+                'services',
+            ]);
+        }
 
         // Eager load relationships for applications
         $this->applications = $this->environment->applications()->with([
@@ -154,10 +244,16 @@ class Index extends Component
 
             return $service;
         });
+
+        return null;
     }
 
     public function render()
     {
+        if (! isset($this->applications)) {
+            $this->loadResources();
+        }
+
         return view('livewire.project.resource.index', [
             'applications' => $this->applications,
             'postgresqls' => $this->postgresqls,
@@ -181,7 +277,34 @@ class Index extends Component
             'clickhousesJs' => $this->toSearchableArray($this->clickhouses, 'database', 'Database'),
             'sqlitesJs' => $this->toSearchableArray($this->sqlites, 'database', 'Database'),
             'servicesJs' => $this->toSearchableArray($this->services, 'service', 'Service'),
+            'odooOnly' => $this->project->odooProfile()->exists(),
+            ...$this->catalogLaunchVersionViewData(),
+            'serviceOptions' => $this->catalogServiceOptions(),
+            'serverChoices' => OdooGit::launchChoices(),
+            'hasOtherServers' => OdooGit::allowedLaunchServers()->contains(fn (Server $server): bool => (int) $server->id !== 0),
+            'needsServer' => ! auth()->user()?->canLaunchOnInstanceServer() && OdooGit::allowedLaunchServers()->isEmpty(),
+            'canAddServer' => (bool) auth()->user()?->canAddServers(),
+            'projectServerLocked' => $this->assignedProjectDestination($this->project, $this->environment) !== null,
+            'projectServerName' => $this->assignedProjectDestination($this->project, $this->environment)?->server?->name,
+            'hasOdooService' => $this->existingOdooService($this->environment) instanceof Service,
         ]);
+    }
+
+    protected function catalogLaunchProject(): Project
+    {
+        return $this->project;
+    }
+
+    protected function catalogLaunchEnvironment(): Environment
+    {
+        return $this->environment;
+    }
+
+    public function installOdoo()
+    {
+        $this->selectedService = 'odoo';
+
+        return $this->launchService();
     }
 
     private function toSearchableArray(Collection $items, string $type, string $typeLabel): array

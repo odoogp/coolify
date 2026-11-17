@@ -8,7 +8,7 @@
     'w-full' => $fullWidth,
 ]) x-data="{ open: false }"
     x-effect="$dispatch('resource-actions-toggled', { open })" @keydown.escape.window="open = false">
-    <button type="button" @click="open = !open" @click.outside="open = false" title="Open service links"
+    <button type="button" @click="open = !open" @click.outside="open = false" title="{{ __('Open service links') }}"
         @class([
             'app-tab shrink-0 gap-1' => !$fullWidth && !$compact,
             'button w-full justify-between' => $fullWidth,
@@ -18,7 +18,7 @@
             @unless ($compact)
                 <x-reicon name="external-link" class="size-3.5 shrink-0 opacity-70" />
             @endunless
-            Links
+            {{ __('Links') }}
         </span>
         <span class="inline-flex transition-transform" :class="open && 'rotate-180'">
             <x-reicon name="chevron-down" class="size-3 opacity-55" />
@@ -31,12 +31,19 @@
             'left-1/2! right-auto! w-[calc(100vw-2rem)]! max-w-md! min-w-0! -translate-x-1/2' => $compact,
             'right-0! left-auto! min-w-60! max-w-96!' => !$fullWidth && !$compact,
         ])>
+        @if ($jupyterUrl)
+            <a class="{{ $linkItemClasses }}" target="_blank" rel="noopener noreferrer" href="{{ $jupyterUrl }}">
+                <x-reicon name="external-link" class="size-3.5 shrink-0 opacity-70" />
+                {{ __('Open Jupyter') }}
+            </a>
+        @endif
         @forelse ($links as $link)
-            <a class="{{ $linkItemClasses }}" target="_blank" href="{{ $link }}">
-                <span class="min-w-0 truncate">{{ $link }}</span>
+            <a class="{{ $linkItemClasses }}" target="_blank" rel="noopener noreferrer" href="{{ $link }}">
+                <x-reicon name="external-link" class="size-3.5 shrink-0 opacity-70" />
+                <span class="min-w-0 truncate">{{ $jupyterUrl && $loop->count === 1 ? __('Open Odoo') : $link }}</span>
             </a>
         @empty
-            <div class="listbox-option justify-start! cursor-default!">No links available</div>
+            <div class="listbox-option justify-start! cursor-default!">{{ __('No links available') }}</div>
         @endforelse
     </div>
 </div>

@@ -11,11 +11,11 @@
             }
         }">
             @if ($servers->isEmpty())
-                <x-empty title="No servers yet" description="Add a server before creating server-wide variables." icon-name="servers" />
+                <x-empty title="{{ __('No servers yet') }}" description="{{ __('Add a server before creating server-wide variables.') }}" icon-name="servers" />
             @else
-                <x-shared-variables.view-controls label="servers" storage-key="shared-variables-servers-view" />
+                <x-shared-variables.view-controls label="{{ __('servers') }}" storage-key="shared-variables-servers-view" />
 
-                <div x-cloak x-show="viewMode === 'grid'" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div x-cloak x-show="viewMode === 'grid'" class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     @foreach ($servers as $server)
                         <a x-show="matches(@js([$server->name, $server->description, $server->ip]))"
                             class="group flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"

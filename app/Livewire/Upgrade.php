@@ -2,11 +2,17 @@
 
 namespace App\Livewire;
 
+use App\Actions\CoolifyTask\RunRemoteProcess;
 use App\Actions\Server\UpdateCoolify;
+use App\Enums\ProcessStatus;
 use App\Models\InstanceSettings;
 use App\Models\Server;
+use App\Models\GpshNotice;
 use App\Services\CoolifyUpgradeStatus;
+use App\Support\GpshNotices;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
+use Spatie\Activitylog\Models\Activity;
 
 class Upgrade extends Component
 {
@@ -21,6 +27,8 @@ class Upgrade extends Component
     public bool $devMode = false;
 
     public bool $fullButton = false;
+
+    public bool $showUpdateSteps = false;
 
     protected $listeners = ['updateAvailable' => 'checkUpdate'];
 
@@ -50,6 +58,12 @@ class Upgrade extends Component
             return;
         }
 
+        if (is_coolify_local_build()) {
+            $this->applyLocalUpgradeState();
+
+            return;
+        }
+
         $settings = InstanceSettings::find(0);
         $hasNewerVersion = version_compare($this->latestVersion, $this->currentVersion, '>');
         $newVersionAvailable = (bool) data_get($settings, 'new_version_available', false);
@@ -62,6 +76,28 @@ class Upgrade extends Component
         $this->isUpgradeAvailable = $hasNewerVersion && $newVersionAvailable;
     }
 
+    protected function applyLocalUpgradeState(): void
+    {
+        $settings = InstanceSettings::find(0);
+        $revision = Cache::get('coolify:local-git');
+
+        if (is_array($revision) && isset($revision['branch'], $revision['head'], $revision['upstream'])) {
+            $this->currentVersion = $revision['branch'].'@'.substr((string) $revision['head'], 0, 12);
+            $this->latestVersion = $revision['branch'].'@'.substr((string) $revision['upstream'], 0, 12);
+            $this->isUpgradeAvailable = $revision['head'] !== $revision['upstream'];
+
+            return;
+        }
+
+        $this->isUpgradeAvailable = (bool) data_get($settings, 'new_version_available', false);
+    }
+
+    public function toggleUpdateSteps(): void
+    {
+        $this->showUpdateSteps = ! $this->showUpdateSteps;
+        $this->skipRender();
+    }
+
     public function upgrade()
     {
         try {
@@ -72,47 +108,239 @@ class Upgrade extends Component
                 return;
             }
             $this->updateInProgress = true;
+            $this->announceUpgradeStarted();
             dispatch(function () {
                 try {
                     UpdateCoolify::run(manual_update: true);
                 } catch (\Throwable $e) {
                     report($e);
+                    GpshNotices::rememberUpgradeFailure($e->getMessage());
                 }
             })->afterResponse();
         } catch (\Throwable $e) {
+            $this->announceUpgradeFailure($e->getMessage());
+
             return handleError($e, $this);
         }
     }
 
+    private function announceUpgradeStarted(): void
+    {
+        $notice = GpshNotices::announceUpgradeStarted(
+            $this->latestVersion !== '' ? $this->latestVersion : get_latest_version_of_coolify(),
+        );
+        if (! $notice instanceof GpshNotice) {
+            return;
+        }
+
+        $this->dispatch('gpsh-toast', title: $notice->title, body: $notice->body, seconds: 8);
+    }
+
     public function getUpgradeStatus(): array
     {
-        // Only root team members can view upgrade status
-        if (auth()->user()?->currentTeam()?->id !== 0) {
+        if (! $this->canReadUpgrade()) {
             return ['status' => 'none'];
         }
 
+        $activity = $this->latestUpgradeActivity();
+        $processStatus = (string) data_get($activity?->properties, 'status');
+        $running = in_array($processStatus, [ProcessStatus::QUEUED->value, ProcessStatus::IN_PROGRESS->value], true);
+        if ($running) {
+            return $this->withFailureNotice($this->statusFromActivity($activity) ?? $this->upgradeVersions() + [
+                'status' => 'in_progress',
+                'step' => 0,
+                'message' => 'Preparing update',
+            ]);
+        }
+
+        $fromFile = $this->statusFromFile();
+        if ($fromFile['status'] !== 'none') {
+            return $this->withFailureNotice($fromFile);
+        }
+
+        $inferred = $this->statusFromActivity($activity);
+        if ($inferred !== null) {
+            return $this->withFailureNotice($inferred);
+        }
+
+        return $this->withFailureNotice($fromFile);
+    }
+
+    /**
+     * @param  array<string, mixed>  $status
+     * @return array<string, mixed>
+     */
+    private function withFailureNotice(array $status): array
+    {
+        if (($status['status'] ?? '') !== 'error') {
+            return $status;
+        }
+
+        $notice = GpshNotices::rememberUpgradeFailure((string) ($status['message'] ?? ''));
+        if ($notice instanceof GpshNotice) {
+            $status['notice'] = [
+                'title' => $notice->title,
+                'body' => $notice->body,
+            ];
+        }
+
+        return $status;
+    }
+
+    private function announceUpgradeFailure(string $message): void
+    {
+        $notice = GpshNotices::rememberUpgradeFailure($message);
+        if (! $notice instanceof GpshNotice) {
+            return;
+        }
+
+        $this->dispatch('gpsh-toast', title: $notice->title, body: $notice->body, seconds: 8);
+    }
+
+    /**
+     * @return array{text: string}
+     */
+    public function upgradeLog(): array
+    {
+        if (! $this->canReadUpgrade()) {
+            return ['text' => ''];
+        }
+
+        $activity = $this->latestUpgradeActivity();
+        $text = RunRemoteProcess::decodeOutput($activity);
+        $processStatus = (string) data_get($activity?->properties, 'status');
+        $running = in_array($processStatus, [ProcessStatus::QUEUED->value, ProcessStatus::IN_PROGRESS->value], true);
+        if (! $running) {
+            $file = $this->upgradeFileLog();
+            if (strlen($file) > strlen($text)) {
+                $text = $file;
+            }
+        }
+
+        if (strlen($text) > 20000) {
+            $text = substr($text, -20000);
+        }
+
+        return ['text' => $text];
+    }
+
+    private function latestUpgradeActivity(): ?Activity
+    {
+        return Activity::query()
+            ->where('created_at', '>=', now()->subHours(6))
+            ->where(function ($query) {
+                $query->where('properties->command', 'like', '%upgrade-local.sh%')
+                    ->orWhere('properties->command', 'like', '%/upgrade.sh%');
+            })
+            ->orderByDesc('id')
+            ->first();
+    }
+
+    /**
+     * @return array{status: string, step?: int, message?: string, running_version: string, target_version: string}|null
+     */
+    private function statusFromActivity(?Activity $activity): ?array
+    {
+        $text = RunRemoteProcess::decodeOutput($activity);
+        if ($text === '') {
+            return null;
+        }
+
+        $step = 0;
+        if (str_contains($text, 'Local upgrade completed')) {
+            $step = 6;
+        } elseif (str_contains($text, 'Waiting for health')) {
+            $step = 5;
+        } elseif (str_contains($text, 'Recreating the coolify') || str_contains($text, 'Starting container recreate')) {
+            $step = 4;
+        } elseif (str_contains($text, 'Building ')) {
+            $step = 3;
+        } elseif (str_contains($text, 'Checking out')) {
+            $step = 2;
+        } elseif (str_contains($text, 'Fetching origin') || str_contains($text, 'Fetching ')) {
+            $step = 1;
+        }
+
+        $processStatus = (string) data_get($activity?->properties, 'status');
+        $status = 'in_progress';
+        if ($processStatus === ProcessStatus::ERROR->value || preg_match('/\] ERROR: /', $text) === 1) {
+            $status = 'error';
+        }
+
+        $lines = preg_split("/\r\n|\n|\r/", trim($text)) ?: [];
+        $message = trim((string) end($lines));
+        if (strlen($message) > 180) {
+            $message = substr($message, -180);
+        }
+
+        return $this->upgradeVersions() + [
+            'status' => $status,
+            'step' => $step,
+            'message' => $message !== '' ? $message : 'Update in progress...',
+        ];
+    }
+
+    /**
+     * @return array{status: string, step?: int, message?: string, running_version: string, target_version: string}
+     */
+    private function statusFromFile(): array
+    {
+        $versions = $this->upgradeVersions();
         $server = Server::find(0);
         if (! $server) {
-            return ['status' => 'none'];
+            return ['status' => 'none', ...$versions];
         }
-
-        $statusFile = '/data/coolify/source/.upgrade-status';
 
         try {
             $content = instant_remote_process(
-                ["cat {$statusFile} 2>/dev/null || echo ''"],
+                ['cat /data/coolify/source/.upgrade-status 2>/dev/null || true'],
                 $server,
-                false
+                false,
+                timeout: 8,
             );
             $content = trim($content ?? '');
-        } catch (\Throwable $e) {
-            return ['status' => 'none'];
+        } catch (\Throwable) {
+            return ['status' => 'none', ...$versions];
         }
 
         return CoolifyUpgradeStatus::fromFile(
             content: $content,
-            runningVersion: $this->currentVersion !== '' ? $this->currentVersion : (string) config('constants.coolify.version'),
-            targetVersion: $this->latestVersion !== '' ? $this->latestVersion : get_latest_version_of_coolify(),
+            runningVersion: $versions['running_version'],
+            targetVersion: $versions['target_version'],
         );
+    }
+
+    private function upgradeFileLog(): string
+    {
+        $server = Server::find(0);
+        if (! $server) {
+            return '';
+        }
+
+        try {
+            $text = instant_remote_process([
+                'bash -c '.escapeshellarg('f=$(ls -1t /data/coolify/source/upgrade-2*.log 2>/dev/null | head -n 1); if [ -n "$f" ]; then tail -n 160 "$f"; fi'),
+            ], $server, false, timeout: 8);
+        } catch (\Throwable) {
+            return '';
+        }
+
+        return (string) $text;
+    }
+
+    /**
+     * @return array{running_version: string, target_version: string}
+     */
+    private function upgradeVersions(): array
+    {
+        return [
+            'running_version' => $this->currentVersion !== '' ? $this->currentVersion : (string) config('constants.coolify.version'),
+            'target_version' => $this->latestVersion !== '' ? $this->latestVersion : get_latest_version_of_coolify(),
+        ];
+    }
+
+    public function canReadUpgrade(): bool
+    {
+        return isInstanceAdmin();
     }
 }

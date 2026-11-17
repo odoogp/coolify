@@ -2,12 +2,27 @@
 
 namespace App\Livewire\Project;
 
+use App\Domain\Odoo\OdooStaging;
+use App\Models\Environment;
+use App\Models\GithubApp;
+use App\Models\OdooComposeTemplate;
+use App\Models\OdooEnvironmentBranch;
 use App\Models\Project;
 use App\Services\ProjectIconStorageService;
+use App\Support\EnsureOdooBackupSchedules;
+use App\Support\GetOdooBackupFrequency;
+use App\Support\OdooGit;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+use Illuminate\View\View;
+use InvalidArgumentException;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use RuntimeException;
 
 class Edit extends Component
 {
@@ -19,6 +34,37 @@ class Edit extends Component
     public string $name;
 
     public ?string $description = null;
+
+    public string $odooVersion = '';
+
+    public bool $odooStagingIsEmpty = false;
+
+    public bool $canCloneProductionToStaging = false;
+
+    public bool $odooGithubConnected = false;
+
+    public ?int $odooGithubAppId = null;
+
+    public ?int $odooRepositoryId = null;
+
+    public string $odooLaunchCategory = 'staging';
+
+    public ?string $odooGithubHref = null;
+
+    /** @var list<array{value: int, label: string}> */
+    public array $odooGithubApps = [];
+
+    /** @var list<array{id: int, full_name: string, owner: string, name: string, default_branch: string}> */
+    public array $odooRepositories = [];
+
+    /** @var list<string> */
+    public array $odooGithubBranches = [];
+
+    /** @var array<int|string, string> */
+    public array $odooEnvironmentBranches = [];
+
+    /** @var list<array{id: int, name: string, status: string}> */
+    public array $odooTrackedEnvironments = [];
 
     public $icon;
 
@@ -32,7 +78,7 @@ class Edit extends Component
             $iconStorage->storeProject($this->project, $this->icon);
             $this->reset('icon');
             $this->project->refresh();
-            $this->dispatch('success', 'Project icon updated.');
+            $this->dispatch('success', __('Project icon updated.'));
 
             return true;
         } catch (\Throwable $e) {
@@ -48,7 +94,7 @@ class Edit extends Component
             $this->authorize('update', $this->project);
             $iconStorage->deleteProject($this->project);
             $this->project->refresh();
-            $this->dispatch('success', 'Project icon removed.');
+            $this->dispatch('success', __('Project icon removed.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -71,6 +117,7 @@ class Edit extends Component
     {
         try {
             $this->project = Project::where('team_id', currentTeam()->id)->where('uuid', $project_uuid)->firstOrFail();
+            $this->syncOdooState();
             $this->syncData();
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -96,9 +143,317 @@ class Edit extends Component
         try {
             $this->authorize('update', $this->project);
             $this->syncData(true);
-            $this->dispatch('success', 'Project updated.');
+            $this->dispatch('success', __('Project updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
+    }
+
+    public function enableOdoo(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            if ($this->project->odooProfile !== null) {
+                $this->odooVersion = (string) $this->project->odooProfile->odoo_version;
+                $this->dispatch('success', __('Odoo profile saved. Nothing was deployed.'));
+
+                return;
+            }
+            $validated = Validator::make([
+                'odooVersion' => $this->odooVersion,
+            ], [
+                'odooVersion' => ['required', Rule::in(OdooComposeTemplate::configuredVersions())],
+            ])->validate();
+
+            $this->project->enableOdoo($validated['odooVersion']);
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('Odoo profile saved. Nothing was deployed.'));
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function saveOdooVersion(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $profile = $this->project->odooProfile;
+            if ($profile === null) {
+                $this->enableOdoo();
+
+                return;
+            }
+            if ($this->projectHasActiveOdooEnvironments()) {
+                $this->odooVersion = (string) $profile->odoo_version;
+                $this->dispatch('error', __('The Odoo version is locked because this project already has launched environments. New environments keep using Odoo :version.', [
+                    'version' => $profile->odoo_version,
+                ]));
+
+                return;
+            }
+            $validated = Validator::make([
+                'odooVersion' => $this->odooVersion,
+            ], [
+                'odooVersion' => ['required', Rule::in(OdooComposeTemplate::configuredVersions())],
+            ])->validate();
+
+            $profile->update(['odoo_version' => $validated['odooVersion']]);
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('Odoo version saved. New environments will use this Compose.'));
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    /**
+     * Any environment that already has an Odoo service locks the project version.
+     */
+    public function projectHasActiveOdooEnvironments(): bool
+    {
+        $this->project->loadMissing('environments.services');
+
+        foreach ($this->project->environments as $environment) {
+            if ($environment->services->contains(fn ($service): bool => $service->supportsOdooJupyter())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function syncOdooState(): void
+    {
+        $this->project->load('odooProfile');
+        $profile = $this->project->odooProfile;
+        $this->odooVersion = $profile?->odoo_version ?? $this->odooVersion;
+        $stagings = OdooStaging::stagingEnvironments($this->project);
+        $this->odooStagingIsEmpty = $stagings->isNotEmpty() && $stagings->every(fn ($environment): bool => $environment->isEmpty());
+        $this->canCloneProductionToStaging = $profile !== null && $this->project->canCreateStagingEnvironment();
+        $connected = OdooGit::connectedApps($this->project->team_id);
+        $this->odooGithubConnected = $connected->isNotEmpty();
+        $this->odooGithubAppId = $profile?->github_app_id;
+        if ($this->odooGithubAppId === null) {
+            $userAppId = auth()->id() === null ? null : DB::table('team_user')
+                ->where('user_id', auth()->id())
+                ->where('team_id', $this->project->team_id)
+                ->value('github_app_id');
+            if ($userAppId !== null && $connected->contains('id', (int) $userAppId)) {
+                $this->odooGithubAppId = (int) $userAppId;
+            } elseif ($connected->count() === 1) {
+                $this->odooGithubAppId = $connected->first()->id;
+            }
+        }
+        $this->odooRepositoryId = $profile?->repository_id;
+        $this->odooGithubApps = $connected
+            ->map(fn (GithubApp $app): array => ['value' => $app->id, 'label' => $app->name])
+            ->all();
+        $branchRows = OdooEnvironmentBranch::query()
+            ->whereIn('environment_id', $this->project->environments()->pluck('id'))
+            ->get()
+            ->keyBy('environment_id');
+        $this->odooTrackedEnvironments = $this->project->environments()->orderBy('name')->get()
+            ->filter(fn ($environment): bool => OdooGit::tracksBranch($environment))
+            ->map(fn ($environment): array => [
+                'id' => $environment->id,
+                'name' => $environment->name,
+                'role' => (string) $environment->role,
+                'status' => (string) ($branchRows->get($environment->id)?->status ?? 'idle'),
+            ])
+            ->values()
+            ->all();
+        $this->odooEnvironmentBranches = $branchRows
+            ->mapWithKeys(fn (OdooEnvironmentBranch $row): array => [$row->environment_id => $row->git_branch])
+            ->all();
+        $this->odooGithubHref = null;
+        if ($profile !== null) {
+            foreach ($this->project->environments()->with('services')->orderBy('id')->get() as $environment) {
+                $odooService = $environment->services->first(fn ($service): bool => $service->supportsOdooJupyter());
+                if ($odooService !== null) {
+                    $this->odooGithubHref = route('project.service.configuration', [
+                        'project_uuid' => $this->project->uuid,
+                        'environment_uuid' => $environment->uuid,
+                        'service_uuid' => $odooService->uuid,
+                        'odooPanel' => 'github',
+                    ]);
+                    break;
+                }
+            }
+        }
+    }
+
+    public function updatedOdooRepositoryId(): void
+    {
+        if (blank($this->odooRepositoryId)) {
+            return;
+        }
+
+        $this->loadOdooBranches();
+    }
+
+    public function launchOdooEnvironment(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            if ($this->odooGithubConnected) {
+                $environment = OdooGit::launchEnvironment(
+                    $this->project,
+                    $this->odooGithubApp(),
+                    $this->odooLaunchCategory,
+                );
+                $message = __('Environment :name launched on :branch.', [
+                    'name' => $environment->name,
+                    'branch' => $environment->name,
+                ]);
+            } else {
+                $environment = OdooGit::launchLocalEnvironment($this->project, $this->odooLaunchCategory);
+                $message = __('Environment :name is ready. JupyterLab shows its addon files until a repository is connected.', [
+                    'name' => $environment->name,
+                ]);
+            }
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', $message);
+        } catch (InvalidArgumentException|RuntimeException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function cloneProductionAsStaging(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $staging = $this->project->cloneProductionAsStaging();
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('Staging :name created from production. Production was left as it is.', ['name' => $staging->name]));
+        } catch (RuntimeException $e) {
+            $this->dispatch('error', __($e->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function loadOdooRepositories(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $this->odooRepositories = OdooGit::repositories($this->odooGithubApp());
+            $this->odooGithubBranches = [];
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function loadOdooBranches(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $repository = $this->selectedOdooRepository(refresh: true);
+            $this->odooGithubBranches = OdooGit::branchNames($this->odooGithubApp(), $repository['owner'], $repository['name']);
+            foreach ($this->odooTrackedEnvironments as $environment) {
+                $current = $this->odooEnvironmentBranches[$environment['id']] ?? null;
+                if (filled($current) || ($environment['role'] ?? '') !== Environment::ROLE_PRODUCTION) {
+                    continue;
+                }
+                if (in_array($repository['default_branch'], $this->odooGithubBranches, true)) {
+                    $this->odooEnvironmentBranches[$environment['id']] = $repository['default_branch'];
+                }
+            }
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    public function saveOdooGit(): void
+    {
+        try {
+            $this->authorize('update', $this->project);
+            $app = $this->odooGithubApp();
+            $repository = $this->selectedOdooRepository(refresh: true);
+            $branches = OdooGit::branchNames($app, $repository['owner'], $repository['name']);
+            OdooGit::assign(
+                $this->project,
+                $app,
+                $repository['full_name'],
+                $repository['id'],
+                $branches,
+                $this->odooEnvironmentBranches,
+            );
+            $this->project->refresh();
+            $this->syncOdooState();
+            $this->dispatch('success', __('GitHub branches saved. Nothing was deployed.'));
+        } catch (InvalidArgumentException $exception) {
+            $this->dispatch('error', __($exception->getMessage()));
+        } catch (\Throwable $e) {
+            handleError($e, $this);
+        }
+    }
+
+    private function odooGithubApp(): GithubApp
+    {
+        if ($this->odooGithubAppId === null) {
+            throw new InvalidArgumentException('Choose a GitHub App.');
+        }
+
+        return GithubApp::query()
+            ->where(function ($query) {
+                $query->where('team_id', $this->project->team_id)->orWhere('is_system_wide', true);
+            })
+            ->where('is_public', false)
+            ->whereNotNull('app_id')
+            ->findOrFail($this->odooGithubAppId);
+    }
+
+    /**
+     * @return array{id: int, full_name: string, owner: string, name: string, default_branch: string}
+     */
+    private function selectedOdooRepository(bool $refresh): array
+    {
+        if ($refresh || $this->odooRepositories === []) {
+            $this->odooRepositories = OdooGit::repositories($this->odooGithubApp());
+        }
+        $repository = collect($this->odooRepositories)->firstWhere('id', (int) $this->odooRepositoryId);
+        if (! is_array($repository)) {
+            throw new InvalidArgumentException('Choose a repository from this GitHub App.');
+        }
+
+        return $repository;
+    }
+
+    public function render(): View
+    {
+        $this->project->loadMissing('team.getodooPlan');
+        $plan = $this->project->team?->getodooPlan;
+        $planAllows = EnsureOdooBackupSchedules::planAllowsBackups($plan);
+        $frequency = (string) ($plan?->backup_frequency ?: GetOdooBackupFrequency::NONE);
+        $retention = max(1, (int) ($plan?->backup_retention_days ?: 7));
+
+        if ($this->odooVersion !== '' && ! in_array($this->odooVersion, OdooComposeTemplate::configuredVersions(), true)) {
+            $this->odooVersion = '';
+        }
+
+        return view('livewire.project.edit', [
+            'planName' => filled($plan?->name) ? (string) $plan->name : null,
+            'planBackupPolicy' => $planAllows
+                ? __('Backups').': '.GetOdooBackupFrequency::label($frequency).' · '.trans_choice(':count day|:count days', $retention, ['count' => $retention])
+                : __('Backups').': '.__('Not included'),
+            'odooVersionOptions' => OdooComposeTemplate::versionOptions(),
+            'odooVersionLocked' => $this->project->odooProfile !== null
+                && $this->projectHasActiveOdooEnvironments(),
+        ]);
     }
 }

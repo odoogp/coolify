@@ -15,6 +15,7 @@
     ];
 
     $baseClasses = 'inline-flex h-6 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full border border-neutral-200 bg-neutral-100 px-2 text-xs font-medium leading-none text-neutral-700 dark:border-white/[0.12] dark:bg-white/[0.07] dark:text-white';
+    $badgeText = translateUiText(collect([$label, $status])->filter()->join(' '));
 @endphp
 
 @if ($as === 'button')
@@ -23,7 +24,7 @@
             {{ $slot }}
         @else
             <span class="size-1.5 shrink-0 rounded-full {{ $dotClasses[$type] ?? $dotClasses['neutral'] }}"></span>
-            <span class="truncate">{{ collect([$label, $status])->filter()->join(' ') }}</span>
+            <span class="truncate">{{ $badgeText }}</span>
         @endif
     </button>
 @elseif ($as === 'a')
@@ -32,7 +33,7 @@
             {{ $slot }}
         @else
             <span class="size-1.5 shrink-0 rounded-full {{ $dotClasses[$type] ?? $dotClasses['neutral'] }}"></span>
-            <span class="truncate">{{ collect([$label, $status])->filter()->join(' ') }}</span>
+            <span class="truncate">{{ $badgeText }}</span>
         @endif
     </a>
 @else
@@ -41,7 +42,7 @@
             {{ $slot }}
         @else
             <span class="size-1.5 shrink-0 rounded-full {{ $dotClasses[$type] ?? $dotClasses['neutral'] }}"></span>
-            <span class="truncate">{{ collect([$label, $status])->filter()->join(' ') }}</span>
+            <span class="truncate">{{ $badgeText }}</span>
         @endif
     </span>
 @endif

@@ -28,8 +28,7 @@ class TeamPolicy
      */
     public function create(User $user): bool
     {
-        // All authenticated users can create teams
-        return true;
+        return $user->teams()->wherePivot('role', 'owner')->exists();
     }
 
     /**
@@ -90,5 +89,27 @@ class TeamPolicy
         }
 
         return $user->isAdminOfTeam($team->id);
+    }
+
+    /**
+     * Creation quotas and server/launch flags on membership profiles.
+     * Instance owner always. Plan principals must not assign them — only the platform owner.
+     * On non-plan teams, the team owner still may.
+     */
+    public function updateCreationLimits(User $user, Team $team): bool
+    {
+        if ($user->isInstanceOwner()) {
+            return true;
+        }
+
+        if ($team->isGetOdooPlanTeam()) {
+            return false;
+        }
+
+        if (! $user->teams->contains('id', $team->id)) {
+            return false;
+        }
+
+        return $user->roleInTeam($team->id) === 'owner';
     }
 }

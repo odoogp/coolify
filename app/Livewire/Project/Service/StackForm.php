@@ -3,6 +3,7 @@
 namespace App\Livewire\Project\Service;
 
 use App\Models\Service;
+use App\Domain\Odoo\OdooVersion;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -32,6 +33,10 @@ class StackForm extends Component
 
     public ?bool $connectToDockerNetwork = null;
 
+    public bool $jupyterEnabled = false;
+
+    public ?string $odooVersion = null;
+
     protected function rules(): array
     {
         $baseRules = [
@@ -40,6 +45,8 @@ class StackForm extends Component
             'name' => ValidationPatterns::nameRules(),
             'description' => ValidationPatterns::descriptionRules(),
             'connectToDockerNetwork' => 'nullable',
+            'jupyterEnabled' => 'boolean',
+            'odooVersion' => 'nullable|string|max:32',
         ];
 
         // Add dynamic field rules
@@ -79,6 +86,7 @@ class StackForm extends Component
             $this->service->docker_compose_raw = $this->dockerComposeRaw;
             $this->service->docker_compose = $this->dockerCompose;
             $this->service->connect_to_docker_network = $this->connectToDockerNetwork;
+            $this->service->jupyter_enabled = $this->jupyterEnabled;
         } else {
             // Sync FROM model (on load/refresh)
             $this->name = $this->service->name;
@@ -87,7 +95,14 @@ class StackForm extends Component
             $this->dockerComposeRaw = $canViewCompose ? $this->service->docker_compose_raw : null;
             $this->dockerCompose = $canViewCompose ? $this->service->docker_compose : null;
             $this->connectToDockerNetwork = $this->service->connect_to_docker_network;
+            $this->jupyterEnabled = (bool) $this->service->jupyter_enabled;
+            $this->odooVersion = OdooVersion::current((string) $this->service->docker_compose_raw);
         }
+    }
+
+    public function updatedOdooVersion(?string $version): void
+    {
+        $this->odooVersion = OdooVersion::current((string) $this->dockerComposeRaw);
     }
 
     public function mount()
@@ -150,10 +165,9 @@ class StackForm extends Component
     {
         try {
             $this->authorize('update', $this->service);
-            $this->service->refresh()->update([
-                'connect_to_docker_network' => $this->connectToDockerNetwork,
-            ]);
-            $this->dispatch('success', 'Service settings saved.');
+            $this->syncData(true);
+            $this->service->save();
+            $this->dispatch('success', __('Service settings saved.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -181,7 +195,7 @@ class StackForm extends Component
 
             $this->dispatch('refreshEnvs');
             $this->dispatch('refreshServices');
-            $notify && $this->dispatch('success', 'Service saved.');
+            $notify && $this->dispatch('success', __('Service saved.'));
         } catch (\Throwable $e) {
             // On error, refresh from database to restore clean state
             $this->service->refresh();

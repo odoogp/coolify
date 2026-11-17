@@ -66,7 +66,7 @@ class Health extends Component
             $this->authorize('update', $this->database);
             $this->syncData(true);
             $updateSuccessful = true;
-            $this->dispatch('success', 'Healthcheck updated. Restart the database to apply the changes.');
+            $this->dispatch('success', __('Healthcheck updated. Restart the database to apply the changes.'));
         } catch (\Throwable $e) {
             handleError($e, $this);
         }

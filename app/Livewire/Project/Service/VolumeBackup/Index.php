@@ -56,54 +56,12 @@ class Index extends Component
         $this->parameters = get_route_parameters();
         $this->search = request()->string('search')->toString();
 
-        if ($this->backupUuid !== '') {
-            $this->openSchedule($this->backupUuid);
-        }
-    }
-
-    public function openSchedule(string $backupUuid): void
-    {
-        $this->authorize('update', $this->service);
-        $this->loadSelectedSchedule($backupUuid);
-        $this->s3s = currentTeam()->s3s;
-        $this->scheduleModalOpen = true;
-    }
-
-    public function closeScheduleModal(): void
-    {
-        $this->backupUuid = '';
-        $this->scheduleModalOpen = false;
-        $this->selectedDatabaseBackup = null;
-        $this->selectedVolumeBackup = null;
-    }
-
-    public function backupNow(string $type, string $backupUuid): void
-    {
-        try {
-            if ($type === 'database') {
-                $this->loadSelectedSchedule($backupUuid);
-                abort_unless($this->selectedDatabaseBackup, 404);
-                $this->authorize('manageBackups', $this->selectedDatabaseBackup->database);
-                if (! str($this->selectedDatabaseBackup->database->status)->startsWith('running')) {
-                    $this->selectedDatabaseBackup = null;
-                    $this->dispatch('error', 'The database must be running to start a backup.');
-
-                    return;
-                }
-                DatabaseBackupJob::dispatch($this->selectedDatabaseBackup);
-            } else {
-                abort_unless($type === 'storage', 404);
-                $this->loadSelectedSchedule($backupUuid);
-                abort_unless($this->selectedVolumeBackup, 404);
-                $this->authorize('update', $this->selectedVolumeBackup->targetResource());
-                VolumeBackupJob::dispatch($this->selectedVolumeBackup);
-            }
-
-            $this->selectedDatabaseBackup = null;
-            $this->selectedVolumeBackup = null;
-            $this->dispatch('success', 'Backup queued.');
-        } catch (\Throwable $e) {
-            handleError($e, $this);
+        if ($this->service->supportsOdooJupyter()) {
+            $this->service->loadMissing('environment.project');
+            $this->redirectRoute('project.odoo.backups', [
+                'project_uuid' => $this->service->environment->project->uuid,
+                'environment_uuid' => $this->service->environment->uuid,
+            ]);
         }
     }
 

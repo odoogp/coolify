@@ -80,18 +80,35 @@ test('member does not see add resource button on dashboard projects', function (
         ->assertDontSee('New Project');
 });
 
-// The "New server" button is only rendered in the empty servers state (a key exists, no servers yet).
-test('admin sees add server button on dashboard', function () {
+test('owner sees add server button on an empty dashboard', function () {
+    [$user, $team] = setupDashboardUser('owner');
+
+    $this->actingAs($user);
+    session(['currentTeam' => $team]);
+
+    DB::table('private_keys')->insert([
+        'uuid' => (string) Str::uuid(),
+        'name' => 'Test Key',
+        'private_key' => 'test-key',
+        'team_id' => $team->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    Livewire::test(Dashboard::class)
+        ->assertSee(route('server.create'))
+        ->assertSee('New server');
+});
+
+test('admin does not see add server button on dashboard', function () {
     [$user, $team] = setupDashboardUser('admin');
 
     $this->actingAs($user);
     session(['currentTeam' => $team]);
 
-    createPrivateKeyForTeam($team);
-
     Livewire::test(Dashboard::class)
-        ->assertSee('No servers yet')
-        ->assertSee(route('server.create'));
+        ->assertDontSee(route('server.create'))
+        ->assertSee('No servers are assigned yet. Contact an advisor to get access.');
 });
 
 test('member does not see add server button on dashboard', function () {

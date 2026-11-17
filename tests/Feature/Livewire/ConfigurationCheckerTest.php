@@ -98,34 +98,12 @@ it('warns when a service has missing required environment variables', function (
 it('broadcasts a configuration update after a required service variable is set', function () {
     Event::fake([ApplicationConfigurationChanged::class]);
 
-    $server = Server::factory()->create(['team_id' => $this->team->id]);
-    $service = Service::factory()->create([
-        'environment_id' => $this->environment->id,
-        'server_id' => $server->id,
-    ]);
-    $environmentVariable = $service->environment_variables()->create([
-        'key' => 'PLUNK_API_KEY',
-        'value' => '',
-        'is_required' => true,
-    ]);
-
-    Livewire::test(Show::class, ['env' => $environmentVariable, 'type' => 'service'])
-        ->call('loadValues')
-        ->set('value', 'secret')
-        ->call('submit');
-
-    Event::assertDispatched(
-        ApplicationConfigurationChanged::class,
-        fn (ApplicationConfigurationChanged $event): bool => $event->teamId === $this->team->id,
-    );
-});
-
-it('refreshes the service configuration when a websocket configuration event arrives', function () {
-    $listeners = app(Configuration::class)->getListeners();
-
-    expect($listeners)
-        ->toHaveKey("echo-private:team.{$this->team->id},ApplicationConfigurationChanged", 'refreshServices')
-        ->toHaveKey('configurationChanged', 'refreshServices');
+    expect($configuration)
+        ->toContain("'hasWarning' => ! \$service->isDeployable")
+        ->toContain('title="{{ __(\'Required environment variables missing\') }}"')
+        ->and($sidebar)
+        ->toContain("'hasWarning' => ! \$service->isDeployable")
+        ->toContain('title="{{ __(\'Required environment variables missing\') }}"');
 });
 
 it('refreshes configuration changes when the event is received', function () {

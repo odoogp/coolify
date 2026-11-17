@@ -5,6 +5,7 @@ namespace App\Actions\Service;
 use App\Actions\Shared\EnsureContentFilesOnServer;
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
+use App\Support\OdooGit;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Spatie\Activitylog\Contracts\Activity;
 
@@ -17,6 +18,8 @@ class DeployServiceApplication
     public function handle(ServiceApplication|ServiceDatabase $serviceApplication, bool $pullLatestImages = false, bool $forceRebuild = false): Activity
     {
         $service = $serviceApplication->service;
+        OdooGit::ensureLaunchAllowed($service);
+        OdooGit::cloneIntoService($service);
         $composeServiceName = $serviceApplication->name;
 
         $service->parse();
@@ -55,7 +58,7 @@ class DeployServiceApplication
         $commands->push('echo Starting service container.');
         $commands->push($upCommand);
 
-        $commands->push("docker network connect {$safeProjectName} coolify-proxy >/dev/null 2>&1 || true");
+        $commands->push(coolifyProxyNetworkConnectCommand($service->uuid, $service->server));
 
         if (data_get($service, 'connect_to_docker_network')) {
             $network = escapeshellarg($service->destination->network);

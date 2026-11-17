@@ -4,10 +4,13 @@ namespace App\Livewire\Team;
 
 use App\Models\Team;
 use App\Support\ValidationPatterns;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
 class Create extends Component
 {
+    use AuthorizesRequests;
+
     public string $name = '';
 
     public ?string $description = null;
@@ -28,6 +31,7 @@ class Create extends Component
     public function submit()
     {
         try {
+            $this->authorize('create', Team::class);
             $this->validate();
             $team = Team::create([
                 'name' => $this->name,

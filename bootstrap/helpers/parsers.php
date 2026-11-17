@@ -4,18 +4,40 @@ use App\Enums\ProxyTypes;
 use App\Jobs\ServerFilesFromServerJob;
 use App\Models\Application;
 use App\Models\ApplicationPreview;
+use App\Models\GpshOwnerModule;
 use App\Models\LocalFileVolume;
 use App\Models\LocalPersistentVolume;
+use App\Models\Server;
 use App\Models\Service;
 use App\Models\ServiceApplication;
 use App\Models\ServiceDatabase;
-use App\Support\ValidationPatterns;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use Illuminate\Support\Stringable;
 use Spatie\Url\Url;
 use Symfony\Component\Yaml\Yaml;
+
+/**
+ * True when a SERVICE_FQDN_* / SERVICE_URL_* key already exists with a numeric port suffix
+ * (e.g. SERVICE_FQDN_MONITOR_8090). Uses LIKE + PHP so SQLite tests work (no Postgres `~`).
+ */
+function environmentVariableHasNumericPortSuffix(Service|Application $resource, string $baseKey): bool
+{
+    if ($baseKey === '') {
+        return false;
+    }
+
+    $pattern = '/^'.preg_quote($baseKey, '/').'_[0-9]+$/';
+
+    return $resource->environment_variables()
+        ->where('key', 'LIKE', $baseKey.'_%')
+        ->pluck('key')
+        ->contains(fn (mixed $key): bool => is_string($key) && preg_match($pattern, $key) === 1);
+}
 
 /**
  * Validates a Docker Compose YAML string for command injection vulnerabilities.
@@ -839,6 +861,37 @@ function parseDockerVolumeString(string $volumeString): array
         'target' => $target !== null ? str($target) : null,
         'mode' => $mode !== null ? str($mode) : null,
     ];
+}
+
+/**
+ * Attach the reverse proxy to the service network. A restart finds it already
+ * connected; connecting again makes Docker fail the deploy.
+ *
+ * Managed Traefik/Caddy use coolify-proxy. Custom / NONE with external_proxy_name
+ * (e.g. easypanel-traefik) resolves that running container. Custom without a name
+ * skips the connect (no coolify-proxy on the host).
+ */
+function coolifyProxyNetworkConnectCommand(string $network, ?Server $server = null): string
+{
+    $quoted = escapeshellarg($network);
+    $format = escapeshellarg('{{range .Containers}}{{.Name}} {{end}}');
+
+    if ($server !== null && $server->proxyType() === ProxyTypes::NONE->value) {
+        $filter = $server->externalProxyName();
+        if ($filter === null) {
+            return 'echo '.escapeshellarg('Skipping proxy network connect (Custom without external_proxy_name).');
+        }
+
+        $filterArg = escapeshellarg($filter);
+
+        // Resolve the running container (Swarm/compose names vary); skip if absent.
+        return 'PROXY=$(docker ps --filter name='.$filterArg." --format '{{.Names}}' | head -1); ".
+            'if [ -n "$PROXY" ]; then '.
+            'docker network inspect '.$quoted.' --format '.$format.' | grep -qw "$PROXY" || docker network connect '.$quoted.' "$PROXY"; '.
+            'else echo '.escapeshellarg('External proxy not running; skipped network connect.').'; fi';
+    }
+
+    return 'docker network inspect '.$quoted.' --format '.$format.' | grep -qw coolify-proxy || docker network connect '.$quoted.' coolify-proxy';
 }
 
 function addTraefikDockerNetworkLabel(Collection $labels, string $network): Collection
@@ -1907,15 +1960,12 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
             $redirectDirection = in_array($composeRedirect, ['www', 'non-www', 'both'], true)
                 ? $composeRedirect
                 : 'both';
-            $previewForPorts = $isPullRequest
-                ? ($resource->previews()->find($preview_id) ?? ApplicationPreview::where('application_id', $resource->id)->where('pull_request_id', $pullRequestId)->first())
-                : null;
-            $domainPortOverrides = $isPullRequest
-                ? ($previewForPorts?->domain_port_overrides ?? [])
-                : ($originalResource->domain_port_overrides ?? []);
-            $onlyPort = firstDockerComposeServicePort($service);
-            $isTrafficAnalyticsEnabled = (bool) $server?->isTrafficAnalyticsEnabled();
-            $supportsLogAppend = (bool) $server?->caddySupportsLogAppend();
+            $proxyPort = resolveComposeProxyPort(
+                composePorts: $ports,
+                composeExpose: data_get($service, 'expose'),
+                environment: $environment,
+                catalogPort: $predefinedPort,
+            );
             if (! $use_network_mode && (! $shouldGenerateLabelsExactly || $server->proxyType() === ProxyTypes::TRAEFIK->value)) {
                 $serviceLabels = addTraefikDockerNetworkLabel($serviceLabels, $baseNetwork->first());
             }
@@ -1925,6 +1975,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                         $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                             uuid: $labelUuid,
                             domains: $fqdns,
+                            onlyPort: $proxyPort,
                             is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                             serviceLabels: $serviceLabels,
                             is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -1934,7 +1985,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                             onlyPort: $onlyPort,
                             noindex_domains: $noindexDomains,
                             redirect_direction: $redirectDirection,
-                            domainPortOverrides: $domainPortOverrides,
+                            tlsCertResolver: $server,
                         ));
                         break;
                     case ProxyTypes::CADDY->value:
@@ -1962,6 +2013,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                     uuid: $labelUuid,
                     domains: $fqdns,
+                    onlyPort: $proxyPort,
                     is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                     serviceLabels: $serviceLabels,
                     is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -1971,7 +2023,7 @@ function applicationParser(Application $resource, int $pull_request_id = 0, ?int
                     onlyPort: $onlyPort,
                     noindex_domains: $noindexDomains,
                     redirect_direction: $redirectDirection,
-                    domainPortOverrides: $domainPortOverrides,
+                    tlsCertResolver: $server,
                 ));
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                     network: $labelNetwork,
@@ -2122,6 +2174,14 @@ function serviceParser(Service $resource): Collection
     $compose = data_get($resource, 'docker_compose_raw');
     // Store original compose for later use to update docker_compose_raw with content removed
     $originalCompose = $compose;
+    if (is_string($compose)) {
+        if ($resource->jupyter_enabled && OdooJupyter::shouldInjectInto($resource)) {
+            $compose = OdooJupyter::inject($compose);
+        }
+        $compose = OdooJupyter::injectOwner($compose);
+        $compose = OdooMonitor::inject($compose, (string) $uuid);
+    }
+    OdooGit::useHttps($resource);
     if (! $compose) {
         return collect([]);
     }
@@ -2137,6 +2197,9 @@ function serviceParser(Service $resource): Collection
         return collect([]);
     }
     $services = data_get($yaml, 'services', collect([]));
+    if (is_array($services) && $resource->supportsOdooJupyter()) {
+        OdooMonitor::forgetExtraApplications($resource, array_keys($services));
+    }
 
     // Clean up corrupted environment variables from previous parser bugs
     // (keys starting with $ or ending with } should not exist as env var names)
@@ -2263,7 +2326,28 @@ function serviceParser(Service $resource): Collection
 
         $containerName = "$serviceName-{$resource->uuid}";
 
-        $predefinedPort = $resource->getRequiredPort();
+        if ($serviceName === 'registry') {
+            $tempServiceName = 'docker-registry';
+        } else {
+            $tempServiceName = $serviceName;
+        }
+        if (str(data_get($service, 'image'))->contains('glitchtip')) {
+            $tempServiceName = 'glitchtip';
+        }
+        if ($serviceName === 'supabase-kong') {
+            $tempServiceName = 'supabase';
+        }
+        $serviceDefinition = data_get($allServices, $tempServiceName);
+        // Prefer stack service_type (catalog key) over compose service name so
+        // authentik-server / similar sidecars resolve the template port without aliases.
+        $predefinedPort = catalogTemplatePort(
+            serviceType: $resource instanceof Service ? ($resource->service_type ?: null) : null,
+            composeServiceName: $tempServiceName,
+            templates: $allServices,
+        );
+        if ($serviceName === 'plausible' && blank($predefinedPort)) {
+            $predefinedPort = '8000';
+        }
 
         if ($migratedApp || $migratedDb) {
             // Use the already determined migrated service
@@ -2283,8 +2367,12 @@ function serviceParser(Service $resource): Collection
                 'name' => $serviceName,
                 'service_id' => $resource->id,
             ], [
-                'is_gzip_enabled' => true,
+                'is_gzip_enabled' => $serviceName !== OdooMonitor::SERVICE_NAME,
             ]);
+            if ($serviceName === OdooMonitor::SERVICE_NAME && $savedService->is_gzip_enabled) {
+                $savedService->is_gzip_enabled = false;
+                $savedService->save();
+            }
         }
         // Check if image changed
         if ($savedService->image !== $image) {
@@ -2361,11 +2449,17 @@ function serviceParser(Service $resource): Collection
                 $isServiceApplication = $savedService instanceof ServiceApplication;
 
                 if ($isServiceApplication && blank($savedService->fqdn)) {
-                    $fqdn = generateFqdn(server: $server, random: "$fqdnFor-$uuid", parserVersion: $resource->compose_parsing_version);
-                    $url = generateUrl($server, "$fqdnFor-$uuid");
+                    $sharedCertificate = OdooGit::usesSharedCertificate((string) $fqdnFor);
+                    $fqdn = generateFqdn(server: $server, random: "$fqdnFor-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
+                    $url = generateUrl(server: $server, random: "$fqdnFor-$uuid", forceHttps: $sharedCertificate);
                 } elseif ($isServiceApplication) {
                     // FQDN may be a comma-separated list; use the first entry (same as updateCompose).
                     $firstFqdn = firstDomainFromList($savedService->fqdn);
+                    if (OdooGit::usesSharedCertificate((string) $fqdnFor) && str_starts_with((string) $firstFqdn, 'http://')) {
+                        $firstFqdn = 'https://'.substr((string) $firstFqdn, strlen('http://'));
+                        $savedService->fqdn = str_replace('http://', 'https://', (string) $savedService->fqdn);
+                        $savedService->save();
+                    }
                     $fqdn = getFqdnWithoutPort($firstFqdn);
                     $url = $fqdn;
                 } else {
@@ -2407,7 +2501,18 @@ function serviceParser(Service $resource): Collection
                 // Only save fqdn to ServiceApplication, not ServiceDatabase
                 if ($isServiceApplication && is_null($savedService->fqdn)) {
                     // Save URL (with scheme) to database, not FQDN
-                    $savedService->fqdn = $url;
+                    if ((int) $resource->compose_parsing_version >= 5 && version_compare(config('constants.coolify.version'), '4.0.0-beta.420.7', '>=')) {
+                        $savedService->fqdn = $urlWithPort;
+                    } else {
+                        $savedService->fqdn = $urlWithPort;
+                    }
+                }
+                // Persist SERVICE_URL_*_<port> so Traefik keeps loadbalancer.server.port
+                // after useHttps() strips :port from the public FQDN.
+                if ($isServiceApplication && $port && blank($savedService->ports)) {
+                    $savedService->ports = (string) $port;
+                }
+                if ($isServiceApplication && $savedService->isDirty()) {
                     $savedService->save();
                 }
 
@@ -2470,15 +2575,14 @@ function serviceParser(Service $resource): Collection
                 $command = parseCommandFromMagicEnvVariable($key);
                 if ($command->value() === 'FQDN') {
                     $fqdnFor = $key->after('SERVICE_FQDN_')->lower()->value();
-                    $fqdn = generateFqdn(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", parserVersion: $resource->compose_parsing_version);
-                    $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid");
+                    $sharedCertificate = OdooGit::usesSharedCertificate((string) $fqdnFor);
+                    $fqdn = generateFqdn(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
+                    $url = generateUrl(server: $server, random: str($fqdnFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
-                    // Also check if a port-suffixed version exists (e.g., SERVICE_FQDN_UMAMI_3000)
-                    $portSuffixedExists = $resource->environment_variables()
-                        ->where('key', 'LIKE', $key->value().'_%')
-                        ->whereRaw('key ~ ?', ['^'.$key->value().'_[0-9]+$'])
-                        ->exists();
+                    // Also check if a port-suffixed version exists (e.g., SERVICE_FQDN_UMAMI_3000).
+                    // Avoid Postgres-only `~` so SQLite feature tests can parse Odoo stacks.
+                    $portSuffixedExists = environmentVariableHasNumericPortSuffix($resource, $key->value());
                     $serviceExists = findServiceApplicationForEnvName($resource, (string) $fqdnFor);
                     // Check if FQDN already has a port set (contains ':' after the domain)
                     $fqdnHasPort = $serviceExists && str($serviceExists->fqdn)->contains(':') && str($serviceExists->fqdn)->afterLast(':')->isMatch('/^\d+$/');
@@ -2515,15 +2619,13 @@ function serviceParser(Service $resource): Collection
 
                 } elseif ($command->value() === 'URL') {
                     $urlFor = $key->after('SERVICE_URL_')->lower()->value();
-                    $url = generateUrl(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid");
-                    $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", parserVersion: $resource->compose_parsing_version);
+                    $sharedCertificate = OdooGit::usesSharedCertificate((string) $urlFor);
+                    $url = generateUrl(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate);
+                    $fqdn = generateFqdn(server: $server, random: str($urlFor)->replace('_', '-')->value()."-$uuid", forceHttps: $sharedCertificate, parserVersion: $resource->compose_parsing_version);
 
                     $envExists = $resource->environment_variables()->where('key', $key->value())->first();
-                    // Also check if a port-suffixed version exists (e.g., SERVICE_URL_DASHBOARD_6791)
-                    $portSuffixedExists = $resource->environment_variables()
-                        ->where('key', 'LIKE', $key->value().'_%')
-                        ->whereRaw('key ~ ?', ['^'.$key->value().'_[0-9]+$'])
-                        ->exists();
+                    // Also check if a port-suffixed version exists (e.g., SERVICE_URL_DASHBOARD_6791).
+                    $portSuffixedExists = environmentVariableHasNumericPortSuffix($resource, $key->value());
                     $serviceExists = findServiceApplicationForEnvName($resource, (string) $urlFor);
                     // Check if FQDN already has a port set (contains ':' after the domain)
                     $fqdnHasPort = $serviceExists && str($serviceExists->fqdn)->contains(':') && str($serviceExists->fqdn)->afterLast(':')->isMatch('/^\d+$/');
@@ -2633,7 +2735,26 @@ function serviceParser(Service $resource): Collection
 
         $containerName = "$serviceName-{$resource->uuid}";
 
-        $predefinedPort = $resource->getRequiredPort();
+        if ($serviceName === 'registry') {
+            $tempServiceName = 'docker-registry';
+        } else {
+            $tempServiceName = $serviceName;
+        }
+        if (str(data_get($service, 'image'))->contains('glitchtip')) {
+            $tempServiceName = 'glitchtip';
+        }
+        if ($serviceName === 'supabase-kong') {
+            $tempServiceName = 'supabase';
+        }
+        $serviceDefinition = data_get($allServices, $tempServiceName);
+        $predefinedPort = catalogTemplatePort(
+            serviceType: $resource instanceof Service ? ($resource->service_type ?: null) : null,
+            composeServiceName: $tempServiceName,
+            templates: $allServices,
+        );
+        if ($serviceName === 'plausible' && blank($predefinedPort)) {
+            $predefinedPort = '8000';
+        }
 
         if ($migratedApp || $migratedDb) {
             // Use the already determined migrated service
@@ -2859,8 +2980,22 @@ function serviceParser(Service $resource): Collection
                 }
             }
         }
-        $originalResource->ports = $collectedPorts->implode(',');
-        $originalResource->save();
+        if ($collectedPorts->count() > 0) {
+            $originalResource->ports = $collectedPorts->implode(',');
+        } elseif (blank($originalResource->ports)) {
+            // Magic SERVICE_URL_*_<port> / catalog port when compose has no ports:.
+            $fallbackPort = resolveComposeProxyPort(
+                composeExpose: data_get($service, 'expose'),
+                environment: $environment,
+                catalogPort: $predefinedPort,
+            );
+            if ($fallbackPort) {
+                $originalResource->ports = $fallbackPort;
+            }
+        }
+        if ($originalResource->isDirty('ports')) {
+            $originalResource->save();
+        }
 
         $networks_temp = collect();
 
@@ -3087,6 +3222,23 @@ function serviceParser(Service $resource): Collection
             $coolifyEnvironments->put('COOLIFY_CONTAINER_NAME', "{$containerName}");
         }
 
+        // useHttps at the top of serviceParser no-ops on first create (no apps yet).
+        // For Odoo, apply the project subdomain here — after the app row exists and
+        // before Traefik Host/certresolver labels are generated from $fqdns.
+        // Non-Odoo HTTPS upgrades still rely on StartService re-parsing when useHttps changes.
+        if (
+            $savedService instanceof ServiceApplication
+            && ! $isDatabase
+            && OdooGit::isOdooApplication($savedService)
+        ) {
+            OdooGit::useHttps($resource->fresh([
+                'applications',
+                'environment.project.odooProfile',
+                'environment.odooBranch',
+                'server',
+            ]) ?? $resource);
+            $savedService->refresh();
+        }
         if ($savedService->serviceType()) {
             $fqdns = generateServiceSpecificFqdns($savedService);
         } else {
@@ -3157,6 +3309,16 @@ function serviceParser(Service $resource): Collection
         }
         if (! $isDatabase && $fqdns instanceof Collection && $fqdns->count() > 0) {
             $shouldGenerateLabelsExactly = $resource->server->settings->generate_exact_labels;
+            $proxyPort = OdooJupyter::proxyPort(
+                (string) $serviceName,
+                resolveComposeProxyPort(
+                    composePorts: data_get($service, 'ports'),
+                    composeExpose: data_get($service, 'expose'),
+                    environment: $environment,
+                    storedPorts: $originalResource->ports ?? null,
+                    catalogPort: $predefinedPort,
+                ),
+            );
             $uuid = $resource->uuid;
             $network = data_get($resource, 'destination.network');
             $redirectDirection = in_array(data_get($originalResource, 'redirect'), ['www', 'non-www', 'both'], true)
@@ -3176,6 +3338,7 @@ function serviceParser(Service $resource): Collection
                         $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                             uuid: $uuid,
                             domains: $fqdns,
+                            onlyPort: $proxyPort,
                             is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                             serviceLabels: $serviceLabels,
                             is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -3185,7 +3348,8 @@ function serviceParser(Service $resource): Collection
                             onlyPort: $onlyPort,
                             domainPortOverrides: $originalResource->domain_port_overrides ?? [],
                             noindex_domains: $noindexDomains,
-                            redirect_direction: $redirectDirection
+                            redirect_direction: $redirectDirection,
+                            tlsCertResolver: $server,
                         ));
                         break;
                     case ProxyTypes::CADDY->value:
@@ -3213,6 +3377,7 @@ function serviceParser(Service $resource): Collection
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForTraefik(
                     uuid: $uuid,
                     domains: $fqdns,
+                    onlyPort: $proxyPort,
                     is_force_https_enabled: $originalResource->isForceHttpsEnabled(),
                     serviceLabels: $serviceLabels,
                     is_gzip_enabled: $originalResource->isGzipEnabled(),
@@ -3222,7 +3387,8 @@ function serviceParser(Service $resource): Collection
                     onlyPort: $onlyPort,
                     domainPortOverrides: $originalResource->domain_port_overrides ?? [],
                     noindex_domains: $noindexDomains,
-                    redirect_direction: $redirectDirection
+                    redirect_direction: $redirectDirection,
+                    tlsCertResolver: $server,
                 ));
                 $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                     network: $network,
@@ -3295,6 +3461,16 @@ function serviceParser(Service $resource): Collection
 
         $parsedServices->put($serviceName, $payload);
     }
+    $odooDatabase = OdooGit::databaseName($resource);
+    $parsedServices = collect(OdooMonitor::alignServices(OdooJupyter::alignParsedServices(
+        convertToArray($parsedServices),
+        $odooDatabase,
+        OdooGit::publicHttpsUrl($resource),
+        OdooGit::runtimeValue($resource, 'ODOO_LOGIN_TOKEN'),
+        OdooGit::runtimeValue($resource, 'ODOO_ADMIN_PASSWORD'),
+        GpshOwnerModule::names(),
+        OdooGit::workerCount($resource),
+    )));
     $topLevel->put('services', $parsedServices);
 
     $customOrder = ['services', 'volumes', 'networks', 'configs', 'secrets'];

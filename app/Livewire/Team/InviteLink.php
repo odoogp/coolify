@@ -2,13 +2,21 @@
 
 namespace App\Livewire\Team;
 
+use App\Domain\Odoo\OdooAbilities;
+use App\Exceptions\AdminCreationQuotaExceeded;
+use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Services\AdminCreationQuota;
+use App\Support\GetOdooCountries;
+use App\Support\OdooGit;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
 class InviteLink extends Component
@@ -19,6 +27,29 @@ class InviteLink extends Component
 
     public string $role = 'member';
 
+    public mixed $maxProjects = null;
+
+    public mixed $maxEnvironments = null;
+
+    public mixed $maxMembers = null;
+
+    public mixed $maxProductionBranches = null;
+
+    public mixed $maxStagingBranches = null;
+
+    public mixed $maxServices = null;
+
+    public mixed $githubAppId = null;
+
+    public bool $canAddServers = false;
+
+    public bool $canLaunchOnInstanceServer = false;
+
+    /** @var list<string> */
+    public array $odooAbilities = [];
+
+    public string $country = '';
+
     protected $rules = [
         'email' => 'required|email',
         'role' => 'required|string',
@@ -27,6 +58,8 @@ class InviteLink extends Component
     public function mount()
     {
         $this->email = isDev() ? 'test3@example.com' : '';
+        $iso = strtoupper((string) (auth()->user()?->country_iso ?? ''));
+        $this->country = $iso !== '' ? (GetOdooCountries::name($iso) ?? '') : '';
     }
 
     public function viaEmail()
@@ -53,10 +86,21 @@ class InviteLink extends Component
     {
         try {
             $this->authorize('manageInvitations', currentTeam());
-            $this->validate();
+            $inviteRules = [
+                'email' => ['required', 'email'],
+                'role' => ['required', 'string'],
+            ];
+            if (filled($this->country)) {
+                $inviteRules['country'] = ['string', 'max:120', Rule::in(array_values(GetOdooCountries::names()))];
+            }
+            $this->validate($inviteRules);
 
             // Prevent privilege escalation: users cannot invite someone with higher privileges
             $userRole = auth()->user()->role();
+            $team = currentTeam();
+            if ($team?->isGetOdooPlanTeam() && $this->role === 'owner') {
+                throw new \Exception(__('The plan principal cannot be invited. Invite an admin or a member instead.'));
+            }
             if (is_null($userRole) || ($userRole === 'member' && in_array($this->role, ['admin', 'owner']))) {
                 throw new \Exception('Members cannot invite admins or owners.');
             }
@@ -65,6 +109,13 @@ class InviteLink extends Component
             }
 
             $this->email = strtolower($this->email);
+            $countryIso = GetOdooCountries::isoFromName($this->country) ?? '';
+            if ($countryIso === '') {
+                $countryIso = strtoupper((string) (auth()->user()?->country_iso ?? ''));
+            }
+            if ($countryIso !== '' && GetOdooCountries::name($countryIso) === null) {
+                $countryIso = '';
+            }
 
             $member_emails = currentTeam()->members()->get()->pluck('email');
             if ($member_emails->contains($this->email)) {
@@ -76,14 +127,17 @@ class InviteLink extends Component
 
             if (is_null($user)) {
                 $password = Str::password();
-                $user = User::create([
+                $user = User::withoutPersonalTeam(fn () => User::create([
                     'name' => str($this->email)->before('@'),
                     'email' => $this->email,
                     'password' => Hash::make($password),
                     'force_password_reset' => true,
-                ]);
+                    'country_iso' => $countryIso !== '' ? $countryIso : null,
+                ]));
                 $token = Crypt::encryptString("{$user->email}@@@{$uuid}@@@{$password}");
                 $link = $this->invitationUrl('auth.link', ['token' => $token]);
+            } elseif (blank($user->country_iso) && $countryIso !== '') {
+                $user->forceFill(['country_iso' => $countryIso])->save();
             }
             $invitation = TeamInvitation::ownedByCurrentTeam()->whereEmail($this->email)->first();
             if (! is_null($invitation)) {
@@ -95,37 +149,37 @@ class InviteLink extends Component
                 }
             }
 
-            $invitation = TeamInvitation::firstOrCreate([
-                'team_id' => currentTeam()->id,
+            $membership = $this->membershipAttributes($team);
+            unset($membership['role'], $membership['added_by']);
+            $invitation = app(AdminCreationQuota::class)->createInvitation(auth()->user(), [
+                'team_id' => $team->id,
                 'uuid' => $uuid,
                 'email' => $this->email,
                 'role' => $this->role,
+                'membership' => $membership === [] ? null : $membership,
                 'link' => $link,
                 'via' => $sendEmail ? 'email' : 'link',
             ]);
-            auditLog('ui.team_invitation.created', [
-                'team_id' => currentTeam()->id,
-                'invitation_uuid' => $invitation->uuid,
-                'invitation_email' => $invitation->email,
-                'role' => $invitation->role,
-                'via' => $invitation->via,
-            ]);
+            // Do not attach the user here. Membership starts only when they accept the link;
+            // otherwise opening the invitation says they are already on the team.
             if ($sendEmail) {
                 $mail = new MailMessage;
                 $mail->view('emails.invitation-link', [
                     'team' => currentTeam()->name,
                     'invitation_link' => $link,
                 ]);
-                $mail->subject('You have been invited to '.currentTeam()->name.' on '.config('app.name').'.');
+                $mail->subject('You have been invited to '.currentTeam()->name.' on '.product_name().'.');
                 send_user_an_email($mail, $this->email);
-                $this->dispatch('success', 'Invitation sent via email.');
-                $this->dispatch('refreshInvitations');
-
-                return;
+                $this->dispatch('success', __('Invitation sent via email.'));
             } else {
-                $this->dispatch('success', 'Invitation link generated.');
-                $this->dispatch('refreshInvitations');
+                $this->dispatch('success', __('Invitation link generated.'));
             }
+            $this->dispatch('refreshInvitations');
+            $this->dispatch('reloadWindow');
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (AdminCreationQuotaExceeded $e) {
+            return handleError(error: $e, livewire: $this);
         } catch (\Throwable $e) {
             $error_message = $e->getMessage();
             if ($e->getCode() === '23505') {
@@ -134,5 +188,78 @@ class InviteLink extends Component
 
             return handleError(error: $e, livewire: $this, customErrorMessage: $error_message);
         }
+    }
+
+    public function render()
+    {
+        $team = currentTeam();
+        $canAssign = $team !== null && auth()->user()?->can('updateCreationLimits', $team);
+
+        return view('livewire.team.invite-link', [
+            'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
+            'canAssignPermissions' => $canAssign,
+            'githubApps' => $canAssign
+                ? OdooGit::connectedApps($team->id)->map(fn ($app): array => ['value' => $app->id, 'label' => $app->name])->all()
+                : [],
+            'grantableOdooAbilities' => OdooAbilities::GRANTABLE,
+            'countryChoices' => GetOdooCountries::choices(),
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function membershipAttributes(Team $team): array
+    {
+        $attributes = [
+            'role' => $this->role,
+            'added_by' => auth()->id(),
+            'can_add_servers' => false,
+            'can_launch_on_instance_server' => false,
+        ];
+
+        if (! auth()->user()->can('updateCreationLimits', $team) || ! in_array($this->role, ['admin', 'member'], true)) {
+            return $attributes;
+        }
+
+        foreach (['maxProjects', 'maxEnvironments', 'maxMembers', 'maxProductionBranches', 'maxStagingBranches', 'maxServices', 'githubAppId'] as $field) {
+            $this->{$field} = $this->{$field} === '' ? null : $this->{$field};
+        }
+        $this->validate([
+            'maxProjects' => ['nullable', 'integer', 'min:0'],
+            'maxEnvironments' => ['nullable', 'integer', 'min:0'],
+            'maxMembers' => ['nullable', 'integer', 'min:0'],
+            'maxProductionBranches' => ['nullable', 'integer', 'min:0'],
+            'maxStagingBranches' => ['nullable', 'integer', 'min:0'],
+            'maxServices' => ['nullable', 'integer', 'min:0'],
+            'githubAppId' => ['nullable', 'integer'],
+        ]);
+        if ($this->role === 'admin' && $this->githubAppId !== null && ! OdooGit::connectedApps($team->id)->contains('id', (int) $this->githubAppId)) {
+            throw ValidationException::withMessages([
+                'githubAppId' => __('Select a connected GitHub account.'),
+            ]);
+        }
+
+        $attributes = [
+            ...$attributes,
+            'max_projects' => $this->maxProjects,
+            'max_environments' => $this->maxEnvironments,
+            'max_members' => $this->maxMembers,
+            'max_production_branches' => $this->maxProductionBranches,
+            'max_staging_branches' => $this->maxStagingBranches,
+            'max_services' => $this->maxServices,
+        ];
+
+        if ($this->role === 'admin') {
+            $attributes['github_app_id'] = $this->githubAppId;
+            $attributes['can_add_servers'] = $this->canAddServers;
+            $attributes['can_launch_on_instance_server'] = $this->canLaunchOnInstanceServer;
+        }
+
+        if ($this->role === 'member') {
+            $attributes['odoo_abilities'] = json_encode(OdooAbilities::onlyGrantable($this->odooAbilities));
+        }
+
+        return $attributes;
     }
 }

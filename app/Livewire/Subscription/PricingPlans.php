@@ -12,8 +12,8 @@ class PricingPlans extends Component
 {
     public function subscribeStripe(string $type): mixed
     {
-        $team = currentTeam();
-        $user = auth()->user();
+        if (currentTeam()->subscription?->stripe_invoice_paid) {
+            $this->dispatch('error', __('Team already has an active subscription.'));
 
         if (! $team || ! $user?->isAdminOfTeam($team->id)) {
             abort(403);
@@ -32,7 +32,7 @@ class PricingPlans extends Component
         };
 
         if (! $priceId) {
-            $this->dispatch('error', 'Price ID not found! Please contact the administrator.');
+            $this->dispatch('error', __('Price ID not found! Please contact the administrator.'));
 
             return null;
         }

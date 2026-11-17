@@ -48,7 +48,7 @@ class Index extends Component
             $this->authorize('create', PrivateKey::class);
 
             if (! in_array($type, ['ed25519', 'rsa'], true)) {
-                $this->dispatch('error', 'Invalid private key type.');
+                $this->dispatch('error', __('Invalid private key type.'));
 
                 return;
             }
@@ -61,7 +61,7 @@ class Index extends Component
                 'team_id' => currentTeam()->id,
             ]);
 
-            $this->dispatch('success', 'Private key generated successfully.');
+            $this->dispatch('success', __('Private key generated successfully.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -81,7 +81,7 @@ class Index extends Component
         try {
             $this->authorize('create', PrivateKey::class);
             PrivateKey::cleanupUnusedKeys();
-            $this->dispatch('success', 'Unused keys have been cleaned up.');
+            $this->dispatch('success', __('Unused keys have been cleaned up.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

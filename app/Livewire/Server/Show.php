@@ -312,7 +312,7 @@ class Show extends Component
             // Only refresh display-only state; never re-sync text-input properties
             // (would clobber any unsaved typing — see coolify#6062 / #6354 / #9695).
             $this->sentinelUpdatedAt = $this->server->sentinel_updated_at;
-            $this->dispatch('success', 'Sentinel has been restarted successfully.');
+            $this->dispatch('success', __('Sentinel has been restarted successfully.'));
         }
     }
 
@@ -399,7 +399,7 @@ class Show extends Component
             $this->syncData(true);
             ['uptime' => $uptime, 'error' => $error] = $this->server->validateConnection();
             if ($uptime) {
-                $this->dispatch('success', 'Server is reachable.');
+                $this->dispatch('success', __('Server is reachable.'));
                 $this->server->settings->is_reachable = $this->isReachable = true;
                 $this->server->settings->is_usable = $this->isUsable = true;
                 $this->server->settings->save();
@@ -422,7 +422,7 @@ class Show extends Component
             $this->authorize('manageSentinel', $this->server);
             $customImage = isDev() ? $this->sentinelCustomDockerImage : null;
             $this->server->restartSentinel($customImage);
-            $this->dispatch('info', 'Restarting Sentinel.');
+            $this->dispatch('info', __('Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -453,21 +453,18 @@ class Show extends Component
     {
         try {
             $this->authorize('update', $this->server);
-            $newRole = ServerRole::from($this->serverRole);
-            $currentRole = $this->server->settings()->firstOrFail()->effectiveServerRole();
-
-            if ($newRole === ServerRole::BUILD && ! $this->server->isEmpty()) {
-                $this->serverRole = $currentRole->value;
-                $this->dispatch('error', 'Move or remove the existing resources before you set this server to build only.');
+            if ($value === true && ! $this->server->isEmpty()) {
+                $this->isBuildServer = false;
+                $this->dispatch('error', __('A server with existing resources cannot be configured as a build server.'));
 
                 return;
             }
-
-            if ($newRole === ServerRole::DEPLOYMENT && ! Server::buildServers($this->server->team_id)->whereKeyNot($this->server->id)->exists()) {
-                $this->serverRole = $currentRole->value;
-                $this->dispatch('error', 'Add a usable build server before you set this server to deployments only.');
-
-                return;
+            if ($value === true && $this->isSentinelEnabled) {
+                $this->isSentinelEnabled = false;
+                $this->isMetricsEnabled = false;
+                $this->isSentinelDebugEnabled = false;
+                StopSentinel::dispatch($this->server);
+                $this->dispatch('info', __('Sentinel has been disabled as build servers cannot run Sentinel.'));
             }
 
             if ($newRole === ServerRole::BOTH && $currentRole !== ServerRole::BOTH) {
@@ -487,10 +484,22 @@ class Show extends Component
     public function confirmServerRoleChange(): void
     {
         try {
-            $this->authorize('update', $this->server);
-            $role = ServerRole::from($this->pendingServerRole ?? '');
-            $this->pendingServerRole = null;
-            $this->saveServerRole($role);
+            $this->authorize('manageSentinel', $this->server);
+            if ($value === true) {
+                if ($this->isBuildServer) {
+                    $this->isSentinelEnabled = false;
+                    $this->dispatch('error', __('Sentinel cannot be enabled on build servers.'));
+
+                    return;
+                }
+                $customImage = isDev() ? $this->sentinelCustomDockerImage : null;
+                StartSentinel::run($this->server, true, null, $customImage);
+            } else {
+                $this->isMetricsEnabled = false;
+                $this->isSentinelDebugEnabled = false;
+                StopSentinel::dispatch($this->server);
+            }
+            $this->submit();
         } catch (\Throwable $e) {
             handleError($e, $this);
         }
@@ -515,7 +524,7 @@ class Show extends Component
         try {
             $this->authorize('manageSentinel', $this->server);
             $this->server->settings->generateSentinelToken();
-            $this->dispatch('success', 'Token regenerated. Restarting Sentinel.');
+            $this->dispatch('success', __('Token regenerated. Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -536,7 +545,7 @@ class Show extends Component
         try {
             $this->authorize('view', $this->server);
             if (! $this->server->hetzner_server_id || ! $this->server->cloudProviderToken) {
-                $this->dispatch('error', 'This server is not associated with a Hetzner Cloud server or token.');
+                $this->dispatch('error', __('This server is not associated with a Hetzner Cloud server or token.'));
 
                 return;
             }
@@ -564,7 +573,7 @@ class Show extends Component
             if ($this->hetznerServerStatus === 'off' && $this->server->settings->is_reachable) {
                 ['uptime' => $uptime, 'error' => $error] = $this->server->validateConnection();
                 if ($uptime) {
-                    $this->dispatch('success', 'Server is reachable.');
+                    $this->dispatch('success', __('Server is reachable.'));
                     $this->server->settings->is_reachable = $this->isReachable = true;
                     $this->server->settings->is_usable = $this->isUsable = true;
                     $this->server->settings->save();
@@ -584,7 +593,7 @@ class Show extends Component
     {
         try {
             if (! $this->server->vultr_instance_id || ! $this->server->cloudProviderToken) {
-                $this->dispatch('error', 'This server is not associated with a Vultr instance or token.');
+                $this->dispatch('error', __('This server is not associated with a Vultr instance or token.'));
 
                 return;
             }
@@ -606,7 +615,7 @@ class Show extends Component
         try {
             $this->authorize('view', $this->server);
             if (! $this->server->digitalocean_droplet_id || ! $this->server->cloudProviderToken) {
-                $this->dispatch('error', 'This server is not associated with a DigitalOcean droplet or token.');
+                $this->dispatch('error', __('This server is not associated with a DigitalOcean droplet or token.'));
 
                 return;
             }
@@ -654,7 +663,7 @@ class Show extends Component
         try {
             $this->authorize('update', $this->server);
             if (! $this->server->hetzner_server_id || ! $this->server->cloudProviderToken) {
-                $this->dispatch('error', 'This server is not associated with a Hetzner Cloud server or token.');
+                $this->dispatch('error', __('This server is not associated with a Hetzner Cloud server or token.'));
 
                 return;
             }
@@ -665,7 +674,7 @@ class Show extends Component
             $this->hetznerServerStatus = 'starting';
             $this->server->update(['hetzner_server_status' => 'starting']);
             $this->hetznerServerManuallyStarted = true; // Set flag to trigger auto-validation when running
-            $this->dispatch('success', 'Hetzner server is starting...');
+            $this->dispatch('success', __('Hetzner server is starting...'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -676,7 +685,7 @@ class Show extends Component
         try {
             $this->authorize('update', $this->server);
             if (! $this->server->vultr_instance_id || ! $this->server->cloudProviderToken) {
-                $this->dispatch('error', 'This server is not associated with a Vultr instance or token.');
+                $this->dispatch('error', __('This server is not associated with a Vultr instance or token.'));
 
                 return;
             }
@@ -687,7 +696,7 @@ class Show extends Component
             $this->vultrInstanceStatus = 'starting';
             $this->server->update(['vultr_instance_status' => 'starting']);
             $this->vultrInstanceManuallyStarted = true;
-            $this->dispatch('success', 'Vultr instance is starting...');
+            $this->dispatch('success', __('Vultr instance is starting...'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -698,7 +707,7 @@ class Show extends Component
         try {
             $this->authorize('update', $this->server);
             if (! $this->server->digitalocean_droplet_id || ! $this->server->cloudProviderToken) {
-                $this->dispatch('error', 'This server is not associated with a DigitalOcean droplet or token.');
+                $this->dispatch('error', __('This server is not associated with a DigitalOcean droplet or token.'));
 
                 return;
             }
@@ -709,7 +718,7 @@ class Show extends Component
             $this->digitalOceanDropletStatus = 'new';
             $this->server->update(['digitalocean_droplet_status' => 'new']);
             $this->digitalOceanDropletManuallyStarted = true;
-            $this->dispatch('success', 'DigitalOcean droplet is starting...');
+            $this->dispatch('success', __('DigitalOcean droplet is starting...'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -720,7 +729,7 @@ class Show extends Component
         try {
             $this->authorize('update', $this->server);
             if (! $this->server->isFunctional()) {
-                $this->dispatch('error', 'Validate the server connection before fetching details.');
+                $this->dispatch('error', __('Validate the server connection before fetching details.'));
 
                 return;
             }
@@ -728,9 +737,9 @@ class Show extends Component
             $result = $this->server->gatherServerMetadata();
             if ($result) {
                 $this->server->refresh()->load('settings');
-                $this->dispatch('success', 'Server details refreshed.');
+                $this->dispatch('success', __('Server details refreshed.'));
             } else {
-                $this->dispatch('error', 'Could not collect server details. Check the application logs for the remote command output.');
+                $this->dispatch('error', __('Could not collect server details. Check the application logs for the remote command output.'));
             }
         } catch (\Throwable $e) {
             handleError($e, $this);
@@ -742,7 +751,7 @@ class Show extends Component
         try {
             $this->authorize('update', $this->server);
             $this->syncData(true);
-            $this->dispatch('success', 'Server settings updated.');
+            $this->dispatch('success', __('Server settings updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -862,7 +871,7 @@ class Show extends Component
     public function linkToHetzner()
     {
         if (! $this->matchedHetznerServer) {
-            $this->dispatch('error', 'No Hetzner server selected.');
+            $this->dispatch('error', __('No Hetzner server selected.'));
 
             return;
         }
@@ -872,7 +881,7 @@ class Show extends Component
 
             $token = $this->availableHetznerTokens->firstWhere('id', $this->selectedHetznerTokenId);
             if (! $token) {
-                $this->dispatch('error', 'Invalid token selected.');
+                $this->dispatch('error', __('Invalid token selected.'));
 
                 return;
             }
@@ -903,7 +912,7 @@ class Show extends Component
             $this->hetznerNoMatchFound = false;
             $this->hetznerSearchError = null;
 
-            $this->dispatch('success', 'Server successfully linked to Hetzner Cloud!');
+            $this->dispatch('success', __('Server successfully linked to Hetzner Cloud!'));
             $this->dispatch('close-modal');
             $this->dispatch('refreshServerShow');
         } catch (\Throwable $e) {
@@ -990,7 +999,7 @@ class Show extends Component
     public function linkToDigitalOcean()
     {
         if (! $this->matchedDigitalOceanDroplet) {
-            $this->dispatch('error', 'No DigitalOcean droplet selected.');
+            $this->dispatch('error', __('No DigitalOcean droplet selected.'));
 
             return;
         }
@@ -1000,7 +1009,7 @@ class Show extends Component
 
             $token = $this->availableDigitalOceanTokens->firstWhere('id', $this->selectedDigitalOceanTokenId);
             if (! $token) {
-                $this->dispatch('error', 'Invalid token selected.');
+                $this->dispatch('error', __('Invalid token selected.'));
 
                 return;
             }
@@ -1034,7 +1043,7 @@ class Show extends Component
             $this->digitalOceanNoMatchFound = false;
             $this->digitalOceanSearchError = null;
 
-            $this->dispatch('success', 'Server successfully linked to DigitalOcean!');
+            $this->dispatch('success', __('Server successfully linked to DigitalOcean!'));
             $this->dispatch('close-modal');
             $this->dispatch('refreshServerShow');
         } catch (\Throwable $e) {
@@ -1121,7 +1130,7 @@ class Show extends Component
     public function linkToVultr()
     {
         if (! $this->matchedVultrInstance) {
-            $this->dispatch('error', 'No Vultr instance selected.');
+            $this->dispatch('error', __('No Vultr instance selected.'));
 
             return;
         }
@@ -1131,7 +1140,7 @@ class Show extends Component
 
             $token = $this->availableVultrTokens->firstWhere('id', $this->selectedVultrTokenId);
             if (! $token) {
-                $this->dispatch('error', 'Invalid token selected.');
+                $this->dispatch('error', __('Invalid token selected.'));
 
                 return;
             }
@@ -1159,7 +1168,7 @@ class Show extends Component
             $this->vultrNoMatchFound = false;
             $this->vultrSearchError = null;
 
-            $this->dispatch('success', 'Server successfully linked to Vultr!');
+            $this->dispatch('success', __('Server successfully linked to Vultr!'));
             $this->dispatch('close-modal');
             $this->dispatch('refreshServerShow');
         } catch (\Throwable $e) {

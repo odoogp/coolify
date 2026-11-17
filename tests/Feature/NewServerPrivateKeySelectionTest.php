@@ -91,8 +91,10 @@ it('preselects a manually added private key without clearing server form data', 
         ->assertSet('ip', '192.0.2.51')
         ->assertSet('user', 'deploy.user')
         ->assertSet('port', 2222)
-        ->assertSet('server_role', 'build')
-        ->assertSee('Manual SSH Key');
+        ->assertSet('is_build_server', true)
+        ->assertSee('Manual SSH Key')
+        ->assertSee('Download key')
+        ->assertSee('/security/private-key/'.$manualPrivateKey->uuid.'/download');
 });
 
 it('only accepts a private key from the current team when adding a server', function () {

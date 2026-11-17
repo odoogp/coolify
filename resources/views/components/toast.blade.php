@@ -6,7 +6,7 @@
                     type: options.type ?? 'default',
                     message,
                     description: options.description ?? '',
-                    position: options.position ?? 'bottom-right',
+                    position: options.position ?? 'top-right',
                     html: options.html ?? '',
                     persistent: options.persistent ?? false,
                 },
@@ -18,9 +18,9 @@
     <template x-teleport="body">
         <ul x-data="{
             toasts: [],
-            position: 'bottom-right',
+            position: 'top-right',
             addToast(event) {
-                this.position = event.detail.position || 'bottom-right';
+                this.position = event.detail.position || 'top-right';
 
                 const toast = {
                     id: `toast-${Math.random().toString(16).slice(2)}`,
@@ -141,7 +141,7 @@
                     </template>
 
                     <button type="button" x-show="toast.description && !toast.html"
-                        @click="copyToast(toast)" :title="toast.copied ? 'Copied' : 'Copy details'"
+                        @click="copyToast(toast)" :title="toast.copied ? '{{ __('Copied') }}' : '{{ __('Copy details') }}'"
                         class="absolute right-10 top-2.5 flex size-7 items-center justify-center rounded-md text-neutral-400 opacity-0 transition-colors hover:bg-black/5 hover:text-neutral-700 group-hover:opacity-100 dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
                         :class="{ 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400': toast.copied }">
                         <svg x-show="!toast.copied" class="size-3.5" xmlns="http://www.w3.org/2000/svg" fill="none"
@@ -152,7 +152,7 @@
                         <x-reicon name="check" x-show="toast.copied" class="size-3.5" />
                     </button>
 
-                    <button type="button" @click="removeToast(toast.id)" aria-label="Dismiss"
+                    <button type="button" @click="removeToast(toast.id)" aria-label="{{ __('Dismiss') }}"
                         class="absolute right-2.5 top-2.5 flex size-7 items-center justify-center rounded-md text-neutral-400 transition-colors hover:bg-black/5 hover:text-neutral-700 dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg">
                         <x-reicon name="x" class="size-3.5" />
                     </button>

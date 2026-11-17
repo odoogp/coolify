@@ -35,7 +35,7 @@ class Form extends Component
             $this->validate();
             $this->application->preview_url_template = str_replace(' ', '', $this->previewUrlTemplate);
             $this->application->save();
-            $this->dispatch('success', 'Preview url template updated.');
+            $this->dispatch('success', __('Preview url template updated.'));
             $this->generateRealUrl();
         } catch (\Throwable $e) {
             return handleError($e, $this);
@@ -50,7 +50,7 @@ class Form extends Component
             $this->previewUrlTemplate = $this->application->preview_url_template;
             $this->application->save();
             $this->generateRealUrl();
-            $this->dispatch('success', 'Preview url template updated.');
+            $this->dispatch('success', __('Preview url template updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

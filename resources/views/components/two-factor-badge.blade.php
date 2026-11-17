@@ -2,7 +2,7 @@
     'enabled' => false,
 ])
 
-<span title="{{ $enabled ? 'Two-factor authentication is enabled for this account.' : 'This account is not protected by two-factor authentication.' }}"
+<span title="{{ $enabled ? __('Two-factor authentication is enabled for this account.') : __('This account is not protected by two-factor authentication.') }}"
     {{ $attributes->class([
         'inline-flex items-center',
         'text-green-600 dark:text-green-400' => $enabled,

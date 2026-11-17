@@ -1,20 +1,23 @@
-<div>
-    @if ($modalMode)
-        <div class="relative">
-        <form wire:submit="changePrivateKey" class="flex flex-col gap-4" x-data="{ showPrivateKey: false }"
-            wire:loading.class="pointer-events-none opacity-50" wire:target="delete">
+<div @if (! $unavailable) x-init="$wire.loadPublicKey()" @endif>
+    @if ($modalMode && $unavailable)
+        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ __('This private key is unavailable.') }}</p>
+    @elseif ($modalMode)
+        <form wire:submit="changePrivateKey" class="flex flex-col gap-4" x-data="{ showPrivateKey: false }">
             <div class="grid gap-4 lg:grid-cols-2">
-                <x-forms.input canGate="update" :canResource="$private_key" id="name" label="Name" required />
-                <x-forms.input canGate="update" :canResource="$private_key" id="description" label="Description" />
+                <x-forms.input canGate="update" :canResource="$private_key" id="name" label="{{ __('Name') }}" required />
+                <x-forms.input canGate="update" :canResource="$private_key" id="description" label="{{ __('Description') }}" />
                 <div class="lg:col-span-2">
                     <x-forms.input canGate="update" :canResource="$private_key" readonly id="public_key"
-                        label="Public key" helper="Copy this value to ~/.ssh/authorized_keys on the target server." />
+                        label="{{ __('Public key') }}" helper="{{ __('Copy this value to ~/.ssh/authorized_keys on the target server.') }}" />
                 </div>
                 <div class="lg:col-span-2">
                     <div class="mb-1.5 flex items-center justify-between gap-3">
-                        <label class="text-[13px] font-medium">Private key <span class="text-helper">*</span></label>
-                        <button type="button" class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
-                            x-on:click="showPrivateKey = !showPrivateKey" x-text="showPrivateKey ? 'Hide editor' : 'Edit key'"></button>
+                        <label class="text-[13px] font-medium">{{ __('Private key') }} <span class="text-helper">*</span></label>
+                        <div class="flex items-center gap-3">
+                            <x-private-key.download :private-key="$private_key" />
+                            <button type="button" class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
+                                x-on:click="showPrivateKey = !showPrivateKey" x-text="showPrivateKey ? @js(__('Hide editor')) : @js(__('Edit key'))"></button>
+                        </div>
                     </div>
                     <div x-show="!showPrivateKey">
                         <x-forms.input canGate="update" :canResource="$private_key" allowToPeak="false"
@@ -28,12 +31,12 @@
             </div>
             <div class="flex items-center justify-between gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
                 @can('delete', $private_key)
-                    <x-modal-confirmation title="Confirm Private Key Deletion?" isErrorButton buttonTitle="Delete"
+                    <x-modal-confirmation title="{{ __('Confirm Private Key Deletion?') }}" isErrorButton buttonTitle="Delete"
                         submitAction="delete" :disabled="$isInUse" :disabledTooltip="$deleteDisabledReason"
                         :actions="['This private key will be permanently deleted.']" confirmationText="{{ $private_key->name }}"
                         :confirmWithPassword="false" step2ButtonText="Delete private key" />
                 @endcan
-                <x-forms.button type="submit" isHighlighted>Save changes</x-forms.button>
+                <x-forms.button type="submit" isHighlighted>{{ __('Save changes') }}</x-forms.button>
             </div>
         </form>
         <div wire:loading.flex wire:target="delete"
@@ -49,19 +52,19 @@
     <x-security.settings-layout>
         <x-slot:actions>
             @if ($isGitRelated)
-                <x-status-badge label="Used by GitHub App" type="neutral" />
+                <x-status-badge label="{{ __('Used by GitHub App') }}" type="neutral" />
             @endif
             @if (data_get($private_key, 'id') > 0)
                 @can('delete', $private_key)
-                    <x-modal-confirmation title="Confirm Private Key Deletion?" isErrorButton buttonTitle="Delete"
+                    <x-modal-confirmation title="{{ __('Confirm Private Key Deletion?') }}" isErrorButton buttonTitle="Delete"
                         submitAction="delete({{ $private_key->id }})" :disabled="$isInUse"
                         :disabledTooltip="$deleteDisabledReason" :actions="[
                             'This private key will be permanently deleted.',
                             'Servers and Git sources using it will stop working.',
                         ]"
                         confirmationText="{{ $private_key->name }}"
-                        confirmationLabel="Enter the private key name to confirm deletion"
-                        shortConfirmationLabel="Private key name" :confirmWithPassword="false"
+                        confirmationLabel="{{ __('Enter the private key name to confirm deletion') }}"
+                        shortConfirmationLabel="{{ __('Private key name') }}" :confirmWithPassword="false"
                         step2ButtonText="Delete private key" />
                 @endcan
             @endif
@@ -70,23 +73,26 @@
 
     <form wire:submit="changePrivateKey" class="application-settings-form" x-data="{ showPrivateKey: false }">
         <x-unsaved-bar action="changePrivateKey" />
-        <x-application.settings-section title="General">
+        <x-application.settings-section title="{{ __('General') }}">
             <div class="grid gap-4 lg:grid-cols-2">
-                <x-forms.input canGate="update" :canResource="$private_key" id="name" label="Name" required />
+                <x-forms.input canGate="update" :canResource="$private_key" id="name" label="{{ __('Name') }}" required />
                 <x-forms.input canGate="update" :canResource="$private_key" id="description"
-                    label="Description" />
+                    label="{{ __('Description') }}" />
                 <div class="lg:col-span-2">
                     <x-forms.input canGate="update" :canResource="$private_key" readonly id="public_key"
-                        label="Public key"
-                        helper="Copy this value to ~/.ssh/authorized_keys on the target server." />
+                        label="{{ __('Public key') }}"
+                        helper="{{ __('Copy this value to ~/.ssh/authorized_keys on the target server.') }}" />
                 </div>
                 <div class="lg:col-span-2">
                     <div class="mb-1.5 flex items-center justify-between gap-3">
-                        <label class="text-[13px] font-medium">Private key <span class="text-helper">*</span></label>
-                        <button type="button"
-                            class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
-                            x-on:click="showPrivateKey = !showPrivateKey"
-                            x-text="showPrivateKey ? 'Hide editor' : 'Edit key'"></button>
+                        <label class="text-[13px] font-medium">{{ __('Private key') }} <span class="text-helper">*</span></label>
+                        <div class="flex items-center gap-3">
+                            <x-private-key.download :private-key="$private_key" />
+                            <button type="button"
+                                class="text-[11px] font-medium text-coollabs hover:underline dark:text-warning"
+                                x-on:click="showPrivateKey = !showPrivateKey"
+                                x-text="showPrivateKey ? @js(__('Hide editor')) : @js(__('Edit key'))"></button>
+                        </div>
                     </div>
                     <div x-show="!showPrivateKey">
                         <x-forms.input canGate="update" :canResource="$private_key" allowToPeak="false"

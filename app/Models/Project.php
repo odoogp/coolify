@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
-use App\Traits\Auditable;
+use App\Domain\Odoo\OdooStaging;
+use App\Services\AdminCreationQuota;
 use App\Traits\ClearsGlobalSearchCache;
 use App\Traits\HasSafeStringAttribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use OpenApi\Attributes as OA;
+use RuntimeException;
 
 #[OA\Schema(
     description: 'Project model',
@@ -30,6 +35,7 @@ class Project extends BaseModel
         'description',
         'team_id',
         'uuid',
+        'created_by',
     ];
 
     /**
@@ -53,20 +59,25 @@ class Project extends BaseModel
 
     protected static function booted()
     {
+        static::creating(function (Project $project): void {
+            app(AdminCreationQuota::class)->guardProject($project);
+        });
         static::created(function ($project) {
             ProjectSetting::create([
                 'project_id' => $project->id,
             ]);
             Environment::create([
                 'name' => 'production',
+                'role' => Environment::ROLE_PRODUCTION,
                 'project_id' => $project->id,
                 'uuid' => new_public_id(),
+                'created_by' => $project->created_by,
             ]);
         });
         static::deleting(function ($project) {
-            foreach ($project->environments()->get() as $environment) {
-                $environment->delete();
-            }
+            OdooEnvironmentBranch::query()->whereIn('environment_id', $project->environments()->pluck('id'))->delete();
+            $project->odooProfile()->delete();
+            $project->environments()->delete();
             $project->settings()->delete();
             $shared_variables = $project->environment_variables();
             foreach ($shared_variables as $shared_variable) {
@@ -88,6 +99,206 @@ class Project extends BaseModel
     public function settings()
     {
         return $this->hasOne(ProjectSetting::class);
+    }
+
+    public function odooProfile(): HasOne
+    {
+        return $this->hasOne(OdooProfile::class);
+    }
+
+    /**
+     * Save the Odoo profile. Does not create environments, services, or deployments.
+     * An environment is created later, when it is launched as a GitHub branch.
+     */
+    public function enableOdoo(string $version, int $maxStagingEnvironments = 1, bool $unlimitedStagingEnvironments = false): OdooProfile
+    {
+        if (! OdooComposeTemplate::isConfiguredVersion($version)) {
+            throw new InvalidArgumentException('That Odoo version has no Compose template in Settings → Odoo.');
+        }
+        if ($maxStagingEnvironments < 0) {
+            throw new InvalidArgumentException('Staging environment limit cannot be negative.');
+        }
+
+        return DB::transaction(function () use ($version, $maxStagingEnvironments, $unlimitedStagingEnvironments): OdooProfile {
+            $profile = $this->odooProfile()->updateOrCreate(
+                ['project_id' => $this->id],
+                [
+                    'odoo_version' => $version,
+                    'max_staging_environments' => $maxStagingEnvironments,
+                    'unlimited_staging_environments' => $unlimitedStagingEnvironments,
+                ],
+            );
+            $this->setRelation('odooProfile', $profile);
+
+            return $profile;
+        });
+    }
+
+    public function canCreateStagingEnvironment(): bool
+    {
+        return OdooStaging::canCreateStagingEnvironment($this);
+    }
+
+    public function productionEnvironment(): ?Environment
+    {
+        $this->loadMissing('environments');
+
+        return $this->environments->first(
+            fn (Environment $environment): bool => $environment->isProduction()
+        );
+    }
+
+    /**
+     * @return Collection<int, Environment>
+     */
+    public function stagingEnvironments(): Collection
+    {
+        $this->loadMissing('environments');
+
+        return $this->environments
+            ->filter(fn (Environment $environment): bool => $environment->isStaging())
+            ->values();
+    }
+
+    public function createNextStagingEnvironment(?string $preferredName = null): Environment
+    {
+        if (! OdooStaging::canCreateStagingEnvironment($this)) {
+            throw new RuntimeException('Staging environment limit reached.');
+        }
+
+        $name = $this->uniqueEnvironmentName(
+            $preferredName,
+            fallback: OdooStaging::nextName($this),
+        );
+
+        return Environment::create([
+            'name' => $name,
+            'role' => Environment::ROLE_STAGING,
+            'project_id' => $this->id,
+            'created_by' => auth()->id() ?? $this->created_by,
+        ]);
+    }
+
+    /**
+     * Whether any production environment already hosts this catalog service type.
+     */
+    public function hasProductionOfService(string $serviceType): bool
+    {
+        $serviceType = trim($serviceType);
+        if ($serviceType === '') {
+            return false;
+        }
+
+        return $this->environments()
+            ->where('role', Environment::ROLE_PRODUCTION)
+            ->whereHas('services', fn ($query) => $query->where('service_type', $serviceType))
+            ->exists();
+    }
+
+    /**
+     * First environment for a distinct catalog service (production role).
+     * Display name prefers the service slug when "production" is already taken.
+     */
+    public function createNextProductionEnvironment(string $serviceType, ?string $preferredName = null): Environment
+    {
+        $slug = str($serviceType)->slug('-')->toString() ?: 'service';
+        $fallback = $this->environments()->where('name', 'production')->exists() ? $slug : 'production';
+        $suffix = 2;
+        while ($this->environments()->where('name', $fallback)->exists()) {
+            $fallback = $slug.'-'.$suffix;
+            $suffix++;
+        }
+
+        $name = $this->uniqueEnvironmentName($preferredName, fallback: $fallback);
+
+        return Environment::create([
+            'name' => $name,
+            'role' => Environment::ROLE_PRODUCTION,
+            'project_id' => $this->id,
+            'created_by' => auth()->id() ?? $this->created_by,
+        ]);
+    }
+
+    /**
+     * One new staging environment from the project's production environment.
+     * Does not create a second production, services, or a deployment.
+     */
+    public function cloneProductionAsStaging(): Environment
+    {
+        if (! $this->productionEnvironment() instanceof Environment) {
+            throw new RuntimeException('This project must have one production environment.');
+        }
+
+        return $this->createNextStagingEnvironment();
+    }
+
+    /**
+     * New environment for a catalog Launch. Role is chosen by the user —
+     * staging may exist before any production (independent branches).
+     * Optional $preferredName is the display name from Project → New.
+     */
+    public function createCatalogLaunchEnvironment(string $role, string $serviceType = '', ?string $preferredName = null): Environment
+    {
+        $role = $role === Environment::ROLE_STAGING
+            ? Environment::ROLE_STAGING
+            : Environment::ROLE_PRODUCTION;
+
+        if ($role === Environment::ROLE_STAGING) {
+            return $this->createNextStagingEnvironment($preferredName);
+        }
+
+        $this->loadMissing('environments');
+        $emptyProduction = $this->environments
+            ->filter(fn (Environment $environment): bool => $environment->isProduction() && $environment->isEmpty())
+            ->sortBy('id')
+            ->first();
+        if ($emptyProduction instanceof Environment) {
+            $preferred = is_string($preferredName) ? trim($preferredName) : '';
+            if ($preferred !== '' && $preferred !== (string) $emptyProduction->name) {
+                if ($this->environments()->where('name', $preferred)->where('id', '!=', $emptyProduction->id)->exists()) {
+                    throw new RuntimeException(__('An environment named :name already exists on this project.', ['name' => $preferred]));
+                }
+                $emptyProduction->update(['name' => $preferred]);
+            }
+
+            return $emptyProduction->fresh() ?? $emptyProduction;
+        }
+
+        return $this->createNextProductionEnvironment($serviceType !== '' ? $serviceType : 'service', $preferredName);
+    }
+
+    /**
+     * Use the preferred display name when free; otherwise the auto fallback.
+     * A preferred name that collides raises — the Launch form must pick another.
+     */
+    private function uniqueEnvironmentName(?string $preferredName, string $fallback): string
+    {
+        $preferred = is_string($preferredName) ? trim($preferredName) : '';
+        if ($preferred === '') {
+            return $fallback;
+        }
+        if ($this->environments()->where('name', $preferred)->exists()) {
+            throw new RuntimeException(__('An environment named :name already exists on this project.', ['name' => $preferred]));
+        }
+
+        return $preferred;
+    }
+
+    /**
+     * Target environment for Clone. Same independence as Launch: the copy may
+     * be production or staging regardless of the source role.
+     */
+    public function createCloneTargetEnvironment(string $role, string $serviceType = ''): Environment
+    {
+        $role = $role === Environment::ROLE_PRODUCTION
+            ? Environment::ROLE_PRODUCTION
+            : Environment::ROLE_STAGING;
+
+        if ($role === Environment::ROLE_PRODUCTION) {
+            return $this->createNextProductionEnvironment($serviceType !== '' ? $serviceType : 'clone');
+        }
+
+        return $this->createNextStagingEnvironment();
     }
 
     public function team()
@@ -150,6 +361,11 @@ class Project extends BaseModel
         return $this->hasManyThrough(StandaloneMariadb::class, Environment::class);
     }
 
+    public function sqlites()
+    {
+        return $this->hasManyThrough(StandaloneSqlite::class, Environment::class);
+    }
+
     public function isEmpty()
     {
         return $this->applications()->count() == 0 &&
@@ -180,13 +396,6 @@ class Project extends BaseModel
 
     public function navigateTo()
     {
-        if ($this->environments->count() === 1) {
-            return route('project.resource.index', [
-                'project_uuid' => $this->uuid,
-                'environment_uuid' => $this->environments->first()->uuid,
-            ]);
-        }
-
         return route('project.show', ['project_uuid' => $this->uuid]);
     }
 }

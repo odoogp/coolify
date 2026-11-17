@@ -125,7 +125,7 @@ class ResourceLimits extends Component
 
             $this->syncData(true);
             $this->resource->save();
-            $this->dispatch('success', 'Resource limits updated.');
+            $this->dispatch('success', __('Resource limits updated.'));
         } catch (ValidationException $e) {
             foreach ($e->validator->errors()->all() as $message) {
                 $this->dispatch('error', $message);

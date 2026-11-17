@@ -5,6 +5,9 @@ namespace App\Livewire\Project\Shared;
 use App\Models\Application;
 use App\Models\Server;
 use App\Models\Service;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
+use App\Support\OdooMonitor;
 use App\Support\ValidationPatterns;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Collection;
@@ -31,6 +34,8 @@ class ExecuteContainerCommand extends Component
 
     public bool $containersLoaded = false;
 
+    public ?string $shell = null;
+
     protected $rules = [
         'server' => 'required',
         'container' => 'required',
@@ -40,12 +45,16 @@ class ExecuteContainerCommand extends Component
     public function mount(): void
     {
         $this->parameters = get_route_parameters();
+        $this->shell = request()->query('shell');
         $this->containers = collect();
         $this->servers = collect();
         if (data_get($this->parameters, 'application_uuid')) {
             $this->type = 'application';
             $this->resource = Application::ownedByCurrentTeam()->where('uuid', $this->parameters['application_uuid'])->firstOrFail();
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             if ($this->resource->destination->server->isFunctional()) {
                 $this->servers = $this->servers->push($this->resource->destination->server);
             }
@@ -62,6 +71,9 @@ class ExecuteContainerCommand extends Component
             }
             $this->resource = $resource;
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             if ($this->resource->destination->server->isFunctional()) {
                 $this->servers = $this->servers->push($this->resource->destination->server);
             }
@@ -69,16 +81,25 @@ class ExecuteContainerCommand extends Component
             $this->type = 'service';
             $this->resource = Service::ownedByCurrentTeam()->where('uuid', $this->parameters['service_uuid'])->firstOrFail();
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             if (! $this->resource->isRunning()) {
                 $this->containersLoaded = true;
             }
             if ($this->resource->server->isFunctional()) {
                 $this->servers = $this->servers->push($this->resource->server);
             }
+            if ($this->resource->supportsOdooJupyter() && ($this->shell === null || $this->shell === '')) {
+                $this->shell = 'odoo';
+            }
         } elseif (data_get($this->parameters, 'server_uuid')) {
             $this->type = 'server';
             $this->resource = Server::ownedByCurrentTeam()->where('uuid', $this->parameters['server_uuid'])->firstOrFail();
             $this->authorize('view', $this->resource);
+            if (! auth()->user()?->canOpenTerminal($this->resource)) {
+                abort(403);
+            }
             $this->servers = $this->servers->push($this->resource);
             $this->containersLoaded = true;
         }
@@ -122,22 +143,36 @@ class ExecuteContainerCommand extends Component
                     ]);
                 }
             } elseif (data_get($this->parameters, 'service_uuid')) {
-                $this->resource->applications()->get()->each(function ($application) {
+                $clientContainers = $this->resource instanceof Service
+                    && $this->resource->supportsOdooJupyter()
+                    && ! isInstanceAdmin();
+                $this->resource->applications()->get()->each(function ($application) use ($clientContainers) {
+                    if (OdooMonitor::hidesTerminal((string) $application->name) || OdooJupyter::hidesTerminal((string) $application->name)) {
+                        return;
+                    }
+                    if ($clientContainers && ! OdooGit::clientSeesLog((string) $application->name)) {
+                        return;
+                    }
                     if ($application->isRunning() && $this->resource->server->isTerminalEnabled()) {
                         $this->containers->push([
                             'server' => $this->resource->server,
                             'container' => [
                                 'Names' => data_get($application, 'name').'-'.data_get($this->resource, 'uuid'),
+                                'Label' => $this->containerLabel((string) data_get($application, 'name')),
                             ],
                         ]);
                     }
                 });
-                $this->resource->databases()->get()->each(function ($database) {
+                $this->resource->databases()->get()->each(function ($database) use ($clientContainers) {
+                    if ($clientContainers && ! OdooGit::clientSeesLog((string) $database->name)) {
+                        return;
+                    }
                     if ($database->isRunning()) {
                         $this->containers->push([
                             'server' => $this->resource->server,
                             'container' => [
                                 'Names' => data_get($database, 'name').'-'.data_get($this->resource, 'uuid'),
+                                'Label' => $this->containerLabel((string) data_get($database, 'name')),
                             ],
                         ]);
                     }
@@ -150,12 +185,21 @@ class ExecuteContainerCommand extends Component
             return data_get($container, 'container.Names');
         });
 
-        if ($this->containers->count() === 1) {
-            $this->selected_container = $this->containerTarget($this->containers->first());
+        if ($this->containers->count() === 1 && $this->shell !== 'odoo') {
+            $this->selected_container = data_get($this->containers->first(), 'container.Names');
             $this->connectToContainer();
         } elseif ($this->containers->count() > 1) {
             // The terminal was rendered with auto-start before the containers were known.
             $this->dispatch(Terminal::AUTO_START_CANCELLED_EVENT)->to(Terminal::class);
+        }
+        if ($this->shell === 'odoo') {
+            $odoo = $this->containers->first(function (mixed $row): bool {
+                return OdooGit::terminalShell((string) data_get($row, 'container.Names')) !== null;
+            });
+            if ($odoo !== null) {
+                $this->selected_container = (string) data_get($odoo, 'container.Names');
+                $this->connectToContainer();
+            }
         }
 
         $this->containersLoaded = true;
@@ -203,7 +247,7 @@ class ExecuteContainerCommand extends Component
     public function connectToContainer()
     {
         if ($this->selected_container === 'default') {
-            $this->failTerminalSession('Please select a container.');
+            $this->dispatch('terminal-start-failed', message: __('Please select a container.'));
 
             return;
         }
@@ -254,18 +298,24 @@ class ExecuteContainerCommand extends Component
             // Dispatch a frontend event to ensure terminal gets focus after connection
             $this->dispatch('terminal-should-focus');
         } catch (\Throwable $e) {
-            $this->failTerminalSession(Terminal::sessionFailureMessage($e));
+            $this->dispatch('terminal-start-failed', message: $e->getMessage());
+
+            return handleError($e, $this);
         } finally {
             $this->isConnecting = false;
         }
     }
 
-    /**
-     * Stop the terminal "connecting…" state and show why. The terminal also shows the toast.
-     */
-    private function failTerminalSession(string $message): void
+    private function containerLabel(string $name): string
     {
-        $this->dispatch(Terminal::SESSION_FAILED_EVENT, message: $message)->to(Terminal::class);
+        $lower = strtolower($name);
+
+        return match (true) {
+            str_contains($lower, 'jupyter') => 'Jupyter',
+            str_contains($lower, 'postgres') => 'PostgreSQL',
+            str_contains($lower, 'odoo') => 'Odoo',
+            default => $name,
+        };
     }
 
     public function render()

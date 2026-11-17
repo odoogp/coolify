@@ -14,6 +14,7 @@
   <coverage/>
   <php>
     <env name="APP_ENV" value="testing"/>
+    <env name="APP_LOCALE" value="en"/>
     <env name="BCRYPT_ROUNDS" value="4"/>
     <env name="CACHE_DRIVER" value="array" force="true"/>
     <env name="DB_CONNECTION" value="testing" force="true"/>
@@ -23,6 +24,14 @@
     <env name="SESSION_DRIVER" value="array" force="true"/>
     <!-- Disable broadcasting for host-side Pest browser runs. -->
     <env name="BROADCAST_DRIVER" value="null" force="true"/>
+    <!-- Laravel reads $_SERVER before $_ENV; the dev container exports these, so <env> alone would point tests at the dev database. -->
+    <server name="APP_ENV" value="testing" force="true"/>
+    <server name="DB_CONNECTION" value="testing" force="true"/>
+    <server name="CACHE_DRIVER" value="array" force="true"/>
+    <server name="QUEUE_CONNECTION" value="sync" force="true"/>
+    <server name="SESSION_DRIVER" value="array" force="true"/>
+    <server name="MAIL_MAILER" value="array" force="true"/>
+    <server name="BROADCAST_DRIVER" value="null" force="true"/>
   </php>
   <source>
     <include>

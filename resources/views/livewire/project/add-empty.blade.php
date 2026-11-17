@@ -1,18 +1,74 @@
-<form class="space-y-4" wire:submit="submit">
+<div>
+@if ($needsServer)
+    <div class="space-y-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 dark:border-white/[0.08] dark:bg-white/[0.025]">
+        <p class="text-[13px] leading-5 text-neutral-700 dark:text-fg">
+            {{ __('Do you want to create a server?') }}
+        </p>
+        @if ($canAddServer)
+            <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
+                {{ __('Create a new server') }}
+            </a>
+        @else
+            <p class="text-[12px] leading-5 text-neutral-500 dark:text-fg-dim">
+                {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
+            </p>
+        @endif
+    </div>
+@else
+<form class="space-y-4" wire:submit="submit" data-listbox-portal-root>
     <div class="grid gap-4 md:grid-cols-2">
-        <x-forms.input placeholder="Your project name" id="name" label="Name" required />
-        <x-forms.input placeholder="A short project description" id="description" label="Description" />
+        <x-forms.input placeholder="{{ __('Your project name') }}" id="name" label="{{ __('Name') }}" required />
+        <x-forms.input placeholder="{{ __('A short project description') }}" id="description" label="{{ __('Description') }}" />
     </div>
 
+    <x-creation-quota :quota="$creationQuota" />
+
+    <x-forms.searchable-listbox id="service" label="{{ __('What do you want to launch?') }}" live portal ignoreMorph
+        searchPlaceholder="{{ __('Search the catalog (Odoo, Redis, n8n, custom…)') }}"
+        emptyText="{{ __('No matching service') }}"
+        helper="{{ __('Odoo is the default hook. Any visible template from Settings → Service templates can launch in one click.') }}"
+        :options="$serviceOptions" />
+
+    @if ($serverChoices !== [])
+        <x-forms.listbox id="serverId" portal
+            label="{{ $hasOtherServers ? __('Which server should run this project?') : __('Do you want to create a new server?') }}"
+            :options="$serverChoices" />
+    @endif
+
+    @if ($service === 'odoo')
+        @if ($odooVersionOptions === [])
+            <p class="rounded-lg border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-[12px] text-amber-950 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                {{ __('No Odoo Compose templates are configured. Add one in Settings → Odoo first.') }}
+            </p>
+        @else
+            <x-forms.listbox id="odooVersion" label="{{ __('Odoo version') }}" portal required
+                :options="$odooVersionOptions" />
+            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                {{ __('Choose the Compose for this environment. Other environments can use a different Odoo version.') }}
+            </p>
+        @endif
+        <x-forms.checkbox id="migrateFromOdoo" live label="{{ __('Migrate') }}"
+            helper="{{ __('Creates the project, starts Odoo, then opens the assistant to upload dump, filestore, and optional modules zip. You can restore into production or staging.') }}" />
+        @unless ($migrateFromOdoo)
+            <x-forms.checkbox id="connectGithub" label="{{ __('Connect GitHub') }}"
+                helper="{{ __('You can leave this off. JupyterLab then shows the addon files, and a repository can be connected later.') }}" />
+        @endunless
+    @endif
+
     <p
-        class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-fg-dim">
-        A production environment will be created automatically.
+        class="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-[12px] text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-dim">
+        {{ __('A production environment will be created automatically.') }}
+        @if ($service === 'odoo' && $migrateFromOdoo)
+            {{ __('After create you will continue in the migration assistant.') }}
+        @endif
     </p>
 
     <footer class="flex justify-end border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
-        <x-forms.button type="submit"
+        <x-forms.button type="submit" wire:target="submit"
             defaultClass="button button-highlighted">
-            Create project
+            {{ __('Create project') }}
         </x-forms.button>
     </footer>
 </form>
+@endif
+</div>

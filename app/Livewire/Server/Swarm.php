@@ -54,7 +54,7 @@ class Swarm extends Component
         try {
             $this->authorize('update', $this->server);
             $this->syncData(true);
-            $this->dispatch('success', 'Swarm settings updated.');
+            $this->dispatch('success', __('Swarm settings updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

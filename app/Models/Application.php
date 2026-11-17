@@ -3,9 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ApplicationDeploymentStatus;
-use App\Enums\BuildPackTypes;
-use App\Enums\ProxyTypes;
-use App\Exceptions\DeploymentException;
+use App\Services\AdminCreationQuota;
 use App\Services\ConfigurationGenerator;
 use App\Services\DeploymentConfiguration\ApplicationConfigurationSnapshot;
 use App\Services\DeploymentConfiguration\ConfigurationDiff;
@@ -239,6 +237,7 @@ class Application extends BaseModel
         'source_id',
         'source_type',
         'repository_project_id',
+        'is_odoo_addons',
         'private_key_id',
     ];
 
@@ -280,6 +279,7 @@ class Application extends BaseModel
             'restart_limit_reached' => 'boolean',
             'container_present' => 'boolean',
             'last_restart_at' => 'datetime',
+            'is_odoo_addons' => 'boolean',
         ];
     }
 
@@ -290,6 +290,7 @@ class Application extends BaseModel
             $application->manual_webhook_secret_gitlab ??= Str::random(40);
             $application->manual_webhook_secret_bitbucket ??= Str::random(40);
             $application->manual_webhook_secret_gitea ??= Str::random(40);
+            app(AdminCreationQuota::class)->guardApplication($application);
         });
         static::addGlobalScope('withRelations', function ($builder) {
             $builder->withCount([
@@ -1217,7 +1218,7 @@ class Application extends BaseModel
      */
     public function deployments(
         int $skip = 0,
-        int $take = 10,
+        int $take = 5,
         ?string $pullRequestId = null,
         ?string $search = null,
         array $filters = [],

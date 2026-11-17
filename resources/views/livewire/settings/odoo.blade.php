@@ -1,0 +1,229 @@
+<div>
+    <x-slot:title>
+        {{ __('Odoo templates | Coolify') }}
+    </x-slot>
+
+    <x-settings.layout>
+        <form wire:submit="saveBaseDomain" class="application-settings-form mb-6 flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('Odoo domain') }}"
+                description="{{ __('Every project address uses this domain. Production is the name the client chooses, then this domain. A staging branch adds the branch and its id.') }}">
+                <div class="max-w-xl">
+                    <x-forms.input id="odooBaseDomain" label="{{ __('Domain') }}" placeholder="dev.odoo.com" />
+                </div>
+                <div>
+                    <x-forms.button type="submit" isHighlighted>{{ __('Save domain') }}</x-forms.button>
+                </div>
+            </x-application.settings-section>
+        </form>
+        @if (isInstanceOwner())
+            <form wire:submit="saveMailLimit" class="application-settings-form mb-6 flex w-full min-w-0 flex-col gap-6">
+                <x-application.settings-section title="{{ __('Emails per day') }}"
+                    description="{{ __('Each client team can send this many emails per day. A neutralized database does not send mail.') }}">
+                    <div class="max-w-xs">
+                        <x-forms.input id="mailDailyLimit" type="number" min="0" max="10000" label="{{ __('Emails per team') }}" />
+                    </div>
+                    <div>
+                        <x-forms.button type="submit" isHighlighted>{{ __('Save limit') }}</x-forms.button>
+                    </div>
+                </x-application.settings-section>
+            </form>
+        @endif
+        <div class="application-settings-form mb-6 flex w-full min-w-0 flex-col gap-6">
+            @if ($showTemplateEditor)
+                <form wire:submit="save" class="flex w-full min-w-0 flex-col gap-6">
+                    <x-application.settings-section
+                        :title="$editingExistingTemplate ? __('Edit Odoo template') : __('New Odoo template')"
+                        description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it.') }}">
+                        <div class="grid max-w-xl gap-4 sm:grid-cols-2">
+                            <x-forms.input id="version" label="{{ __('Odoo version') }}"
+                                helper="{{ __('Image tag, for example 18 or 21.') }}"
+                                placeholder="18" required />
+                            <x-forms.input id="postgresVersion" label="{{ __('PostgreSQL') }}"
+                                helper="{{ __('Image tag used by the postgresql service, for example 16-alpine. Tags 18+ remount the data volume at /var/lib/postgresql.') }}"
+                                placeholder="16-alpine" />
+                        </div>
+                        <x-forms.textarea id="waitingTipsText" label="{{ __('Waiting tips') }}" rows="8"
+                            helper="{{ __('One tip per line for Odoo end users (Sales, Inventory, Accounting…). Shown while this version is mounting. Leave empty to hide tips; clear and save to restore the stock tips.') }}" />
+                        <x-forms.textarea id="compose" label="{{ __('Compose') }}" rows="22" />
+                        <div class="flex flex-wrap gap-2">
+                            <x-forms.button type="submit" isHighlighted>{{ __('Save') }}</x-forms.button>
+                            <button type="button" class="button" wire:click="cancelTemplateEditor">{{ __('Cancel') }}</button>
+                        </div>
+                    </x-application.settings-section>
+                </form>
+            @else
+                <x-application.settings-section title="{{ __('Odoo templates') }}"
+                    description="{{ __('Each Odoo version has its own Compose file and the PostgreSQL version that goes with it. Launch pickers only offer versions saved here.') }}"
+                    flush>
+                    <x-slot:actions>
+                        <x-forms.button type="button" wire:click="newTemplate" isHighlighted>
+                            {{ __('New') }}
+                        </x-forms.button>
+                    </x-slot:actions>
+                    @if ($templates->isEmpty())
+                        <x-empty size="sm" title="{{ __('No Odoo templates yet.') }}"
+                            description="{{ __('Create a template for each Odoo version clients can launch.') }}"
+                            icon-name="server" />
+                    @else
+                        <div class="data-table">
+                            <div class="data-table-header grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_max-content] gap-3">
+                                <span>{{ __('Odoo version') }}</span>
+                                <span>{{ __('PostgreSQL') }}</span>
+                                <span></span>
+                            </div>
+                            @foreach ($templates as $template)
+                                <div class="data-table-row grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_max-content] gap-3 border-b border-neutral-200 last:border-b-0 dark:border-white/[0.07]"
+                                    wire:key="odoo-template-{{ $template->id }}">
+                                    <div class="truncate text-[13px] font-medium">{{ $template->version }}</div>
+                                    <div class="truncate text-[12px] text-neutral-500 dark:text-fg-dim">{{ $template->postgres_version }}</div>
+                                    <div class="flex justify-end">
+                                        <button type="button" class="button"
+                                            wire:click="editTemplate('{{ $template->version }}')">
+                                            {{ __('Edit') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+                </x-application.settings-section>
+            @endif
+        </div>
+        <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('Owner modules') }}"
+                description="{{ __('House modules come from a GitHub branch on this instance. Each Odoo start copies them into the image addons, so they show up in the Odoo apps and stay out of the client addon folder and Jupyter. Saving does not restart Odoo. To put a package branch into a client project volume, open that service as owner and use Owner package.') }}">
+                <form wire:submit="saveOwnerRepository" class="flex max-w-xl flex-col gap-4">
+                    @if ($ownerGithubConnected)
+                        <p class="text-[13px] font-medium text-emerald-700 dark:text-emerald-300">
+                            {{ __('Connected GitHub account: :login', ['login' => $ownerGithubLogin]) }}
+                        </p>
+                        <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('This account is only for owner modules. It is not tied to the instance owner profile and can be changed at any time.') }}
+                        </p>
+                    @else
+                        <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('No GitHub account is selected for owner modules yet. Connect a GitHub App, then pick the account below.') }}
+                        </p>
+                    @endif
+                    @if ($ownerGithubApps !== [])
+                        <x-forms.searchable-listbox id="ownerGithubAppId" label="{{ __('GitHub account') }}" live
+                            searchPlaceholder="{{ __('Search GitHub accounts') }}"
+                            emptyText="{{ __('No matching GitHub account') }}"
+                            helper="{{ __('Pick any installed GitHub App. House modules clone with this account, not the one on the owner profile.') }}"
+                            :options="$ownerGithubApps" />
+                    @else
+                        <div>
+                            <a class="button" href="{{ route('settings.github') }}">{{ __('Connect GitHub') }}</a>
+                        </div>
+                    @endif
+                    @if ($ownerGithubConnected)
+                        <div class="space-y-1.5">
+                            @if ($ownerRepositoriesLoading)
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Loading repositories…') }}</p>
+                            @endif
+                            @if ($ownerRepositoryOptions !== [])
+                                <x-forms.searchable-listbox id="ownerRepository" label="{{ __('Repository') }}" live
+                                    searchPlaceholder="{{ __('Search repositories') }}"
+                                    emptyText="{{ __('No matching repository') }}"
+                                    helper="{{ __('Each module is a folder with a manifest. Branches load when you pick a repository.') }}"
+                                    :options="$ownerRepositoryOptions" />
+                            @else
+                                <x-forms.input id="ownerRepository" label="{{ __('Repository') }}"
+                                    helper="{{ __('GitHub repository, as owner/name. Each module is a folder with a manifest.') }}"
+                                    placeholder="owner/house-addons" />
+                            @endif
+                        </div>
+                        <div class="space-y-1.5">
+                            @if ($ownerBranchesLoading)
+                                <p class="inline-flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    <span class="size-1.5 animate-pulse rounded-full bg-sky-500"></span>
+                                    {{ __('Searching branches…') }}
+                                </p>
+                            @endif
+                            @if ($ownerBranchOptions !== [])
+                                <x-forms.searchable-listbox id="ownerBranch" label="{{ __('Current branch') }}" live
+                                    searchPlaceholder="{{ __('Search branches') }}"
+                                    emptyText="{{ __('No matching branch') }}"
+                                    :options="$ownerBranchOptions" />
+                            @elseif (! $ownerBranchesLoading)
+                                <x-forms.input id="ownerBranch" label="{{ __('Current branch') }}" placeholder="main" />
+                            @else
+                                <label class="mb-1.5 block text-sm font-medium">{{ __('Current branch') }}</label>
+                                <div class="input flex items-center text-neutral-400 dark:text-fg-faint">{{ __('Searching branches…') }}</div>
+                            @endif
+                        </div>
+                    @endif
+                    <div>
+                        <x-forms.button type="submit" isHighlighted
+                            wire:loading.attr="disabled"
+                            wire:target="saveOwnerRepository,updatedOwnerRepository,updatedOwnerGithubAppId,refreshOwnerBranches,loadOwnerRepositories">
+                            {{ __('Save branch') }}
+                        </x-forms.button>
+                    </div>
+                </form>
+                <form wire:submit="addModule" class="flex max-w-xl items-end gap-2">
+                    <div class="min-w-0 flex-1">
+                        <x-forms.input id="moduleName" label="{{ __('Module name') }}"
+                            helper="{{ __('Folder name inside /data/coolify/gpsh-owner-modules on the instance server.') }}"
+                            placeholder="sale_owner" />
+                    </div>
+                    <x-forms.button type="submit">{{ __('Add module') }}</x-forms.button>
+                </form>
+                <ul class="max-w-xl divide-y divide-neutral-200 dark:divide-white/10">
+                    @forelse ($ownerModules as $module)
+                        <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="owner-module-{{ $module }}">
+                            <span class="font-mono">{{ $module }}</span>
+                            <button type="button" class="text-red-500" wire:click="removeModule('{{ $module }}')">{{ __('Remove') }}</button>
+                        </li>
+                    @empty
+                        <li class="py-2 text-sm text-neutral-500">{{ __('No owner modules yet.') }}</li>
+                    @endforelse
+                </ul>
+            </x-application.settings-section>
+            <x-application.settings-section title="{{ __('Leftover volumes') }}"
+                description="{{ __('These volumes are not used by a current environment. Deleting one removes its files.') }}">
+                <div class="mb-3 flex flex-wrap items-center gap-3">
+                    <button type="button" class="text-sm" wire:click="selectAllVolumes">{{ __('Select all') }}</button>
+                    <button type="button" class="text-sm text-red-500" wire:click="deleteSelectedVolumes"
+                        wire:confirm="{{ __('Delete the selected volumes and their files?') }}"
+                        @disabled($selectedVolumes === [])>{{ __('Delete selected') }}</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[36rem] text-left text-sm">
+                        <thead class="text-neutral-500">
+                            <tr>
+                                <th class="w-8 py-2"></th>
+                                <th class="py-2 pr-4">{{ __('Client') }}</th>
+                                <th class="py-2 pr-4">{{ __('Instance') }}</th>
+                                <th class="py-2">{{ __('Volume') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-neutral-200 dark:divide-white/10">
+                            @forelse ($volumes['rows'] as $volume)
+                                <tr wire:key="leftover-volume-{{ $volume['name'] }}">
+                                    <td class="py-2">
+                                        <input type="checkbox" value="{{ $volume['name'] }}" wire:model.live="selectedVolumes">
+                                    </td>
+                                    <td class="py-2 pr-4">{{ $volume['client'] !== '' ? __($volume['client']) : '—' }}</td>
+                                    <td class="py-2 pr-4">{{ $volume['environment'] !== '' ? $volume['environment'] : '—' }}</td>
+                                    <td class="py-2 font-mono">{{ $volume['name'] }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="py-2 text-neutral-500">{{ __('No leftover volumes.') }}</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+                @if ($volumes['pages'] > 1)
+                    <div class="mt-3 flex items-center justify-between gap-3 text-sm">
+                        <button type="button" wire:click="previousVolumePage" @disabled($volumes['page'] <= 1)>{{ __('Previous') }}</button>
+                        <span>{{ __('Page :current of :last', ['current' => $volumes['page'], 'last' => $volumes['pages']]) }}</span>
+                        <button type="button" wire:click="nextVolumePage" @disabled($volumes['page'] >= $volumes['pages'])>{{ __('Next') }}</button>
+                    </div>
+                @endif
+            </x-application.settings-section>
+        </div>
+    </x-settings.layout>
+</div>

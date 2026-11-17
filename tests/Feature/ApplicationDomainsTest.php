@@ -2422,6 +2422,19 @@ it('updates a compose service redirect from the domains table', function () {
         ->and(data_get($domains, 'web.domain'))->toContain('https://www.web.example.com');
 });
 
+it('provides client-side search for compose service domains', function () {
+    $view = file_get_contents(resource_path('views/livewire/project/application/domains.blade.php'));
+
+    expect($view)
+        ->toContain('x-model="domainSearch"')
+        ->toContain('class="ml-auto flex flex-wrap items-center gap-2"')
+        ->toContain('<div class="relative shrink-0">')
+        ->toContain('placeholder="{{ __(\'Search services or domains\') }}"')
+        ->toContain('x-show="matchesDomainSearch(')
+        ->toContain('title="{{ __(\'No domains found\') }}"')
+        ->toContain('hasDomainSearchResults(');
+});
+
 it('exposes the domains route in the application configuration menu', function () {
     $url = route('project.application.domains', [
         'project_uuid' => $this->project->uuid,

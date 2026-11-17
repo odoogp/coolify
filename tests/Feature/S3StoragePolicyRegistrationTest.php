@@ -1,11 +1,13 @@
 <?php
 
+use App\Livewire\Storage\Create;
 use App\Models\S3Storage;
 use App\Models\Team;
 use App\Models\User;
 use App\Policies\S3StoragePolicy;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 
 uses(RefreshDatabase::class);
 
@@ -16,21 +18,51 @@ test('s3 storage model resolves its registered policy through the gate', functio
 test('s3 storage create ability is enforced through the registered policy', function () {
     $team = Team::factory()->create();
 
+    $owner = User::factory()->create();
+    $owner->teams()->attach($team, ['role' => 'owner']);
+
     $admin = User::factory()->create();
     $admin->teams()->attach($team, ['role' => 'admin']);
 
     $member = User::factory()->create();
     $member->teams()->attach($team, ['role' => 'member']);
 
+    $this->actingAs($owner);
+    session(['currentTeam' => $team]);
+
+    expect($owner->can('create', S3Storage::class))->toBeTrue()
+        ->and($admin->can('create', S3Storage::class))->toBeFalse()
+        ->and($member->can('create', S3Storage::class))->toBeFalse();
+});
+
+test('a team admin can load the s3 form that is mounted on every page', function () {
+    $team = Team::factory()->create();
+    $admin = User::factory()->create();
+    $admin->teams()->attach($team, ['role' => 'admin']);
+
     $this->actingAs($admin);
     session(['currentTeam' => $team]);
 
-    expect($admin->can('create', S3Storage::class))->toBeTrue()
-        ->and($member->can('create', S3Storage::class))->toBeFalse();
+    Livewire::test(Create::class)
+        ->assertOk()
+        ->set('name', 'Backups')
+        ->set('description', 'Team backup storage')
+        ->set('region', 'us-east-1')
+        ->set('key', 'access-key')
+        ->set('secret', 'secret-key')
+        ->set('bucket', 'coolify-backups')
+        ->set('endpoint', 'https://s3.us-east-1.amazonaws.com')
+        ->call('submit')
+        ->assertDispatched('error');
+
+    expect(S3Storage::query()->where('name', 'Backups')->exists())->toBeFalse();
 });
 
 test('s3 storage validate connection ability is enforced through the registered policy', function () {
     $team = Team::factory()->create();
+
+    $owner = User::factory()->create();
+    $owner->teams()->attach($team, ['role' => 'owner']);
 
     $admin = User::factory()->create();
     $admin->teams()->attach($team, ['role' => 'admin']);
@@ -49,6 +81,7 @@ test('s3 storage validate connection ability is enforced through the registered 
         'endpoint' => 'https://s3.us-east-1.amazonaws.com',
     ]);
 
-    expect($admin->can('validateConnection', $storage))->toBeTrue()
+    expect($owner->can('validateConnection', $storage))->toBeTrue()
+        ->and($admin->can('validateConnection', $storage))->toBeFalse()
         ->and($member->can('validateConnection', $storage))->toBeFalse();
 });

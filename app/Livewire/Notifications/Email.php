@@ -228,7 +228,7 @@ class Email extends Component
         $this->authorize('update', $this->settings);
 
         $this->syncData(true);
-        $this->dispatch('success', 'Email notifications settings updated.');
+        $this->dispatch('success', __('Email notifications settings updated.'));
     }
 
     public function instantSave(?string $type = null)
@@ -331,8 +331,7 @@ class Email extends Component
 
             $changedFields = array_keys($this->settings->getDirty());
             $this->settings->save();
-            $this->auditNotificationSettings($changedFields);
-            $this->dispatch('success', 'SMTP settings updated.');
+            $this->dispatch('success', __('SMTP settings updated.'));
         } catch (\Throwable $e) {
             $this->smtpEnabled = false;
 
@@ -358,8 +357,7 @@ class Email extends Component
 
             $changedFields = array_keys($this->settings->getDirty());
             $this->settings->save();
-            $this->auditNotificationSettings($changedFields);
-            $this->dispatch('success', 'Resend settings updated.');
+            $this->dispatch('success', __('Resend settings updated.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -420,7 +418,7 @@ class Email extends Component
                 $perMinute = 0,
                 function () {
                     $this->team?->notifyNow(new Test($this->testEmailAddress, 'email'));
-                    $this->dispatch('success', 'Test Email sent.');
+                    $this->dispatch('success', __('Test Email sent.'));
                 },
                 $decaySeconds = 10,
             );

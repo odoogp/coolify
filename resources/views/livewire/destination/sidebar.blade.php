@@ -2,19 +2,19 @@
     $destinationRouteParameters = ['destination_uuid' => $destination->uuid];
     $destinationMenuItems = collect([
         [
-            'label' => 'General',
+            'label' => __('General'),
             'route' => 'destination.show',
             'active' => request()->routeIs('destination.show'),
             'icon' => 'settings',
         ],
         $destination->getMorphClass() === 'App\\Models\\StandaloneDocker' ? [
-            'label' => 'Resources',
+            'label' => __('Resources'),
             'route' => 'destination.resources',
             'active' => request()->routeIs('destination.resources'),
             'icon' => 'grid',
         ] : null,
         [
-            'label' => 'Danger Zone',
+            'label' => __('Danger Zone'),
             'route' => 'destination.danger',
             'active' => request()->routeIs('destination.danger'),
             'icon' => 'shield-alert',
@@ -23,9 +23,9 @@
 @endphp
 
 <aside class="application-settings-navigation min-w-0 xl:self-start">
-    <nav aria-label="Destination settings"
+    <nav aria-label="{{ __('Destination settings') }}"
         class="grid grid-cols-2 gap-0.5 border-y border-neutral-200 py-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-1 xl:border-y-0 xl:py-0 dark:border-white/[0.06]">
-        <div class="nav-section hidden xl:block">Settings</div>
+        <div class="nav-section hidden xl:block">{{ __('Settings') }}</div>
         @foreach ($destinationMenuItems as $menuItem)
             <a wire:key="destination-settings-{{ str($menuItem['label'])->slug() }}"
                 @class(['menu-item', 'menu-item-active' => $menuItem['active']])

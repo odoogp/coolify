@@ -5,9 +5,9 @@ namespace App\Actions\Service;
 use App\Actions\Shared\EnsureContentFilesOnServer;
 use App\Models\LocalFileVolume;
 use App\Models\Service;
-use App\Models\ServiceApplication;
-use App\Models\ServiceDatabase;
-use Illuminate\Support\Collection;
+use App\Notifications\Internal\GeneralNotification;
+use App\Support\OdooGit;
+use App\Support\OdooJupyter;
 use Lorisleiva\Actions\Concerns\AsAction;
 use Lorisleiva\Actions\Decorators\JobDecorator;
 use Symfony\Component\Yaml\Yaml;
@@ -23,7 +23,22 @@ class StartService
 
     public function handle(Service $service, bool $pullLatestImages = false, bool $stopBeforeStart = false)
     {
+        OdooGit::ensureLaunchAllowed($service);
+        OdooGit::cloneIntoService($service);
+        OdooGit::reinstallOwnerPackageIntoService($service);
+        OdooGit::prepareInstance($service);
         $service->parse();
+        if ($service->jupyter_enabled) {
+            OdooJupyter::attachShareableVolumesFrom($service->fresh() ?? $service);
+        }
+        // Applications exist only after parse(). useHttps may replace the Coolify/sslip
+        // FQDN with the project subdomain (or upgrade scheme). Traefik Host/certresolver
+        // labels were already baked from the pre-useHttps FQDN during parse(), so parse
+        // again when the public URL changed — otherwise EasyPanel keeps CN=Easypanel + 404.
+        $httpsChanged = OdooGit::useHttps($service->fresh(['applications', 'environment.project.odooProfile', 'environment.odooBranch']) ?? $service);
+        if ($httpsChanged) {
+            $service->parse();
+        }
         if ($this->shouldStopBeforeStarting($pullLatestImages, $stopBeforeStart)) {
             StopService::run(service: $service, dockerCleanup: false);
         }
@@ -49,7 +64,21 @@ class StartService
         }
         $commands[] = 'echo Starting service.';
         $commands[] = "docker compose --project-directory {$workdir} -f {$workdir}/docker-compose.yml --project-name {$service->uuid} up -d --remove-orphans --force-recreate --build";
-        $commands[] = "docker network connect $service->uuid coolify-proxy >/dev/null 2>&1 || true";
+        $commands[] = coolifyProxyNetworkConnectCommand($service->uuid, $service->server);
+        if ($service->supportsOdooJupyter()) {
+            $commands[] = "echo 'Waiting until the service containers are running.'";
+            $commands[] = OdooGit::containersReadyCommand($service);
+        }
+        $host = parse_url(OdooGit::publicHttpsUrl($service), PHP_URL_HOST);
+        $httpsReady = is_string($host) && $service->supportsOdooJupyter() ? OdooGit::httpsReadyCommand($host) : null;
+        if ($httpsReady !== null) {
+            $commands[] = "echo 'Waiting until HTTPS is applied and Odoo answers.'";
+            $commands[] = $httpsReady;
+        }
+        if ($service->supportsOdooJupyter()) {
+            $commands[] = OdooJupyter::backgroundStartCommand($service->workdir(), (string) $service->uuid);
+            $service->environment?->project?->team?->notify(new GeneralNotification('Odoo is opening. The owner Jupyter starts in the background.'));
+        }
         if (data_get($service, 'connect_to_docker_network')) {
             $compose = data_get($service, 'docker_compose', []);
             $safeNetwork = escapeshellarg($service->destination->network);

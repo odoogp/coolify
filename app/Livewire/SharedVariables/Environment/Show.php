@@ -127,7 +127,7 @@ class Show extends Component
 
         // Only dispatch success after transaction has committed
         if ($changesMade) {
-            $this->dispatch('success', 'Environment variables updated.');
+            $this->dispatch('success', __('Environment variables updated.'));
         }
     }
 

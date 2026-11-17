@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Services\AdminCreationQuota;
 use App\Support\ValidationPatterns;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -265,7 +266,7 @@ class ProjectController extends Controller
             ], 422);
         }
 
-        $project = Project::create([
+        $project = app(AdminCreationQuota::class)->createProject($request->user(), [
             'name' => $request->name,
             'description' => $request->description,
             'team_id' => $teamId,
@@ -647,7 +648,7 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Environment with this name already exists.'], 409);
         }
 
-        $environment = $project->environments()->create([
+        $environment = app(AdminCreationQuota::class)->createEnvironment($request->user(), $project, [
             'name' => $request->name,
         ]);
 
@@ -814,7 +815,7 @@ class ProjectController extends Controller
 
     #[OA\Delete(
         summary: 'Delete Environment',
-        description: 'Delete environment by name or UUID. Environment must be empty.',
+        description: 'Delete environment by name or UUID. Resources in that environment are deleted with it.',
         path: '/projects/{uuid}/environments/{environment_name_or_uuid}',
         operationId: 'delete-environment',
         security: [
@@ -843,10 +844,6 @@ class ProjectController extends Controller
             new OA\Response(
                 response: 401,
                 ref: '#/components/responses/401',
-            ),
-            new OA\Response(
-                response: 400,
-                description: 'Environment has resources, so it cannot be deleted.',
             ),
             new OA\Response(
                 response: 404,
@@ -885,10 +882,6 @@ class ProjectController extends Controller
             return response()->json(['message' => 'Environment not found.'], 404);
         }
         $this->authorize('delete', $environment);
-
-        if (! $environment->isEmpty()) {
-            return response()->json(['message' => 'Environment has resources, so it cannot be deleted.'], 400);
-        }
 
         $envUuid = $environment->uuid;
         $envName = $environment->name;

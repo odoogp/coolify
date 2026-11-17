@@ -66,13 +66,13 @@
     }
 }" class="{{ in_array($trigger, ['changelog-sidebar', 'account-menu'], true) ? 'w-full' : '' }}">
     @if ($trigger === 'changelog-sidebar')
-        <button wire:click="openWhatsNewModal" type="button" title="What's New" aria-label="What's New"
+        <button wire:click="openWhatsNewModal" type="button" title="{{ __('What\'s New') }}" aria-label="{{ __('What\'s New') }}"
             class="relative text-left menu-item">
             <svg class="menu-item-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                     d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.091-3.091L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.091-3.091L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.091 3.091ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.456-2.456L14.25 6l1.035-.259a3.375 3.375 0 0 0 2.456-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
             </svg>
-            <span class="text-left menu-item-label" :class="collapsed && 'lg:hidden'">What's New</span>
+            <span class="text-left menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('What\'s New') }}</span>
             @if ($unreadCount > 0)
                 <span
                     class="absolute right-2 top-1/2 -translate-y-1/2 bg-error text-white text-[10px] rounded-full min-w-4 h-4 px-1 flex items-center justify-center"
@@ -90,7 +90,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                         d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.091-3.091L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.091-3.091L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.091 3.091ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.456-2.456L14.25 6l1.035-.259a3.375 3.375 0 0 0 2.456-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
                 </svg>
-                What's New
+                {{ __('What\'s New') }}
             </span>
             @if ($unreadCount > 0)
                 <span
@@ -124,14 +124,14 @@
                         </div>
                         <div class="min-w-0">
                             <div class="flex flex-wrap items-center gap-2">
-                                <h3>What's new</h3>
+                                <h3>{{ __('What\'s new') }}</h3>
                                 <span
                                     class="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium text-neutral-500 dark:bg-white/[0.05] dark:text-fg-faint">
                                     {{ $currentVersion }}
                                 </span>
                             </div>
                             <p class="mt-0.5 text-xs font-normal text-neutral-500 dark:text-fg-faint">
-                                Product updates, fixes, and improvements.
+                                {{ __('Product updates, fixes, and improvements.') }}
                             </p>
                         </div>
                         </div>
@@ -143,18 +143,18 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"
                                         d="M20 11a8.1 8.1 0 0 0-15.5-2M4 4v5h5m-5 4a8.1 8.1 0 0 0 15.5 2m.5 5v-5h-5" />
                                 </svg>
-                                Fetch Latest
+                                {{ __('Fetch Latest') }}
                             </x-forms.button>
                         @endif
                         @if ($unreadCount > 0)
                             <x-forms.button @click="markAllEntriesAsRead">
-                                Mark all read
+                                {{ __('Mark all read') }}
                             </x-forms.button>
                         @endif
                         </div>
                         <button wire:click="closeWhatsNewModal"
                             class="absolute right-2 top-2 flex size-7 cursor-pointer items-center justify-center rounded-md text-neutral-500 outline-0 hover:bg-neutral-100 hover:text-black focus-visible:ring-1 focus-visible:ring-accent dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                            aria-label="Close What's new">
+                            aria-label="{{ __('Close What\'s new') }}">
                             <x-reicon name="x" class="size-4" />
                         </button>
                     </header>
@@ -168,7 +168,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
-                            <input x-model="search" @input="page = 1" type="search" placeholder="Search updates"
+                            <input x-model="search" @input="page = 1" type="search" placeholder="{{ __('Search updates') }}"
                                 class="input !pl-9" />
                         </div>
                         <span class="ml-auto hidden text-xs text-neutral-500 sm:block dark:text-fg-faint"
@@ -191,7 +191,7 @@
                                                 </a>
                                                 <span x-show="entry.tag_name === '{{ $currentVersion }}'"
                                                     class="rounded-md bg-success/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-success">
-                                                    Current
+                                                    {{ __('Current') }}
                                                 </span>
                                                 <span class="text-xs text-neutral-500 dark:text-fg-faint"
                                                     x-text="new Date(entry.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })">
@@ -200,8 +200,8 @@
                                         </div>
                                         <button x-show="!entry.is_read" @click="markEntryAsRead(entry.tag_name)"
                                             class="shrink-0 cursor-pointer rounded-md px-2 py-1 text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg"
-                                            title="Mark as read">
-                                            Mark read
+                                            title="{{ __('Mark as read') }}">
+                                            {{ __('Mark read') }}
                                         </button>
                                     </div>
                                     <div
@@ -217,7 +217,7 @@
                                 class="mb-3 flex size-10 items-center justify-center rounded-lg bg-neutral-100 text-neutral-400 dark:bg-white/[0.05] dark:text-fg-faint">
                                 <x-reicon name="documentation" class="size-5" />
                             </div>
-                            <h3 class="text-sm font-medium text-black dark:text-fg">No updates found</h3>
+                            <h3 class="text-sm font-medium text-black dark:text-fg">{{ __('No updates found') }}</h3>
                             <p class="mt-1 max-w-sm text-sm text-neutral-500 dark:text-fg-faint">
                                 <span x-show="search.trim() !== ''">No releases match your search.</span>
                                 <span x-show="search.trim() === ''">There are no product updates available yet.</span>
@@ -227,7 +227,7 @@
                     <div x-cloak x-show="filteredEntries.length > 0"
                         class="flex min-h-14 shrink-0 items-center justify-between gap-3 border-t border-neutral-200 px-4 py-3 dark:border-white/[0.08]">
                         <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
-                            Showing
+                            {{ __('Showing') }}
                             <span class="tabular-nums text-black dark:text-fg"
                                 x-text="`${firstVisibleEntry}–${lastVisibleEntry}`"></span>
                             of
@@ -237,7 +237,7 @@
                             class="inline-flex h-8 overflow-hidden rounded-lg border border-neutral-200 dark:border-white/[0.10]">
                             <button type="button"
                                 class="flex w-10 items-center justify-center border-r border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/[0.10] dark:text-fg-dim dark:hover:bg-white/[0.06]"
-                                aria-label="First page" title="First page" @click="goToPage(1)"
+                                aria-label="{{ __('First page') }}" title="{{ __('First page') }}" @click="goToPage(1)"
                                 :disabled="page === 1">
                                 <svg class="size-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path d="M18 6L12 12L18 18M11 6L5 12L11 18" stroke="currentColor"
@@ -246,7 +246,7 @@
                             </button>
                             <button type="button"
                                 class="flex w-10 items-center justify-center border-r border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/[0.10] dark:text-fg-dim dark:hover:bg-white/[0.06]"
-                                aria-label="Previous page" title="Previous page" @click="goToPage(page - 1)"
+                                aria-label="{{ __('Previous page') }}" title="{{ __('Previous page') }}" @click="goToPage(page - 1)"
                                 :disabled="page === 1">
                                 <svg class="size-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path d="M15 6L9 12L15 18" stroke="currentColor" stroke-width="1.8"
@@ -258,7 +258,7 @@
                                 x-text="page"></span>
                             <button type="button"
                                 class="flex w-10 items-center justify-center border-r border-neutral-200 text-neutral-500 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/[0.10] dark:text-fg-dim dark:hover:bg-white/[0.06]"
-                                aria-label="Next page" title="Next page" @click="goToPage(page + 1)"
+                                aria-label="{{ __('Next page') }}" title="{{ __('Next page') }}" @click="goToPage(page + 1)"
                                 :disabled="page === lastPage">
                                 <svg class="size-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path d="M9 6L15 12L9 18" stroke="currentColor" stroke-width="1.8"
@@ -267,7 +267,7 @@
                             </button>
                             <button type="button"
                                 class="flex w-10 items-center justify-center text-neutral-500 transition-colors hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-35 dark:text-fg-dim dark:hover:bg-white/[0.06]"
-                                aria-label="Last page" title="Last page" @click="goToPage(lastPage)"
+                                aria-label="{{ __('Last page') }}" title="{{ __('Last page') }}" @click="goToPage(lastPage)"
                                 :disabled="page === lastPage">
                                 <svg class="size-3.5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                     <path d="M6 6L12 12L6 18M13 6L19 12L13 18" stroke="currentColor"

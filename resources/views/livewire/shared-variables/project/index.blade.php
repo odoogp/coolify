@@ -11,12 +11,12 @@
             }
         }">
             @if ($projects->isEmpty())
-                <x-empty title="No projects yet" description="Create a project before adding project-wide variables."
+                <x-empty title="{{ __('No projects yet') }}" description="{{ __('Create a project before adding project-wide variables.') }}"
                     icon-name="projects" />
             @else
-                <x-shared-variables.view-controls label="projects" storage-key="shared-variables-projects-view" />
+                <x-shared-variables.view-controls label="{{ __('projects') }}" storage-key="shared-variables-projects-view" />
 
-                <div x-cloak x-show="viewMode === 'grid'" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div x-cloak x-show="viewMode === 'grid'" class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     @foreach ($projects as $project)
                         <a x-show="matches(@js([$project->name, $project->description]))"
                             class="group flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]"

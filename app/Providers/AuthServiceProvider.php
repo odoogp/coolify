@@ -152,7 +152,11 @@ class AuthServiceProvider extends ServiceProvider
 
         // Register gate for terminal access
         Gate::define('canAccessTerminal', function ($user) {
-            return $user->isAdmin() || $user->isOwner();
+            return $user->isAdmin() || $user->isOwner() || $user->canUseOdooTerminal();
+        });
+
+        Gate::define('updateServiceTemplates', function ($user) {
+            return $user->isInstanceOwner();
         });
     }
 }

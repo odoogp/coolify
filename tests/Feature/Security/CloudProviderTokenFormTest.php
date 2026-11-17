@@ -60,7 +60,27 @@ test('security cloud token form lets users choose every supported provider', fun
         ->assertSee('Provider')
         ->assertSee('Hetzner')
         ->assertSee('DigitalOcean')
-        ->assertSee('Vultr');
+        ->assertSee('Vultr')
+        ->assertSee('Linode')
+        ->assertSee('UpCloud')
+        ->assertSee('Scaleway')
+        ->assertSee('Contabo')
+        ->assertSee('Exoscale')
+        ->assertSee('AWS')
+        ->assertSee('Google Cloud')
+        ->assertSee('Microsoft Azure');
+});
+
+test('hetzner token form does not let hidden credential fields block the browser submit', function () {
+    $html = Livewire::test(CloudProviderTokenForm::class, [
+        'provider' => 'hetzner',
+    ])->html();
+
+    expect($html)
+        ->toContain('novalidate')
+        ->toContain('x-bind:disabled="!needsAccount"')
+        ->toContain('x-bind:disabled="!needsProject"')
+        ->toContain('x-bind:disabled="!needsSecret"');
 });
 
 test('adding a cloud provider token stores an optional description', function () {

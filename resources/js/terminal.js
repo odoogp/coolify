@@ -71,7 +71,7 @@ function customThemeAccent() {
 }
 
 function createSystemTerminalTheme() {
-    if (document.documentElement.dataset.theme === 'custom') {
+    if (document.documentElement.dataset.theme === 'custom' && document.documentElement.dataset.accent === 'on') {
         return createApplicationTerminalTheme(customThemeAccent());
     }
 
@@ -167,6 +167,7 @@ export function initializeTerminalComponent() {
             fullscreen: false,
             terminalActive: false,
             starting: false,
+            exitMessage: '',
             message: '(connection closed)',
             term: null,
             fitAddon: null,
@@ -290,7 +291,7 @@ export function initializeTerminalComponent() {
                 });
                 this.themeObserver.observe(document.documentElement, {
                     attributes: true,
-                    attributeFilter: ['class', 'data-theme', 'style'],
+                    attributeFilter: ['class', 'data-theme', 'data-accent', 'style'],
                 });
 
                 // Recover if a previous portal build left the terminal on <body>.
@@ -634,13 +635,10 @@ export function initializeTerminalComponent() {
                 const connectionString = {
                     protocol: window.location.protocol === 'https:' ? 'wss' : 'ws',
                     host: window.location.hostname,
-                    port: ":6002",
+                    port: window.location.port ? `:${window.location.port}` : '',
                     path: '/terminal/ws'
                 }
 
-                if (!window.location.port) {
-                    connectionString.port = ''
-                }
                 if (predefined.host) {
                     connectionString.host = predefined.host
                 }
@@ -843,6 +841,22 @@ export function initializeTerminalComponent() {
                 }
             },
 
+            terminalExitText() {
+                if (!this.term?.buffer?.active) {
+                    return '';
+                }
+                const buffer = this.term.buffer.active;
+                const lines = [];
+                for (let index = 0; index < buffer.length; index++) {
+                    const line = buffer.getLine(index);
+                    if (line) {
+                        lines.push(line.translateToString(true));
+                    }
+                }
+
+                return lines.map((line) => line.trim()).filter(Boolean).slice(-4).join(' ');
+            },
+
             sendCommandWhenReady(message) {
                 if (this.isWebSocketReady()) {
                     this.sendMessage(message);
@@ -865,7 +879,8 @@ export function initializeTerminalComponent() {
                 }
 
                 if (event.data === 'pty-ready') {
-                    this.completeTerminalSessionStart();
+                    this.starting = false;
+                    this.exitMessage = '';
                     if (!this.term._initialized) {
                         this.term.open(document.getElementById('terminal'));
                         this.term._initialized = true;
@@ -906,8 +921,7 @@ export function initializeTerminalComponent() {
                     this.$wire.dispatch('terminalConnected');
                 } else if (event.data === 'unprocessable') {
                     this.starting = false;
-                    this.clearSessionStartTimeout();
-                    if (this.term) this.term.reset();
+                    this.exitMessage = this.terminalExitText() || 'The session ended.';
                     this.terminalActive = false;
                     this.resetTerminalSessionCountdown();
                     this.message = '(sorry, something went wrong, please try again)';
@@ -918,16 +932,18 @@ export function initializeTerminalComponent() {
                     this.starting = false;
                     this.exitFullscreen();
                     this.mobileToolbarCollapsed = false;
+                    this.exitMessage = this.terminalExitText() || 'The session ended.';
                     this.terminalActive = false;
                     this.resetTerminalSessionCountdown();
-                    this.term.reset();
                     this.commandBuffer = '';
 
                     // Notify parent component that terminal disconnected
                     this.$wire.dispatch('terminalDisconnected');
                 } else if (classifyTerminalServerMessage(event.data) !== null) {
                     logTerminal('error', '[Terminal] Backend rejected terminal startup:', event.data);
-                    this.pendingCommand = null;
+                    this.exitMessage = event.data;
+                    this.starting = false;
+                    this.$wire.dispatch('error', event.data);
                     this.terminalActive = false;
                     this.resetTerminalSessionCountdown();
                     // Newer servers follow an auth rejection with a 4401/4403 close.

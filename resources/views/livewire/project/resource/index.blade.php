@@ -1,75 +1,144 @@
 <div>
     <x-slot:title>
-        {{ data_get_str($environment, 'name')->limit(10) }} > Resources | Coolify
+        {{ data_get_str($environment, 'name')->limit(10) }} > {{ $odooOnly ? __('Environment') : __('Resources') }} | {{ product_name() }}
     </x-slot>
     <div x-data="resourceIndex()" class="w-full">
         <header class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div class="min-w-0">
                 <h1 class="truncate text-[24px]! leading-7! font-semibold! tracking-tight!">{{ $environment->name }}</h1>
                 <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                    @if ($odooOnly)
+                        {{ __('Odoo environment in :project', ['project' => $project->name]) }}
+                    @else
                     <span x-text="`${resources.length} ${resources.length === 1 ? 'resource' : 'resources'}`"></span>
                     in {{ $project->name }}
+                    @endif
                 </p>
             </div>
             <div class="flex w-fit shrink-0 items-center gap-2">
-                <a href="{{ route('shared-variables.environment.show', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
+                <a href="{{ route('project.environment.canvas', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
                     {{ wireNavigate() }}
                     class="button whitespace-nowrap"
-                    title="Shared variables for this environment"
-                    aria-label="Shared variables for {{ $environment->name }}">
-                    <x-reicon name="variables" class="size-3.5" />
-                    Shared variables
+                    title="{{ __('Canvas') }}"
+                    aria-label="{{ __('Open canvas for :environment', ['environment' => $environment->name]) }}">
+                    <x-reicon name="dashboard" class="size-3.5" />
+                    {{ __('Canvas') }}
                 </a>
                 @can('update', $project)
                     <a href="{{ route('project.environment.edit', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
                         {{ wireNavigate() }}
                         class="button whitespace-nowrap"
-                        title="Environment settings"
+                        title="{{ __('Environment settings') }}"
                         aria-label="Open settings for {{ $environment->name }}">
                         <x-reicon name="settings" class="size-3.5" />
-                        Settings
+                        {{ __('Settings') }}
                     </a>
                 @endcan
                 @can('createAnyResource')
-                    <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
-                        {{ wireNavigate() }}
-                        class="button whitespace-nowrap button-highlighted">
-                        <x-reicon name="plus" class="size-3.5" />
-                        New resource
-                    </a>
+                    <x-modal-input title="{{ __('New') }}" :wireIgnore="false" data-listbox-portal-root>
+                        <x-slot:content>
+                            <button type="button" class="button whitespace-nowrap button-highlighted">
+                                <x-reicon name="plus" class="size-3.5" />
+                                {{ __('New') }}
+                            </button>
+                        </x-slot:content>
+                        <div class="flex flex-col gap-4">
+                            @if ($projectServerLocked && filled($projectServerName))
+                                <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('Runs on :server, the server already used by this project.', ['server' => $projectServerName]) }}
+                                </p>
+                            @elseif ($serverChoices !== [])
+                                <x-forms.listbox id="serverId" portal
+                                    label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
+                                    :options="$serverChoices" />
+                            @endif
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal ignoreMorph
+                                    searchPlaceholder="{{ __('Search the catalog') }}"
+                                    emptyText="{{ __('No matching service') }}"
+                                    :options="$serviceOptions" />
+                            @include('livewire.project.partials.catalog-version-fields', [
+                                'selectedService' => $selectedService,
+                                'versionOptions' => $versionOptions,
+                                'needsVersionChoice' => $needsVersionChoice,
+                                'lockedOdooVersion' => $lockedOdooVersion,
+                            ])
+                            <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                {{ __('Pick the service and version when asked. Odoo may also ask for GitHub. Other catalog services open configuration on this project’s server.') }}
+                            </p>
+                            <footer class="flex flex-wrap items-center justify-end gap-2 border-t border-neutral-200 pt-4 dark:border-white/[0.08]">
+                                <x-forms.button type="button" wire:click="launchService" wire:target="launchService" isHighlighted>
+                                    {{ __('Launch') }}
+                                </x-forms.button>
+                            </footer>
+                        </div>
+                    </x-modal-input>
                 @endcan
             </div>
         </header>
 
         @if ($environment->isEmpty())
-            @can('createAnyResource')
-                <x-empty title="No resources yet"
-                    description="Add an application, database, or service to this environment."
+            @if (auth()->user()->can('createAnyResource'))
+                <x-empty title="{{ __('Nothing launched yet') }}"
+                    description="{{ __('Pick a service from the catalog and launch it in one click. Odoo stays the recommended hook; any visible template works.') }}"
                     icon-name="layers">
                     <x-slot:contents>
-                        <a href="{{ route('project.resource.create', ['project_uuid' => $project->uuid, 'environment_uuid' => $environment->uuid]) }}"
-                            {{ wireNavigate() }} class="button">
-                            <x-reicon name="plus" class="size-3.5" />
-                            Add resource
-                        </a>
+                        @if ($needsServer)
+                            <p class="mb-3 text-[13px]">{{ __('Do you want to create a server?') }}</p>
+                            @if ($canAddServer)
+                                <a href="{{ route('server.create') }}" class="button button-highlighted" {{ wireNavigate() }}>
+                                    {{ __('Create a new server') }}
+                                </a>
+                            @else
+                                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">
+                                    {{ __('The owner has to add a server, or allow you to add servers, before you can create a project.') }}
+                                </p>
+                            @endif
+                        @else
+                            <div class="mb-3 flex w-full max-w-md flex-col gap-3 text-left" data-listbox-portal-root>
+                                @if ($projectServerLocked && filled($projectServerName))
+                                    <p class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                                        {{ __('Runs on :server, the server already used by this project.', ['server' => $projectServerName]) }}
+                                    </p>
+                                @elseif ($serverChoices !== [])
+                                    <x-forms.listbox id="serverId" portal
+                                        label="{{ $hasOtherServers ? __('Which server should run this?') : __('Do you want to create a new server?') }}"
+                                        :options="$serverChoices" />
+                                @endif
+                                {{-- live: show version fields when the service needs them.
+                                     Containers still start only when Launch runs. --}}
+                                <x-forms.searchable-listbox id="selectedService" label="{{ __('Service') }}" portal ignoreMorph
+                                    searchPlaceholder="{{ __('Search the catalog') }}"
+                                    emptyText="{{ __('No matching service') }}"
+                                    :options="$serviceOptions" />
+                                @include('livewire.project.partials.catalog-version-fields', [
+                                    'selectedService' => $selectedService,
+                                    'versionOptions' => $versionOptions,
+                                    'needsVersionChoice' => $needsVersionChoice,
+                                    'lockedOdooVersion' => $lockedOdooVersion,
+                                ])
+                            </div>
+                            <button type="button" class="button button-highlighted" wire:click="launchService">
+                                {{ __('Launch') }}
+                            </button>
+                        @endif
                     </x-slot:contents>
                 </x-empty>
             @else
-                <x-empty title="No resources yet"
-                    description="Add an application, database, or service to this environment."
+                <x-empty title="{{ __('No resources yet') }}"
+                    description="{{ __('Add an application, database, or service to this environment.') }}"
                     icon-name="layers" />
-            @endcan
+            @endif
         @else
             <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div class="relative w-full sm:max-w-sm">
                     <x-reicon name="search"
                         class="pointer-events-none absolute top-1/2 left-2.5 z-10 size-3.5 -translate-y-1/2 text-neutral-400 dark:text-fg-faint" />
                     <input x-model.debounce.150ms="search" x-on:input="page = 1" type="search"
-                        placeholder="Search resources"
+                        placeholder="{{ __('Search resources') }}"
                         class="h-8! w-full rounded-lg! border-neutral-200! bg-white! py-0! pr-8! pl-8! text-[12px]! shadow-none! placeholder:text-neutral-400 focus:border-accent! focus:ring-0! dark:border-white/[0.08]! dark:bg-white/[0.035]! dark:text-fg! dark:placeholder:text-fg-faint">
                     <button x-cloak x-show="search" x-on:click="search = ''; page = 1" type="button"
                         class="absolute top-1/2 right-2 flex size-5 -translate-y-1/2 items-center justify-center rounded text-neutral-400 transition-colors hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.07] dark:hover:text-fg"
-                        aria-label="Clear search">
+                        aria-label="{{ __('Clear search') }}">
                         <span class="text-sm leading-none">×</span>
                     </button>
                 </div>
@@ -79,13 +148,13 @@
                         <x-slot:trigger>
                             <button type="button" class="button max-w-64"
                                 :class="activeFilterCount > 0 && 'button-highlighted'"
-                                :title="activeFilterCount > 0 ? filterButtonText : 'Filter'"
+                                :title="activeFilterCount > 0 ? filterButtonText : '{{ __('Filter') }}'"
                                 aria-haspopup="listbox" :aria-expanded="open">
                             <svg class="size-3.5 opacity-65" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                                 <path d="M4 6h16M7 12h10M10 18h4" stroke="currentColor" stroke-width="1.7"
                                     stroke-linecap="round" />
                             </svg>
-                            <span class="truncate" x-text="activeFilterCount > 0 ? filterButtonText : 'Filter'"></span>
+                            <span class="truncate" x-text="activeFilterCount > 0 ? filterButtonText : @js(__('Filter'))"></span>
                             <span x-show="activeFilterCount > 0"
                                 class="shrink-0 rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500 dark:bg-white/[0.07] dark:text-fg-dim"
                                 x-text="activeFilterCount"></span>
@@ -119,7 +188,7 @@
                             <div class="border-t border-neutral-200 bg-white p-1 dark:border-white/10 dark:bg-raised">
                                 <button type="button" class="listbox-option justify-center! text-center!"
                                     x-on:click="clearFilters()">
-                                    Clear filters
+                                    {{ __('Clear filters') }}
                                 </button>
                             </div>
                     </x-table.dropdown>
@@ -132,7 +201,7 @@
                                     stroke="currentColor" stroke-width="1.7" stroke-linecap="round"
                                     stroke-linejoin="round" />
                             </svg>
-                            Sort
+                            {{ __('Sort') }}
                             </button>
                         </x-slot:trigger>
                             <template x-for="option in sortOptions" :key="option.value">
@@ -157,7 +226,7 @@
                                 ?
                                 'control-selected' :
                                 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                            aria-label="Table view" title="Table view">
+                            aria-label="{{ __('Table view') }}" title="{{ __('Table view') }}">
                             <x-reicon name="unordered-list" class="size-3.5" />
                         </button>
                         <button type="button" x-on:click="setViewMode('grid')"
@@ -166,7 +235,7 @@
                                 ?
                                 'control-selected' :
                                 'text-neutral-400 hover:bg-neutral-100 hover:text-black dark:text-fg-faint dark:hover:bg-white/[0.06] dark:hover:text-fg'"
-                            aria-label="Grid view" title="Grid view">
+                            aria-label="{{ __('Grid view') }}" title="{{ __('Grid view') }}">
                             <x-reicon name="grid" class="size-3.5" />
                         </button>
                     </div>
@@ -176,13 +245,13 @@
             <div x-show="viewMode === 'table'"
                 class="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.05]">
                 <div
-                    class="environment-resource-grid border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-fg-faint">
-                    <div>Resource</div>
-                    <div class="resource-type">Type</div>
-                    <div>Status</div>
-                    <div class="resource-domain">Domain</div>
-                    <div class="resource-server">Server</div>
-                    <div class="resource-tags">Tags</div>
+                    class="environment-resource-grid border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+                    <div>{{ __('Resource') }}</div>
+                    <div class="resource-type">{{ __('Type') }}</div>
+                    <div>{{ __('Status') }}</div>
+                    <div class="resource-domain">{{ __('Domain') }}</div>
+                    <div class="resource-server">{{ __('Server') }}</div>
+                    <div class="resource-tags">{{ __('Tags') }}</div>
                 </div>
 
                 <template x-for="item in paginatedResources" :key="item.uuid">
@@ -245,7 +314,7 @@
                         </div>
 
                         <div class="resource-server truncate text-[12px] text-neutral-600 dark:text-fg-dim"
-                            x-text="item.destination?.server?.name || 'Unknown'"></div>
+                            x-text="item.destination?.server?.name || @js(__('Unknown'))"></div>
 
                         <div class="resource-tags flex min-w-0 items-center gap-1 overflow-hidden">
                             <template x-for="tag in item.tags.slice(0, 2)" :key="tag.id">
@@ -265,9 +334,9 @@
                 <div x-show="filteredResources.length === 0"
                     class="flex min-h-52 flex-col items-center justify-center px-6 text-center">
                     <x-reicon name="search" class="mb-3 size-6 text-neutral-300 dark:text-fg-faint" />
-                    <p class="text-[13px] font-medium">No matching resources</p>
+                    <p class="text-[13px] font-medium">{{ __('No matching resources') }}</p>
                     <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                        Try a different search or filter.
+                        {{ __('Try a different search or filter.') }}
                     </p>
                 </div>
                 <x-client-pagination x-show="filteredResources.length > 0"
@@ -276,7 +345,7 @@
             </div>
 
             <div x-cloak x-show="viewMode === 'grid'">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <template x-for="item in paginatedResources" :key="item.uuid">
                         <article
                             class="group relative flex min-h-28 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.05] dark:hover:border-white/[0.14]">
@@ -330,9 +399,9 @@
                 <div x-show="filteredResources.length === 0"
                     class="flex min-h-52 flex-col items-center justify-center rounded-xl border border-neutral-200 bg-white px-6 text-center dark:border-white/[0.08] dark:bg-white/[0.05]">
                     <x-reicon name="search" class="mb-3 size-6 text-neutral-300 dark:text-fg-faint" />
-                    <p class="text-[13px] font-medium">No matching resources</p>
+                    <p class="text-[13px] font-medium">{{ __('No matching resources') }}</p>
                     <p class="mt-1 text-[12px] text-neutral-500 dark:text-fg-dim">
-                        Try a different search or filter.
+                        {{ __('Try a different search or filter.') }}
                     </p>
                 </div>
                 <x-client-pagination x-show="filteredResources.length > 0"

@@ -1,5 +1,5 @@
 @props([
-    'title' => 'Advanced settings',
+    'title' => __('Advanced settings'),
     'contentClass' => '',
 ])
 

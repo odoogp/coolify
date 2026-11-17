@@ -73,9 +73,7 @@ class Sentinel extends Component
             // Only refresh display-only state; never re-sync text-input properties
             // (would clobber any unsaved typing — see coolify#6062 / #6354 / #9695).
             $this->sentinelUpdatedAt = $this->server->sentinel_updated_at;
-            $this->sentinelStatus = $this->server->sentinelStatus();
-            $this->sentinelRestartRequestedAt = null;
-            $this->dispatch('success', 'Sentinel has been restarted successfully.');
+            $this->dispatch('success', __('Sentinel has been restarted successfully.'));
         }
     }
 
@@ -121,10 +119,36 @@ class Sentinel extends Component
             $this->setSentinelRestarting();
             $customImage = isDev() ? $this->sentinelCustomDockerImage : null;
             $this->server->restartSentinel($customImage);
-            auditLog('ui.server.sentinel.restarted', $this->auditContext());
-            $this->dispatch('info', 'Restarting Sentinel.');
+            $this->dispatch('info', __('Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
+        }
+    }
+
+    public function toggleSentinel(): void
+    {
+        try {
+            $this->authorize('manageSentinel', $this->server);
+            if (! $this->isSentinelEnabled) {
+                if ($this->server->isBuildServer()) {
+                    $this->dispatch('error', __('Sentinel cannot be enabled on build servers.'));
+
+                    return;
+                }
+                $customImage = isDev() ? $this->sentinelCustomDockerImage : null;
+                StartSentinel::run($this->server, true, null, $customImage);
+                $this->sentinelCustomUrl = $this->server->settings->sentinel_custom_url;
+                $this->isSentinelEnabled = true;
+            } else {
+                $this->isSentinelEnabled = false;
+                $this->isMetricsEnabled = false;
+                $this->isSentinelDebugEnabled = false;
+                StopSentinel::dispatch($this->server);
+            }
+            $this->submit();
+            $this->dispatch('refreshServerShow');
+        } catch (\Throwable $e) {
+            handleError($e, $this);
         }
     }
 
@@ -134,8 +158,7 @@ class Sentinel extends Component
             $this->authorize('manageSentinel', $this->server);
             $this->setSentinelRestarting();
             $this->server->settings->generateSentinelToken();
-            auditLog('ui.server.sentinel.token_regenerated', $this->auditContext());
-            $this->dispatch('success', 'Token regenerated. Restarting Sentinel.');
+            $this->dispatch('success', __('Token regenerated. Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }
@@ -166,10 +189,7 @@ class Sentinel extends Component
             $this->authorize('update', $this->server);
             $this->setSentinelRestarting();
             $this->syncData(true);
-            auditLog('ui.server.sentinel.updated', $this->auditContext([
-                'changed_fields' => ['is_metrics_enabled', 'sentinel_token', 'sentinel_custom_url', 'is_sentinel_debug_enabled'],
-            ]));
-            $this->dispatch('success', 'Sentinel settings updated. Restarting Sentinel.');
+            $this->dispatch('success', __('Sentinel settings updated. Restarting Sentinel.'));
         } catch (\Throwable $e) {
             return handleError($e, $this);
         }

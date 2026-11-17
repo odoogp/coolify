@@ -3,21 +3,21 @@
         <section class="application-settings-section overflow-hidden">
             <div class="application-settings-section-header">
                 <div>
-                    <h2>Executions</h2>
-                    <p>Review generated archives, storage availability, and backup output.</p>
+                    <h2>{{ __('Executions') }}</h2>
+                    <p>{{ __('Review generated archives, storage availability, and backup output.') }}</p>
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
-                    <x-forms.button wire:click="cleanupFailed">Clean failed backups</x-forms.button>
-                    <x-modal-confirmation title="Cleanup Deleted Backup Entries?" isErrorButton
+                    <x-forms.button wire:click="cleanupFailed">{{ __('Clean failed backups') }}</x-forms.button>
+                    <x-modal-confirmation title="{{ __('Cleanup Deleted Backup Entries?') }}" isErrorButton
                         submitAction="cleanupDeleted()" :actions="[
                             'Permanently delete execution records already removed from local storage.',
                             'Actual backup files are not changed.',
                         ]"
                         confirmationText="cleanup deleted backups"
-                        confirmationLabel="Type cleanup deleted backups to confirm."
-                        shortConfirmationLabel="Confirmation">
+                        confirmationLabel="{{ __('Type cleanup deleted backups to confirm.') }}"
+                        shortConfirmationLabel="{{ __('Confirmation') }}">
                         <x-slot:trigger>
-                            <x-forms.button isError>Clean deleted entries</x-forms.button>
+                            <x-forms.button isError>{{ __('Clean deleted entries') }}</x-forms.button>
                         </x-slot:trigger>
                     </x-modal-confirmation>
                 </div>
@@ -27,22 +27,22 @@
                 class="application-settings-section-body p-0!">
                 @if ($executions_count === 0)
                     <div class="p-4">
-                        <x-empty size="sm" title="No backup executions"
-                            description="Execution history appears here after the schedule runs."
+                        <x-empty size="sm" title="{{ __('No backup executions') }}"
+                            description="{{ __('Execution history appears here after the schedule runs.') }}"
                             icon-name="browser-terminal" />
                     </div>
                 @else
                     <div class="data-table deployment-table-scroll backup-executions-table-scroll">
                         <div
                             class="data-table-header backup-executions-table-grid h-auto rounded-none px-4 py-2.5 text-[11px]">
-                            <span>Status</span>
-                            <span>Database</span>
-                            <span>Backup path</span>
-                            <span>Finished</span>
-                            <span>Duration</span>
-                            <span>Size</span>
-                            <span>Availability</span>
-                            <span class="text-right">Actions</span>
+                            <span>{{ __('Status') }}</span>
+                            <span>{{ __('Database') }}</span>
+                            <span>{{ __('Backup path') }}</span>
+                            <span>{{ __('Finished') }}</span>
+                            <span>{{ __('Duration') }}</span>
+                            <span>{{ __('Size') }}</span>
+                            <span>{{ __('Availability') }}</span>
+                            <span class="text-right">{{ __('Actions') }}</span>
                         </div>
                         @foreach ($executions as $execution)
                             @php
@@ -66,7 +66,7 @@
                                     && ! data_get($execution, 's3_storage_deleted', false)) {
                                     $executionCheckboxes[] = [
                                         'id' => 'delete_backup_s3',
-                                        'label' => 'Delete the selected backup permanently from S3 Storage',
+                                        'label' => __('Delete the selected backup permanently from S3 Storage'),
                                     ];
                                 }
 
@@ -90,11 +90,11 @@
                                     <div class="flex min-w-0 items-center gap-1">
                                         <code class="select-all truncate font-mono text-[11px] text-neutral-600 dark:text-fg-dim"
                                             title="Backup path: {{ data_get($execution, 'filename', 'N/A') }}">{{ data_get($execution, 'filename', 'N/A') }}</code>
-                                        <x-copy-button :value="data_get($execution, 'filename', '')" label="Copy backup path" />
+                                        <x-copy-button :value="data_get($execution, 'filename', '')" label="{{ __('Copy backup path') }}" />
                                     </div>
                                     <div class="text-[11px] text-neutral-600 dark:text-fg-dim">
                                         @if ($executionStatus === 'running')
-                                            Running now
+                                            {{ __('Running now') }}
                                         @else
                                             {{ \Carbon\Carbon::parse(data_get($execution, 'finished_at'))->diffForHumans() }}
                                         @endif
@@ -109,11 +109,11 @@
                                         {{ data_get($execution, 'size') ? formatBytes(data_get($execution, 'size')) : '-' }}
                                     </div>
                                     <div class="flex flex-wrap items-center gap-1.5">
-                                        <x-status-badge label="Local"
+                                        <x-status-badge label="{{ __('Local') }}"
                                             :status="data_get($execution, 'local_storage_deleted', false) ? 'Deleted' : 'Available'"
                                             :type="data_get($execution, 'local_storage_deleted', false) ? 'neutral' : 'success'" />
                                         @if (data_get($execution, 's3_uploaded') !== null)
-                                            <x-status-badge label="S3"
+                                            <x-status-badge label="{{ __('S3') }}"
                                                 :status="data_get($execution, 's3_storage_deleted', false)
                                                     ? 'Deleted'
                                                     : (data_get($execution, 's3_uploaded') ? 'Available' : 'Failed')"
@@ -126,20 +126,20 @@
                                         @if ($executionStatus === 'success')
                                             <button type="button" class="icon-button shrink-0"
                                                 x-on:click="download_file('{{ data_get($execution, 'id') }}')"
-                                                title="Download backup" aria-label="Download backup">
+                                                title="{{ __('Download backup') }}" aria-label="{{ __('Download backup') }}">
                                                 <x-reicon name="upload" class="size-3.5 rotate-180" />
                                             </button>
                                         @endif
-                                        <x-modal-confirmation title="Confirm Backup Deletion?" isErrorButton
+                                        <x-modal-confirmation title="{{ __('Confirm Backup Deletion?') }}" isErrorButton
                                             submitAction="deleteBackup({{ data_get($execution, 'id') }})"
                                             :checkboxes="$executionCheckboxes" :actions="$deleteActions"
                                             confirmationText="{{ data_get($execution, 'filename') }}"
-                                        confirmationLabel="Enter the backup filename to confirm."
-                                        shortConfirmationLabel="Backup Filename">
+                                        confirmationLabel="{{ __('Enter the backup filename to confirm.') }}"
+                                        shortConfirmationLabel="{{ __('Backup Filename') }}">
                                             <x-slot:trigger>
                                                 <button type="button"
                                                     class="icon-button shrink-0 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                                                    title="Delete backup" aria-label="Delete backup">
+                                                    title="{{ __('Delete backup') }}" aria-label="{{ __('Delete backup') }}">
                                                     <x-reicon name="trash" class="size-3.5" />
                                                 </button>
                                             </x-slot:trigger>
@@ -164,11 +164,11 @@
                         </span>
                         <div class="flex items-center gap-1">
                             <button type="button" class="icon-button" @disabled(! $showPrev)
-                                wire:click="previousPage('{{ $defaultTake }}')" aria-label="Previous page">
+                                wire:click="previousPage('{{ $defaultTake }}')" aria-label="{{ __('Previous page') }}">
                                 <x-reicon name="arrow-right" class="size-3.5 rotate-180" />
                             </button>
                             <button type="button" class="icon-button" @disabled(! $showNext)
-                                wire:click="nextPage('{{ $defaultTake }}')" aria-label="Next page">
+                                wire:click="nextPage('{{ $defaultTake }}')" aria-label="{{ __('Next page') }}">
                                 <x-reicon name="arrow-right" class="size-3.5" />
                             </button>
                         </div>

@@ -51,28 +51,45 @@
                 localStorage.setItem('sidebarAutoCollapse', this.autoCollapse);
                 this.applyCollapsed(true);
             }
-        }" @open-global-search.window="open = false" @page-width-changed.window="pageWidth = $event.detail" x-on:livewire:navigated.window="applyCollapsed(true)"
-            :style="{ '--sidebar-w': collapsed ? '4rem' : '14rem' }" x-cloak
+        }" @open-global-search.window="open = false" @page-width-changed.window="pageWidth = $event.detail"
             class="dark:text-inherit text-black">
+            {{-- No x-cloak on this shell: Livewire morph / Alpine toast errors used to leave
+                 [x-cloak]{display:none} on the whole app (blank black Keys & Tokens page). --}}
+            {{-- Bottom-right activity stack: updates pill at the corner; notice toasts stack above it. --}}
+            <div id="gpsh-activity-stack"
+                class="pointer-events-none fixed inset-x-3 bottom-20 z-[100] mx-auto flex w-[min(22rem,calc(100%-2rem))] flex-col-reverse gap-2 sm:inset-x-auto sm:right-4 sm:left-auto sm:mx-0">
+                <livewire:deployments-indicator />
+            </div>
+
+            {{-- Star veil bridges login dive → app assemble (only while html.gc-enter). --}}
+            <div data-gc-enter="veil" class="gc-enter-veil gc-star-veil" aria-hidden="true"></div>
+
             {{-- ============ DESKTOP TOP BAR ============ --}}
             <header
+                data-gc-enter="topbar"
                 x-data="{ resourceActionsOpen: false }"
                 @resource-actions-toggled.window="resourceActionsOpen = $event.detail.open"
                 :class="{ 'z-[1000]': resourceActionsOpen }"
-                class="hidden lg:flex fixed top-0 inset-x-0 z-50 h-12 items-center bg-white/95 dark:bg-panel/95 backdrop-blur">
+                class="gc-app-topbar gc-enter-panel hidden lg:flex fixed top-0 inset-x-0 z-50 h-12 items-center bg-white/95 dark:bg-panel/95 backdrop-blur">
                 {{-- Brand (width tracks sidebar) --}}
-                <div class="flex items-center gap-2 h-full shrink-0 border-r border-neutral-200 dark:border-white/[0.06] transition-[width] duration-200"
+                <div class="flex h-full shrink-0 items-center gap-1.5 overflow-hidden border-r border-neutral-200 dark:border-white/[0.06] transition-[width] duration-200"
                     :class="collapsed ? 'w-16 justify-center px-0' : 'w-56 px-4'">
-                    <div class="flex shrink-0 items-baseline gap-1.5 min-w-0">
-                        <a href="/" {{ wireNavigate() }} title="Coolify"
-                            class="flex items-center hover:opacity-80 transition-opacity">
-                            <img x-show="collapsed" x-cloak src="/coolify-logo.svg" alt="Coolify"
-                                class="size-5" />
-                            <span x-show="!collapsed" class="text-[15px] font-semibold tracking-tight text-black dark:text-white">Coolify</span>
-                        </a>
-                        <x-version x-show="!collapsed"
-                            class="!text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 dark:hover:text-fg hover:text-black" />
-                    </div>
+                    <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
+                        class="flex min-w-0 shrink items-center hover:opacity-80 transition-opacity">
+                        <img x-show="collapsed" x-cloak src="{{ product_mark_url() }}" alt="{{ product_name() }}"
+                            class="size-5 shrink-0 object-contain" />
+                        @if (product_logo_path())
+                            <img x-show="!collapsed" x-cloak src="{{ product_logo_url() }}" alt="{{ product_name() }}"
+                                class="h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left" />
+                        @else
+                            <img x-show="!collapsed" x-cloak src="/brand/logotipo.svg" alt="{{ product_name() }}"
+                                class="h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:hidden" />
+                            <img x-show="!collapsed" x-cloak src="/brand/logotipo-oscuro.svg" alt=""
+                                class="hidden h-7 w-auto min-w-0 max-w-[8.5rem] object-contain object-left dark:block" />
+                        @endif
+                    </a>
+                    <x-version x-show="!collapsed"
+                        class="shrink-0 !text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 dark:hover:text-fg hover:text-black" />
                     @if (isInstanceAdmin() && !isCloud())
                         <div x-show="!collapsed" class="ml-auto shrink-0">
                             @persist('upgrade')
@@ -88,49 +105,46 @@
                         <x-top-breadcrumb />
                         <div id="server-topbar-context" class="min-w-0"></div>
                     </div>
+                    @if (isSubscribed() || ! isCloud())
+                        <button type="button" @click="$dispatch('open-global-search')"
+                            class="obsidian-search-trigger mx-3 w-full max-w-md shrink"
+                            :title="@js(__('Search')) + ' (' + (navigator.platform?.includes('Mac') ? '⌘' : 'Ctrl+') + 'K)'">
+                            <x-reicon name="search" class="size-3.5 shrink-0 opacity-70" />
+                            <span class="obsidian-search-trigger-label">{{ __('Search projects, servers, functions…') }}</span>
+                            <kbd class="obsidian-search-trigger-kbd" x-data x-text="(/Mac|iPhone|iPad|iPod/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl+') + 'K'"></kbd>
+                        </button>
+                    @endif
                     {{-- Dev Server-Timing HUD docks here (local only; empty in production) --}}
                     <div id="server-timing-hud-slot" data-server-timing-hud-slot class="hidden shrink-0 items-center"></div>
                     <div id="configuration-warning-hud-slot" class="relative shrink-0"></div>
                     {{-- Resource actions dock here on desktop. --}}
                     <div id="resource-action-hud-slot" class="hidden shrink-0 items-center xl:flex"></div>
+                    <livewire:gpsh-notice-bell key="notice-bell-desktop" :announce="true" />
                 </div>
             </header>
 
-            {{-- ============ MOBILE SLIDE-OVER SIDEBAR (shadcn-style sheet) ============ --}}
-            <div class="mobile-sidebar-sheet relative z-[1000] lg:hidden"
-                x-on:keydown.escape.window="open = false"
-                x-on:livewire:navigated.window="open = false">
-                {{-- Scrim: fades in/out --}}
-                <div class="fixed inset-0 bg-black/50" x-show="open" x-cloak x-on:click="open = false"
-                    x-transition:enter="transition-opacity ease-out duration-300"
-                    x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
-                    x-transition:leave="transition-opacity ease-in duration-200"
-                    x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"></div>
-                {{-- Panel: slides in from the right (iOS drawer curve), exits faster --}}
-                <div class="fixed inset-y-0 right-0 flex" :class="!open && 'pointer-events-none'">
-                    <div x-show="open" x-cloak x-trap.inert.noscroll="open"
-                        role="dialog" aria-modal="true" aria-label="Navigation menu"
-                        x-transition:enter="transform transition ease-[cubic-bezier(0.32,0.72,0,1)] duration-300"
-                        x-transition:enter-start="translate-x-full" x-transition:enter-end="translate-x-0"
-                        x-transition:leave="transform transition ease-in duration-200"
-                        x-transition:leave-start="translate-x-0" x-transition:leave-end="translate-x-full"
-                        class="relative flex h-full w-72 max-w-[85vw] min-w-0 flex-col overflow-hidden rounded-l-2xl border-l border-neutral-200 bg-white shadow-[-8px_0_30px_-6px_rgba(0,0,0,0.18)] dark:border-white/[0.12] dark:bg-panel dark:shadow-[-8px_0_30px_-4px_rgba(0,0,0,0.5)]">
-                        <div data-mobile-sidebar-brand
-                            class="flex h-12 shrink-0 items-center justify-between gap-1.5 border-b border-neutral-200 px-4 dark:border-white/[0.06]">
-                            <div class="flex min-w-0 items-baseline gap-1.5">
-                                <a href="/" {{ wireNavigate() }} title="Coolify"
-                                    class="text-[15px] font-semibold tracking-tight text-black transition-opacity hover:opacity-80 dark:text-white">
-                                    Coolify
-                                </a>
-                                <x-version class="!text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 hover:text-black dark:hover:text-fg" />
-                            </div>
-                            <button type="button" x-on:click="open = false" aria-label="Close menu"
-                                class="-mr-1.5 flex size-8 shrink-0 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-black active:scale-95 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
-                                <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.75"
+            {{-- ============ MOBILE SLIDE-OVER SIDEBAR ============ --}}
+            <div class="relative z-[1000] lg:hidden" :class="open ? 'block' : 'hidden'" role="dialog" aria-modal="true">
+                <div class="fixed inset-0 bg-black/80" x-on:click="open = false"></div>
+                <div class="fixed inset-y-0 right-0 flex h-full">
+                    <div
+                        class="relative flex h-full w-full max-w-56 min-w-0 flex-col border-l border-neutral-200 bg-white shadow-xl dark:border-white/[0.12] dark:bg-panel">
+                        <div class="absolute top-0 right-full flex w-16 justify-center pt-5">
+                            <button type="button" class="-m-2.5 p-2.5" x-on:click="open = !open">
+                                <span class="sr-only">{{ __('Close sidebar') }}</span>
+                                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                                     stroke="currentColor" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
                             </button>
+                        </div>
+                        <div data-mobile-sidebar-brand
+                            class="flex h-12 shrink-0 items-center gap-1.5 border-b border-neutral-200 px-4 dark:border-white/[0.06]">
+                            <a href="/" {{ wireNavigate() }} title="{{ product_name() }}"
+                                class="text-[15px] font-semibold tracking-tight text-black transition-opacity hover:opacity-80 dark:text-white">
+                                {{ product_name() }}
+                            </a>
+                            <x-version class="!text-[10.5px] font-medium text-neutral-400 dark:text-fg-faint !opacity-100 hover:!opacity-100 hover:text-black dark:hover:text-fg" />
                         </div>
                         <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pb-2 scrollbar">
                             <x-navbar />
@@ -140,26 +154,38 @@
             </div>
 
             {{-- ============ DESKTOP SIDEBAR (below top bar) ============ --}}
-            <div class="hidden lg:fixed lg:top-12 lg:bottom-0 lg:left-0 lg:z-40 lg:flex lg:flex-col min-w-0"
+            {{-- overflow-visible: listbox panels (account menu) must escape the sidebar (DESIGN.md).
+                 Nav list scroll lives on the ul inside <x-navbar>. z-50 keeps the menu above main. --}}
+            <div data-gc-enter="sidebar"
+                class="gc-enter-panel hidden lg:fixed lg:top-12 lg:bottom-0 lg:left-0 lg:z-50 lg:flex lg:h-[calc(100dvh-3rem)] lg:min-h-0 lg:flex-col min-w-0"
                 :class="[collapsed ? 'lg:w-16' : 'lg:w-56', sidebarReady ? 'transition-[width] duration-200' : '']">
-                <div class="flex grow min-w-0 flex-col overflow-visible">
-                    <x-navbar deployments-indicator />
+                <div class="flex h-full min-h-0 min-w-0 flex-col overflow-visible">
+                    <x-navbar />
                 </div>
             </div>
 
             {{-- ============ MOBILE TOP BAR ============ --}}
             <div
-                class="sticky top-0 z-40 flex items-center justify-between px-4 py-3 gap-x-4 sm:px-6 lg:hidden bg-white/95 dark:bg-panel/95 backdrop-blur-sm border-b border-neutral-200/60 dark:border-white/[0.06]">
+                data-gc-enter="topbar"
+                class="gc-enter-panel sticky top-0 z-40 flex items-center justify-between px-4 py-3 gap-x-4 sm:px-6 lg:hidden bg-white/95 dark:bg-panel/95 backdrop-blur-sm border-b border-neutral-200/60 dark:border-white/[0.06]">
                 <div class="flex min-w-0 flex-1 items-center gap-2.5">
                     <a href="/"
                         class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 transition-opacity hover:opacity-80 dark:bg-white/[0.06]">
-                        <img src="/coolify-logo.svg" alt="Coolify" class="w-[18px] h-[18px]" />
+                        <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="h-[18px] w-[18px] object-contain" />
                     </a>
                     <div class="min-w-0" x-data="{ collapsed: false }">
                         <livewire:switch-team />
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
+                    @if (isSubscribed() || ! isCloud())
+                        <button type="button" @click="$dispatch('open-global-search')"
+                            class="obsidian-search-trigger max-w-[10.5rem]"
+                            title="{{ __('Search') }}">
+                            <x-reicon name="search" class="size-3.5 shrink-0 opacity-70" />
+                            <span class="obsidian-search-trigger-label">{{ __('Search') }}</span>
+                        </button>
+                    @endif
                     {{-- Dev Server-Timing HUD docks here on <lg (desktop uses #server-timing-hud-slot) --}}
                     <div id="server-timing-hud-slot-mobile" data-server-timing-hud-slot
                         class="hidden shrink-0 items-center"></div>
@@ -168,26 +194,41 @@
                     @if (isInstanceAdmin() && !isCloud())
                         <livewire:upgrade key="mobile-upgrade" />
                     @endif
+                    <livewire:gpsh-notice-bell key="notice-bell-mobile" />
                     <x-top-user-menu />
-                    <button type="button" x-on:click="open = !open"
-                        class="-mr-1 flex size-9 items-center justify-center rounded-md text-neutral-500 transition-transform duration-100 ease-out hover:bg-neutral-100 hover:text-black active:scale-90 dark:text-fg-dim dark:hover:bg-white/[0.06] dark:hover:text-fg">
-                        <span class="sr-only">Open sidebar</span>
-                        <svg class="size-5" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="1.6" />
-                            <path d="M9 4v16" stroke="currentColor" stroke-width="1.6" />
+                    <button type="button" class="-m-1 p-2 text-neutral-500 dark:text-fg-dim" x-on:click="open = !open">
+                        <span class="sr-only">{{ __('Open sidebar') }}</span>
+                        <svg class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"
+                                stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         </svg>
                     </button>
                 </div>
             </div>
 
             {{-- ============ MAIN ============ --}}
+            {{-- Body scrolls (not main): sticky settings nav top offsets stay viewport-relative. --}}
             <main
-                class="min-h-screen bg-neutral-50 dark:bg-app px-5 py-6 sm:px-8 lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10"
+                data-gc-enter="main"
+                class="gc-enter-panel min-h-screen bg-white dark:bg-panel px-5 py-6 sm:px-8 lg:px-10 lg:pt-[calc(3rem+1.75rem)] lg:pb-10"
                 :class="[collapsed ? 'lg:ml-16' : 'lg:ml-56', sidebarReady ? 'transition-[margin] duration-200' : '']">
                 <div class="w-full" :class="pageWidth === 'centered' ? 'mx-auto max-w-[1400px]' : 'max-w-none'">
-                    {{ $slot }}
+                    {{-- components.layout forwards Livewire/<x-layout> via @section('page');
+                         direct ->layout('layouts.app') still uses {{ $slot }}. --}}
+                    @hasSection('page')
+                        @yield('page')
+                    @else
+                        {{ $slot }}
+                    @endif
+                    <footer class="mt-10 text-center text-[11px] text-neutral-400 dark:text-fg-faint">{{ product_name() }}</footer>
                 </div>
             </main>
+            @php
+                $supportNumber = preg_replace('/\D+/', '', (string) (instanceSettings()->whatsapp_support_number ?? ''));
+            @endphp
+            @if ($supportNumber !== '')
+                <x-whatsapp-support :number="$supportNumber" />
+            @endif
         </div>
     @endauth
 @endsection

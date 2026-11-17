@@ -89,7 +89,7 @@ test('subscribed cloud sidebar shows subscription link for team admins', functio
     $html = view('components.navbar')->render();
 
     expect($html)
-        ->toContain('title="Subscription"')
+        ->toContain('title="{{ __(\'Subscription\') }}"')
         ->toContain(route('subscription.show'));
 });
 

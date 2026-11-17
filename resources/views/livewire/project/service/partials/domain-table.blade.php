@@ -7,16 +7,14 @@
 <div class="data-table w-full">
     @if ($showHeader)
         <div class="data-table-header {{ $gridClass }}">
-            <span>Domain</span>
+            <span>{{ __('Domain') }}</span>
             @if ($showServiceColumn)
-                <span>Service</span>
+                <span>{{ __('Service') }}</span>
             @endif
-            <span>Protocol redirect</span>
-                <span>Domain redirect</span>
-                <span>Internal port</span>
-                <span>Search indexing</span>
-                <span>DNS status</span>
-            <span class="text-right">Actions</span>
+            <span>{{ __('DNS Check') }}</span>
+            <span class="whitespace-nowrap">{{ __('Search engine indexing') }}</span>
+            <span>{{ __('Direction') }}</span>
+            <span></span>
         </div>
     @endif
     @foreach ($rows as $row)
@@ -91,10 +89,10 @@
                                         class="invisible absolute inset-0 size-4 rounded-sm" />
                                 </span>
                             @endif
-                            <a href="{{ $publicUrl }}" target="_blank" rel="noopener noreferrer"
-                                class="min-w-0 flex-1 truncate text-[13px] text-black underline decoration-neutral-300 underline-offset-2 hover:decoration-coollabs [overflow-wrap:anywhere] dark:text-fg dark:decoration-white/20 dark:hover:decoration-warning"
-                                title="{{ $publicUrl }}">
-                                {{ $publicUrl }}
+                            <a href="{{ data_get($app ?? null, 'name') === 'odoo' ? route('project.service.odoo.enter', ['project_uuid' => $service->environment->project->uuid, 'environment_uuid' => $service->environment->uuid, 'service_uuid' => $service->uuid]) : getFqdnWithoutPort($row['url']) }}" target="_blank"
+                                class="min-w-0 flex-1 text-[13px] text-black underline decoration-neutral-300 underline-offset-2 hover:decoration-coollabs sm:truncate dark:text-fg dark:decoration-white/20 dark:hover:decoration-warning"
+                                title="{{ $row['url'] }}">
+                                {{ $row['url'] }}
                             </a>
                         @endif
                         @if ($isSuggested && ! empty($row['suggestion_label']))
@@ -153,46 +151,93 @@
                 <div class="service-domain-dns flex min-w-0 items-center">
                     @if ($row['dns_status'] === 'failed')
                         <x-status-badge as="button" @click="$dispatch('open-dns-records-modal')" :status="$dnsLabel" :type="$dnsType"
-                            title="View DNS records to fix" class="cursor-pointer hover:bg-neutral-200 dark:hover:bg-white/[0.1]" />
-                    @elseif ($row['dns_status'] === 'checking')
-                        <x-status-badge dynamic :title="$row['dns_message']">
-                            <x-loading compact aria-label="Checking DNS" />
-                            <span class="truncate">Checking DNS...</span>
-                        </x-status-badge>
+                            title="{{ __('View DNS records to fix') }}" class="cursor-pointer hover:bg-neutral-200 dark:hover:bg-white/[0.1]" />
                     @else
                         <x-status-badge :status="$dnsLabel" :type="$dnsType"
                             :title="$row['dns_status'] === 'ok' ? null : $row['dns_message']" />
                     @endif
                 </div>
 
-                <div class="service-domain-actions flex items-center justify-end gap-1">
+                <div class="min-w-0">
+                    @unless ($isSuggested)
+                        <span class="domains-mobile-label">{{ __('Search engine indexing') }}</span>
+                    @endunless
+                    @if ($isSuggested)
+                        <span class="text-[13px] text-neutral-500 dark:text-fg-dim">-</span>
+                    @elseif (auth()->user()?->can('update', $service))
+                        <x-forms.listbox id="service-domain-indexing-{{ $row['service_application_id'] }}-{{ $index }}"
+                            :wire="false"
+                            preserveValue
+                            :value="$service->applications->firstWhere('id', $row['service_application_id'])?->isDomainNoindexed($row['url']) ? 'noindex' : 'index'"
+                            onChange="toggleNoindexDomain"
+                            :onChangeArgs="[(int) $row['service_application_id'], $row['url']]" portal :options="[
+                                ['value' => 'index', 'label' => __('Indexable')],
+                                ['value' => 'noindex', 'label' => __('Noindex')],
+                            ]" />
+                    @else
+                        <span class="text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ $service->applications->firstWhere('id', $row['service_application_id'])?->isDomainNoindexed($row['url']) ? __('Noindex') : __('Indexable') }}
+                        </span>
+                    @endif
+                </div>
+
+                <div class="min-w-0">
+                    @php
+                        $rowDirection = $serviceRedirects[$row['service_application_id']] ?? 'both';
+                        $directionLabel = match ($rowDirection) {
+                            'www' => 'Redirect to www',
+                            'non-www' => 'Redirect to non-www',
+                            default => 'Allow both',
+                        };
+                    @endphp
+                    @if ($showDirection)
+                        <span class="domains-mobile-label">{{ __('Direction') }}</span>
+                    @endif
+                    @if ($showDirection && auth()->user()?->can('update', $service))
+                        <x-forms.listbox id="service-domain-direction-{{ $row['service_application_id'] }}-{{ $index }}"
+                            :wire="false" :value="$rowDirection" preserveValue onChange="updateServiceRedirect"
+                            :onChangeArgs="[(int) $row['service_application_id']]" portal :options="[
+                                ['value' => 'both', 'label' => __('Allow www & non-www')],
+                                ['value' => 'www', 'label' => __('Redirect to www')],
+                                ['value' => 'non-www', 'label' => __('Redirect to non-www')],
+                            ]" />
+                    @elseif ($showDirection)
+                        <span class="text-[13px] text-neutral-500 dark:text-fg-dim">{{ $directionLabel }}</span>
+                    @endif
+                </div>
+
+                <div class="flex items-center justify-end gap-1">
                     @can('update', $service)
                         <button type="button" wire:click="checkDomainDns({{ $index }})"
                             wire:loading.attr="disabled"
                             wire:target="checkDomainDns({{ $index }}),checkAllDns"
-                            class="icon-button shrink-0" title="Check DNS" aria-label="Check DNS">
-                            <x-reicon name="refresh" class="size-3.5" />
+                            class="icon-button shrink-0" title="{{ __('Check DNS') }}" aria-label="{{ __('Check DNS') }}">
+                            <x-reicon name="refresh" class="size-3.5"
+                                wire:loading.remove.delay
+                                wire:target="checkDomainDns({{ $index }}),checkAllDns" />
+                            <x-loading-on-button wire:loading.delay
+                                wire:target="checkDomainDns({{ $index }}),checkAllDns" />
                         </button>
                         @if ($isSuggested)
                             @if ($row['needs_force_add'] ?? false)
                                 <x-forms.button canGate="update" :canResource="$service"
                                     wire:click="addSuggestedDomain({{ $index }})" isError
                                     class="h-7! px-2! text-[12px]!">
-                                    Continue
+                                    {{ __('Continue') }}
                                 </x-forms.button>
                             @else
                                 <x-forms.button canGate="update" :canResource="$service"
                                     wire:click="addSuggestedDomain({{ $index }})" isHighlighted
                                     class="h-7! shrink-0 px-2.5! text-[12px]!">
-                                    Add domain
+                                    {{ __('Add domain') }}
                                 </x-forms.button>
                             @endif
                         @else
-                            <button type="button" class="icon-button shrink-0" title="Domain settings" aria-label="Settings for {{ $publicUrl }}"
-                                @click="openEditDomain(@js($index), @js($row['url']), @js($editingParts), @js((int) $row['service_application_id']), @js($serviceLabel), @js($isNoindexed ? 'noindex' : 'index'), @js($rowDirection))">
+                            <button type="button" wire:click="startEdit({{ $index }})"
+                                class="icon-button shrink-0" title="{{ __('Edit domain') }}" aria-label="{{ __('Edit domain') }}">
                                 <x-reicon name="settings" class="size-3.5" />
                             </button>
-                            <x-modal-confirmation class="!w-auto shrink-0" title="Remove domain?"
+                            <x-modal-confirmation class="!w-auto shrink-0" title="{{ __('Remove domain?') }}"
                                 buttonTitle="Remove" isErrorButton
                                 canGate="update" :canResource="$service"
                                 submitAction="removeDomainByKey({{ $domainKey }})" :actions="[
@@ -204,7 +249,7 @@
                                 <x-slot:trigger>
                                     <button type="button"
                                         class="icon-button shrink-0 text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                                        title="Remove domain" aria-label="Remove domain">
+                                        title="{{ __('Remove domain') }}" aria-label="{{ __('Remove domain') }}">
                                         <x-reicon name="trash" class="size-3.5" />
                                     </button>
                                 </x-slot:trigger>

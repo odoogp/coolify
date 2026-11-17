@@ -2,7 +2,10 @@
 
 namespace App\Actions\Server;
 
+use App\Models\InstanceSettings;
 use App\Models\Server;
+use App\Support\GpshNotices;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
@@ -28,6 +31,12 @@ class UpdateCoolify
         $settings = instanceSettings();
         $this->server = Server::find(0);
         if (! $this->server) {
+            return;
+        }
+
+        if (is_coolify_local_build()) {
+            $this->handleLocalBuild($settings, (bool) $manual_update);
+
             return;
         }
 
@@ -114,8 +123,135 @@ class UpdateCoolify
         $settings->save();
     }
 
+    /**
+     * @return array{branch: string, head: string, upstream: string}|null
+     */
+    public static function parseLocalGitRevision(string $output): ?array
+    {
+        $parts = explode("\t", trim($output));
+        if (count($parts) !== 3) {
+            return null;
+        }
+
+        [$branch, $head, $upstream] = $parts;
+        if ($branch === '' || ! preg_match('/\A[0-9a-f]{40}\z/', $head) || ! preg_match('/\A[0-9a-f]{40}\z/', $upstream)) {
+            return null;
+        }
+
+        return [
+            'branch' => $branch,
+            'head' => $head,
+            'upstream' => $upstream,
+        ];
+    }
+
+    public function syncLocalUpdateAvailability(): void
+    {
+        $settings = instanceSettings();
+        $this->server = Server::find(0);
+        if (! $this->server instanceof Server) {
+            return;
+        }
+
+        $revision = $this->localGitRevision();
+        if ($revision === null) {
+            return;
+        }
+
+        Cache::put('coolify:local-git', $revision, 3600);
+        $settings->update([
+            'new_version_available' => $revision['head'] !== $revision['upstream'],
+        ]);
+    }
+
+    private function handleLocalBuild(InstanceSettings $settings, bool $manualUpdate): void
+    {
+        if (! $manualUpdate && ! $settings->is_auto_update_enabled) {
+            return;
+        }
+
+        if (! $manualUpdate) {
+            $revision = $this->localGitRevision();
+            if ($revision === null || $revision['head'] === $revision['upstream']) {
+                return;
+            }
+        }
+
+        $this->update();
+        $settings->new_version_available = false;
+        $settings->save();
+    }
+
+    /**
+     * @return array{branch: string, head: string, upstream: string}|null
+     */
+    private function localGitRevision(): ?array
+    {
+        if (! $this->server instanceof Server) {
+            return null;
+        }
+
+        try {
+            $output = instant_remote_process(
+                [
+                    ...$this->localUpgradeScriptInstallCommands(),
+                    'bash /data/coolify/source/upgrade-local.sh --status',
+                ],
+                $this->server,
+                true,
+                false,
+                120,
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Local Coolify update check failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+
+        $revision = self::parseLocalGitRevision((string) $output);
+        if ($revision !== null) {
+            Cache::put('coolify:local-git', $revision, 3600);
+        }
+
+        return $revision;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function localUpgradeScriptInstallCommands(): array
+    {
+        $script = file_get_contents(base_path('scripts/upgrade-local.sh'));
+        if ($script === false) {
+            throw new \RuntimeException('Local upgrade script is missing from the application image.');
+        }
+
+        $encoded = base64_encode($script);
+
+        return [
+            'printf %s '.escapeshellarg($encoded).' | base64 -d > /data/coolify/source/upgrade-local.sh',
+            'chmod +x /data/coolify/source/upgrade-local.sh',
+        ];
+    }
+
     private function update()
     {
+        $target = is_string($this->latestVersion) && $this->latestVersion !== ''
+            ? $this->latestVersion
+            : get_latest_version_of_coolify();
+        GpshNotices::announceUpgradeStarted($target);
+
+        if (is_coolify_local_build()) {
+            remote_process([
+                ...$this->localUpgradeScriptInstallCommands(),
+                'bash /data/coolify/source/upgrade-local.sh',
+            ], $this->server);
+
+            return;
+        }
+
         $latestHelperImageVersion = getHelperVersion();
         $upgradeScriptUrl = config('constants.coolify.upgrade_script_url');
         $registryUrl = coolifyRegistryUrl();
