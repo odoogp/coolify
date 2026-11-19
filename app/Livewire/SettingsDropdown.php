@@ -67,7 +67,8 @@ class SettingsDropdown extends Component
     public function render()
     {
         return view('livewire.settings-dropdown', [
-            'entries' => $this->entries,
+            // Only build the changelog when the modal is open: this component renders on every page.
+            'entries' => $this->showWhatsNewModal ? $this->entries : collect(),
             'unreadCount' => $this->unreadCount,
             'currentVersion' => $this->currentVersion,
         ]);

@@ -3,10 +3,6 @@
     allEntries: [],
     page: 1,
     perPage: 1,
-    init() {
-        // Load all entries when component initializes
-        this.allEntries = @js($entries->toArray());
-    },
     markEntryAsRead(tagName) {
         // Update the entry in our local Alpine data
         const entry = this.allEntries.find(e => e.tag_name === tagName);
@@ -104,8 +100,10 @@
 
     <!-- What's New Modal -->
     @if ($showWhatsNewModal)
+        {{-- Entries ship only while the modal is open (~290 KB per copy otherwise, on every page). --}}
         <template x-teleport="body">
             <div class="fixed inset-0 z-[99] flex items-center justify-center p-3 sm:p-6"
+                x-init="allEntries = @js($entries->toArray()); page = 1"
                 @keydown.escape.window="$wire.closeWhatsNewModal()">
                 <div class="absolute inset-0 bg-black/55 backdrop-blur-[2px]" wire:click="closeWhatsNewModal"></div>
 

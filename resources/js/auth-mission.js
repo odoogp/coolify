@@ -418,17 +418,18 @@ function mountMission(shell) {
             store.set(ENTER_KEY, '1');
             shell.dataset.focus = '';
             if (! reduced) {
-                moveTo(targetFor(scene, { focus: [0.69, 0.2], s: 2.4 }), 1600, ease.inCubic);
-                setTimeout(closeIris, 220);
+                // One gesture: a gentle push on the current shot while the iris closes.
+                moveTo(clampCam(zoomAbout({ ...cam }, 1.12)), 700, ease.io);
+                closeIris();
             }
         }
     }, true);
 
     /*
-     * Sign-in exit: the camera pushes to the rocket and the iris closes on black.
-     * The next page (app layout) starts on that same black (html.gc-enter) and
-     * bootAppEnter grows the stars back into the dashboard. If the server answers
-     * with an error, the login reloads and the card shakes instead.
+     * Sign-in exit: the iris closes on black in ~0.6 s, so it finishes before the
+     * server answers. The next page (app layout) starts on that same black with the
+     * same mark (html.gc-enter) and bootAppEnter opens the dashboard in one beat.
+     * If the server answers with an error, the login reloads and the card shakes.
      */
     function closeIris() {
         if (! aperture || ! mark) {
@@ -443,11 +444,12 @@ function mountMission(shell) {
             message.textContent = aperture.dataset.entering || '';
         }
         store.set(ENTER_KEY + '-mark', JSON.stringify({ src: mark.querySelector('img')?.src || '', text: message?.textContent || '' }));
-        aperture.animate([{ '--mission-r': '160%' }, { '--mission-r': '0%' }], { duration: 900, easing: 'cubic-bezier(.7,0,.84,0)', fill: 'forwards' });
+        // 100% is the farthest corner: start there so the closing is visible from the first frame.
+        aperture.animate([{ '--mission-r': '100%' }, { '--mission-r': '0%' }], { duration: 600, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' });
         mark.animate([
-            { opacity: 0, transform: 'translateY(6px)' },
+            { opacity: 0, transform: 'scale(.94)' },
             { opacity: 1, transform: 'none' },
-        ], { duration: 500, delay: 650, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
+        ], { duration: 380, delay: 420, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
     }
 
     /* Focus reactions */
@@ -573,7 +575,7 @@ export async function bootAppEnter() {
             return;
         }
         t0 = t0 || now;
-        const k = Math.min(1, (now - t0) / 1600);
+        const k = Math.min(1, (now - t0) / 700);
         const zoom = 1 + k * k * 0.6;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
@@ -587,27 +589,25 @@ export async function bootAppEnter() {
     };
 
     const easing = 'cubic-bezier(.22,1,.36,1)';
-    // Hold the mark a beat so the seam with the login reads as one shot.
-    await sleep(handoff.src || handoff.text ? 260 : 0);
-    markBox.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(1.06)', filter: 'blur(6px)' }], { duration: 420, easing: 'ease-in', fill: 'forwards' });
-    canvas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 520, easing, fill: 'forwards' });
-    requestAnimationFrame(draw);
-
-    await sleep(520);
+    // One beat, everything together: the mark leaves, a brief star burst flies
+    // past and the dashboard fades in underneath. No sequential pauses.
     const layers = [...document.body.children].filter((el) => el !== veil && ! ['SCRIPT', 'STYLE', 'TEMPLATE'].includes(el.tagName));
     html.classList.remove('gc-enter');
-    veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 900, easing: 'ease-in-out', fill: 'forwards' });
+    requestAnimationFrame(draw);
+    markBox.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(1.08)' }], { duration: 360, easing: 'ease-in', fill: 'forwards' });
+    canvas.animate([{ opacity: 0 }, { opacity: 0.9, offset: 0.35 }, { opacity: 0 }], { duration: 700, easing: 'ease-out', fill: 'forwards' });
+    veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 600, delay: 120, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' });
     // Opacity only: a transform/filter on these wrappers would re-anchor the fixed top bar and sidebar.
     layers.forEach((el) => {
-        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 800, easing, delay: 200, fill: 'backwards' });
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 500, easing, delay: 120, fill: 'backwards' });
     });
     const main = document.querySelector('main');
     if (main) {
         [...main.querySelectorAll(':scope > * > *')].slice(0, 10).forEach((el, i) => {
-            el.animate([{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }], { duration: 520, easing, delay: 420 + i * 50, fill: 'backwards' });
+            el.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 460, easing, delay: 160 + i * 40, fill: 'backwards' });
         });
     }
-    await sleep(1300);
+    await sleep(800);
     running = false;
     veil.remove();
 }

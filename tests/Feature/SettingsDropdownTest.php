@@ -87,3 +87,46 @@ it('opens the changelog modal when there are no entries', function () {
         ->assertSee("What's new", false)
         ->assertSee('No updates found');
 });
+
+it('does not build or ship the changelog while the modal is closed', function () {
+    $user = new User(['email' => 'test@example.com']);
+    $user->id = 1;
+
+    Auth::setUser($user);
+
+    $service = new class extends ChangelogService
+    {
+        public int $entryCalls = 0;
+
+        public function getEntriesForUser(User $user): Collection
+        {
+            $this->entryCalls++;
+
+            return collect([
+                (object) [
+                    'tag_name' => 'v9.9.9',
+                    'title' => 'Hidden Release Title',
+                    'content' => 'Release notes',
+                    'content_html' => '<p>Release notes</p>',
+                    'published_at' => Carbon::parse('2026-05-01'),
+                    'is_read' => false,
+                ],
+            ]);
+        }
+
+        public function getUnreadCountForUser(User $user): int
+        {
+            return 1;
+        }
+    };
+    app()->instance(ChangelogService::class, $service);
+
+    $component = Livewire::test(SettingsDropdown::class, ['trigger' => 'account-menu']);
+
+    expect($component->html())->not->toContain('Hidden Release Title')
+        ->and($service->entryCalls)->toBe(0);
+
+    $component->call('openWhatsNewModal')->assertSee('Hidden Release Title');
+
+    expect($service->entryCalls)->toBeGreaterThan(0);
+});

@@ -106,7 +106,8 @@ test('the app only hides itself for the sign-in entrance outside auth pages', fu
         ->toContain('export function bootAuthMission')
         ->toContain('export async function bootAppEnter')
         ->toContain('store.remove(ENTER_KEY)')
-        ->toContain('setTimeout(closeIris, 220)')
+        ->toContain("{ '--mission-r': '100%' }, { '--mission-r': '0%' }")
+        ->not->toContain('focus: [0.69, 0.2], s: 2.4')
         ->toContain("ENTER_KEY + '-mark'")
         ->toContain("{ opacity: 0 }, { opacity: 1 }");
 
