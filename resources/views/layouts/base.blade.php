@@ -79,6 +79,17 @@
         window.applyStoredTheme();
     })();
 </script>
+<script data-navigate-once>
+    // Right after sign-in the app starts hidden and emerges from the login's star veil
+    // (resources/js/auth-mission.js bootAppEnter). Auth pages never take this path.
+    (function () {
+        try {
+            if (sessionStorage.getItem('gc-enter') === '1' && !/^\/(login|register|forgot-password|reset-password|two-factor-challenge|email\/verify|user\/confirm-password)(\/|$)/.test(location.pathname)) {
+                document.documentElement.classList.add('gc-enter');
+            }
+        } catch (error) {}
+    })();
+</script>
 
 <head>
     <meta charset="utf-8">
@@ -134,7 +145,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="GetOdoo">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css'])
+    @vite(['resources/js/app.js', 'resources/css/app.css', 'resources/css/letify-light.css', 'resources/css/theme-accent.css', 'resources/css/auth-mission.css'])
     <script data-navigate-once>
         // Update theme-color meta tag (non-critical, can run async)
         (function () {

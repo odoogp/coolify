@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => {
                     "resources/css/app.css",
                     "resources/css/letify-light.css",
                     "resources/css/theme-accent.css",
+                    "resources/css/auth-mission.css",
                     "resources/js/app.js",
                 ],
                 refresh: true,

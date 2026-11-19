@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell tunnel="login" title="{{ product_name() }}" description="{{ __('Sign in to manage your applications and infrastructure.') }}">
+    <x-auth.shell tunnel="login" scene="login" heading="{{ __('Welcome back') }}" title="{{ product_name() }}" description="{{ __('Your instances are waiting. Sign in and pick up where you left off.') }}">
         <div class="flex flex-col gap-4">
             @if (session('status'))
                 <x-auth.alert type="success">{{ session('status') }}</x-auth.alert>

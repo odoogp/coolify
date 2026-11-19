@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell title="{{ product_name() }}"
+    <x-auth.shell scene="forgot" heading="{{ __('We will bring you back') }}" title="{{ product_name() }}"
         description="{{ __('Enter your account email and we’ll send you a secure reset link.') }}">
         <div class="flex flex-col gap-4">
             @if (session('status'))

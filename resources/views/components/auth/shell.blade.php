@@ -6,8 +6,44 @@
     'tunnel' => null,
     'crystal' => false,
     'lockup' => false,
+    'scene' => null,
+    'heading' => null,
 ])
 
+@if (filled($scene))
+<section class="auth-shell auth-shell-mission application-settings-form" data-scene="{{ $scene }}"
+    data-auth-state="{{ session('error') || (isset($errors) && $errors->any()) ? 'error' : 'idle' }}">
+    <x-auth.mission :scene="$scene" />
+
+    <div class="auth-shell-content">
+        <div class="auth-card" data-mission-card>
+            <div class="auth-card-heading">
+                <div class="auth-mission-brand-row">
+                    <span class="auth-mission-brand">
+                        <img src="{{ product_mark_url() }}" alt="">
+                        <span>{{ $title }}</span>
+                    </span>
+                    <x-locale-switcher variant="compact" />
+                </div>
+                <h1>{{ $heading ?? $title }}</h1>
+                @if ($description)
+                    <p>{{ $description }}</p>
+                @endif
+            </div>
+
+            <div class="auth-card-body">
+                {{ $slot }}
+            </div>
+
+            @isset($footer)
+                <footer class="auth-card-footer">
+                    {{ $footer }}
+                </footer>
+            @endisset
+        </div>
+    </div>
+</section>
+@else
 <section @class([
         'auth-shell application-settings-form',
         'auth-shell-wide' => $wide,
@@ -103,3 +139,4 @@
         </div>
     </div>
 </section>
+@endif

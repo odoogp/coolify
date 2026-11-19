@@ -5161,5 +5161,17 @@
     "Writes the password shown above into admin without asking Odoo for the current one. Use this if Settings → Users → Change password still rejects the tip.": "Escribe la contraseña de arriba en admin sin pedirle a Odoo la actual. Úsalo si en Ajustes → Usuarios → Cambiar contraseña sigue rechazando la clave.",
     "Keys unlocked. The admin password from Keys was written into Odoo so Settings → Users → Change password can use it as the current password.": "Claves desbloqueadas. La contraseña de admin de Claves se escribió en Odoo para que en Ajustes → Usuarios → Cambiar contraseña sirva como contraseña actual.",
     "Odoo admin now uses the password shown in Keys. In Settings → Users → Change password, use that tip as the current password.": "El admin de Odoo ya usa la contraseña de Claves. En Ajustes → Usuarios → Cambiar contraseña, úsala como contraseña actual.",
-    "Could not assign the administrator password inside Odoo. Confirm Odoo is running, then try Apply again (or Restart Odoo once so the password API is installed).": "No se pudo asignar la contraseña de administrador dentro de Odoo. Confirma que Odoo está en marcha e intenta Aplicar de nuevo (o reinicia Odoo una vez para instalar la API de contraseña)."
+    "Could not assign the administrator password inside Odoo. Confirm Odoo is running, then try Apply again (or Restart Odoo once so the password API is installed).": "No se pudo asignar la contraseña de administrador dentro de Odoo. Confirma que Odoo está en marcha e intenta Aplicar de nuevo (o reinicia Odoo una vez para instalar la API de contraseña).",
+    "Welcome back": "Bienvenido de vuelta",
+    "Your instances are waiting. Sign in and pick up where you left off.": "Tus instancias te esperan. Entra y sigue donde lo dejaste.",
+    "Start your mission": "Empieza tu misión",
+    "We will bring you back": "Te traemos de vuelta",
+    "Confirm it is you": "Verifica que eres tú",
+    "Check your email": "Revisa tu correo",
+    "Secure area": "Zona segura",
+    "Lunar surface": "Superficie lunar",
+    "Earth from the Moon": "La Tierra desde la Luna",
+    "Landing pad": "Plataforma de descenso",
+    "EVA visor": "Visor EVA",
+    "Signal beacon": "Baliza de señal"
 }

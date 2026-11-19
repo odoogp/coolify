@@ -1,5 +1,5 @@
 <x-layout-simple>
-    <x-auth.shell title="{{ __('auth.reset_password') }}"
+    <x-auth.shell scene="reset" heading="{{ __('New password') }}" title="{{ product_name() }}"
         description="{{ __('Choose a strong new password for your Coolify account.') }}">
         <div class="flex flex-col gap-4">
             @if (session('status'))

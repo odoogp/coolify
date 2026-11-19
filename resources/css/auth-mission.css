@@ -1,0 +1,590 @@
+/*
+ * Auth mission scene (x-auth.mission + resources/js/auth-mission.js).
+ * Loaded after app.css. Every rule is scoped to .auth-shell-mission so the
+ * plan signup / terms / invitation shells keep their current look.
+ * The scene is always dark, whatever the stored app theme is.
+ */
+
+@property --mission-r {
+    syntax: '<percentage>';
+    inherits: false;
+    initial-value: 0%;
+}
+
+.auth-shell.auth-shell-mission {
+    --mission-text: #f5f5f7;
+    --mission-text-2: rgb(235 235 245 / 0.64);
+    --mission-text-3: rgb(235 235 245 / 0.42);
+    --mission-glass: rgb(12 14 22 / 0.5);
+    --mission-edge: rgb(255 255 255 / 0.12);
+    --mission-field: rgb(255 255 255 / 0.06);
+    --mission-field-edge: rgb(255 255 255 / 0.1);
+    --mission-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+    --mission-ease-in: cubic-bezier(0.55, 0, 0.75, 0.1);
+    --mission-ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+
+    color-scheme: dark;
+    background: #000;
+    color: var(--mission-text);
+    overflow: hidden;
+}
+
+/* ── Scene ─────────────────────────────────────────── */
+.auth-mission {
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.auth-mission-camera {
+    position: absolute;
+    left: 0;
+    top: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+}
+
+.auth-mission-plate {
+    position: relative;
+    width: max(100vw, calc(100dvh * 16 / 9));
+    aspect-ratio: 16 / 9;
+}
+
+.auth-mission-plate > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    user-select: none;
+}
+
+.auth-mission-fx {
+    position: absolute;
+    pointer-events: none;
+    mix-blend-mode: screen;
+}
+
+.auth-mission-visor {
+    left: 20.6%;
+    top: 36.6%;
+    width: 7.6%;
+    height: 12.8%;
+    overflow: hidden;
+    border-radius: 48% 52% 46% 50%;
+    opacity: 0.55;
+    transform: rotate(-8deg);
+    transition: opacity 0.8s var(--mission-ease-out);
+}
+
+.auth-mission-visor::before {
+    content: '';
+    position: absolute;
+    inset: -40% -60%;
+    background: linear-gradient(105deg, transparent 38%, rgb(255 244 214 / 0.85) 48%, rgb(255 255 255 / 0.95) 50%, rgb(255 236 190 / 0.6) 53%, transparent 62%);
+    animation: auth-mission-sweep 7.5s var(--mission-ease-io) infinite;
+}
+
+.auth-mission-visor::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(60% 50% at 40% 40%, rgb(255 214 140 / 0.55), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.8s var(--mission-ease-out);
+}
+
+.auth-shell-mission[data-focus='email'] .auth-mission-visor,
+.auth-shell-mission[data-focus='code'] .auth-mission-visor,
+.auth-shell-mission[data-focus='email'] .auth-mission-visor::after,
+.auth-shell-mission[data-focus='code'] .auth-mission-visor::after {
+    opacity: 1;
+}
+
+.auth-mission-earth {
+    left: 84.15%;
+    top: 40.6%;
+    width: 6%;
+    aspect-ratio: 1;
+    background: radial-gradient(circle, rgb(140 190 255 / 0.75) 0%, rgb(90 140 255 / 0.25) 22%, transparent 60%);
+    animation: auth-mission-breathe 6s ease-in-out infinite;
+}
+
+.auth-shell-mission[data-scene='forgot'] .auth-mission-earth {
+    animation-duration: 3.6s;
+}
+
+.auth-mission-rocket-glass {
+    left: 65.2%;
+    top: 23.6%;
+    width: 7%;
+    height: 11.4%;
+    overflow: hidden;
+    opacity: 0.5;
+}
+
+.auth-mission-rocket-glass::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 40%;
+    background: linear-gradient(90deg, transparent, rgb(150 190 255 / 0.55), transparent);
+    animation: auth-mission-glass 9s var(--mission-ease-io) infinite;
+}
+
+.auth-mission-dome {
+    left: 50.2%;
+    top: 64%;
+    width: 5%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgb(255 170 110 / 0.55), transparent 62%);
+    animation: auth-mission-pulse 4.2s ease-in-out infinite;
+}
+
+.auth-mission-beacon {
+    left: 50.1%;
+    top: 60.4%;
+    width: 0.5%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    background: #8affc1;
+    box-shadow: 0 0 10px 3px rgb(120 255 180 / 0.8);
+    animation: auth-mission-blink 2.4s steps(1) infinite;
+}
+
+.auth-mission-sky {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    mix-blend-mode: screen;
+}
+
+.auth-mission-grade,
+.auth-mission-vignette,
+.auth-mission-dim {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.auth-mission-grade {
+    opacity: 0;
+    transition: opacity 1.4s var(--mission-ease-io);
+}
+
+.auth-mission-grade-right { background: linear-gradient(270deg, rgb(0 0 0 / 0.62) 0%, rgb(0 0 0 / 0.3) 34%, transparent 58%); }
+.auth-mission-grade-left { background: linear-gradient(90deg, rgb(0 0 0 / 0.62) 0%, rgb(0 0 0 / 0.3) 34%, transparent 58%); }
+.auth-mission-grade-bottom { background: linear-gradient(0deg, rgb(0 0 0 / 0.78) 0%, rgb(0 0 0 / 0.35) 45%, transparent 70%); }
+
+.auth-shell-mission[data-side='right'] .auth-mission-grade-right,
+.auth-shell-mission[data-side='left'] .auth-mission-grade-left,
+.auth-shell-mission[data-side='bottom'] .auth-mission-grade-bottom {
+    opacity: 1;
+}
+
+.auth-mission-vignette {
+    background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgb(0 0 0 / 0.55) 100%);
+}
+
+.auth-mission-dim {
+    background: #000;
+    opacity: 0;
+    transition: opacity 0.9s var(--mission-ease-out);
+}
+
+.auth-shell-mission[data-focus='password'] .auth-mission-dim {
+    opacity: 0.34;
+}
+
+.auth-mission-caption {
+    position: fixed;
+    bottom: 28px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    color: var(--mission-text-3);
+    text-shadow: 0 1px 12px rgb(0 0 0 / 0.9), 0 0 2px rgb(0 0 0 / 0.8);
+}
+
+.auth-mission-caption b {
+    font-weight: 500;
+    color: var(--mission-text-2);
+}
+
+.auth-mission-caption i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #8affc1;
+    box-shadow: 0 0 8px rgb(138 255 193 / 0.9);
+}
+
+.auth-shell-mission[data-side='right'] .auth-mission-caption { left: max(24px, 5vw); }
+.auth-shell-mission[data-side='left'] .auth-mission-caption { right: max(24px, 5vw); }
+.auth-shell-mission[data-side='bottom'] .auth-mission-caption { left: 20px; top: calc(16px + env(safe-area-inset-top)); bottom: auto; }
+
+/* ── Aperture (intro + sign-in) ────────────────────── */
+.auth-mission-aperture {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: grid;
+    place-items: center;
+    background: #000;
+    --mission-r: 0%;
+    -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--mission-r), #000 calc(var(--mission-r) + 0.6%));
+    mask: radial-gradient(circle at 50% 50%, transparent var(--mission-r), #000 calc(var(--mission-r) + 0.6%));
+}
+
+.auth-mission-aperture[hidden] {
+    display: none;
+}
+
+.auth-mission-aperture-mark {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    opacity: 0;
+}
+
+.auth-mission-aperture-mark img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    border-radius: 16px;
+}
+
+.auth-mission-aperture-mark span {
+    min-height: 20px;
+    font-size: 14px;
+    color: var(--mission-text-2);
+}
+
+/* ── Layout: card on the side opposite the subject ─── */
+.auth-shell-mission .auth-shell-content {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 24px max(24px, 7vw);
+    pointer-events: none;
+}
+
+.auth-shell-mission[data-side='right'] .auth-shell-content { justify-content: flex-end; }
+.auth-shell-mission[data-side='left'] .auth-shell-content { justify-content: flex-start; }
+.auth-shell-mission[data-side='bottom'] .auth-shell-content {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+}
+
+/* ── Card ──────────────────────────────────────────── */
+html body .auth-shell.auth-shell-mission .auth-card {
+    --mx: 50%;
+    --my: 0%;
+
+    position: relative;
+    width: min(400px, 100%);
+    max-height: calc(100dvh - 48px);
+    overflow: auto;
+    scrollbar-width: none;
+    pointer-events: auto;
+    border-radius: 28px;
+    border: 1px solid var(--mission-edge);
+    background: var(--mission-glass);
+    color: var(--mission-text);
+    box-shadow: 0 40px 90px -30px rgb(0 0 0 / 0.8), inset 0 1px 0 rgb(255 255 255 / 0.08);
+    -webkit-backdrop-filter: blur(30px) saturate(170%);
+    backdrop-filter: blur(30px) saturate(170%);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(420px circle at var(--mx) var(--my), rgb(255 255 255 / 0.07), transparent 45%);
+}
+
+.auth-shell-mission .auth-card::-webkit-scrollbar {
+    display: none;
+}
+
+.auth-shell-mission[data-side='bottom'] .auth-card {
+    width: 100%;
+    max-width: 440px;
+    max-height: 74dvh;
+}
+
+.auth-shell-mission .auth-card.is-hidden {
+    visibility: hidden;
+}
+
+/* Waits for the scene to bring it in; reappears on its own if the script never runs. */
+.auth-shell-mission .auth-card:not(.is-in):not(.is-out) {
+    opacity: 0;
+    animation: gc-enter-failsafe 0.3s ease-out 3s forwards;
+}
+
+.auth-shell-mission .auth-card.is-in {
+    animation: auth-mission-card-in 0.8s var(--mission-ease-out) both;
+}
+
+.auth-shell-mission .auth-card.is-in [data-mission-st] {
+    animation: auth-mission-rise 0.7s var(--mission-ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms + 120ms);
+}
+
+.auth-shell-mission .auth-card.is-out {
+    animation: auth-mission-card-out 0.3s var(--mission-ease-in) both;
+}
+
+html body .auth-shell.auth-shell-mission .auth-card-heading {
+    padding: 28px 28px 6px;
+}
+
+.auth-mission-brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.auth-mission-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+}
+
+.auth-mission-brand img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+html body .auth-shell.auth-shell-mission .auth-card-heading h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 650;
+    letter-spacing: -0.028em;
+    color: var(--mission-text);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card-heading p {
+    margin: 0 0 14px;
+    max-width: none;
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--mission-text-2);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card-body {
+    padding: 0 28px 22px;
+}
+
+html body .auth-shell.auth-shell-mission .auth-card-footer {
+    margin: 0 28px;
+    padding: 16px 0 22px;
+    border-top: 1px solid rgb(255 255 255 / 0.08);
+    font-size: 13px;
+    color: var(--mission-text-3);
+}
+
+html body .auth-shell.auth-shell-mission label,
+html body .auth-shell.auth-shell-mission .auth-card-body {
+    color: var(--mission-text-2);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card input:not([type='hidden']):not([type='checkbox']) {
+    height: 52px;
+    border-radius: 14px;
+    border: 1px solid var(--mission-field-edge);
+    background: var(--mission-field);
+    color: var(--mission-text);
+    font-size: 16px;
+    box-shadow: none;
+    transition: border-color 0.25s, background-color 0.25s, box-shadow 0.25s;
+}
+
+html body .auth-shell.auth-shell-mission .auth-card input:not([type='hidden']):hover {
+    background: rgb(255 255 255 / 0.08);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card input:not([type='hidden']):focus {
+    outline: none;
+    border-color: rgb(255 255 255 / 0.34);
+    background: rgb(255 255 255 / 0.09);
+    box-shadow: 0 0 0 4px rgb(255 255 255 / 0.06);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card input:-webkit-autofill {
+    -webkit-text-fill-color: var(--mission-text);
+    caret-color: var(--mission-text);
+    transition: background-color 9999s;
+}
+
+html body .auth-shell.auth-shell-mission .auth-card .auth-field-icon:has(> input[type='email'])::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23ebebf5' stroke-opacity='.55' stroke-width='1.6' viewBox='0 0 24 24'%3E%3Crect x='3' y='5' width='18' height='14' rx='2'/%3E%3Cpath d='m4 7 8 6 8-6'/%3E%3C/svg%3E");
+}
+
+html body .auth-shell.auth-shell-mission .auth-card .auth-field-icon:has(> input[type='password'])::before,
+html body .auth-shell.auth-shell-mission .auth-card .auth-field-icon:has(> input[type='text'])::before {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23ebebf5' stroke-opacity='.55' stroke-width='1.6' viewBox='0 0 24 24'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E");
+}
+
+html body .auth-shell.auth-shell-mission .password-toggle {
+    color: var(--mission-text-3);
+}
+
+html body .auth-shell.auth-shell-mission .password-toggle:hover {
+    color: var(--mission-text);
+}
+
+html body .auth-shell.auth-shell-mission button[isHighlighted]:not(:disabled),
+html body .auth-shell.auth-shell-mission button.button-highlighted:not(:disabled) {
+    height: 52px;
+    margin-top: 4px;
+    border: 0;
+    border-radius: 14px;
+    background: #f5f5f7;
+    color: #0a0c12;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: 0 10px 30px -12px rgb(255 255 255 / 0.45);
+    transition: transform 0.18s var(--mission-ease-out), background-color 0.2s, box-shadow 0.25s;
+}
+
+html body .auth-shell.auth-shell-mission button[isHighlighted]:not(:disabled):hover,
+html body .auth-shell.auth-shell-mission button.button-highlighted:not(:disabled):hover {
+    background: #fff;
+    box-shadow: 0 14px 36px -12px rgb(255 255 255 / 0.6);
+}
+
+html body .auth-shell.auth-shell-mission button:not(:disabled):active {
+    transform: scale(0.98);
+}
+
+html body .auth-shell.auth-shell-mission .auth-card button.button:not([isHighlighted]):not(.button-highlighted) {
+    height: 48px;
+    border-radius: 14px;
+    border: 1px solid var(--mission-field-edge);
+    background: var(--mission-field);
+    color: var(--mission-text);
+}
+
+html body .auth-shell.auth-shell-mission .auth-text-link,
+html body .auth-shell.auth-shell-mission .auth-card-footer .auth-text-link {
+    color: var(--mission-text);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+html body .auth-shell.auth-shell-mission .auth-card-body .auth-text-link {
+    color: var(--mission-text-2);
+}
+
+html body .auth-shell.auth-shell-mission .auth-text-link:hover {
+    color: #fff;
+}
+
+html body .auth-shell.auth-shell-mission .auth-divider {
+    color: var(--mission-text-3);
+}
+
+html body .auth-shell.auth-shell-mission .auth-divider::before,
+html body .auth-shell.auth-shell-mission .auth-divider::after {
+    background: rgb(255 255 255 / 0.1);
+}
+
+html body .auth-shell.auth-shell-mission .auth-guidance {
+    border: 1px solid rgb(255 255 255 / 0.07);
+    border-radius: 12px;
+    background: rgb(255 255 255 / 0.04);
+    box-shadow: none !important;
+    color: var(--mission-text-2);
+}
+
+html body .auth-shell.auth-shell-mission .auth-locale select {
+    height: 30px;
+    border: 1px solid var(--mission-field-edge);
+    border-radius: 999px;
+    background-color: rgb(255 255 255 / 0.06);
+    color: var(--mission-text-2);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0 1.6rem 0 0.75rem;
+}
+
+.auth-shell-mission .auth-card :focus-visible {
+    outline: 2px solid rgb(255 255 255 / 0.7);
+    outline-offset: 2px;
+}
+
+/* ── Keyframes ─────────────────────────────────────── */
+@keyframes auth-mission-sweep { 0% { transform: translateX(-70%); } 28%, 100% { transform: translateX(70%); } }
+@keyframes auth-mission-glass { 0% { left: -50%; } 35%, 100% { left: 120%; } }
+@keyframes auth-mission-breathe { 0%, 100% { opacity: 0.55; transform: translate(-50%, -50%) scale(0.9); } 50% { opacity: 1; transform: translate(-50%, -50%) scale(1.12); } }
+@keyframes auth-mission-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.7; } }
+@keyframes auth-mission-blink { 0%, 70% { opacity: 0; } 72%, 80% { opacity: 1; } 82%, 100% { opacity: 0; } }
+@keyframes auth-mission-card-in { from { opacity: 0; transform: translateY(22px) scale(0.975); filter: blur(12px); } }
+@keyframes auth-mission-rise { from { opacity: 0; transform: translateY(12px); filter: blur(6px); } }
+@keyframes auth-mission-card-out { to { opacity: 0; transform: translateY(-8px) scale(0.985); filter: blur(10px); } }
+
+/* ── App entrance (after sign-in) ──────────────────── */
+/* Hidden until bootAppEnter runs; the failsafe reveals the app if JS never does. */
+html.gc-enter body > *:not(.gc-enter-veil) {
+    opacity: 0;
+    animation: gc-enter-failsafe 0.3s ease-out 2.5s forwards;
+}
+
+@keyframes gc-enter-failsafe {
+    to { opacity: 1; }
+}
+
+.gc-enter-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    background: #000;
+    pointer-events: none;
+}
+
+.gc-enter-veil canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .auth-mission-visor::before,
+    .auth-mission-rocket-glass::before,
+    .auth-mission-earth,
+    .auth-mission-dome,
+    .auth-mission-beacon {
+        animation: none;
+    }
+
+    .auth-shell-mission .auth-card.is-in,
+    .auth-shell-mission .auth-card.is-in [data-mission-st],
+    .auth-shell-mission .auth-card.is-out {
+        animation-duration: 0.2s;
+        animation-delay: 0s;
+    }
+}
