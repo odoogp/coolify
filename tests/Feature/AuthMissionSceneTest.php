@@ -84,6 +84,7 @@ test('mission styles are scoped, loaded after app css and respect reduced motion
         ->toContain('prefers-reduced-motion: reduce')
         ->toContain('@property --mission-r')
         ->toContain('gc-enter-failsafe')
+        ->toMatch('/button\[isHighlighted\]:not\(:disabled\),[^{]*\{[^}]*color:\s*#0a0c12 !important;/s')
         ->not->toMatch('/^\.auth-card\s*\{/m')
         ->not->toMatch('/^\.auth-shell\s*\{/m');
 
