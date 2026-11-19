@@ -4,6 +4,7 @@ use App\Domain\Odoo\OdooAbilities;
 use App\Domain\Odoo\OdooMail;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\LocaleStringsController;
 use App\Http\Controllers\OauthController;
 use App\Http\Controllers\OdooEnterController;
 use App\Http\Controllers\OwnerJupyterController;
@@ -143,6 +144,7 @@ use Symfony\Component\HttpFoundation\File\Exception\FileNotFoundException;
 
 Route::post('/forgot-password', [Controller::class, 'forgot_password'])->name('password.forgot')->middleware('throttle:forgot-password');
 Route::post('/locale', LocaleController::class)->name('locale.update')->middleware('throttle:30,1');
+Route::get('/lang/{locale}.js', LocaleStringsController::class)->name('locale.strings')->where('locale', '[a-z-]+');
 Route::post('/gpsh/mail-quota', function (Request $request) {
     $teamId = (int) $request->input('team_id');
     $token = (string) $request->input('token');

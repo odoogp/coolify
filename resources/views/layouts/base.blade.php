@@ -190,14 +190,12 @@
     <x-toast />
     <x-icon-tooltip />
     @php
-        $gpshStrings = [];
-        if (app()->getLocale() !== 'en') {
-            $gpshLocalePath = lang_path(app()->getLocale().'.json');
-            if (is_file($gpshLocalePath)) {
-                $gpshStrings = json_decode(file_get_contents($gpshLocalePath), true) ?: [];
-            }
-        }
+        $gpshStringsUrl = \App\Http\Controllers\LocaleStringsController::urlFor(app()->getLocale());
     @endphp
+    @if ($gpshStringsUrl)
+        {{-- Cached for a year (versioned URL) instead of ~470 KB inline on every page. --}}
+        <script src="{{ $gpshStringsUrl }}" defer data-navigate-once></script>
+    @endif
     <script data-navigate-once>
         // Global HTML sanitization function using DOMPurify
         window.sanitizeHTML = function (html) {
@@ -355,7 +353,6 @@
             }
         }
         window.copyToClipboard = copyToClipboard;
-        window.gpshStrings = @json($gpshStrings);
         window.gpshText = (value) => {
             if (typeof value !== 'string' || value === '' || !window.gpshStrings) {
                 return value;

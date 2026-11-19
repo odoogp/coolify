@@ -84,6 +84,7 @@ test('mission styles are scoped, loaded after app css and respect reduced motion
         ->toContain('prefers-reduced-motion: reduce')
         ->toContain('@property --mission-r')
         ->toContain('gc-enter-failsafe')
+        ->toMatch('/html\.gc-enter,\s*html\.gc-enter body\s*\{[^}]*background:\s*#000 !important;/s')
         ->toMatch('/button\[isHighlighted\]:not\(:disabled\),[^{]*\{[^}]*color:\s*#0a0c12 !important;/s')
         ->not->toMatch('/^\.auth-card\s*\{/m')
         ->not->toMatch('/^\.auth-shell\s*\{/m');
@@ -105,6 +106,8 @@ test('the app only hides itself for the sign-in entrance outside auth pages', fu
         ->toContain('export function bootAuthMission')
         ->toContain('export async function bootAppEnter')
         ->toContain('store.remove(ENTER_KEY)')
+        ->toContain('setTimeout(closeIris, 220)')
+        ->toContain("ENTER_KEY + '-mark'")
         ->toContain("{ opacity: 0 }, { opacity: 1 }");
 
     expect($app)->toContain("import { bootAppEnter, bootAuthMission } from './auth-mission.js';");

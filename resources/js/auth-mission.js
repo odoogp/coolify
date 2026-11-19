@@ -418,10 +418,37 @@ function mountMission(shell) {
             store.set(ENTER_KEY, '1');
             shell.dataset.focus = '';
             if (! reduced) {
-                moveTo(targetFor(scene, { focus: [0.69, 0.2], s: 2.4 }), 2400, ease.inCubic);
+                moveTo(targetFor(scene, { focus: [0.69, 0.2], s: 2.4 }), 1600, ease.inCubic);
+                setTimeout(closeIris, 220);
             }
         }
     }, true);
+
+    /*
+     * Sign-in exit: the camera pushes to the rocket and the iris closes on black.
+     * The next page (app layout) starts on that same black (html.gc-enter) and
+     * bootAppEnter grows the stars back into the dashboard. If the server answers
+     * with an error, the login reloads and the card shakes instead.
+     */
+    function closeIris() {
+        if (! aperture || ! mark) {
+            return;
+        }
+        card.classList.remove('is-in');
+        card.classList.add('is-out');
+        aperture.hidden = false;
+        aperture.getAnimations().forEach((animation) => animation.cancel());
+        mark.getAnimations().forEach((animation) => animation.cancel());
+        if (message) {
+            message.textContent = aperture.dataset.entering || '';
+        }
+        store.set(ENTER_KEY + '-mark', JSON.stringify({ src: mark.querySelector('img')?.src || '', text: message?.textContent || '' }));
+        aperture.animate([{ '--mission-r': '160%' }, { '--mission-r': '0%' }], { duration: 900, easing: 'cubic-bezier(.7,0,.84,0)', fill: 'forwards' });
+        mark.animate([
+            { opacity: 0, transform: 'translateY(6px)' },
+            { opacity: 1, transform: 'none' },
+        ], { duration: 500, delay: 650, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
+    }
 
     /* Focus reactions */
     shell.addEventListener('focusin', (event) => {
@@ -464,6 +491,11 @@ function mountMission(shell) {
     // Back/forward cache: the page comes back mid-exit; show the card again.
     window.addEventListener('pageshow', (event) => {
         if (event.persisted) {
+            aperture?.getAnimations().forEach((animation) => animation.cancel());
+            mark?.getAnimations().forEach((animation) => animation.cancel());
+            if (aperture) {
+                aperture.hidden = true;
+            }
             showCard();
             store.remove(ENTER_KEY);
         }
@@ -484,8 +516,9 @@ export function bootAuthMission() {
 }
 
 /**
- * After a successful sign-in the app layout starts hidden (html.gc-enter, set in
- * layouts/base) and assembles out of the same star veil the login closed on.
+ * After a successful sign-in the app layout starts on black (html.gc-enter, set in
+ * layouts/base) showing the same mark the login iris closed on, then the stars
+ * bloom and the dashboard assembles out of them.
  */
 export async function bootAppEnter() {
     const html = document.documentElement;
@@ -493,6 +526,13 @@ export async function bootAppEnter() {
         return;
     }
     store.remove(ENTER_KEY);
+    let handoff = { src: '', text: '' };
+    try {
+        handoff = { ...handoff, ...JSON.parse(store.get(ENTER_KEY + '-mark') || '{}') };
+    } catch {
+        // No handoff: the veil simply starts with the stars.
+    }
+    store.remove(ENTER_KEY + '-mark');
 
     if (document.querySelector('.auth-shell-mission') || reducedMotion()) {
         html.classList.remove('gc-enter');
@@ -505,6 +545,20 @@ export async function bootAppEnter() {
     veil.setAttribute('aria-hidden', 'true');
     const canvas = document.createElement('canvas');
     veil.appendChild(canvas);
+    const markBox = document.createElement('div');
+    markBox.className = 'gc-enter-mark';
+    if (handoff.src) {
+        const img = document.createElement('img');
+        img.src = handoff.src;
+        img.alt = '';
+        markBox.appendChild(img);
+    }
+    if (handoff.text) {
+        const text = document.createElement('span');
+        text.textContent = handoff.text;
+        markBox.appendChild(text);
+    }
+    veil.appendChild(markBox);
     document.body.appendChild(veil);
 
     const ctx = canvas.getContext('2d');
@@ -513,12 +567,13 @@ export async function bootAppEnter() {
     canvas.height = window.innerHeight * dpr;
     const stars = Array.from({ length: 260 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.2 + 0.3, a: Math.random() * 0.7 + 0.2 }));
     let running = true;
-    const t0 = performance.now();
+    let t0 = 0;
     const draw = (now) => {
         if (! running) {
             return;
         }
-        const k = Math.min(1, (now - t0) / 1400);
+        t0 = t0 || now;
+        const k = Math.min(1, (now - t0) / 1600);
         const zoom = 1 + k * k * 0.6;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
@@ -530,10 +585,15 @@ export async function bootAppEnter() {
         }
         requestAnimationFrame(draw);
     };
+
+    const easing = 'cubic-bezier(.22,1,.36,1)';
+    // Hold the mark a beat so the seam with the login reads as one shot.
+    await sleep(handoff.src || handoff.text ? 260 : 0);
+    markBox.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(1.06)', filter: 'blur(6px)' }], { duration: 420, easing: 'ease-in', fill: 'forwards' });
+    canvas.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 520, easing, fill: 'forwards' });
     requestAnimationFrame(draw);
 
-    await sleep(420);
-    const easing = 'cubic-bezier(.22,1,.36,1)';
+    await sleep(520);
     const layers = [...document.body.children].filter((el) => el !== veil && ! ['SCRIPT', 'STYLE', 'TEMPLATE'].includes(el.tagName));
     html.classList.remove('gc-enter');
     veil.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 900, easing: 'ease-in-out', fill: 'forwards' });

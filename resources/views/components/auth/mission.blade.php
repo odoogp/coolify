@@ -42,7 +42,7 @@
     <p class="auth-mission-caption"><i></i><span><b>{{ $captions[$scene] ?? $captions['login'] }}</b> · Artemis III · NASA</span></p>
 </div>
 
-<div class="auth-mission-aperture" data-mission-aperture hidden aria-hidden="true">
+<div class="auth-mission-aperture" data-mission-aperture data-entering="{{ __('Entering your dashboard…') }}" hidden aria-hidden="true">
     <div class="auth-mission-aperture-mark" data-mission-mark>
         <img src="{{ product_mark_url() }}" alt="">
         <span data-mission-message></span>

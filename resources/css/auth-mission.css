@@ -560,6 +560,12 @@ html.gc-enter body > *:not(.gc-enter-veil) {
     to { opacity: 1; }
 }
 
+/* Black from the very first paint: continues the closed login iris (no theme flash). */
+html.gc-enter,
+html.gc-enter body {
+    background: #000 !important;
+}
+
 .gc-enter-veil {
     position: fixed;
     inset: 0;
@@ -569,9 +575,35 @@ html.gc-enter body > *:not(.gc-enter-veil) {
 }
 
 .gc-enter-veil canvas {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
+    opacity: 0;
+}
+
+.gc-enter-mark {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.gc-enter-mark img {
+    width: 64px;
+    height: 64px;
+    object-fit: contain;
+    border-radius: 16px;
+}
+
+.gc-enter-mark span {
+    min-height: 20px;
+    font-size: 14px;
+    color: rgb(235 235 245 / 0.64);
 }
 
 @media (prefers-reduced-motion: reduce) {
