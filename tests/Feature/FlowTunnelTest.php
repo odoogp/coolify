@@ -23,7 +23,7 @@ it('shows the tunnel image until the video can play on terms and plan signup', f
     expect(file_exists(public_path('media/moon-walk.mp4')))->toBeTrue();
 
     expect($terms)->toContain('tunnel="full"');
-    expect($signup)->toContain('tunnel="split"');
+    expect($signup)->toContain('scene="launch"');
 
     $login = file_get_contents(resource_path('views/auth/login.blade.php'));
     $register = file_get_contents(resource_path('views/auth/register.blade.php'));

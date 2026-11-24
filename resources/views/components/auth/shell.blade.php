@@ -16,7 +16,7 @@
     <x-auth.mission :scene="$scene" />
 
     <div class="auth-shell-content">
-        <div class="auth-card" data-mission-card>
+        <div @class(['auth-card', 'auth-card-wide' => $wide]) data-mission-card>
             <div class="auth-card-heading">
                 <div class="auth-mission-brand-row">
                     <span class="auth-mission-brand">

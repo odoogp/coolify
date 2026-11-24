@@ -5238,5 +5238,9 @@
     ":name is starting.": ":name está arrancando.",
     "The deployment could not be queued.": "No se pudo poner en cola el despliegue.",
     ":count environment|:count environments": ":count entorno|:count entornos",
-    ":count resource|:count resources": ":count recurso|:count recursos"
+    ":count resource|:count resources": ":count recurso|:count recursos",
+    "Liftoff": "Despegue",
+    "Ignition": "Ignición",
+    "Launch your plan": "Lanza tu plan",
+    "Finishing your payment": "Terminando tu pago"
 }

@@ -268,6 +268,50 @@
     color: var(--mission-text-2);
 }
 
+/* ── Launch plate (Artemis I liftoff, payment link) ── */
+.auth-mission-ignition {
+    left: 58.6%;
+    top: 67.8%;
+    width: 11%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgb(255 246 222 / 0.9) 0%, rgb(255 196 120 / 0.55) 18%, rgb(255 140 60 / 0.18) 40%, transparent 66%);
+    animation: auth-mission-flicker 1.9s steps(1, end) infinite, auth-mission-breathe-soft 5s ease-in-out infinite;
+}
+
+.auth-mission-plume {
+    left: 57.4%;
+    top: 58%;
+    width: 2.6%;
+    height: 20%;
+    background: linear-gradient(180deg, rgb(255 236 200 / 0.75), rgb(255 190 110 / 0.35) 55%, transparent);
+    filter: blur(6px);
+    animation: auth-mission-shimmer 0.9s ease-in-out infinite alternate;
+}
+
+.auth-shell-mission[data-scene='payment'] .auth-mission-ignition {
+    animation-duration: 1.2s, 3.2s;
+}
+
+@keyframes auth-mission-flicker {
+    0% { opacity: 0.7; }
+    18% { opacity: 0.95; }
+    34% { opacity: 0.62; }
+    52% { opacity: 0.9; }
+    71% { opacity: 0.68; }
+    86% { opacity: 1; }
+}
+
+@keyframes auth-mission-breathe-soft {
+    0%, 100% { scale: 0.96; }
+    50% { scale: 1.06; }
+}
+
+@keyframes auth-mission-shimmer {
+    from { opacity: 0.55; transform: scaleY(0.96); }
+    to { opacity: 0.85; transform: scaleY(1.04); }
+}
+
 /* ── Layout: card on the side opposite the subject ─── */
 .auth-shell-mission .auth-shell-content {
     position: fixed;
@@ -325,6 +369,59 @@ html body .auth-shell.auth-shell-mission .auth-card::before {
     width: 100%;
     max-width: 440px;
     max-height: 74dvh;
+}
+
+/* Wide card: the plan payment link shows the package next to the account form. */
+html body .auth-shell.auth-shell-mission .auth-card.auth-card-wide {
+    width: min(880px, 100%);
+}
+
+.auth-shell-mission[data-side='bottom'] .auth-card.auth-card-wide {
+    max-width: 100%;
+}
+
+.auth-shell-mission .auth-plan-package,
+.auth-shell-mission .auth-plan-account {
+    border: 1px solid var(--mission-edge);
+    border-radius: 20px;
+    background: rgb(255 255 255 / 0.04);
+    box-shadow: none;
+    color: var(--mission-text);
+}
+
+.auth-shell-mission .auth-plan-kicker,
+.auth-shell-mission .auth-plan-price span,
+.auth-shell-mission .auth-plan-copy {
+    color: var(--mission-text-2);
+}
+
+.auth-shell-mission .auth-plan-name,
+.auth-shell-mission .auth-plan-price {
+    color: var(--mission-text);
+}
+
+.auth-shell-mission .auth-plan-includes {
+    border-color: rgb(120 220 170 / 0.28);
+    background: linear-gradient(180deg, rgb(18 163 106 / 0.18), rgb(18 163 106 / 0.06));
+}
+
+.auth-shell-mission .auth-plan-includes .auth-plan-kicker {
+    color: #b6f3d8;
+}
+
+.auth-shell-mission .auth-plan-feature,
+.auth-shell-mission .auth-plan-include {
+    background: rgb(255 255 255 / 0.05);
+    color: var(--mission-text);
+}
+
+.auth-shell-mission .auth-plan-check {
+    color: #7de8bc;
+}
+
+.auth-shell-mission .auth-plan-value {
+    background: rgb(18 163 106 / 0.26);
+    color: #b6f3d8;
 }
 
 .auth-shell-mission .auth-card.is-hidden {
@@ -623,6 +720,8 @@ html.gc-enter body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+    .auth-mission-ignition,
+    .auth-mission-plume,
     .auth-mission-visor::before,
     .auth-mission-rocket-glass::before,
     .auth-mission-earth,

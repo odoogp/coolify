@@ -4,7 +4,7 @@
         : null;
 @endphp
 <div @if (($signup?->payment_gateway) === 'n1co') wire:poll.5s="refreshStatus" @endif>
-    <x-auth.shell :title="product_name()" :description="$signup?->plan?->name">
+    <x-auth.shell scene="payment" :title="product_name()" :heading="__('Finishing your payment')" :description="$signup?->plan?->name">
         @if (filled($message))
             <x-auth.alert type="warning">
                 <p>{{ $message }}</p>

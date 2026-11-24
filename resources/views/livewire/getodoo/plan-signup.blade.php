@@ -1,4 +1,4 @@
-<x-auth.shell wide scroll tunnel="split" :title="product_name()"
+<x-auth.shell wide scene="launch" :title="product_name()" :heading="__('Launch your plan')"
     :description="__('Create the admin account for this package.')">
     <div class="auth-plan-layout">
         <aside class="auth-plan-package">

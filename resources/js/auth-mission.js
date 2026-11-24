@@ -23,10 +23,18 @@ const VIEWS = {
     confirm: { focus: [0.25, 0.47], mf: [0.26, 0.4], s: 1.7, ms: 1.5, side: 'right' },
     verify: { focus: [0.5, 0.64], mf: [0.5, 0.56], s: 1.75, ms: 1.6, side: 'right' },
     invitation: { focus: [0.25, 0.52], mf: [0.26, 0.44], s: 1.1, ms: 1.05, side: 'right' },
+    // Artemis I launch plate: the plan payment link and its "waiting for payment" page.
+    launch: { focus: [0.62, 0.48], mf: [0.59, 0.4], s: 1.05, ms: 1.2, side: 'left' },
+    payment: { focus: [0.586, 0.6], mf: [0.586, 0.52], s: 1.45, ms: 1.5, side: 'left' },
 };
 
 const MARGIN = 22;
-const OCCLUDERS = [[0.63, 0.08, 0.76, 0.8], [0.1, 0.29, 0.36, 1], [0.45, 0.58, 0.56, 0.95]];
+const plateOf = (name) => (['launch', 'payment'].includes(name) ? 'launch' : 'artemis3');
+/** Parts of each photo the stars never draw over (x0, y0, x1, y1 in photo space). */
+const OCCLUDERS_BY_PLATE = {
+    artemis3: [[0.63, 0.08, 0.76, 0.8], [0.1, 0.29, 0.36, 1], [0.45, 0.58, 0.56, 0.95]],
+    launch: [[0.56, 0.1, 0.62, 1], [0.14, 0.08, 0.19, 1], [0.47, 0.18, 0.53, 1], [0.8, 0.1, 0.86, 1], [0.64, 0.52, 0.69, 1]],
+};
 
 const ease = {
     io: (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2),
@@ -71,6 +79,8 @@ function mountMission(shell) {
     shell.dataset.missionBound = '1';
 
     const scene = VIEWS[shell.dataset.scene] ? shell.dataset.scene : 'login';
+    const photo = shell.querySelector('[data-auth-mission]')?.dataset.plate || 'artemis3';
+    const occluders = OCCLUDERS_BY_PLATE[photo] || OCCLUDERS_BY_PLATE.artemis3;
     const camera = shell.querySelector('[data-mission-camera]');
     const plate = shell.querySelector('[data-mission-plate]');
     const canvas = shell.querySelector('[data-mission-sky]');
@@ -168,7 +178,7 @@ function mountMission(shell) {
     while (stars.length < 340) {
         const x = Math.random();
         const y = 0.72 * Math.pow(Math.random(), 1.25);
-        if (OCCLUDERS.some((o) => x > o[0] && x < o[2] && y > o[1] && y < o[3])) {
+        if (occluders.some((o) => x > o[0] && x < o[2] && y > o[1] && y < o[3])) {
             continue;
         }
         const depth = Math.random();
@@ -372,7 +382,7 @@ function mountMission(shell) {
             previous = null;
         }
 
-        if (previous && previous.scene !== scene && Date.now() - previous.t < 15000 && VIEWS[previous.scene]) {
+        if (previous && previous.scene !== scene && plateOf(previous.scene) === photo && Date.now() - previous.t < 15000 && VIEWS[previous.scene]) {
             Object.assign(cam, targetFor(previous.scene));
             moveTo(target, 1500, ease.io);
             setTimeout(showCard, 640);

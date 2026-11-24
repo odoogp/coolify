@@ -71,7 +71,7 @@ test('shells without a scene keep the current tunnel and stage', function () {
         ->toContain('<x-flow-tunnel />')
         ->toContain('auth-stage-mark-slot');
 
-    expect(file_get_contents(resource_path('views/livewire/getodoo/plan-signup.blade.php')))->not->toContain('scene=');
+    expect(file_get_contents(resource_path('views/livewire/getodoo/plan-signup.blade.php')))->toContain('scene="launch"');
     expect(file_get_contents(resource_path('views/livewire/getodoo/terms.blade.php')))->not->toContain('scene=');
 });
 
@@ -109,7 +109,7 @@ test('the app only hides itself for the sign-in entrance outside auth pages', fu
         ->toContain("{ '--mission-r': '100%' }, { '--mission-r': '0%' }")
         ->not->toContain('focus: [0.69, 0.2], s: 2.4')
         ->toContain("ENTER_KEY + '-mark'")
-        ->toContain("{ opacity: 0 }, { opacity: 1 }");
+        ->toContain('{ opacity: 0 }, { opacity: 1 }');
 
     expect($app)->toContain("import { bootAppEnter, bootAuthMission } from './auth-mission.js';");
 });
@@ -126,4 +126,28 @@ test('mission copy is translated to spanish', function () {
     foreach (['Welcome back', 'Start your mission', 'We will bring you back', 'Confirm it is you', 'Check your email', 'Secure area', 'Lunar surface', 'Earth from the Moon', 'Landing pad', 'EVA visor', 'Signal beacon'] as $key) {
         expect($es)->toHaveKey($key);
     }
+});
+
+test('the plan payment link and its waiting page use the Artemis I launch plate', function () {
+    $mission = file_get_contents(resource_path('views/components/auth/mission.blade.php'));
+    $shell = file_get_contents(resource_path('views/components/auth/shell.blade.php'));
+    $script = file_get_contents(resource_path('js/auth-mission.js'));
+    $styles = file_get_contents(resource_path('css/auth-mission.css'));
+
+    expect(file_exists(public_path('brand/illustrations/space/launch-hero.jpg')))->toBeTrue()
+        ->and(file_exists(public_path('brand/illustrations/space/launch-hero-1920.jpg')))->toBeTrue()
+        ->and($mission)
+        ->toContain("in_array(\$scene, ['launch', 'payment'], true) ? 'launch' : 'artemis3'")
+        ->toContain('auth-mission-ignition')
+        ->toContain('Artemis I · NASA/Bill Ingalls')
+        ->and($shell)->toContain("'auth-card-wide' => \$wide")
+        ->and($script)
+        ->toContain('launch: { focus:')
+        ->toContain('payment: { focus:')
+        ->toContain('OCCLUDERS_BY_PLATE')
+        ->and($styles)
+        ->toContain('.auth-card.auth-card-wide')
+        ->toContain('.auth-shell-mission .auth-plan-package')
+        ->and(file_get_contents(resource_path('views/livewire/getodoo/plan-return.blade.php')))->toContain('scene="payment"')
+        ->and(file_get_contents(public_path('brand/illustrations/space/README.md')))->toContain('NHQ202211160203');
 });
