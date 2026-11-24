@@ -117,7 +117,7 @@
             clearTimeout(this.spinnerTimer);
             this.isLoadingInitialData = false;
             this.showLoadingSpinner = false;
-            // "Nuevo" in the top bar opens straight into create mode.
+            // The top bar New button opens straight into create mode.
             if (preset) {
                 this.searchQuery = preset;
             }

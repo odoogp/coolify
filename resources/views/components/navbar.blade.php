@@ -142,10 +142,10 @@
                         try { localStorage.setItem('navMoreOpen', this.moreOpen); } catch (e) {}
                     },
                 }">
-                <button type="button" class="menu-item w-full" :class="collapsed && 'lg:hidden'"
+                <button type="button" class="menu-item w-full justify-start! text-left" :class="collapsed && 'lg:hidden'"
                     @click="toggleMore()" :aria-expanded="moreOpen.toString()" title="{{ __('More') }}">
                     <x-reicon name="grid" class="menu-item-icon" />
-                    <span class="menu-item-label">{{ __('More') }}</span>
+                    <span class="menu-item-label flex-1 text-left">{{ __('More') }}</span>
                     <x-reicon name="chevron-down" class="ml-auto size-3 opacity-60 transition-transform duration-200"
                         x-bind:class="moreOpen && 'rotate-180'" />
                 </button>
