@@ -5221,5 +5221,22 @@
     "Account ID": "ID de cuenta",
     "Zone ID": "ID de zona",
     "Tunnel domain": "Dominio de túneles",
-    "Other ways to add a server": "Otras formas de agregar un servidor"
+    "Other ways to add a server": "Otras formas de agregar un servidor",
+    "Work": "Trabajo",
+    "More": "Más",
+    "Search or run…": "Buscar o ejecutar…",
+    "Good morning": "Buenos días",
+    "Good afternoon": "Buenas tardes",
+    "Good evening": "Buenas noches",
+    ":count resource needs attention. Everything else is fine.|:count resources need attention. Everything else is fine.": ":count recurso necesita atención. Lo demás va bien.|:count recursos necesitan atención. Lo demás va bien.",
+    "Launch your first app to see it here.": "Lanza tu primera app para verla aquí.",
+    "Everything is running.": "Todo está en marcha.",
+    "ready": "listos",
+    "of": "de",
+    "Needs attention": "Necesita atención",
+    "Needs a look": "Requiere revisión",
+    ":name is starting.": ":name está arrancando.",
+    "The deployment could not be queued.": "No se pudo poner en cola el despliegue.",
+    ":count environment|:count environments": ":count entorno|:count entornos",
+    ":count resource|:count resources": ":count recurso|:count recursos"
 }

@@ -10,7 +10,7 @@
     $dotClasses = [
         'neutral' => 'bg-neutral-400 dark:bg-neutral-500',
         'success' => 'bg-emerald-500',
-        'warning' => 'bg-warning',
+        'warning' => 'bg-amber-400',
         'error' => 'bg-red-500',
     ];
 

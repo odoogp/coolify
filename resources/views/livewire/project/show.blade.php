@@ -552,6 +552,64 @@
                     {{ __('Try a different search.') }}
                 </p>
             </div>
+
+            @if ($resourceRows->isNotEmpty())
+                @php
+                    $resourceStateDot = [
+                        'running' => 'bg-emerald-500',
+                        'stopped' => 'bg-amber-400',
+                        'starting' => 'bg-sky-400 animate-pulse',
+                        'attention' => 'bg-red-500',
+                    ];
+                    $resourceStateLabel = [
+                        'running' => __('Running'),
+                        'stopped' => __('Stopped'),
+                        'starting' => __('Starting'),
+                        'attention' => __('Needs a look'),
+                    ];
+                @endphp
+                {{-- Every app and service in the project at a glance: state, environment and where it answers. --}}
+                <section class="mt-8 min-w-0" data-project-resources>
+                    <h2 class="mb-3 text-[15px]! font-semibold! text-black dark:text-fg">{{ __('Resources') }}</h2>
+                    <div class="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-white/[0.025]">
+                        <table class="w-full min-w-[640px] text-left text-[13px]">
+                            <thead class="border-b border-neutral-200 bg-neutral-50 text-[11px] font-medium text-neutral-500 dark:border-white/[0.08] dark:bg-white/[0.025] dark:text-fg-faint">
+                                <tr>
+                                    <th class="px-4 py-2.5 font-medium">{{ __('Resource') }}</th>
+                                    <th class="px-4 py-2.5 font-medium">{{ __('Status') }}</th>
+                                    <th class="px-4 py-2.5 font-medium">{{ __('Environment') }}</th>
+                                    <th class="px-4 py-2.5 font-medium">{{ __('Domain') }}</th>
+                                    <th class="px-4 py-2.5"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-neutral-200 dark:divide-white/[0.07]">
+                                @foreach ($resourceRows as $row)
+                                    <tr class="transition-colors hover:bg-neutral-50 dark:hover:bg-white/[0.025]" wire:key="project-resource-{{ $row['uuid'] }}">
+                                        <td class="px-4 py-2.5">
+                                            <a href="{{ $row['url'] }}" {{ wireNavigate() }} class="block min-w-0 hover:no-underline">
+                                                <span class="block truncate font-medium text-black dark:text-fg">{{ $row['name'] }}</span>
+                                                @if ($row['raw_name'] !== $row['name'])
+                                                    <span class="block truncate font-mono text-[11px] text-neutral-400 dark:text-fg-faint">{{ $row['raw_name'] }}</span>
+                                                @endif
+                                            </a>
+                                        </td>
+                                        <td class="px-4 py-2.5">
+                                            <span class="inline-flex items-center gap-1.5 text-neutral-600 dark:text-fg-dim">
+                                                <span class="size-1.5 rounded-full {{ $resourceStateDot[$row['state']] }}"></span>{{ $resourceStateLabel[$row['state']] }}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-2.5 text-neutral-600 dark:text-fg-dim">{{ $row['environment'] }}</td>
+                                        <td class="max-w-[16rem] truncate px-4 py-2.5 font-mono text-[12px] text-neutral-500 dark:text-fg-dim">{{ $row['domain'] ?? '-' }}</td>
+                                        <td class="px-4 py-2.5 text-right">
+                                            <a href="{{ $row['url'] }}" {{ wireNavigate() }} class="button h-7! px-2.5! text-[11px]!">{{ __('Open') }}</a>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            @endif
         @endif
         @if ($odooUsersOpen)
             <template x-teleport="body">

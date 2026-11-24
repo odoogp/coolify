@@ -78,6 +78,25 @@
                     <div id="configuration-warning-hud-slot" class="relative shrink-0"></div>
                     {{-- Resource actions dock here on desktop. --}}
                     <div id="resource-action-hud-slot" class="hidden shrink-0 items-center xl:flex"></div>
+                    @if (isSubscribed() || ! isCloud())
+                        <div class="ml-2 flex shrink-0 items-center gap-1.5" data-topbar-actions>
+                            <button type="button" @click="$dispatch('open-global-search')"
+                                class="topbar-search flex h-8 w-56 items-center gap-2 rounded-lg px-2.5 text-[13px] text-neutral-500 ring-1 ring-neutral-200 transition-colors hover:text-black hover:ring-neutral-300 dark:text-fg-faint dark:ring-white/[0.08] dark:hover:text-fg dark:hover:ring-white/[0.16] 2xl:w-72"
+                                title="{{ __('Search') }}">
+                                <x-reicon name="search" class="size-3.5 shrink-0" />
+                                <span class="flex-1 truncate text-left">{{ __('Search or run…') }}</span>
+                                <kbd class="rounded-md bg-neutral-100 px-1.5 py-0.5 text-[11px] font-medium dark:bg-white/[0.06]"
+                                    x-data x-text="/Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent) ? '⌘K' : 'Ctrl K'">⌘K</kbd>
+                            </button>
+                            @can('createAnyResource')
+                                <button type="button" @click="$dispatch('open-global-search', { query: 'new' })"
+                                    class="button button-highlighted h-8! px-3! text-[13px]!" title="{{ __('New') }}">
+                                    <x-reicon name="plus" class="size-3.5" />
+                                    {{ __('New') }}
+                                </button>
+                            @endcan
+                        </div>
+                    @endif
                     <livewire:gpsh-notice-bell key="notice-bell-desktop" :announce="true" />
                 </div>
             </header>
@@ -167,7 +186,6 @@
                     @else
                         {{ $slot }}
                     @endif
-                    <footer class="mt-10 text-center text-[11px] text-neutral-400 dark:text-fg-faint">{{ product_name() }}</footer>
                 </div>
             </main>
             @php

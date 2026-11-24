@@ -1,13 +1,14 @@
 <?php
 
-test('the signed-in shell uses the professional canvas and violet accent', function () {
+test('the signed-in shell uses the GetCloud palette', function () {
     $styles = file_get_contents(resource_path('css/app.css'));
 
     expect($styles)
-        ->toContain('--color-accent: #8b7cff;')
-        ->toContain('--color-panel: #07080e;')
-        ->toContain('background-color: #f6f4f1;')
-        ->toContain('linear-gradient(90deg, #7c5cff, #4f7dff)')
+        ->toContain('--color-accent: #38BDF8;')
+        ->toContain('--color-panel: #0B1220;')
+        ->toContain('background-color: #F8FAFC;')
+        ->toContain('linear-gradient(90deg, #2563EB, #3b82f6)')
+        ->toContain('--color-coollabs: #2563EB;')
         ->toContain('backdrop-filter: blur(40px) saturate(1.6);')
         ->toMatch('/\.empty-state::before \{[^}]*backdrop-filter: blur\(40px\) saturate\(1\.6\);/s')
         ->not->toMatch('/\.empty-state \{[^}]*backdrop-filter:/s')
@@ -63,7 +64,7 @@ test('letify light is a named light theme and does not restyle dark appearances'
 
     expect($styles)
         ->toContain('html[data-theme="light"]')
-        ->toContain('--letify-primary: #1b2c6f;')
+        ->toContain('--letify-primary: #2563EB;')
         ->toContain('linear-gradient(135deg, var(--letify-primary)')
         ->toContain('--shell-radius: 0.75rem;')
         ->toContain('border-radius: var(--shell-radius);')

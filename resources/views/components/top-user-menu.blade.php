@@ -14,7 +14,7 @@
     theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'light'),
     pageWidth: localStorage.getItem('pageWidth') || 'full',
     fontDelta: Number(localStorage.getItem('fontDelta') || 0),
-    themeColor: localStorage.getItem('themeColor') || '#6b16ed',
+    themeColor: localStorage.getItem('themeColor') || '#2563EB',
     accents: {},
     avatarUrl: @js($user?->avatar_path ? route('profile.avatar', ['v' => $user->updated_at->timestamp]) : null),
     init() {

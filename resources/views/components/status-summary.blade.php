@@ -52,7 +52,7 @@
         <span @class([
             'size-1.5 shrink-0 rounded-full',
             'bg-success' => $summaryType === 'success',
-            'bg-warning' => $summaryType === 'warning',
+            'bg-amber-400' => $summaryType === 'warning',
             'bg-error' => $summaryType === 'error',
         ])></span>
         <span>{{ $summaryLabel }}</span>

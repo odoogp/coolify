@@ -49,12 +49,13 @@
                     document.documentElement.classList.remove('dark');
                 }
                 document.documentElement.dataset.theme = userSettings === 'custom' ? 'custom' : (userSettings === 'crystal' ? 'crystal' : (userSettings === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
-                document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#07080e' : '#f6f4f1');
+                document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#0B1220' : '#F8FAFC');
             }
     }">
     {{-- Search is only useful when workspace resources are available --}}
     @if (isSubscribed() || ! isCloud())
-        <div class="px-1 pb-3" :class="collapsed && 'lg:px-0 lg:flex lg:justify-center'">
+        {{-- Desktop search lives in the top bar; the sidebar keeps it for the mobile drawer. --}}
+        <div class="px-1 pb-3 lg:hidden">
             <button @click="$dispatch('open-global-search')" type="button"
                 :title="@js(__('Search')) + ' (' + @js(__('Press / or')) + ' ' + modKeyLabel + 'K)'"
                 class="menu-item justify-between !bg-neutral-100 dark:!bg-white/[0.04] hover:!bg-neutral-200 dark:hover:!bg-white/[0.07] !text-fg-faint"
@@ -72,7 +73,7 @@
     <ul role="list" class="-mx-1 flex min-h-0 flex-1 flex-col gap-y-0.5 overflow-y-auto px-1 pb-2 scrollbar">
         @if (isSubscribed() || !isCloud())
             {{-- Workspace --}}
-            <li class="nav-section" :class="collapsed && 'lg:hidden'">{{ __('Workspace') }}</li>
+            <li class="nav-section" :class="collapsed && 'lg:hidden'">{{ __('Work') }}</li>
             <li>
                 <a title="{{ __('Dashboard') }}" href="/" {{ wireNavigate() }}
                     class="{{ request()->is('/') ? 'menu-item-active menu-item' : 'menu-item' }}"
@@ -126,6 +127,29 @@
                     </a>
                 </li>
             @endif
+            @php
+                $navMoreActive = request()->is('source*') || request()->is('destination*') || request()->is('storages*')
+                    || request()->is('shared-variables*') || request()->is('team*') || request()->is('notifications*')
+                    || request()->is('security*') || request()->is('subscription*') || request()->is('tags*')
+                    || request()->is('settings*');
+            @endphp
+            {{-- More: everything people use less often, folded so the main paths stand out. --}}
+            <li class="mt-3" data-nav-more
+                x-data="{
+                    moreOpen: @js($navMoreActive) || (() => { try { return localStorage.getItem('navMoreOpen') === 'true'; } catch (e) { return false; } })(),
+                    toggleMore() {
+                        this.moreOpen = ! this.moreOpen;
+                        try { localStorage.setItem('navMoreOpen', this.moreOpen); } catch (e) {}
+                    },
+                }">
+                <button type="button" class="menu-item w-full" :class="collapsed && 'lg:hidden'"
+                    @click="toggleMore()" :aria-expanded="moreOpen.toString()" title="{{ __('More') }}">
+                    <x-reicon name="grid" class="menu-item-icon" />
+                    <span class="menu-item-label">{{ __('More') }}</span>
+                    <x-reicon name="chevron-down" class="ml-auto size-3 opacity-60 transition-transform duration-200"
+                        x-bind:class="moreOpen && 'rotate-180'" />
+                </button>
+                <ul role="list" class="mt-0.5 flex flex-col gap-y-0.5" x-show="moreOpen || collapsed" x-collapse x-cloak>
             @if (isInstanceOwner())
                 <li>
                     <a title="{{ __('Sources') }}" {{ wireNavigate() }}
@@ -161,8 +185,6 @@
                 </a>
             </li>
 
-            {{-- Manage --}}
-            <li class="nav-section mt-3" :class="collapsed && 'lg:hidden'">{{ __('Manage') }}</li>
             <li>
                 <a title="{{ __('Team') }}" {{ wireNavigate() }}
                     class="{{ request()->is('team*') ? 'menu-item-active menu-item' : 'menu-item' }}"
@@ -226,6 +248,8 @@
                     </a>
                 </li>
             @endif
+                </ul>
+            </li>
             <li class="flex-1" aria-hidden="true"></li>
         @endif
         @if (auth()->id() === 0 && (isCloud() || isDev()))

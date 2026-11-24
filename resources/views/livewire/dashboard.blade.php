@@ -13,7 +13,109 @@
         $dashboardServers = $servers->sortBy('name', SORT_NATURAL)->take($dashboardItemLimit);
     @endphp
 
-    <div class="flex min-w-0 flex-col gap-8">
+    @php
+        $runningRows = $resourceRows->where('state', \App\Support\ResourceOverview::RUNNING);
+        $attentionRows = $resourceRows->whereIn('state', [\App\Support\ResourceOverview::STOPPED, \App\Support\ResourceOverview::ATTENTION, \App\Support\ResourceOverview::STARTING])->values();
+        $stoppedCount = $resourceRows->where('state', \App\Support\ResourceOverview::STOPPED)->count();
+        $readyServers = $servers->filter(fn ($server) => (bool) data_get($server, 'settings.is_reachable') && (bool) data_get($server, 'settings.is_usable'))->count();
+        $stateDot = [
+            'running' => 'bg-emerald-500',
+            'stopped' => 'bg-amber-400',
+            'starting' => 'bg-sky-400 animate-pulse',
+            'attention' => 'bg-red-500',
+        ];
+        $stateLabel = [
+            'running' => __('Running'),
+            'stopped' => __('Stopped'),
+            'starting' => __('Starting'),
+            'attention' => __('Needs a look'),
+        ];
+        $hour = (int) now()->timezone(auth()->user()?->timezone ?? config('app.timezone'))->format('G');
+        $greeting = $hour < 12 ? __('Good morning') : ($hour < 19 ? __('Good afternoon') : __('Good evening'));
+    @endphp
+
+    <div class="flex min-w-0 flex-col gap-8" data-dashboard-overview>
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <div class="min-w-0">
+                <h1 class="text-2xl! leading-tight! font-semibold! tracking-tight text-black dark:text-fg">
+                    {{ $greeting }}, {{ str(auth()->user()?->name)->before(' ') }}
+                </h1>
+                <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-faint">
+                    @if ($stoppedCount > 0)
+                        {{ trans_choice(':count resource needs attention. Everything else is fine.|:count resources need attention. Everything else is fine.', $stoppedCount, ['count' => $stoppedCount]) }}
+                    @elseif ($resourceRows->isEmpty())
+                        {{ __('Launch your first app to see it here.') }}
+                    @else
+                        {{ __('Everything is running.') }}
+                    @endif
+                </p>
+            </div>
+            @can('createAnyResource')
+                <button type="button" class="button button-highlighted" @click="$dispatch('open-global-search', { query: 'new' })">
+                    <x-reicon name="plus" class="size-3.5" />
+                    {{ __('New resource') }}
+                </button>
+            @endcan
+        </div>
+
+        @if ($resourceRows->isNotEmpty() || $servers->isNotEmpty())
+            <section class="mb-0! grid min-w-0 grid-cols-1 overflow-hidden rounded-xl border border-neutral-200 bg-white sm:grid-cols-3 dark:border-white/[0.08] dark:bg-white/[0.025]"
+                aria-label="{{ __('Status') }}" data-status-strip>
+                <div class="flex min-w-0 flex-col gap-1 px-4 py-3.5">
+                    <span class="flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-faint">
+                        <x-reicon name="servers" class="size-3.5" />{{ __('Servers') }}
+                    </span>
+                    <span class="text-xl font-semibold tabular-nums text-black dark:text-fg">{{ $readyServers }}<span class="text-[13px] font-medium text-neutral-400 dark:text-fg-faint"> / {{ $servers->count() }} {{ __('ready') }}</span></span>
+                </div>
+                <div class="flex min-w-0 flex-col gap-1 border-t border-neutral-200 px-4 py-3.5 sm:border-t-0 sm:border-l dark:border-white/[0.08]">
+                    <span class="flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-faint">
+                        <span class="size-1.5 rounded-full bg-emerald-500"></span>{{ __('Running') }}
+                    </span>
+                    <span class="text-xl font-semibold tabular-nums text-black dark:text-fg">{{ $runningRows->count() }}<span class="text-[13px] font-medium text-neutral-400 dark:text-fg-faint"> {{ __('of') }} {{ $resourceRows->count() }}</span></span>
+                </div>
+                <div @class([
+                    'flex min-w-0 flex-col gap-1 border-t border-neutral-200 px-4 py-3.5 sm:border-t-0 sm:border-l dark:border-white/[0.08]',
+                    'bg-amber-400/[0.08]' => $stoppedCount > 0,
+                ])>
+                    <span class="flex items-center gap-1.5 text-[12px] text-neutral-500 dark:text-fg-faint">
+                        <span class="size-1.5 rounded-full bg-amber-400"></span>{{ __('Stopped') }}
+                    </span>
+                    <span @class(['text-xl font-semibold tabular-nums', 'text-amber-600 dark:text-amber-300' => $stoppedCount > 0, 'text-black dark:text-fg' => $stoppedCount === 0])>{{ $stoppedCount }}</span>
+                </div>
+            </section>
+        @endif
+
+        @if ($attentionRows->isNotEmpty())
+            <section class="mb-0! min-w-0" data-needs-attention>
+                <h2 class="mb-3 text-[15px]! font-semibold! text-black dark:text-fg">{{ __('Needs attention') }}</h2>
+                <div class="divide-y divide-neutral-200 overflow-hidden rounded-xl border border-neutral-200 bg-white dark:divide-white/[0.08] dark:border-white/[0.08] dark:bg-white/[0.025]">
+                    @foreach ($attentionRows->take(6) as $row)
+                        <div class="flex min-w-0 items-center gap-3 px-4 py-2.5" wire:key="attention-{{ $row['uuid'] }}">
+                            <span class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-500 dark:bg-white/[0.05] dark:text-fg-dim">
+                                <x-reicon name="{{ $row['kind'] === 'service' ? 'projects' : 'servers' }}" class="size-4" />
+                            </span>
+                            <a href="{{ $row['url'] }}" {{ wireNavigate() }} class="min-w-0 flex-1 hover:no-underline">
+                                <span class="block truncate text-[13px] font-medium text-black dark:text-fg" title="{{ $row['raw_name'] }}">{{ $row['name'] }}</span>
+                                <span class="block truncate text-[12px] text-neutral-500 dark:text-fg-faint">{{ $row['project'] }}, {{ $row['environment'] }}</span>
+                            </a>
+                            <span class="hidden shrink-0 items-center gap-1.5 text-[12px] text-neutral-600 sm:inline-flex dark:text-fg-dim">
+                                <span class="size-1.5 rounded-full {{ $stateDot[$row['state']] }}"></span>{{ $stateLabel[$row['state']] }}
+                            </span>
+                            @if ($row['state'] === 'stopped')
+                                <button type="button" class="button shrink-0" wire:click="startResource('{{ $row['kind'] }}', '{{ $row['uuid'] }}')"
+                                    wire:loading.attr="disabled" wire:target="startResource('{{ $row['kind'] }}', '{{ $row['uuid'] }}')">
+                                    <x-reicon name="play-circle" class="size-3.5" />
+                                    {{ __('Start') }}
+                                </button>
+                            @else
+                                <a href="{{ $row['url'] }}" {{ wireNavigate() }} class="button shrink-0">{{ __('Open') }}</a>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
+
         <livewire:dashboard.active-deployments />
 
         <section class="mb-0! min-w-0">
@@ -78,17 +180,33 @@
                                         {{ $project->name }}
                                     </h3>
                                     <p class="feature-tile-copy break-words text-neutral-500 dark:text-fg-faint">
-                                        {{ $project->description ?: 'No description' }}
+                                        {{ $project->description ?: __('No description') }}
                                     </p>
                                 </div>
                             </div>
 
+                            @php
+                                $projectRows = $resourceRowsByProject[$project->id] ?? collect();
+                            @endphp
+                            @if ($projectRows->isNotEmpty())
+                                <div class="relative z-10 mt-3 flex flex-wrap gap-1.5" data-project-resource-dots>
+                                    @foreach ($projectRows->take(8) as $row)
+                                        <a href="{{ $row['url'] }}" {{ wireNavigate() }} title="{{ $row['raw_name'] }}: {{ $stateLabel[$row['state']] }}"
+                                            class="inline-flex max-w-full items-center gap-1.5 rounded-md bg-neutral-100 px-2 py-0.5 text-[12px] text-neutral-600 hover:no-underline hover:text-black dark:bg-white/[0.05] dark:text-fg-dim dark:hover:text-fg">
+                                            <span class="size-1.5 shrink-0 rounded-full {{ $stateDot[$row['state']] }}"></span>
+                                            <span class="truncate">{{ $row['name'] }}</span>
+                                        </a>
+                                    @endforeach
+                                    @if ($projectRows->count() > 8)
+                                        <span class="px-1 text-[12px] text-neutral-400 dark:text-fg-faint">+{{ $projectRows->count() - 8 }}</span>
+                                    @endif
+                                </div>
+                            @endif
+
                             <div class="mt-auto flex items-center justify-between gap-3 pt-4">
                                 <p class="feature-tile-copy min-w-0 break-words text-neutral-500 dark:text-fg-dim">
-                                    {{ $project->environments->count() }}
-                                    {{ str('env')->plural($project->environments->count()) }}
-                                    <span class="px-1 text-neutral-300 dark:text-white/15">·</span>
-                                    {{ $resourceCount }} {{ str('resource')->plural($resourceCount) }}
+                                    {{ trans_choice(':count environment|:count environments', $project->environments->count(), ['count' => $project->environments->count()]) }},
+                                    {{ trans_choice(':count resource|:count resources', $resourceCount, ['count' => $resourceCount]) }}
                                 </p>
 
                                 <div class="relative z-10 flex shrink-0 items-center gap-0.5">
@@ -210,7 +328,7 @@
                                         {{ $server->name }}
                                     </h3>
                                     <p class="feature-tile-copy truncate text-neutral-500 dark:text-fg-faint">
-                                        {{ $server->description ?: 'No description' }}
+                                        {{ $server->description ?: __('No description') }}
                                     </p>
                                 </div>
                                 @if ($serverStatusType !== 'success')
@@ -218,7 +336,7 @@
                                         aria-label="Server status: {{ $serverStatus }}"
                                         @class([
                                             'flex size-6 shrink-0 items-center justify-center rounded-md',
-                                            'text-orange-500 dark:text-warning' => $serverStatusType === 'warning',
+                                            'text-orange-500 dark:text-amber-300' => $serverStatusType === 'warning',
                                             'text-red-500 dark:text-red-400' => $serverStatusType === 'error',
                                         ])>
                                         <x-reicon name="alert-triangle" class="size-4" />

@@ -94,7 +94,7 @@
         return grouped;
     },
 
-    openModal() {
+    openModal(preset = '') {
         // Check if $wire is available (may not be after SPA navigation destroys/recreates component)
         if (typeof $wire === 'undefined' || !$wire) {
             console.warn('Global search: $wire not available, skipping open');
@@ -117,6 +117,10 @@
             clearTimeout(this.spinnerTimer);
             this.isLoadingInitialData = false;
             this.showLoadingSpinner = false;
+            // "Nuevo" in the top bar opens straight into create mode.
+            if (preset) {
+                this.searchQuery = preset;
+            }
             setTimeout(() => this.$refs.searchInput?.focus(), 50);
         }).catch(() => {
             // Handle case where component was destroyed during navigation
@@ -227,7 +231,7 @@
         });
 
         // Create named handlers for proper cleanup
-        const openGlobalSearchHandler = () => this.openModal();
+        const openGlobalSearchHandler = (event) => this.openModal(event?.detail?.query || '');
         const slashKeyHandler = (e) => {
             if (e.key === '/' && !['INPUT', 'TEXTAREA'].includes(e.target.tagName)) {
                 e.preventDefault();

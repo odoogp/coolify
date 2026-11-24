@@ -34,11 +34,12 @@
     --color-warning-900: #713f12;
     --color-success: #22C55E;
     --color-error: #dc2626;
-    --color-coollabs-50: #f5f0ff;
-    --color-coollabs: #6b16ed;
-    --color-coollabs-100: #7317ff;
-    --color-coollabs-200: #5a12c7;
-    --color-coollabs-300: #4a0fa3;
+    /* GetCloud brand: Electric Blue. */
+    --color-coollabs-50: #eff6ff;
+    --color-coollabs: #2563EB;
+    --color-coollabs-100: #3b82f6;
+    --color-coollabs-200: #1d4ed8;
+    --color-coollabs-300: #1e40af;
     --color-coolgray-100: #181818;
     --color-coolgray-200: #202020;
     --color-coolgray-300: #242424;
@@ -56,7 +57,7 @@
     --color-fg: #f2f2f2;
     --color-fg-dim: #b4b4b8;
     --color-fg-faint: #6e6e74;
-    --color-accent: #6b16ed;
+    --color-accent: #2563EB;
     --color-accent-foreground: #ffffff;
     --color-hairline: rgba(255, 255, 255, 0.08);
     --color-nav-text: #525252;
@@ -945,33 +946,41 @@ html:not(.dark) .application-console-shell[data-console-theme="system"] .termina
     --motion-duration-modal: 280ms;
 }
 
+/* GetCloud dark: Midnight #0B1220 canvas, Deep Navy #172554 surfaces, Sky Cyan #38BDF8 accent. */
 .dark {
-    --color-accent: #8b7cff;
-    --color-base: #05060a;
-    --color-app: #07080e;
-    --color-panel: #07080e;
-    --color-surface: #141826;
-    --color-raised: #1c2233;
-    --color-selected: #262d42;
-    --color-fg: #f4f2fb;
-    --color-fg-dim: #c9c4d8;
-    --color-fg-faint: #8e89a3;
-    --color-coolgray-100: #141826;
-    --color-coolgray-200: #1c2233;
-    --color-coolgray-300: #262d42;
-    --color-coolgray-400: #30384f;
-    --color-coolgray-500: #3a4460;
-    --coollabs-canvas: #07080e;
-    --coollabs-elevated: #141826;
-    --coollabs-recessed: #1c2233;
-    --coollabs-base: #171d2e;
-    --coollabs-fill: #262d42;
-    --coollabs-line: rgba(255, 255, 255, 0.1);
-    --coollabs-hairline: rgba(255, 255, 255, 0.08);
-    --coollabs-subtle: #a39eb8;
+    --color-accent: #38BDF8;
+    --color-base: #070c17;
+    --color-app: #0B1220;
+    --color-panel: #0B1220;
+    --color-surface: #101a33;
+    --color-raised: #142144;
+    --color-selected: #1b2a57;
+    --color-fg: #F8FAFC;
+    --color-fg-dim: #b6c2db;
+    --color-fg-faint: #7d8bab;
+    --color-coolgray-100: #101a33;
+    --color-coolgray-200: #142144;
+    --color-coolgray-300: #1b2a57;
+    --color-coolgray-400: #233467;
+    --color-coolgray-500: #2a3c72;
+    --coollabs-canvas: #0B1220;
+    --coollabs-elevated: #101a33;
+    --coollabs-recessed: #142144;
+    --coollabs-base: #111c3a;
+    --coollabs-fill: #1b2a57;
+    --coollabs-line: rgba(148, 178, 255, 0.14);
+    --coollabs-hairline: rgba(148, 178, 255, 0.1);
+    --coollabs-subtle: #9aa8c7;
     --color-nav-text: #a8a8b0;
     --color-nav-muted: #7a7a84;
     --color-nav-active: #f2f2f2;
+}
+
+/* Midnight Dark (default dark theme): the legacy dark accent utilities
+   (dark:text-warning, dark:bg-warning…) carry the brand color, Sky Cyan.
+   Real warnings use amber explicitly (callout, status badge). */
+html[data-theme="dark"]:not([data-accent="on"]) {
+    --color-warning: #38BDF8;
 }
 
 /* Theme surfaces are derived from one brand color. Changing
@@ -1072,41 +1081,41 @@ html[data-theme="custom"] [class~="dark:bg-white/[0.025]"] {
 }
 
 /*
- * Professional shell. Same blocks in both themes: warm canvas in light,
- * deep blue-black in dark, violet accent, and colored resource tiles.
+ * Professional shell. GetCloud palette in both themes: Cloud White canvas in
+ * light, Midnight in dark, Electric Blue primary actions, Sky Cyan dark accent.
  */
 html:not(.dark) main.min-h-screen,
 html:not(.dark) .app-sidebar {
-    background-color: #f6f4f1;
+    background-color: #F8FAFC;
 }
 
 html:not(.dark) header.fixed.top-0,
 html:not(.dark) .sticky.top-0.z-40 {
-    background-color: rgb(246 244 241 / 0.92);
+    background-color: rgb(248 250 252 / 0.92);
 }
 
 html:not([data-theme="custom"]) :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
     border-color: transparent;
     border-radius: 14px;
-    background-image: linear-gradient(90deg, #7c5cff, #4f7dff);
+    background-image: linear-gradient(90deg, #2563EB, #3b82f6);
     color: #ffffff;
 }
 
 html:not([data-theme="custom"]) :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)):hover:not(:disabled) {
-    background-image: linear-gradient(90deg, #6d4dff, #3f6ef5);
+    background-image: linear-gradient(90deg, #1d4ed8, #2563EB);
     color: #ffffff;
 }
 
 .dark .menu-item-active,
 .dark .menu-subitem-active {
-    background-color: color-mix(in srgb, #8b7cff 24%, transparent);
+    background-color: color-mix(in srgb, #38BDF8 18%, transparent);
     color: #ffffff;
 }
 
 html:not(.dark) .menu-item-active,
 html:not(.dark) .menu-subitem-active {
-    background-color: color-mix(in srgb, #6d4dff 14%, white);
-    color: #3b2a86;
+    background-color: color-mix(in srgb, #2563EB 12%, white);
+    color: #172554;
 }
 
 .dark .application-settings-section {
@@ -1120,7 +1129,7 @@ html:not(.dark) .menu-subitem-active {
 
 .dark .app-sidebar,
 .dark header.fixed.top-0 {
-    background-color: rgb(7 8 14 / 0.72);
+    background-color: rgb(11 18 32 / 0.78);
     backdrop-filter: blur(22px);
 }
 
@@ -2659,10 +2668,10 @@ html:not(.dark) .auth-shell-login .auth-locale select {
     height: 2.75rem;
     border: 0;
     border-radius: 14px;
-    background: linear-gradient(90deg, #7c5cff, #4f7dff);
+    background: linear-gradient(90deg, #2563EB, #3b82f6);
     box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.4),
-        0 10px 24px rgb(80 70 255 / 0.35);
+        0 10px 24px rgb(37 99 235 / 0.35);
     color: #fff;
 }
 
@@ -2874,7 +2883,7 @@ html:not(.dark) .auth-locale select {
 }
 
 .auth-shell-split .auth-plan-account .auth-text-link:hover {
-    color: var(--color-accent, #7c5cff);
+    color: var(--color-accent, #2563EB);
 }
 
 /* Public error surfaces (401/404/500/…). Match auth shell canvas + accent. */

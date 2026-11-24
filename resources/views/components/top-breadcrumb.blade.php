@@ -202,7 +202,7 @@
                 <span @class([
                     'size-1.5 rounded-full',
                     'bg-[#3fb950]' => $sourceConnected,
-                    'bg-warning' => ! $sourceConnected,
+                    'bg-amber-400' => ! $sourceConnected,
                 ])></span>
                     {{ $sourceConnected ? __('Connected') : __('Setup incomplete') }}
                 </span>
@@ -221,7 +221,7 @@
                 <span @class([
                     'size-1.5 rounded-full',
                     'bg-[#3fb950]' => $currentDestination->getMorphClass() === 'App\\Models\\StandaloneDocker',
-                    'bg-warning' => $currentDestination->getMorphClass() !== 'App\\Models\\StandaloneDocker',
+                    'bg-amber-400' => $currentDestination->getMorphClass() !== 'App\\Models\\StandaloneDocker',
                 ])></span>
                     {{ $currentDestination->getMorphClass() === 'App\\Models\\StandaloneDocker' ? __('Docker') : __('Deprecated') }}
                 </span>

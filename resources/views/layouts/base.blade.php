@@ -33,7 +33,7 @@
         };
         window.applyStoredTheme = () => {
             const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
-            const themeColor = localStorage.themeColor || '#6b16ed';
+            const themeColor = localStorage.themeColor || '#2563EB';
             const usesAccent = window.readThemeAccents()[theme] === true;
             const isDark = theme === 'dark' || theme === 'custom' || theme === 'crystal' || (theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
             const surface = theme === 'custom' ? 'custom' : (theme === 'crystal' ? 'crystal' : (theme === 'crystal-light' ? 'crystal-light' : (isDark ? 'dark' : 'light')));
@@ -52,7 +52,7 @@
                 root.style.removeProperty('--theme-accent-foreground');
             }
 
-            document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+            document.querySelector('meta[name=theme-color]')?.setAttribute('content', isDark ? '#0B1220' : '#F8FAFC');
         };
         window.previewThemeAccent = (color) => {
             const theme = localStorage.theme === 'purple' ? 'custom' : (localStorage.theme || 'light');
@@ -95,7 +95,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex">
-    <meta name="theme-color" content="#101010" id="theme-color-meta" />
+    <meta name="theme-color" content="#0B1220" id="theme-color-meta" />
     <meta name="color-scheme" content="dark light" />
     @php
         $productDescription = product_description();
@@ -151,7 +151,7 @@
         (function () {
             var t = localStorage.theme || 'light';
             var isDark = t === 'dark' || t === 'custom' || t === 'crystal' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-            document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#101010' : '#ffffff');
+            document.getElementById('theme-color-meta')?.setAttribute('content', isDark ? '#0B1220' : '#F8FAFC');
         })();
         window.applyFontDelta = function (value) {
             var delta = Number(value);

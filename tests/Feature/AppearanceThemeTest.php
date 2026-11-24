@@ -33,7 +33,7 @@ test('custom color theme is available and applied across theme controls', functi
         ->toContain('window.resetThemeAccent')
         ->and($layout)
         ->toContain("t === 'custom'")
-        ->toContain("localStorage.themeColor || '#6b16ed'")
+        ->toContain("localStorage.themeColor || '#2563EB'")
         ->toContain('--theme-accent-foreground')
         ->toContain('window.applyStoredTheme')
         ->toContain("document.addEventListener('livewire:navigated', window.applyStoredTheme)")

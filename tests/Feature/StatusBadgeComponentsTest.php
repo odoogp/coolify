@@ -128,7 +128,7 @@ it('renders restart counts as warning badges', function () {
 
     expect($html)
         ->toContain('9x restarts')
-        ->toContain('bg-warning')
+        ->toContain('bg-amber-400')
         ->not->toContain('(9x restarts)');
 
     expect($statusIndex)

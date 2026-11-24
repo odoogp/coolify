@@ -16,6 +16,7 @@ use App\Services\AdminCreationQuota;
 use App\Support\OdooGit;
 use App\Support\OdooJupyter;
 use App\Support\OdooMonitor;
+use App\Support\ResourceOverview;
 use App\Support\ValidationPatterns;
 use Illuminate\Contracts\View\View;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -872,7 +873,10 @@ class Show extends Component
 
         $production = $this->project->productionEnvironment();
 
+        $this->project->loadMissing('environments.applications', 'environments.services.applications', 'environments.services.databases');
+
         return view('livewire.project.show', [
+            'resourceRows' => ResourceOverview::rows($this->project),
             'creationQuota' => app(AdminCreationQuota::class)->summaryForViewer(),
             'usedBranches' => $this->usedOdooBranches(),
             'selectedEnvironment' => $this->project->environments->firstWhere('uuid', $this->selectedEnvironmentUuid),

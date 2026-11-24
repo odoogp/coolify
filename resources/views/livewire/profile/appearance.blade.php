@@ -2,7 +2,7 @@
     <x-slot:title>Appearance | Coolify</x-slot>
     <div x-data="{
         theme: localStorage.getItem('theme') === 'purple' ? 'custom' : (localStorage.getItem('theme') || 'light'),
-        themeColor: localStorage.getItem('themeColor') || '#6b16ed',
+        themeColor: localStorage.getItem('themeColor') || '#2563EB',
         accents: {},
         pageWidth: localStorage.getItem('pageWidth') || 'full',
         init() {

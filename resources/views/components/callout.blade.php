@@ -10,10 +10,10 @@
     $styles = [
         'warning' => [
             'icon' => 'alert-triangle',
-            'shell' => 'border-warning/25 bg-warning/[0.07] dark:border-warning/20 dark:bg-warning/[0.06]',
-            'iconClass' => 'text-warning-700 dark:text-warning',
-            'titleClass' => 'text-warning-900 dark:text-warning',
-            'textClass' => 'text-warning-900/75 dark:text-warning/70',
+            'shell' => 'border-amber-400/30 bg-amber-400/[0.08] dark:border-amber-300/20 dark:bg-amber-300/[0.06]',
+            'iconClass' => 'text-amber-700 dark:text-amber-300',
+            'titleClass' => 'text-amber-900 dark:text-amber-300',
+            'textClass' => 'text-amber-900/75 dark:text-amber-300/70',
         ],
         'danger' => [
             'icon' => 'alert-circle',

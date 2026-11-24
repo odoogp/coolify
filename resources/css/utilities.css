@@ -234,7 +234,7 @@
 }
 
 @utility badge-warning {
-    @apply bg-warning;
+    @apply bg-amber-400;
 }
 
 @utility badge-error {

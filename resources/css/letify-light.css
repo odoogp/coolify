@@ -4,17 +4,18 @@
  * A future Letify Dark can reuse these token names under html[data-theme="letify-dark"].
  */
 html[data-theme="light"] {
-    --letify-primary: #1b2c6f;
+    /* GetCloud palette: Electric Blue #2563EB, Deep Navy #172554, Midnight #0B1220, Cloud White #F8FAFC. */
+    --letify-primary: #2563EB;
     --letify-soft: color-mix(in srgb, var(--letify-primary) 14%, white);
     --letify-soft-hover: color-mix(in srgb, var(--letify-primary) 22%, white);
     --letify-ink-accent: color-mix(in srgb, var(--letify-primary) 72%, black);
     --letify-glow: color-mix(in srgb, var(--letify-primary) 18%, transparent);
     --letify-glow-strong: color-mix(in srgb, var(--letify-primary) 32%, transparent);
-    --letify-canvas: color-mix(in srgb, var(--letify-primary) 16%, #f7f6fb);
-    --letify-panel: color-mix(in srgb, var(--letify-primary) 9%, white);
-    --letify-line: color-mix(in srgb, var(--letify-primary) 22%, white);
-    --letify-ink: #2a2140;
-    --letify-muted: #6d6484;
+    --letify-canvas: #F8FAFC;
+    --letify-panel: #ffffff;
+    --letify-line: color-mix(in srgb, #172554 11%, white);
+    --letify-ink: #0B1220;
+    --letify-muted: #5b6b8c;
     --color-accent: var(--letify-primary);
     --color-coollabs: var(--letify-primary);
     --color-coollabs-100: color-mix(in srgb, var(--letify-primary) 78%, white);
@@ -23,8 +24,8 @@ html[data-theme="light"] {
     --color-panel: var(--letify-panel);
     --color-surface: #ffffff;
     --color-raised: #ffffff;
-    --color-nav-text: #5c5474;
-    --color-nav-muted: #8b849e;
+    --color-nav-text: #3a4868;
+    --color-nav-muted: #7282a3;
     --color-nav-active: #ffffff;
     --coollabs-canvas: var(--letify-canvas);
     --coollabs-elevated: #ffffff;
@@ -38,7 +39,7 @@ html[data-theme="light"] {
 html[data-theme="light"] body,
 html[data-theme="light"] main.min-h-screen {
     background: var(--letify-canvas);
-    color: #2a2140;
+    color: var(--letify-ink);
 }
 
 html[data-theme="light"] .app-sidebar,
@@ -50,7 +51,7 @@ html[data-theme="light"] .sticky.top-0.z-40 {
 html[data-theme="light"] main h1 {
     font-weight: 700;
     letter-spacing: -0.03em;
-    color: #2a2140;
+    color: var(--letify-ink);
 }
 
 html[data-theme="light"] .application-settings-section,
@@ -147,7 +148,7 @@ html[data-theme="light"] textarea.input {
     border-radius: 20px;
     border: 1px solid var(--letify-line);
     background: #ffffff;
-    color: #2a2140;
+    color: var(--letify-ink);
 }
 
 html[data-theme="light"] .input:focus-visible,
@@ -160,7 +161,7 @@ html[data-theme="light"] textarea.input:focus-visible {
 html[data-theme="light"] .app-sidebar .menu-item,
 html[data-theme="light"] .application-settings-navigation .menu-item {
     border-radius: 16px;
-    color: #5c5474;
+    color: var(--color-nav-text);
     transition: background-color 220ms ease-out, color 220ms ease-out, transform 220ms ease-out;
 }
 
@@ -232,11 +233,11 @@ html[data-theme="light"] .empty-state {
 
 html[data-theme="light"] .empty-state h2 {
     font-weight: 700;
-    color: #2a2140;
+    color: var(--letify-ink);
 }
 
 html[data-theme="light"] .empty-state p {
-    color: #6d6484;
+    color: var(--letify-muted);
 }
 
 html[data-theme="light"] .letify-empty-art {

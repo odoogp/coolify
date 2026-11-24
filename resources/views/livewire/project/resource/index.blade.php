@@ -610,7 +610,7 @@
             statusDotClass(item) {
                 return {
                     success: 'bg-emerald-500',
-                    warning: 'bg-warning',
+                    warning: 'bg-amber-400',
                     error: 'bg-red-500',
                     neutral: 'bg-neutral-400 dark:bg-neutral-500',
                 } [this.statusTone(item)];
