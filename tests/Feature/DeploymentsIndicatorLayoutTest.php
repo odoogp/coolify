@@ -53,8 +53,9 @@ it('uses the redesigned elevated surface and status badge patterns', function ()
         ->toContain('dark:text-fg')
         ->toContain('dark:border-coolgray-300')
         ->toContain('$this->shouldShow')
-        ->toContain('updateShouldShowFromPath')
+        ->not->toContain('updateShouldShowFromPath')
         ->toContain('livewire:navigated')
+        ->toContain('wire:poll.30s')
         ->not->toContain('dark:bg-coolgray-100')
         ->not->toContain('dark:bg-coolgray-200')
         ->not->toContain('text-gray-800')
@@ -93,5 +94,5 @@ it('refreshes the odoo apps list after modules land in extra-addons', function (
 
     expect($source)
         ->toContain('function refreshAppsList')
-        ->toContain("update_list()");
+        ->toContain('update_list()');
 });

@@ -129,6 +129,14 @@ html[data-theme="light"] .compact-actions .button:hover:not(:disabled) {
     box-shadow: none;
 }
 
+/* Secondary heading actions keep one hairline ring so they read as buttons;
+   only the primary action (button-highlighted) is filled. */
+html[data-theme="light"] .application-heading-actions .button:not(.button-highlighted):not(:disabled),
+html[data-theme="light"] .application-heading-actions .relative > button[x-ref='trigger'],
+html[data-theme="light"] .application-heading-actions .relative > .app-tab {
+    box-shadow: inset 0 0 0 1px var(--letify-line);
+}
+
 html[data-theme="light"] :is(.button-highlighted, a.button.button-highlighted, button[isHighlighted]:not(:disabled)) {
     border-color: transparent;
     background-image: linear-gradient(135deg, var(--letify-primary) 0%, color-mix(in srgb, var(--letify-primary) 62%, white) 100%);

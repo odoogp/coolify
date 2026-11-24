@@ -36,7 +36,7 @@
                                 <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
                             </button>
                         </x-slot:content>
-                        <livewire:team.create :key="'team-switcher-create-expanded'" />
+                        <livewire:team.create :key="'team-switcher-create-expanded'" lazy />
                     </x-modal-input>
                 </div>
             @endcan
@@ -82,7 +82,7 @@
                                 <span class="min-w-0 flex-1 text-left">{{ __('New team') }}</span>
                             </button>
                         </x-slot:content>
-                        <livewire:team.create :key="'team-switcher-create-collapsed'" />
+                        <livewire:team.create :key="'team-switcher-create-collapsed'" lazy />
                     </x-modal-input>
                 </div>
             @endcan

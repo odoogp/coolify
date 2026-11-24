@@ -1,10 +1,13 @@
-<div wire:poll.3000ms x-on:livewire:navigated.window="
-        $wire.updateShouldShowFromPath(window.location.pathname || '/')
-    " x-data="{
-    expanded: @entangle('expanded')
+{{-- Poll fast only while something is deploying; otherwise a slow heartbeat.
+     The dashboard check runs in the browser, so navigating costs no request. --}}
+<div @if ($this->deploymentCount > 0) wire:poll.3000ms @else wire:poll.30s @endif
+    x-on:livewire:navigated.window="onDashboard = ['', '/'].includes(window.location.pathname.replace(/\/+$/, ''))"
+    x-data="{
+    expanded: @entangle('expanded'),
+    onDashboard: ['', '/'].includes(window.location.pathname.replace(/\/+$/, '')),
 }">
     @if ($this->shouldShow && $this->deploymentCount > 0)
-        <div class="pointer-events-auto relative">
+        <div class="pointer-events-auto relative" x-show="! onDashboard">
             {{-- Expanded list (above the pill, still in the right stack) --}}
             <div x-show="expanded" x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="translate-y-2" x-transition:enter-end="translate-y-0"

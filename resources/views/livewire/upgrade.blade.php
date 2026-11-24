@@ -1,5 +1,5 @@
 <div @if ($isUpgradeAvailable) title="{{ __('New version available') }}" @else title="{{ __('No upgrade available') }}" @endif
-    x-init="$wire.checkUpdate" x-data="upgradeModal({
+    x-data="upgradeModal({
         currentVersion: @js($currentVersion),
         latestVersion: @js($latestVersion),
         devMode: @js($devMode),

@@ -92,7 +92,7 @@
                                 <button type="button" @click="$dispatch('open-global-search', { query: 'new' })"
                                     class="button button-highlighted h-8! px-3! text-[13px]!" title="{{ __('New') }}">
                                     <x-reicon name="plus" class="size-3.5" />
-                                    {{ __('New') }}
+                                    <span class="topbar-new-label">{{ __('New') }}</span>
                                 </button>
                             @endcan
                         </div>
@@ -150,7 +150,7 @@
                         <img src="{{ product_mark_url() }}" alt="{{ product_name() }}" class="h-[18px] w-[18px] object-contain" />
                     </a>
                     <div class="min-w-0" x-data="{ collapsed: false }">
-                        <livewire:switch-team />
+                        <livewire:switch-team lazy />
                     </div>
                 </div>
                 <div class="flex shrink-0 items-center gap-1">
@@ -159,9 +159,9 @@
                         class="hidden shrink-0 items-center"></div>
                     <div id="configuration-warning-hud-slot-mobile" class="relative shrink-0"></div>
                     @if (isInstanceAdmin() && !isCloud())
-                        <livewire:upgrade key="mobile-upgrade" />
+                        <livewire:upgrade key="mobile-upgrade" lazy />
                     @endif
-                    <livewire:gpsh-notice-bell key="notice-bell-mobile" />
+                    <livewire:gpsh-notice-bell key="notice-bell-mobile" lazy />
                     <x-top-user-menu />
                     <button type="button" class="-m-1 p-2 text-neutral-500 dark:text-fg-dim" x-on:click="open = !open">
                         <span class="sr-only">{{ __('Open sidebar') }}</span>

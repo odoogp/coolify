@@ -293,8 +293,9 @@ it('uses iconless highlighted Actions dropdowns for service and proxy lifecycle 
         $heading = file_get_contents($path);
         $trigger = str($heading)->after("id=\"{$id}\"")->before('<div x-cloak')->toString();
 
+        // Services only fill Actions when there is no primary Open button next to it.
         expect($trigger)
-            ->toContain('button button-highlighted')
+            ->toMatch('/button button-highlighted|\'button-highlighted\' => ! \(\$odooHeading \|\| \$serviceOpenUrl\)/')
             ->toContain('Actions')
             ->not->toContain('play-circle');
     }

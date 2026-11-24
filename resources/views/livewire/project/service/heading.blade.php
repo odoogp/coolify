@@ -294,7 +294,7 @@
                         <div id="service-desktop-actions" class="relative" x-data="{ open: false }"
                                 x-effect="$dispatch('resource-actions-toggled', { open })"
                                 @click.outside="open = false" @keydown.escape.window="open = false">
-                                <button type="button" class="button button-highlighted" @click="open = !open" :aria-expanded="open">
+                                <button type="button" @class(['button', 'button-highlighted' => ! ($odooHeading || $serviceOpenUrl)]) @click="open = !open" :aria-expanded="open">
                                     {{ __('Actions') }}
                                     <x-reicon name="chevron-down" class="size-3 opacity-55" />
                                 </button>

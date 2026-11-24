@@ -196,7 +196,7 @@
 
         <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
 
-        <livewire:settings-dropdown trigger="account-menu" />
+        <livewire:settings-dropdown trigger="account-menu" lazy />
         <a href="https://coolify.io/docs" target="_blank" rel="noopener noreferrer" class="listbox-option">
             <span class="flex items-center gap-2">
                 <x-reicon name="documentation" class="size-4 opacity-80" />
@@ -212,7 +212,7 @@
                     </span>
                 </div>
             </x-slot:content>
-            <livewire:help />
+            <livewire:help lazy />
         </x-modal-input>
         <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
 
