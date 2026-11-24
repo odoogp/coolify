@@ -600,6 +600,22 @@ html.gc-enter body {
     border-radius: 16px;
 }
 
+/* ── App exit (sign-out): an iris closes on the mark, inverse of the entrance ── */
+.gc-exit-veil {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    pointer-events: none;
+    --mission-r: 100%;
+    background: #000;
+    -webkit-mask: radial-gradient(circle at 50% 50%, transparent var(--mission-r), #000 calc(var(--mission-r) + 0.6%));
+    mask: radial-gradient(circle at 50% 50%, transparent var(--mission-r), #000 calc(var(--mission-r) + 0.6%));
+}
+
+.gc-exit-mark {
+    opacity: 0;
+}
+
 .gc-enter-mark span {
     min-height: 20px;
     font-size: 14px;

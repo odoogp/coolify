@@ -4,9 +4,11 @@ namespace App\Actions\Server;
 
 use App\Models\CloudProviderToken;
 use App\Models\Server;
+use App\Models\ServerAgentEnrollment;
 use App\Models\Team;
 use App\Notifications\Server\HetznerDeletionFailed;
 use App\Services\DigitalOceanService;
+use App\Services\Cloudflare\CloudflareTunnelApi;
 use App\Services\HetznerService;
 use App\Services\VultrService;
 use Lorisleiva\Actions\Concerns\AsAction;
@@ -51,6 +53,8 @@ class DeleteServer
             return; // Server already force deleted from Coolify
         }
 
+        $this->deleteAgentTunnels($server);
+
         try {
             $server->forceDelete();
         } catch (\Throwable $e) {
@@ -58,6 +62,31 @@ class DeleteServer
                 'error' => $e->getMessage(),
                 'server_id' => $server->id,
             ]);
+        }
+    }
+
+    /**
+     * Servers connected with the GetCloud agent own a Cloudflare tunnel and DNS
+     * record. Remove them so a deleted server leaves nothing behind (best effort).
+     */
+    private function deleteAgentTunnels(Server $server): void
+    {
+        $enrollments = ServerAgentEnrollment::query()->where('server_id', $server->id)->get();
+        if ($enrollments->isEmpty()) {
+            return;
+        }
+
+        $cloudflare = CloudflareTunnelApi::fromSettings();
+        foreach ($enrollments as $enrollment) {
+            try {
+                $cloudflare?->delete($enrollment->cloudflare_tunnel_id, $enrollment->cloudflare_dns_record_id);
+            } catch (\Throwable $e) {
+                logger()->warning('Failed to delete the agent tunnel for a server', [
+                    'server_id' => $server->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            $enrollment->update(['status' => ServerAgentEnrollment::STATUS_EXPIRED, 'tunnel_token' => null]);
         }
     }
 

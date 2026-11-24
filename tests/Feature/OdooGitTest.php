@@ -793,7 +793,7 @@ it('opens jupyter outside the platform and keeps odoo logs on the panel', functi
         ->toContain("{{ __('Logs') }}");
 });
 
-it('shows owner jupyter to an instance admin and not to a client', function () {
+it('shows owner jupyter only to the platform owner, not to root admins or clients', function () {
     $environment = $this->project->environments()->where('name', 'production')->first();
     $odoo = Service::factory()->create([
         'environment_id' => $environment->id,
@@ -823,6 +823,15 @@ it('shows owner jupyter to an instance admin and not to a client', function () {
     $rootTeam->id = 0;
     $rootTeam->save();
     $this->user->teams()->attach($rootTeam->id, ['role' => 'admin']);
+    $this->actingAs($this->user->fresh());
+
+    Livewire::test(Heading::class, [
+        'service' => $odoo->fresh(),
+        'parameters' => [],
+        'query' => [],
+    ])->assertDontSee(route('gpsh.owner-jupyter'));
+
+    $this->user->teams()->updateExistingPivot($rootTeam->id, ['role' => 'owner']);
     $this->actingAs($this->user->fresh());
 
     Livewire::test(Heading::class, [
@@ -1506,7 +1515,7 @@ it('asks for a server before a project when the coolify host is not allowed', fu
     expect(Project::query()->where('name', 'Sin servidor')->exists())->toBeFalse();
 });
 
-it('offers the local server to an admin who is allowed to launch there', function () {
+it('never offers the GetCloud server to a client admin, even with the legacy flag', function () {
     $instanceTeam = Team::factory()->create();
     $key = PrivateKey::factory()->create(['team_id' => $instanceTeam->id]);
     Server::unguarded(fn () => Server::query()->forceCreate([
@@ -1528,9 +1537,8 @@ it('offers the local server to an admin who is allowed to launch there', functio
     session(['currentTeam' => $this->team]);
 
     Livewire::test(AddEmpty::class)
-        ->assertSee('Launch on the server where GPSH is installed')
-        ->assertSee('Create a new server')
-        ->assertDontSee('Do you want to create a server?');
+        ->assertDontSee('Launch on the server where GPSH is installed')
+        ->assertSee('Create a new server');
 });
 
 it('returns from github to the project so the repository can be chosen', function () {

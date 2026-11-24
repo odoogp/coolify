@@ -14,5 +14,6 @@ class VerifyCsrfToken extends Middleware
     protected $except = [
         'webhooks/*',
         'gpsh/mail-quota',
+        'agent/ready/*',
     ];
 }

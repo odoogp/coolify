@@ -161,21 +161,43 @@ test('admin can create a server when that permission is enabled', function () {
         ->and(auth()->user()->canLaunchOnInstanceServer())->toBeFalse();
 });
 
-test('admin can launch on the instance server when that permission is enabled', function () {
+test('a client admin cannot launch on the instance server even with the legacy flag', function () {
     $this->admin->teams()->updateExistingPivot($this->team->id, ['can_launch_on_instance_server' => true]);
     $this->admin->unsetRelation('teams');
     $this->actingAs($this->admin);
     session(['currentTeam' => $this->team]);
 
-    expect(auth()->user()->canLaunchOnInstanceServer())->toBeTrue()
+    expect(auth()->user()->canLaunchOnInstanceServer())->toBeFalse()
         ->and(auth()->user()->can('create', Server::class))->toBeFalse();
 });
 
-test('owner can create server', function () {
+test('a client team owner can connect their own server by default but not launch on the instance server', function () {
+    $this->owner->teams()->updateExistingPivot($this->team->id, ['can_add_servers' => false]);
+    $this->owner->unsetRelation('teams');
     $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
-    expect(auth()->user()->can('create', Server::class))->toBeTrue();
+    expect(auth()->user()->can('create', Server::class))->toBeTrue()
+        ->and(auth()->user()->canLaunchOnInstanceServer())->toBeFalse();
+});
+
+test('a client team owner cannot connect servers when the platform owner turns it off', function () {
+    InstanceSettings::query()->whereKey(0)->update(['clients_can_connect_servers' => false]);
+    $this->owner->teams()->updateExistingPivot($this->team->id, ['can_add_servers' => false]);
+    $this->owner->unsetRelation('teams');
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $this->team]);
+
+    expect(auth()->user()->can('create', Server::class))->toBeFalse()
+        ->and(auth()->user()->canLaunchOnInstanceServer())->toBeFalse();
+});
+
+test('a client admin still needs the membership permission to connect servers', function () {
+    $this->actingAs($this->admin);
+    session(['currentTeam' => $this->team]);
+
+    expect(User::clientsCanConnectServers())->toBeTrue()
+        ->and(auth()->user()->can('create', Server::class))->toBeFalse();
 });
 
 test('member cannot create server', function () {

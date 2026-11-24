@@ -544,16 +544,21 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
             return true;
         }
 
-        // GetOdoo plan teams: owner/admin follow the plan flags on team_user.
-        if ($this->currentTeam()?->getodoo_plan_id) {
-            return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_add_servers');
-        }
-
-        if ($this->isOwner()) {
+        // "Connect your own server" is open to every client team owner unless the
+        // platform owner turned it off in settings. Admins still need the flag on
+        // their membership. Any extra charge is decided by the platform owner.
+        if ($this->isOwner() && self::clientsCanConnectServers()) {
             return true;
         }
 
-        return $this->isAdmin() && $this->teamFlag('can_add_servers');
+        return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_add_servers');
+    }
+
+    public static function clientsCanConnectServers(): bool
+    {
+        $enabled = InstanceSettings::query()->whereKey(0)->value('clients_can_connect_servers');
+
+        return $enabled === null ? true : (bool) $enabled;
     }
 
     /**
@@ -561,19 +566,9 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
      */
     public function canLaunchOnInstanceServer(): bool
     {
-        if ($this->isInstanceOwner()) {
-            return true;
-        }
-
-        if ($this->currentTeam()?->getodoo_plan_id) {
-            return ($this->isOwner() || $this->isAdmin()) && $this->teamFlag('can_launch_on_instance_server');
-        }
-
-        if ($this->isOwner()) {
-            return true;
-        }
-
-        return $this->isAdmin() && $this->teamFlag('can_launch_on_instance_server');
+        // Only the platform owner launches on the GetCloud host. Clients rent a
+        // VPS or connect their own server; the old per-membership flag is ignored.
+        return $this->isInstanceOwner();
     }
 
     /**

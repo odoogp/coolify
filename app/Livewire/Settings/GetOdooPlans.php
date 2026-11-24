@@ -364,7 +364,7 @@ class GetOdooPlans extends Component
             'max_staging_branches' => $this->maxStagingBranches,
             'max_services' => $this->maxServices,
             'can_add_servers' => $this->canAddServers,
-            'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
+            'can_launch_on_instance_server' => false,
             'includes_migration' => $this->includesMigration,
             'backup_frequency' => $this->includesBackups
                 ? $this->backupFrequency

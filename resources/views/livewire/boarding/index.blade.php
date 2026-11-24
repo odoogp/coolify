@@ -201,10 +201,20 @@
                     </div>
                     <div class="flex w-full flex-col gap-3">
                         @if ($canAddServers)
-                            <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
-                                isHighlighted>
-                                {{ __('Create a new server') }}
-                            </x-forms.button>
+                            @if (\App\Services\Cloudflare\CloudflareTunnelApi::isConfigured())
+                                <x-forms.button class="w-full justify-center" wire:click="goToConnectServerFromGetOdooTour"
+                                    isHighlighted>
+                                    {{ __('Connect your server with a command') }}
+                                </x-forms.button>
+                                <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour">
+                                    {{ __('Other ways to add a server') }}
+                                </x-forms.button>
+                            @else
+                                <x-forms.button class="w-full justify-center" wire:click="goToCreateServerFromGetOdooTour"
+                                    isHighlighted>
+                                    {{ __('Create a new server') }}
+                                </x-forms.button>
+                            @endif
                             <button type="button" wire:click="finishGetOdooBoarding"
                                 class="auth-text-link self-center text-center text-[13px]">
                                 {{ __('Go to the dashboard') }}

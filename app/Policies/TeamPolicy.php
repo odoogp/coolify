@@ -96,20 +96,12 @@ class TeamPolicy
      * Instance owner always. Plan principals must not assign them — only the platform owner.
      * On non-plan teams, the team owner still may.
      */
+    /**
+     * Creation limits, server flags and the instance-server launch flag are
+     * platform-owner powers. Client team owners never see or grant them.
+     */
     public function updateCreationLimits(User $user, Team $team): bool
     {
-        if ($user->isInstanceOwner()) {
-            return true;
-        }
-
-        if ($team->isGetOdooPlanTeam()) {
-            return false;
-        }
-
-        if (! $user->teams->contains('id', $team->id)) {
-            return false;
-        }
-
-        return $user->roleInTeam($team->id) === 'owner';
+        return $user->isInstanceOwner();
     }
 }

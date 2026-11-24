@@ -88,9 +88,6 @@
                                 </p>
                                 <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}"
                                     helper="{{ __('Allows the organization owner to create and manage their own servers.') }}" />
-                                <x-forms.checkbox id="canLaunchOnInstanceServer"
-                                    label="{{ __('Can launch on the server where :product is installed', ['product' => product_name()]) }}"
-                                    helper="{{ __('Allows launching on the local instance server (id 0), even when that server belongs to the root team.') }}" />
                             </div>
                             <x-forms.checkbox id="includesMigration"
                                 label="{{ __('Includes migration help (GitHub, repository, dump + filestore)') }}"

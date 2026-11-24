@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Dashboard;
+use App\Models\InstanceSettings;
 use App\Models\Project;
 use App\Models\Server;
 use App\Models\Team;
@@ -70,6 +71,17 @@ test('member does not see add project button on dashboard', function () {
 
     Livewire::test(Dashboard::class)
         ->assertDontSee('New Project');
+});
+
+test('a client owner does not see the add server button when the platform owner turns client servers off', function () {
+    [$user, $team] = setupDashboardUser('owner');
+    InstanceSettings::unguarded(fn () => InstanceSettings::query()->updateOrCreate(['id' => 0], ['clients_can_connect_servers' => false]));
+
+    $this->actingAs($user);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(Dashboard::class)
+        ->assertDontSee(route('server.create'));
 });
 
 test('owner sees add server button on an empty dashboard', function () {

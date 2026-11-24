@@ -320,14 +320,33 @@ test('imports do not attribute projects to the signed-in admin', function () {
         ->and($project->environments()->first()->created_by)->toBeNull();
 });
 
-test('the owner can set an admin quota and an admin cannot', function () {
+test('a client team owner cannot see or set an admin quota', function () {
     $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
     Livewire::test(TeamMember::class, ['member' => $this->admin])
         ->assertDontSee('Save limits')
-        ->assertSee('Edit')
-        ->call('editLimits')
+        ->assertDontSee(__('Can add servers'))
+        ->set('maxProjects', 9)
+        ->set('canAddServers', true)
+        ->set('canLaunchOnInstanceServer', true)
+        ->call('saveCreationLimits')
+        ->assertDispatched('error');
+
+    $pivot = DB::table('team_user')->where('user_id', $this->admin->id)->where('team_id', $this->team->id)->first();
+    expect($pivot->max_projects)->toBeNull()
+        ->and((bool) $pivot->can_add_servers)->toBeFalse()
+        ->and((bool) $pivot->can_launch_on_instance_server)->toBeFalse();
+});
+
+test('the platform owner can set an admin quota and an admin cannot', function () {
+    $rootTeam = Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
+    $this->owner->teams()->attach($rootTeam->id, ['role' => 'owner']);
+    $this->owner->unsetRelation('teams');
+    $this->actingAs($this->owner->fresh(['teams']));
+    session(['currentTeam' => $this->team]);
+
+    Livewire::test(TeamMember::class, ['member' => $this->admin])
         ->assertSee('Save limits')
         ->set('maxProjects', 2)
         ->set('maxEnvironments', '')
@@ -648,10 +667,9 @@ test('an invited admin on a plan team follows the principal limits', function ()
     session(['currentTeam' => $this->team]);
 
     Livewire::test(TeamMember::class, ['member' => $this->admin])
-        ->call('editLimits')
         ->set('maxProjects', 4)
         ->call('saveCreationLimits')
-        ->assertHasErrors(['maxProjects']);
+        ->assertDispatched('error');
 
     expect(DB::table('team_user')->where('user_id', $this->admin->id)->where('team_id', $this->team->id)->value('max_projects'))->toBeNull();
 });

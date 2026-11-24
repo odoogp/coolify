@@ -206,7 +206,7 @@
                     <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Tags') }}</span>
                 </a>
             </li>
-            @if (isInstanceAdmin())
+            @if (isInstanceOwner())
                 <li>
                     <a title="{{ __('Owner Jupyter') }}" target="_blank" rel="noopener noreferrer"
                         class="menu-item"
@@ -215,6 +215,8 @@
                         <span class="menu-item-label" :class="collapsed && 'lg:hidden'">{{ __('Owner Jupyter') }}</span>
                     </a>
                 </li>
+            @endif
+            @if (isInstanceAdmin())
                 <li>
                     <a title="{{ __('Settings') }}" {{ wireNavigate() }}
                         class="{{ request()->is('settings*') ? 'menu-item-active menu-item' : 'menu-item' }}"

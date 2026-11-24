@@ -5,6 +5,68 @@
 
     <x-settings.layout>
         <div class="application-settings-form flex w-full min-w-0 flex-col gap-6">
+            <x-application.settings-section title="{{ __('Client servers') }}"
+                description="{{ __('Clients can connect their own server when they sign up or later. If it has an extra cost, add it to their plan invoice from Purchases.') }}">
+                <form wire:submit="saveClientServers" class="grid max-w-xl gap-4">
+                    <x-forms.checkbox id="clientsCanConnectServers"
+                        label="{{ __('Clients can connect their own server') }}"
+                        helper="{{ __('Team owners see Connect your server. Admins still need the permission on their membership. Launching on the GetCloud server stays separate.') }}" />
+                    <div>
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                    </div>
+                </form>
+
+                <form wire:submit="saveCloudflare" class="mt-6 grid max-w-xl gap-4 border-t border-neutral-200 pt-5 dark:border-white/[0.07]">
+                    <div>
+                        <p class="text-sm font-medium">{{ __('Connect with a command (Cloudflare Tunnel)') }}</p>
+                        <p class="mt-1 text-[13px] text-neutral-500 dark:text-fg-dim">
+                            {{ __('Each client server gets its own tunnel under this domain, so clients do not open the SSH port. The token needs Cloudflare Tunnel edit on the account and DNS edit on the zone.') }}
+                        </p>
+                        <p class="mt-2 text-[12px] {{ $cloudflareReady ? 'text-success' : 'text-neutral-500 dark:text-fg-faint' }}">
+                            {{ $cloudflareReady ? __('Ready: clients see Connect with a command.') : __('Not configured: clients only see IP address or domain.') }}
+                        </p>
+                    </div>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('API token') }}</span>
+                        <input id="cloudflareApiToken" type="password" wire:model="cloudflareApiToken" autocomplete="new-password"
+                            placeholder="{{ $cloudflareReady ? __('Leave the secret empty to keep the one already saved.') : '' }}"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('cloudflareApiToken')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Account ID') }}</span>
+                        <input id="cloudflareAccountId" type="text" wire:model="cloudflareAccountId" autocomplete="off"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('cloudflareAccountId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Zone ID') }}</span>
+                        <input id="cloudflareZoneId" type="text" wire:model="cloudflareZoneId" autocomplete="off"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('cloudflareZoneId')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <label class="flex flex-col gap-1 text-sm">
+                        <span>{{ __('Tunnel domain') }}</span>
+                        <input id="cloudflareTunnelDomain" type="text" wire:model="cloudflareTunnelDomain" autocomplete="off"
+                            placeholder="nodes.getcloud.sh"
+                            class="h-10 rounded-md border border-neutral-300 bg-white px-2 text-sm dark:border-white/15 dark:bg-transparent">
+                        @error('cloudflareTunnelDomain')
+                            <span class="text-sm text-error">{{ $message }}</span>
+                        @enderror
+                    </label>
+                    <div class="flex gap-2">
+                        <button type="submit" class="button button-highlighted">{{ __('Save') }}</button>
+                        <button type="button" class="button" wire:click="testCloudflare">{{ __('Test connection') }}</button>
+                    </div>
+                </form>
+            </x-application.settings-section>
+
             <x-application.settings-section title="{{ __('Hetzner account') }}"
                 description="{{ __('Choose a Hetzner token. Sold servers are created in that account.') }}">
                 @if ($tokens->isEmpty())

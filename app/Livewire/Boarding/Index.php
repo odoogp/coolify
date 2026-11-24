@@ -327,12 +327,26 @@ class Index extends Component
         return $this->skipBoarding(routeName: 'server.create');
     }
 
+    /**
+     * Leave the GetOdoo tour straight into "connect your server with a command".
+     */
+    public function goToConnectServerFromGetOdooTour(): mixed
+    {
+        abort_unless($this->isGetOdooPlanBoarding(), 403);
+        abort_unless((bool) auth()->user()?->canAddServers(), 403);
+
+        return $this->skipBoarding(routeName: 'server.create.type', parameters: ['type' => 'agent']);
+    }
+
     public function restartBoarding()
     {
         return redirect()->route('onboarding');
     }
 
-    public function skipBoarding(string $routeName = 'dashboard')
+    /**
+     * @param  array<string, string>  $parameters
+     */
+    public function skipBoarding(string $routeName = 'dashboard', array $parameters = [])
     {
         if (auth()->user()?->isMember()) {
             return redirect()->route('dashboard');
@@ -342,7 +356,7 @@ class Index extends Component
         ]);
         refreshSession();
 
-        return redirect()->route($routeName);
+        return redirect()->route($routeName, $parameters);
     }
 
     public function isGetOdooPlanBoarding(): bool

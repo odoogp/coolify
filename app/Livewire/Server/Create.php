@@ -27,11 +27,11 @@ class Create extends Component
 
     public function mount(?string $selectedType = null, ?string $selectedTokenUuid = null): void
     {
-        $allowedTypes = array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs());
+        $allowedTypes = array_merge(['agent', 'hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs());
         $this->selectedType = in_array($selectedType, $allowedTypes, true)
             ? $selectedType
             : null;
-        $this->selectedTokenUuid = $this->selectedType && $this->selectedType !== 'manual' ? $selectedTokenUuid : null;
+        $this->selectedTokenUuid = $this->selectedType && ! in_array($this->selectedType, ['manual', 'agent'], true) ? $selectedTokenUuid : null;
 
         $this->private_keys = PrivateKey::ownedByCurrentTeamCached();
         $this->getodoo_owner = isInstanceOwner();

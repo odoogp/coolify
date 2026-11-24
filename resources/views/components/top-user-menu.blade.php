@@ -216,7 +216,8 @@
         </x-modal-input>
         <div class="my-1 h-px bg-neutral-200 dark:bg-white/[0.07]"></div>
 
-        <form action="/logout" method="POST">
+        {{-- data-logout: resources/js/auth-mission.js plays the exit and posts with the current token. --}}
+        <form action="/logout" method="POST" data-logout data-exit-label="{{ __('See you soon') }}">
             @csrf
             <button type="submit" class="listbox-option w-full text-left text-error dark:text-error">
                 <span class="flex items-center gap-2">

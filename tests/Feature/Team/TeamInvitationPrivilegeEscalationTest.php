@@ -25,6 +25,15 @@ beforeEach(function () {
     $this->team->members()->attach($this->member->id, ['role' => 'member']);
 });
 
+function actAsPlatformOwnerOnTeam(User $user, Team $team): void
+{
+    $rootTeam = Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
+    $user->teams()->syncWithoutDetaching([$rootTeam->id => ['role' => 'owner']]);
+    $user->unsetRelation('teams');
+    test()->actingAs($user->fresh(['teams']));
+    session(['currentTeam' => $team]);
+}
+
 describe('privilege escalation prevention', function () {
     test('member cannot invite admin (SECURITY FIX)', function () {
         // Login as member
@@ -219,9 +228,29 @@ describe('privilege escalation prevention', function () {
             ->assertDispatched('error');
     });
 
-    test('owner assigns client permissions when the user is created', function () {
+    test('a client team owner cannot grant platform permissions while inviting', function () {
         $this->actingAs($this->owner);
         session(['currentTeam' => $this->team]);
+
+        Livewire::test(InviteLink::class)
+            ->set('role', 'admin')
+            ->assertDontSee(__('Can add servers'))
+            ->assertDontSee(__('Can launch instances on the server where GPSH is installed'))
+            ->set('email', 'client-owner-invite@example.com')
+            ->set('maxStagingBranches', 2)
+            ->set('canAddServers', true)
+            ->set('canLaunchOnInstanceServer', true)
+            ->call('viaLink')
+            ->assertDispatched('success');
+
+        $invitation = TeamInvitation::whereEmail('client-owner-invite@example.com')->firstOrFail();
+        expect((bool) data_get($invitation->membership, 'can_add_servers'))->toBeFalse()
+            ->and((bool) data_get($invitation->membership, 'can_launch_on_instance_server'))->toBeFalse()
+            ->and(data_get($invitation->membership, 'max_staging_branches'))->toBeNull();
+    });
+
+    test('the platform owner assigns client permissions when the user is created', function () {
+        actAsPlatformOwnerOnTeam($this->owner, $this->team);
 
         Livewire::test(InviteLink::class)
             ->set('email', 'client-admin@example.com')
@@ -251,8 +280,7 @@ describe('privilege escalation prevention', function () {
     });
 
     test('a member is created with the limits chosen before the sign-in link', function () {
-        $this->actingAs($this->owner);
-        session(['currentTeam' => $this->team]);
+        actAsPlatformOwnerOnTeam($this->owner, $this->team);
 
         Livewire::test(InviteLink::class)
             ->set('email', 'client-member@example.com')

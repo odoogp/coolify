@@ -124,22 +124,16 @@ it('allows instance owners to update creation limits on any team', function () {
     expect((new TeamPolicy)->updateCreationLimits($user, $team))->toBeTrue();
 });
 
-it('denies plan principals from updating creation limits', function () {
+it('denies client team owners and admins from updating creation limits, with or without a plan', function (string $role, bool $planTeam) {
     $user = teamPolicyUserWithTeams([1]);
     $user->shouldReceive('isInstanceOwner')->andReturn(false);
-    $user->shouldReceive('roleInTeam')->with(1)->never();
+    $user->shouldReceive('roleInTeam')->with(1)->andReturn($role);
     $team = teamPolicyTeam(1);
-    $team->shouldReceive('isGetOdooPlanTeam')->once()->andReturn(true);
+    $team->shouldReceive('isGetOdooPlanTeam')->andReturn($planTeam);
 
     expect((new TeamPolicy)->updateCreationLimits($user, $team))->toBeFalse();
-});
-
-it('allows non-plan team owners to update creation limits', function () {
-    $user = teamPolicyUserWithTeams([1]);
-    $user->shouldReceive('isInstanceOwner')->andReturn(false);
-    $user->shouldReceive('roleInTeam')->with(1)->andReturn('owner');
-    $team = teamPolicyTeam(1);
-    $team->shouldReceive('isGetOdooPlanTeam')->once()->andReturn(false);
-
-    expect((new TeamPolicy)->updateCreationLimits($user, $team))->toBeTrue();
-});
+})->with([
+    'plan owner' => ['owner', true],
+    'non-plan owner' => ['owner', false],
+    'non-plan admin' => ['admin', false],
+]);

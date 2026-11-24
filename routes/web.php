@@ -11,6 +11,7 @@ use App\Http\Controllers\OwnerJupyterController;
 use App\Http\Controllers\PrivateKeyDownloadController;
 use App\Http\Controllers\ProfileAvatarController;
 use App\Http\Controllers\ProjectIconController;
+use App\Http\Controllers\ServerAgentController;
 use App\Http\Controllers\UpgradeWatchController;
 use App\Http\Controllers\UploadController;
 use App\Livewire\Admin\Index as AdminIndex;
@@ -154,6 +155,9 @@ Route::post('/gpsh/mail-quota', function (Request $request) {
 
     return response()->json(['allowed' => OdooMail::takeSlot($teamId)]);
 })->middleware('throttle:120,1');
+// "Connect your server" agent: public, gated by the one-time enrollment token.
+Route::get('/agent/install/{token}', [ServerAgentController::class, 'install'])->name('agent.install')->where('token', '[A-Za-z0-9]{40,80}')->middleware('throttle:30,1');
+Route::post('/agent/ready/{token}', [ServerAgentController::class, 'ready'])->name('agent.ready')->where('token', '[A-Za-z0-9]{40,80}')->middleware('throttle:30,1');
 Route::get('/realtime', [Controller::class, 'realtime_test'])->middleware('auth');
 Route::get('/verify', [Controller::class, 'verify'])->middleware('auth')->name('verify.email');
 Route::get('/email/verify/{id}/{hash}', [Controller::class, 'email_verify'])->middleware(['auth'])->name('verify.verify');
@@ -462,7 +466,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/servers/import', ServerTransferImport::class)->name('server.transfer.import')->middleware('can:create,'.Server::class);
     Route::get('/servers/new', ServerCreatePage::class)->name('server.create')->middleware('can:create,'.Server::class);
     Route::get('/servers/new/{type}/{token_uuid}', ServerCreatePage::class)->name('server.create.token')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean'], AdditionalCloudCatalog::slugs()));
-    Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs()));
+    Route::get('/servers/new/{type}', ServerCreatePage::class)->name('server.create.type')->middleware('can:create,'.Server::class)->whereIn('type', array_merge(['agent', 'hetzner', 'vultr', 'digital-ocean', 'manual', 'getodoo'], AdditionalCloudCatalog::slugs()));
     Route::get('/servers/getodoo/orders/{order}', WompiReturn::class)->name('getodoo.wompi.return');
     Route::get('/servers/getodoo/n1co/{order}', N1coReturn::class)->name('getodoo.n1co.return');
     Route::get('/servers/getodoo/plan-orders/{order}', PlanOrderReturn::class)->name('getodoo.plan.order.return');

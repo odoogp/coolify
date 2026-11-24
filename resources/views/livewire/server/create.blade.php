@@ -50,6 +50,21 @@
                 </div>
                 <div class="application-settings-section-body is-flush">
                     <div class="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                        @if (\App\Services\Cloudflare\CloudflareTunnelApi::isConfigured())
+                            <a href="{{ route('server.create.type', ['type' => 'agent']) }}"
+                                class="group flex min-h-32 flex-col rounded-xl border border-coollabs/30 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-coollabs/50 hover:no-underline hover:shadow-md dark:border-warning/30 dark:bg-white/[0.025] dark:hover:border-warning/50"
+                                {{ wireNavigate() }}>
+                                <div class="flex items-start">
+                                    <x-reicon name="browser-terminal" class="size-8 text-coollabs dark:text-warning" />
+                                </div>
+                                <div class="mt-auto pt-5">
+                                    <h3 class="text-[13px]! font-semibold! text-black dark:text-fg">{{ __('Connect with a command') }}</h3>
+                                    <p class="mt-1 text-[11px] leading-4 text-neutral-500 dark:text-fg-faint">
+                                        {{ __('Paste one command on your server. No SSH keys or open ports.') }}
+                                    </p>
+                                </div>
+                            </a>
+                        @endif
                         <a href="{{ route('server.create.type', ['type' => 'manual']) }}"
                             class="group flex min-h-32 flex-col rounded-xl border border-neutral-200 bg-white p-3 shadow-sm transition-all hover:-translate-y-px hover:border-neutral-300 hover:no-underline hover:shadow-md dark:border-white/[0.08] dark:bg-white/[0.025] dark:hover:border-white/[0.14]"
                             {{ wireNavigate() }}>
@@ -156,6 +171,8 @@
                 <livewire:server.new.by-digital-ocean :private_keys="$private_keys" :limit_reached="$limit_reached"
                     :selected-token-uuid="$selectedTokenUuid"
                     wire:key="new-server-digital-ocean-{{ $selectedTokenUuid ?? 'select' }}" />
+            @elseif ($selectedType === 'agent')
+                <livewire:server.new.by-agent :limit_reached="$limit_reached" key="new-server-agent" />
             @elseif (\App\Services\Cloud\AdditionalCloudCatalog::supports($selectedType))
                 <livewire:server.new.by-additional-cloud :provider="$selectedType" :private_keys="$private_keys"
                     :limit_reached="$limit_reached" :selected-token-uuid="$selectedTokenUuid"

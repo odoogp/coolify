@@ -713,3 +713,57 @@ it('keeps a saved Wompi secret when the owner leaves the field empty', function 
     expect(instanceSettings()->wompi_client_id)->toBe('client-1')
         ->and(instanceSettings()->wompi_client_secret)->toBe('secret-1');
 });
+
+it('lets the platform owner turn client-owned servers off and on', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    expect(User::clientsCanConnectServers())->toBeTrue();
+
+    Livewire::test(GetOdooServers::class)
+        ->assertSet('clientsCanConnectServers', true)
+        ->assertSee(__('Clients can connect their own server'))
+        ->set('clientsCanConnectServers', false)
+        ->call('saveClientServers')
+        ->assertDispatched('success');
+
+    expect(User::clientsCanConnectServers())->toBeFalse();
+
+    $client = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($client->id, ['role' => 'owner']);
+    $this->actingAs($client);
+    session(['currentTeam' => $team]);
+
+    expect($client->fresh()->canAddServers())->toBeFalse();
+
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+
+    Livewire::test(GetOdooServers::class)
+        ->set('clientsCanConnectServers', true)
+        ->call('saveClientServers');
+
+    $this->actingAs($client);
+    session(['currentTeam' => $team]);
+
+    expect(User::clientsCanConnectServers())->toBeTrue()
+        ->and($client->fresh()->canAddServers())->toBeTrue()
+        ->and($client->fresh()->canLaunchOnInstanceServer())->toBeFalse();
+});
+
+it('does not let a client owner change the client server setting', function () {
+    $client = User::factory()->create();
+    $team = Team::factory()->create();
+    $team->members()->attach($client->id, ['role' => 'owner']);
+    $this->actingAs($client);
+    session(['currentTeam' => $team]);
+
+    Livewire::test(GetOdooServers::class)
+        ->set('clientsCanConnectServers', false)
+        ->call('saveClientServers');
+
+    expect(User::clientsCanConnectServers())->toBeTrue();
+});

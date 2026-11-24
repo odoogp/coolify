@@ -128,7 +128,7 @@ it('lets the instance owner assign membership limits on a plan organization', fu
     Livewire::test(InviteLink::class)
         ->set('role', 'admin')
         ->assertSee(__('Production branches'))
-        ->assertSee(__('Can launch instances on the server where GPSH is installed'))
+        ->assertDontSee(__('Can launch instances on the server where GPSH is installed'))
         ->set('email', 'instance-granted@example.com')
         ->set('canAddServers', true)
         ->set('canLaunchOnInstanceServer', true)
@@ -139,7 +139,7 @@ it('lets the instance owner assign membership limits on a plan organization', fu
     $invitation = TeamInvitation::query()->where('email', 'instance-granted@example.com')->first();
     expect($invitation)->not->toBeNull()
         ->and((bool) data_get($invitation->membership, 'can_add_servers'))->toBeTrue()
-        ->and((bool) data_get($invitation->membership, 'can_launch_on_instance_server'))->toBeTrue()
+        ->and((bool) data_get($invitation->membership, 'can_launch_on_instance_server'))->toBeFalse()
         ->and((int) data_get($invitation->membership, 'max_staging_branches'))->toBe(2);
 });
 

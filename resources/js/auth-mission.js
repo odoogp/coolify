@@ -611,3 +611,80 @@ export async function bootAppEnter() {
     running = false;
     veil.remove();
 }
+
+/**
+ * Sign-out: the inverse of bootAppEnter. The dashboard dims into the stars and an
+ * iris closes on the GetCloud mark while /logout is posted with the current CSRF
+ * token (the form's own token can be stale after wire:navigate or a rotated
+ * session). Whatever the server answers, the person ends on /login, which opens
+ * with its own iris.
+ */
+let exiting = false;
+
+export function bootAppExit() {
+    document.addEventListener('submit', (event) => {
+        const form = event.target;
+        if (! (form instanceof HTMLFormElement) || ! form.hasAttribute('data-logout')) {
+            return;
+        }
+        event.preventDefault();
+        if (exiting) {
+            return;
+        }
+        exiting = true;
+        signOut(form);
+    }, true);
+}
+
+async function signOut(form) {
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+        || form.querySelector('input[name="_token"]')?.value
+        || '';
+    const body = new FormData();
+    body.set('_token', token);
+
+    const request = fetch(form.action, {
+        method: 'POST',
+        body,
+        credentials: 'same-origin',
+        redirect: 'manual',
+        headers: { 'X-CSRF-TOKEN': token, Accept: 'text/html' },
+    }).catch(() => null);
+    const timeout = new Promise((resolve) => setTimeout(resolve, 4000));
+
+    const animation = reducedMotion() ? Promise.resolve() : playExit(form.dataset.exitLabel || '');
+    await Promise.all([animation, Promise.race([request, timeout])]);
+
+    window.location.assign('/login');
+}
+
+async function playExit(label) {
+    const veil = document.createElement('div');
+    veil.className = 'gc-exit-veil';
+    veil.setAttribute('aria-hidden', 'true');
+    const markBox = document.createElement('div');
+    markBox.className = 'gc-enter-mark gc-exit-mark';
+    const logo = document.querySelector('header a img');
+    if (logo?.src) {
+        const img = document.createElement('img');
+        img.src = logo.src;
+        img.alt = '';
+        markBox.appendChild(img);
+    }
+    if (label) {
+        const text = document.createElement('span');
+        text.textContent = label;
+        markBox.appendChild(text);
+    }
+    veil.appendChild(markBox);
+    document.body.appendChild(veil);
+
+    const main = document.querySelector('main');
+    if (main) {
+        // Opacity and blur on main only: the fixed top bar and sidebar stay anchored.
+        main.animate([{ opacity: 1, filter: 'blur(0)' }, { opacity: 0, filter: 'blur(6px)' }], { duration: 380, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+    }
+    veil.animate([{ '--mission-r': '100%' }, { '--mission-r': '0%' }], { duration: 620, delay: 120, easing: 'cubic-bezier(.65,0,.35,1)', fill: 'forwards' });
+    markBox.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 380, delay: 520, easing: 'cubic-bezier(.22,1,.36,1)', fill: 'forwards' });
+    await sleep(900);
+}

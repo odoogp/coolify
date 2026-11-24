@@ -304,6 +304,7 @@ class Server extends BaseModel
         'provider_server_status',
         'getodoo_offer_id',
         'getodoo_monthly_price',
+        'public_ip',
         'getodoo_paid_until',
         'getodoo_billing_anchor',
         'getodoo_billing_preference',

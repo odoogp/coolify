@@ -1368,6 +1368,19 @@ function generateFqdn(Server $server, string $random, bool $forceHttps = false, 
 
     return "$scheme://{$random}.$host$path";
 }
+/**
+ * The address the internet reaches this server at. Servers connected through the
+ * GetCloud agent keep the tunnel hostname in `ip`; their real IP is `public_ip`.
+ */
+function serverPublicAddress(Server $server): string
+{
+    if (data_get($server, 'settings.is_cloudflare_tunnel') && filled($server->public_ip)) {
+        return (string) $server->public_ip;
+    }
+
+    return (string) $server->ip;
+}
+
 function sslip(Server $server)
 {
     if (isDev() && $server->id === 0) {
@@ -1378,14 +1391,15 @@ function sslip(Server $server)
 
         return "http://$baseIp.sslip.io";
     }
+    $address = serverPublicAddress($server);
     // ipv6
-    if (str($server->ip)->contains(':')) {
-        $ipv6 = str($server->ip)->replace(':', '-');
+    if (str($address)->contains(':')) {
+        $ipv6 = str($address)->replace(':', '-');
 
         return "http://{$ipv6}.sslip.io";
     }
 
-    return "http://{$server->ip}.sslip.io";
+    return "http://{$address}.sslip.io";
 }
 
 function service_templates_cache_key(): string
@@ -3285,7 +3299,7 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                     $parsedServiceVariables->put('COOLIFY_APP_NAME', "\"{$resource->name}\"");
                 }
                 if (! $parsedServiceVariables->has('COOLIFY_SERVER_IP')) {
-                    $parsedServiceVariables->put('COOLIFY_SERVER_IP', "\"{$resource->destination->server->ip}\"");
+                    $parsedServiceVariables->put('COOLIFY_SERVER_IP', '"'.serverPublicAddress($resource->destination->server).'"');
                 }
                 if (! $parsedServiceVariables->has('COOLIFY_ENVIRONMENT_NAME')) {
                     $parsedServiceVariables->put('COOLIFY_ENVIRONMENT_NAME', "\"{$resource->environment->name}\"");

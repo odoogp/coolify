@@ -4,6 +4,8 @@ namespace App\Livewire\Settings;
 
 use App\Models\CloudProviderToken;
 use App\Models\GetOdooServerOffer;
+use App\Models\User;
+use App\Services\Cloudflare\CloudflareTunnelApi;
 use App\Services\GetOdoo\GetOdooPrice;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use App\Services\GetOdoo\N1coClient;
@@ -59,6 +61,18 @@ class GetOdooServers extends Component
 
     public string $bankTransferInstructions = '';
 
+    public bool $clientsCanConnectServers = true;
+
+    public string $cloudflareApiToken = '';
+
+    public string $cloudflareAccountId = '';
+
+    public string $cloudflareZoneId = '';
+
+    public string $cloudflareTunnelDomain = '';
+
+    public bool $cloudflareReady = false;
+
     public function mount(): void
     {
         if (! isInstanceOwner()) {
@@ -67,6 +81,8 @@ class GetOdooServers extends Component
             return;
         }
 
+        $this->clientsCanConnectServers = User::clientsCanConnectServers();
+        $this->loadCloudflare();
         $this->tokenId = app(GetOdooServerCatalog::class)->ownerToken()?->id;
         $this->loadPricing();
         $this->loadOffers();
@@ -247,6 +263,64 @@ class GetOdooServers extends Component
         $this->dispatch('success', __('GetOdoo servers saved.'));
     }
 
+    public function saveClientServers(): void
+    {
+        if (! isInstanceOwner()) {
+            return;
+        }
+
+        instanceSettings()->update(['clients_can_connect_servers' => $this->clientsCanConnectServers]);
+        $this->dispatch('success', __('Client servers saved.'));
+    }
+
+    public function saveCloudflare(): void
+    {
+        if (! isInstanceOwner()) {
+            return;
+        }
+
+        $this->validate([
+            'cloudflareApiToken' => ['nullable', 'string', 'max:500'],
+            'cloudflareAccountId' => ['nullable', 'string', 'max:100', 'regex:/\A[A-Za-z0-9]*\z/'],
+            'cloudflareZoneId' => ['nullable', 'string', 'max:100', 'regex:/\A[A-Za-z0-9]*\z/'],
+            'cloudflareTunnelDomain' => ['nullable', 'string', 'max:200', 'regex:/\A(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}\z/i'],
+        ]);
+
+        $settings = instanceSettings();
+        $token = trim($this->cloudflareApiToken);
+        $settings->update([
+            'cloudflare_api_token' => $token !== '' ? $token : $settings->cloudflare_api_token,
+            'cloudflare_account_id' => trim($this->cloudflareAccountId) ?: null,
+            'cloudflare_zone_id' => trim($this->cloudflareZoneId) ?: null,
+            'cloudflare_tunnel_domain' => strtolower(trim($this->cloudflareTunnelDomain, " .")) ?: null,
+        ]);
+
+        $this->cloudflareApiToken = '';
+        $this->loadCloudflare();
+        $this->dispatch('success', __('Cloudflare saved.'));
+    }
+
+    public function testCloudflare(): void
+    {
+        if (! isInstanceOwner()) {
+            return;
+        }
+
+        $api = CloudflareTunnelApi::fromSettings();
+        if (! $api instanceof CloudflareTunnelApi) {
+            $this->dispatch('error', __('Fill in the token, account, zone and domain first.'));
+
+            return;
+        }
+
+        try {
+            $api->check();
+            $this->dispatch('success', __('Cloudflare answered. Clients can connect servers with a command.'));
+        } catch (Throwable $exception) {
+            $this->dispatch('error', $exception->getMessage());
+        }
+    }
+
     public function saveWompi(): void
     {
         if (! isInstanceOwner()) {
@@ -390,6 +464,15 @@ class GetOdooServers extends Component
             'selectedToken' => app(GetOdooServerCatalog::class)->ownerToken(),
             'pricing' => new GetOdooPrice((float) $this->eurUsd, (float) $this->taxPercent, (float) $this->marginPercent),
         ]);
+    }
+
+    private function loadCloudflare(): void
+    {
+        $settings = instanceSettings();
+        $this->cloudflareAccountId = (string) $settings->cloudflare_account_id;
+        $this->cloudflareZoneId = (string) $settings->cloudflare_zone_id;
+        $this->cloudflareTunnelDomain = (string) $settings->cloudflare_tunnel_domain;
+        $this->cloudflareReady = CloudflareTunnelApi::isConfigured();
     }
 
     private function loadWompi(): void

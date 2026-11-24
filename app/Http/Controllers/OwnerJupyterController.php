@@ -9,7 +9,7 @@ class OwnerJupyterController extends Controller
 {
     public function __invoke(): RedirectResponse
     {
-        abort_unless(isInstanceAdmin(), 403);
+        abort_unless(isInstanceOwner(), 403);
 
         return redirect()->away(OdooJupyter::ensureOwner());
     }

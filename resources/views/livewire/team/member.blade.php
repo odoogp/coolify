@@ -133,9 +133,7 @@
             </div>
             <div class="sm:col-span-2 flex flex-col gap-2">
                 <x-forms.checkbox id="canAddServers" label="{{ __('Can add servers') }}" />
-                <x-forms.checkbox id="canLaunchOnInstanceServer"
-                    label="{{ __('Can launch instances on the server where GPSH is installed') }}" />
-                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Both stay off unless you turn them on. A member cannot receive either one.') }}</p>
+                <p class="text-[12px] text-neutral-500 dark:text-fg-dim">{{ __('Off unless you turn it on. A member cannot receive it.') }}</p>
             </div>
             <div class="flex items-end">
                 <x-forms.button type="submit" defaultClass="button button-highlighted">

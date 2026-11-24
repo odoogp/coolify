@@ -1,4 +1,4 @@
-import { bootAppEnter, bootAuthMission } from './auth-mission.js';
+import { bootAppEnter, bootAppExit, bootAuthMission } from './auth-mission.js';
 import { initializeHtmlEditor } from './html-editor.js';
 import { initializeTerminalComponent } from './terminal.js';
 
@@ -13,6 +13,7 @@ if (document.readyState === 'loading') {
     bootMotion();
 }
 document.addEventListener('livewire:navigated', bootAuthMission);
+bootAppExit();
 
 // Livewire 3.5.19+ re-applies `x-cloak` to morphed elements during wire:navigate
 // (via replaceHtmlAttributes). Strip leftover x-cloak after navigation / Alpine

@@ -83,6 +83,11 @@ class InstanceSettings extends Model
         'n1co_client_id',
         'n1co_client_secret',
         'bank_transfer_instructions',
+        'clients_can_connect_servers',
+        'cloudflare_api_token',
+        'cloudflare_account_id',
+        'cloudflare_zone_id',
+        'cloudflare_tunnel_domain',
     ];
 
     protected $hidden = [
@@ -99,6 +104,7 @@ class InstanceSettings extends Model
         'n1co_secret',
         'n1co_webhook_secret',
         'n1co_client_secret',
+        'cloudflare_api_token',
     ];
 
     protected $casts = [
@@ -123,6 +129,8 @@ class InstanceSettings extends Model
         'n1co_location_id' => 'integer',
         'n1co_server_charge_mode' => 'string',
         'n1co_client_secret' => 'encrypted',
+        'clients_can_connect_servers' => 'boolean',
+        'cloudflare_api_token' => 'encrypted',
 
         'allowed_ip_ranges' => 'array',
         'is_auto_update_enabled' => 'boolean',

@@ -107,7 +107,7 @@ class Member extends Component
                 'max_services' => $this->maxServices,
                 'github_app_id' => $this->githubAppId,
                 'can_add_servers' => $this->canAddServers,
-                'can_launch_on_instance_server' => $this->canLaunchOnInstanceServer,
+                'can_launch_on_instance_server' => false,
             ]);
             Cache::forget('user:'.$this->member->id.':team:'.$teamId);
             Cache::forget('team:'.$this->member->id);

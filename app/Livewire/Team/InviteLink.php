@@ -253,7 +253,8 @@ class InviteLink extends Component
         if ($this->role === 'admin') {
             $attributes['github_app_id'] = $this->githubAppId;
             $attributes['can_add_servers'] = $this->canAddServers;
-            $attributes['can_launch_on_instance_server'] = $this->canLaunchOnInstanceServer;
+            // Only the platform owner launches on the GetCloud host; never granted to clients.
+            $attributes['can_launch_on_instance_server'] = false;
         }
 
         if ($this->role === 'member') {

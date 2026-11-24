@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Session\TokenMismatchException;
 use Psr\Log\LogLevel;
 use RuntimeException;
 use Sentry\Laravel\Integration;
@@ -70,6 +71,18 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Throwable $e)
     {
+        // Logging out with a stale CSRF token (page kept open, session rotated) must
+        // still log out instead of showing an error page.
+        if ($e instanceof TokenMismatchException && $request->is('logout')) {
+            auth()->guard('web')->logout();
+            if ($request->hasSession()) {
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+            }
+
+            return redirect()->route('login');
+        }
+
         // Handle authorization exceptions for API routes. Exceptions carrying
         // an explicit status (e.g. denyAsNotFound) keep it via parent::render.
         if ($e instanceof AuthorizationException && ! $e->hasStatus()) {

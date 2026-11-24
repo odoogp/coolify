@@ -297,7 +297,8 @@ test('instance owner can update creation limits on a plan team', function () {
     expect(auth()->user()->can('updateCreationLimits', $fresh))->toBeTrue();
 
     Livewire::test(TeamMember::class, ['member' => $this->admin])
-        ->assertSee(__('Can launch instances on the server where GPSH is installed'))
+        ->assertSee(__('Can add servers'))
+        ->assertDontSee(__('Can launch instances on the server where GPSH is installed'))
         ->set('canAddServers', true)
         ->set('canLaunchOnInstanceServer', true)
         ->set('maxStagingBranches', 4)
@@ -306,7 +307,7 @@ test('instance owner can update creation limits on a plan team', function () {
 
     $pivot = $this->admin->fresh()->teams()->where('teams.id', $this->team->id)->first()->pivot;
     expect((bool) $pivot->can_add_servers)->toBeTrue()
-        ->and((bool) $pivot->can_launch_on_instance_server)->toBeTrue()
+        ->and((bool) $pivot->can_launch_on_instance_server)->toBeFalse()
         ->and((int) $pivot->max_staging_branches)->toBe(4);
 });
 
