@@ -70,7 +70,11 @@ it('puts search and New in the top bar and drops the repeated footer', function 
         ->toContain('data-topbar-actions')
         ->toContain("\$dispatch('open-global-search', { query: 'new' })")
         ->not->toContain('<footer class="mt-10 text-center')
-        ->and($search)->toContain("openModal(event?.detail?.query || '')");
+        ->and($search)->toContain("openModal(event?.detail?.query || '')")
+        // The palette's Alpine code lives inside x-data="…"; a double quote there ends the attribute
+        // and prints the rest of the script as page text.
+        ->and(preg_match('#<div x-data="(\{.*?\n\})"#s', $search, $block))->toBe(1)
+        ->and(substr_count($block[1], '"'))->toBe(0);
 });
 
 it('keeps the animated sign-out form in the user menu', function () {
