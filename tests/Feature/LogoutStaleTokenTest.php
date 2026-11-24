@@ -10,6 +10,7 @@ use Illuminate\Session\TokenMismatchException;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
+    $this->withoutVite();
     InstanceSettings::unguarded(fn () => InstanceSettings::query()->updateOrCreate(['id' => 0], ['id' => 0]));
 });
 

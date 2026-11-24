@@ -9,6 +9,7 @@ use App\Livewire\Team\InviteLink;
 use App\Livewire\Team\Member as TeamMember;
 use App\Models\Application;
 use App\Models\Environment;
+use App\Models\GetOdooPlan;
 use App\Models\InstanceSettings;
 use App\Models\PrivateKey;
 use App\Models\Project;
@@ -368,7 +369,7 @@ test('the platform owner can set an admin quota and an admin cannot', function (
         ->call('saveCreationLimits')
         ->assertDispatched('error');
 
-    expect((int) DB::table('team_user')->where('user_id', $this->admin->id)->value('max_projects'))->toBe(2);
+    expect((int) DB::table('team_user')->where('user_id', $this->admin->id)->where('team_id', $this->team->id)->value('max_projects'))->toBe(2);
 });
 
 test('livewire and the api enforce project and environment quotas', function () {
@@ -639,7 +640,7 @@ test('a client admin and a member can open the odoo shell of their team', functi
 });
 
 test('an invited admin on a plan team follows the principal limits', function () {
-    $plan = \App\Models\GetOdooPlan::query()->create([
+    $plan = GetOdooPlan::query()->create([
         'name' => 'Principal plan',
         'price' => 0,
         'currency' => 'USD',

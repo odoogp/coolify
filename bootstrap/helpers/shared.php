@@ -3193,8 +3193,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                         image: data_get($service, 'image'),
                                         noindex_domains: $noindexDomains,
                                         redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        ));
+                                        tlsCertResolver: $resource->server,
+                                    ));
                                     break;
                                 case ProxyTypes::CADDY->value:
                                     $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
@@ -3225,8 +3225,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                 image: data_get($service, 'image'),
                                 noindex_domains: $noindexDomains,
                                 redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        ));
+                                tlsCertResolver: $resource->server,
+                            ));
                             $serviceLabels = $serviceLabels->merge(fqdnLabelsForCaddy(
                                 network: $resource->destination->network,
                                 uuid: $resource->uuid,
@@ -3987,8 +3987,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                             is_stripprefix_enabled: $resource->isStripprefixEnabled(),
                                             noindex_domains: $noindexDomains,
                                             redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        )
+                                            tlsCertResolver: $resource->server,
+                                        )
                                     );
                                     break;
                                 case ProxyTypes::CADDY->value:
@@ -4022,8 +4022,8 @@ function parseDockerComposeFile(Service|Application $resource, bool $isNew = fal
                                     is_stripprefix_enabled: $resource->isStripprefixEnabled(),
                                     noindex_domains: $noindexDomains,
                                     redirect_direction: $redirectDirection,
-                            tlsCertResolver: $resource->server,
-                        )
+                                    tlsCertResolver: $resource->server,
+                                )
                             );
                             $serviceLabels = $serviceLabels->merge(
                                 fqdnLabelsForCaddy(

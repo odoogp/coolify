@@ -218,11 +218,11 @@ test('owner can manage invitations via policy', function () {
 
 // --- Team Policy: updateCreationLimits ---
 
-test('non-plan team owner can update creation limits', function () {
+test('non-plan team owner cannot update creation limits', function () {
     $this->actingAs($this->owner);
     session(['currentTeam' => $this->team]);
 
-    expect(auth()->user()->can('updateCreationLimits', $this->team))->toBeTrue();
+    expect(auth()->user()->can('updateCreationLimits', $this->team))->toBeFalse();
 });
 
 test('non-plan team admin cannot update creation limits', function () {

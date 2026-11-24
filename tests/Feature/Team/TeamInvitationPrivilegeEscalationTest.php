@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\VerifyCsrfToken;
 use App\Livewire\Team\InviteLink;
 use App\Models\InstanceSettings;
 use App\Models\Team;
@@ -268,7 +269,7 @@ describe('privilege escalation prevention', function () {
 
         $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
         $this->actingAs($invited);
-        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+        $this->withoutMiddleware(VerifyCsrfToken::class)
             ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
             ->assertRedirect(route('team.index'));
 
@@ -300,7 +301,7 @@ describe('privilege escalation prevention', function () {
 
         $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
         $this->actingAs($invited);
-        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+        $this->withoutMiddleware(VerifyCsrfToken::class)
             ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
             ->assertRedirect(route('team.index'));
 
@@ -331,7 +332,7 @@ describe('privilege escalation prevention', function () {
 
         $invited->forceFill(['email_verified_at' => now(), 'force_password_reset' => false])->save();
         $this->actingAs($invited);
-        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class)
+        $this->withoutMiddleware(VerifyCsrfToken::class)
             ->post(route('team.invitation.accept', ['uuid' => $invitation->uuid]))
             ->assertRedirect(route('team.index'));
 

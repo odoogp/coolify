@@ -4,6 +4,7 @@ use App\Actions\Server\DeleteServer;
 use App\Actions\Server\StartServerAgentEnrollment;
 use App\Jobs\ValidateAndInstallServerJob;
 use App\Livewire\Server\New\ByAgent;
+use App\Livewire\Settings\GetOdooServers;
 use App\Models\InstanceSettings;
 use App\Models\Server;
 use App\Models\ServerAgentEnrollment;
@@ -54,6 +55,7 @@ function configureCloudflare(): void
 }
 
 beforeEach(function () {
+    $this->withoutVite();
     config(['app.maintenance.driver' => 'file']);
     Storage::fake('ssh-keys');
     Queue::fake();
@@ -249,7 +251,18 @@ it('deletes the tunnel and dns record when the server is deleted', function () {
 it('only lets the platform owner save the cloudflare settings', function () {
     expect(CloudflareTunnelApi::isConfigured())->toBeFalse();
 
-    Livewire::test(\App\Livewire\Settings\GetOdooServers::class)
+    $rootTeam = Team::find(0) ?? Team::factory()->create(['id' => 0, 'name' => 'Root Team', 'personal_team' => false]);
+    $platformOwner = User::factory()->create();
+    $rootTeam->members()->attach($platformOwner->id, ['role' => 'owner']);
+    $this->actingAs($platformOwner);
+    session(['currentTeam' => $rootTeam]);
+
+    $component = Livewire::test(GetOdooServers::class);
+
+    $this->actingAs($this->owner);
+    session(['currentTeam' => $this->team]);
+
+    $component
         ->set('cloudflareApiToken', 'cf-token')
         ->set('cloudflareAccountId', 'acc123')
         ->set('cloudflareZoneId', 'zone123')

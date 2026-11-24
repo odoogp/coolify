@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
@@ -169,8 +170,8 @@ class User extends Authenticatable implements HasLocalePreference, SendsEmail
 
                 // Free the email for plan signup and invites after this user is gone.
                 TeamInvitation::whereEmail($user->email)->delete();
-                if (\Illuminate\Support\Facades\Schema::hasTable('get_odoo_plan_signups')) {
-                    \App\Models\GetOdooPlanSignup::query()->where('email', strtolower((string) $user->email))->delete();
+                if (Schema::hasTable('get_odoo_plan_signups')) {
+                    GetOdooPlanSignup::query()->where('email', strtolower((string) $user->email))->delete();
                 }
 
                 $teams = $user->teams;

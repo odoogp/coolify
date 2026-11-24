@@ -14,9 +14,9 @@ use App\Services\GetOdoo\GetOdooPrice;
 use App\Services\GetOdoo\GetOdooServerCatalog;
 use App\Services\GetOdoo\WompiClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use RuntimeException;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+use RuntimeException;
 
 uses(RefreshDatabase::class);
 
@@ -755,13 +755,19 @@ it('lets the platform owner turn client-owned servers off and on', function () {
 });
 
 it('does not let a client owner change the client server setting', function () {
+    $owner = User::factory()->create();
+    $this->root->members()->attach($owner->id, ['role' => 'owner']);
+    $this->actingAs($owner);
+    session(['currentTeam' => $this->root]);
+    $component = Livewire::test(GetOdooServers::class);
+
     $client = User::factory()->create();
     $team = Team::factory()->create();
     $team->members()->attach($client->id, ['role' => 'owner']);
     $this->actingAs($client);
     session(['currentTeam' => $team]);
 
-    Livewire::test(GetOdooServers::class)
+    $component
         ->set('clientsCanConnectServers', false)
         ->call('saveClientServers');
 

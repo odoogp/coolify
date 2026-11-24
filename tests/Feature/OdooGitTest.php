@@ -60,6 +60,24 @@ function assertStartServiceNotDispatched(): void
     assertStartServiceDispatched(0);
 }
 
+/**
+ * Launching without any server of the client's own is only possible for the
+ * platform owner (who launches on the GetCloud server).
+ */
+function actAsOdooGitPlatformOwner(): void
+{
+    $rootTeam = Team::find(0);
+    if (! $rootTeam instanceof Team) {
+        $rootTeam = Team::factory()->make(['name' => 'Root platform']);
+        $rootTeam->id = 0;
+        $rootTeam->save();
+    }
+    test()->user->teams()->syncWithoutDetaching([$rootTeam->id => ['role' => 'owner']]);
+    test()->user->unsetRelation('teams');
+    test()->actingAs(test()->user->fresh(['teams']));
+    session(['currentTeam' => test()->team]);
+}
+
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
@@ -1901,6 +1919,7 @@ it('loads one page of repositories and shows the github error', function () {
 });
 
 it('creates the project repository without registering another github app', function () {
+    actAsOdooGitPlatformOwner();
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
     $privateKey = PrivateKey::create([
@@ -1975,6 +1994,7 @@ it('creates the project repository without registering another github app', func
 });
 
 it('keeps the project and waits to choose a repository when github is already connected', function () {
+    actAsOdooGitPlatformOwner();
     $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
     openssl_pkey_export($key, $pem);
     $privateKey = PrivateKey::create([

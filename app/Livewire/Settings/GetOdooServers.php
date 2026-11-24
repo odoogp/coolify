@@ -292,7 +292,7 @@ class GetOdooServers extends Component
             'cloudflare_api_token' => $token !== '' ? $token : $settings->cloudflare_api_token,
             'cloudflare_account_id' => trim($this->cloudflareAccountId) ?: null,
             'cloudflare_zone_id' => trim($this->cloudflareZoneId) ?: null,
-            'cloudflare_tunnel_domain' => strtolower(trim($this->cloudflareTunnelDomain, " .")) ?: null,
+            'cloudflare_tunnel_domain' => strtolower(trim($this->cloudflareTunnelDomain, ' .')) ?: null,
         ]);
 
         $this->cloudflareApiToken = '';
